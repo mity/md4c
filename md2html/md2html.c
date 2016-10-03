@@ -132,6 +132,7 @@ enter_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
 
     switch(type) {
     case MD_BLOCK_DOC:      /* noop */ break;
+    case MD_BLOCK_HR:       MEMBUF_APPEND_LITERAL(out, "<hr>\n"); break;
     case MD_BLOCK_P:        MEMBUF_APPEND_LITERAL(out, "<p>"); break;
     }
 
@@ -145,6 +146,7 @@ leave_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
 
     switch(type) {
     case MD_BLOCK_DOC:      /*noop*/ break;
+    case MD_BLOCK_HR:       /*noop*/ break;
     case MD_BLOCK_P:        MEMBUF_APPEND_LITERAL(out, "</p>\n"); break;
     }
 

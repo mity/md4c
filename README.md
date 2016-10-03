@@ -81,7 +81,7 @@ more or less forms our to do list.
   - [ ] 3.2 Container blocks and leaf blocks
 
 - **Leaf Blocks:**
-  - [ ] 4.1 Thematic breaks
+  - [x] 4.1 Thematic breaks
   - [ ] 4.2 ATX headings
   - [ ] 4.3 Setext headings
   - [ ] 4.4 Indented code blocks

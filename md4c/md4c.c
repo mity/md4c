@@ -72,6 +72,7 @@ struct MD_CTX_tag {
 typedef enum MD_LINETYPE_tag MD_LINETYPE;
 enum MD_LINETYPE_tag {
     MD_LINE_BLANK,
+    MD_LINE_HR,
     MD_LINE_TEXT
 };
 
@@ -148,6 +149,7 @@ md_log(MD_CTX* ctx, const char* fmt, ...)
 #define ISDIGIT_(ch)            (_T('0') <= (ch) && (ch) <= _T('9'))
 #define ISXDIGIT_(ch)           (ISDIGIT_(ch) || (_T('a') < (ch) && (ch) <= _T('f') || (_T('A') < (ch) && (ch) <= _T('F'))
 #define ISALNUM_(ch)            (ISALPHA_(ch) || ISDIGIT_(ch))
+#define ISANYOF_(ch, palette)   (md_strchr((palette), (ch)) != NULL)
 
 #define ISASCII(off)            ISASCII_(CH(off))
 #define ISBLANK(off)            ISBLANK_(CH(off))
@@ -161,6 +163,19 @@ md_log(MD_CTX* ctx, const char* fmt, ...)
 #define ISDIGIT(off)            ISDIGIT_(CH(off))
 #define ISXDIGIT(off)           ISXDIGIT_(CH(off))
 #define ISALNUM(off)            ISALNUM_(CH(off))
+#define ISANYOF(off, palette)   ISANYOF_(CH(off), (palette))
+
+
+static inline const CHAR*
+md_strchr(const CHAR* str, CHAR ch)
+{
+    OFF i;
+    for(i = 0; str[i] != _T('\0'); i++) {
+        if(ch == str[i])
+            return (str + i);
+    }
+    return NULL;
+}
 
 
 #define MD_ENTER_BLOCK(type, arg)                                       \
@@ -235,6 +250,25 @@ abort:
  ***  Breaking Document into Blocks  ***
  ***************************************/
 
+static int
+md_is_hr_line(MD_CTX* ctx, OFF beg, OFF* p_end)
+{
+    OFF off = beg + 1;
+    int n = 1;
+
+    while(off < ctx->size  &&  (CH(off) == CH(beg) || CH(off) == _T(' '))) {
+        if(CH(off) == CH(beg))
+            n++;
+        off++;
+    }
+
+    if(n < 3)
+        return -1;
+
+    *p_end = off;
+    return 0;
+}
+
 /* Analyze type of the line and find some its properties. This serves as a
  * main input for determining type and boundaries of a block. */
 static void
@@ -256,6 +290,14 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end, const MD_LINE* pivot_line, MD_
     if(off >= ctx->size  ||  ISNEWLINE(off)) {
         line->type = MD_LINE_BLANK;
         goto done;
+    }
+
+    /* Check whether we are thematic break line. */
+    if(ISANYOF(off, _T("-_*"))) {
+        if(md_is_hr_line(ctx, off, &off) == 0) {
+            line->type = MD_LINE_HR;
+            goto done;
+        }
     }
 
     /* By default, we are normal text line. */
@@ -293,17 +335,17 @@ md_process_block(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 
     /* Derive block type from type of the first line. */
     switch(lines[0].type) {
-    case MD_LINE_BLANK:
-        return 0;
-
-    case MD_LINE_TEXT:
-        block_type = MD_BLOCK_P;
-        break;
+    case MD_LINE_BLANK:     return 0;
+    case MD_LINE_HR:        block_type = MD_BLOCK_HR; break;
+    case MD_LINE_TEXT:      block_type = MD_BLOCK_P; break;
     }
 
     /* Process the block accordingly to is type. */
     MD_ENTER_BLOCK(block_type, NULL);
-    ret = md_process_normal_block(ctx, lines, n_lines);
+    switch(block_type) {
+    case MD_BLOCK_HR:   /* Noop. */ break;
+    default:            ret = md_process_normal_block(ctx, lines, n_lines); break;
+    }
     if(ret != 0)
         goto abort;
     MD_LEAVE_BLOCK(block_type, NULL);
@@ -350,6 +392,10 @@ md_process_doc(MD_CTX *ctx)
 
         /* The same block continues as long lines are of the same type. */
         if(line->type == pivot_line->type) {
+            /* But not so thematic break. */
+            if(line->type == MD_LINE_HR)
+                goto force_block_end;
+
             /* Do not grow the 'lines' because of blank lines. Semantically
              * one blank line is equivalent to many. */
             if(line->type != MD_LINE_BLANK)
@@ -358,6 +404,7 @@ md_process_doc(MD_CTX *ctx)
             continue;
         }
 
+force_block_end:
         /* Otherwise the old block is complete and we have to process it. */
         ret = md_process_block(ctx, lines, n_lines);
         if(ret != 0)
