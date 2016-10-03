@@ -295,7 +295,7 @@ md_is_atxheader_line(MD_CTX* ctx, OFF beg, OFF* p_beg, OFF* p_end)
         return -1;
     ctx->header_level = n;
 
-    if(!(ctx->r.flags & MD_FLAG_PERMISSIVEATXHEADERS)  &&  off < ctx->size  &&  CH(off) != _T(' '))
+    if(!(ctx->r.flags & MD_FLAG_PERMISSIVEATXHEADERS)  &&  off < ctx->size  &&  CH(off) != _T(' ')  &&  !ISNEWLINE(off))
         return -1;
 
     while(off < ctx->size  &&  CH(off) == _T(' '))
@@ -357,14 +357,15 @@ done:
     /* But for ATX header, we should not include the optional tailing mark. */
     if(line->type == MD_LINE_ATXHEADER) {
         OFF tmp = line->end;
-        while(tmp > line->beg  &&  CH(tmp-1) == _T(' '))
+        while(tmp > line->beg && CH(tmp-1) == _T(' '))
             tmp--;
-        while(tmp > line->beg  &&  CH(tmp-1) == _T('#'))
+        while(tmp > line->beg && CH(tmp-1) == _T('#'))
             tmp--;
-        while(tmp > line->beg  &&  CH(tmp-1) == _T(' '))
-            tmp--;
-        if(CH(tmp) == _T(' ') || (ctx->r.flags & MD_FLAG_PERMISSIVEATXHEADERS))
+        if(tmp == line->beg  ||  CH(tmp-1) == _T(' ')  ||  (ctx->r.flags & MD_FLAG_PERMISSIVEATXHEADERS)) {
+            while(tmp > line->beg && CH(tmp-1) == _T(' '))
+                tmp--;
             line->end = tmp;
+        }
     }
 
     /* Eat also the new line. */
@@ -455,31 +456,43 @@ md_process_doc(MD_CTX *ctx)
         md_analyze_line(ctx, off, &off, pivot_line, &lines[n_lines]);
         line = &lines[n_lines];
 
-        /* The same block continues as long lines are of the same type. */
-        if(line->type == pivot_line->type) {
-            /* But not so thematic break and ATX headers. */
-            if(line->type == MD_LINE_HR || line->type == MD_LINE_ATXHEADER)
-                goto force_block_end;
+        /* Some line types form block on their own. */
+        if(line->type == MD_LINE_HR || line->type == MD_LINE_ATXHEADER) {
+            /* Flush accumulated lines. */
+            ret = md_process_block(ctx, lines, n_lines);
+            if(ret != 0)
+                goto abort;
 
-            /* Do not grow the 'lines' because of blank lines. Semantically
-             * one blank line is equivalent to many. */
-            if(line->type != MD_LINE_BLANK)
-                n_lines++;
+            /* Flush ourself. */
+            ret = md_process_block(ctx, line, 1);
+            if(ret != 0)
+                goto abort;
 
+            pivot_line = &dummy_line;
+            n_lines = 0;
             continue;
         }
 
-force_block_end:
-        /* Otherwise the old block is complete and we have to process it. */
-        ret = md_process_block(ctx, lines, n_lines);
-        if(ret != 0)
-            goto abort;
+        /* New block also starts if line type changes. */
+        if(line->type != pivot_line->type) {
+            ret = md_process_block(ctx, lines, n_lines);
+            if(ret != 0)
+                goto abort;
 
-        /* Keep the current line as the new pivot. */
-        if(line != &lines[0])
-            memcpy(&lines[0], line, sizeof(MD_LINE));
-        pivot_line = &lines[0];
-        n_lines = 1;
+            /* Keep the current line as the new pivot. */
+            if(line != &lines[0])
+                memcpy(&lines[0], line, sizeof(MD_LINE));
+            pivot_line = &lines[0];
+            n_lines = 1;
+            continue;
+        }
+
+        /* Not much to do with multiple blank lines. */
+        if(line->type == MD_LINE_BLANK)
+            continue;
+
+        /* Otherwise we just accumulate the line into ongoing block. */
+        n_lines++;
     }
 
     /* Process also the last block. */
