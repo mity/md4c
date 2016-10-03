@@ -5,7 +5,6 @@ language: c
 
 compiler:
     - gcc
-    - clang
 
 before_script:
     - mkdir build
@@ -14,4 +13,7 @@ before_script:
 
 script:
     - make
+
+after_success:
+    - sudo apt-get install python3
     - ../scripts/run-commonmark-tests.sh
