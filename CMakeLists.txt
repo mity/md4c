@@ -27,6 +27,5 @@ elseif(MSVC)
 endif()
 
 
-set(EXECUTABLE_OUTPUT_PATH "${PROJECT_BINARY_DIR}")
 add_subdirectory(md4c)
 add_subdirectory(md2html)
