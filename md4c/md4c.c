@@ -457,8 +457,8 @@ md_process_doc(MD_CTX *ctx)
 
         /* The same block continues as long lines are of the same type. */
         if(line->type == pivot_line->type) {
-            /* But not so thematic break. */
-            if(line->type == MD_LINE_HR)
+            /* But not so thematic break and ATX headers. */
+            if(line->type == MD_LINE_HR || line->type == MD_LINE_ATXHEADER)
                 goto force_block_end;
 
             /* Do not grow the 'lines' because of blank lines. Semantically
