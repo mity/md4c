@@ -128,11 +128,13 @@ membuf_append_escaped(struct membuffer* buf, const char* data, MD_SIZE size)
 static int
 enter_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
 {
+    static const char* head[6] = { "<h1>", "<h2>", "<h3>", "<h4>", "<h5>", "<h6>" };
     struct membuffer* out = (struct membuffer*) userdata;
 
     switch(type) {
     case MD_BLOCK_DOC:      /* noop */ break;
     case MD_BLOCK_HR:       MEMBUF_APPEND_LITERAL(out, "<hr>\n"); break;
+    case MD_BLOCK_H:        MEMBUF_APPEND_LITERAL(out, head[((MD_BLOCK_H_DETAIL*)detail)->level - 1]); break;
     case MD_BLOCK_P:        MEMBUF_APPEND_LITERAL(out, "<p>"); break;
     }
 
@@ -142,11 +144,13 @@ enter_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
 static int
 leave_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
 {
+    static const char* head[6] = { "</h1>\n", "</h2>\n", "</h3>\n", "</h4>\n", "</h5>\n", "</h6>\n" };
     struct membuffer* out = (struct membuffer*) userdata;
 
     switch(type) {
     case MD_BLOCK_DOC:      /*noop*/ break;
     case MD_BLOCK_HR:       /*noop*/ break;
+    case MD_BLOCK_H:        MEMBUF_APPEND_LITERAL(out, head[((MD_BLOCK_H_DETAIL*)detail)->level - 1]); break;
     case MD_BLOCK_P:        MEMBUF_APPEND_LITERAL(out, "</p>\n"); break;
     }
 
@@ -281,6 +285,7 @@ static const option cmdline_options[] = {
     { "full-html",                  'f', 'f', OPTION_ARG_NONE },
     { "stat",                       's', 's', OPTION_ARG_NONE },
     { "help",                       'h', 'h', OPTION_ARG_NONE },
+    { "fpermissive-atx-headers",     0,  'A', OPTION_ARG_NONE },
     { 0 }
 };
 
@@ -296,11 +301,15 @@ usage(void)
         "  -f, --full-html          generate full HTML document, including header\n"
         "  -s, --stat               measure time of input parsing\n"
         "  -h, --help               display this help and exit\n"
+        "\n"
+        "Markdown dialect options:\n"
+        "      --fpermissive-atx-headers    allow ATX headers without delimiting space\n"
     );
 }
 
 static const char* input_path = NULL;
 static const char* output_path = NULL;
+static unsigned renderer_flags = 0;
 static int want_fullhtml = 0;
 static int want_stat = 0;
 
@@ -321,6 +330,8 @@ cmdline_callback(int opt, char const* value, void* data)
     case 'f':   want_fullhtml = 1; break;
     case 's':   want_stat = 1; break;
     case 'h':   usage(); exit(0); break;
+
+    case 'A':   renderer_flags |= MD_FLAG_PERMISSIVEATXHEADERS; break;
 
     default:
         fprintf(stderr, "Illegal option: %s\n", value);
@@ -359,7 +370,7 @@ main(int argc, char** argv)
         }
     }
 
-    ret = process_file(in, out, 0, want_fullhtml, want_stat);
+    ret = process_file(in, out, renderer_flags, want_fullhtml, want_stat);
     if(in != stdin)
         fclose(in);
     if(out != stdout)

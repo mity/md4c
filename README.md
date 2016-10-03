@@ -82,7 +82,7 @@ more or less forms our to do list.
 
 - **Leaf Blocks:**
   - [x] 4.1 Thematic breaks
-  - [ ] 4.2 ATX headings
+  - [x] 4.2 ATX headings
   - [ ] 4.3 Setext headings
   - [ ] 4.4 Indented code blocks
   - [ ] 4.5 Fenced code blocks

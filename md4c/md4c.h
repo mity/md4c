@@ -64,10 +64,13 @@ enum MD_BLOCKTYPE_tag {
     /* <hr> */
     MD_BLOCK_HR,
 
+    /* <h1>...</h1> (for levels up to 6)
+     * Detail: See structure MD_BLOCK_H_DETAIL. */
+    MD_BLOCK_H,
+
     /* <p>...</p> */
     MD_BLOCK_P
 };
-
 
 /* Span represents an in-line piece of a document which should be rendered with
  * the same font, color and other attributes. A sequence of spans forms a block
@@ -77,7 +80,6 @@ enum MD_SPANTYPE_tag {
     MD_SPAN_DUMMY = 0       /* not yet used... */
 };
 
-
 /* Text is the actual textual contents of span. */
 typedef enum MD_TEXTTYPE_tag MD_TEXTTYPE;
 enum MD_TEXTTYPE_tag {
@@ -85,6 +87,20 @@ enum MD_TEXTTYPE_tag {
     MD_TEXT_NORMAL = 0
 };
 
+
+/* Detailed info for MD_BLOCK_H. */
+typedef struct MD_BLOCK_H_DETAIL_tag MD_BLOCK_H_DETAIL;
+struct MD_BLOCK_H_DETAIL_tag {
+    unsigned level;         /* Header level (1 - 6) */
+};
+
+
+/* Flags specifying Markdown dialect.
+ *
+ * By default (when MD_RENDERER::flags == 0), we follow CommMark specification.
+ * The following flags may allow some extensions or deviations from it.
+ */
+#define MD_FLAG_PERMISSIVEATXHEADERS    0x0001  /* Do not require space in ATX headers ( ###header ) */
 
 /* Caller-provided callbacks.
  *

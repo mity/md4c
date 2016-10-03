@@ -75,12 +75,16 @@ struct MD_CTX_tag {
     SZ size;
     MD_RENDERER r;
     void* userdata;
+
+    /* For MD_BLOCK_HEADER. */
+    unsigned header_level;
 };
 
 typedef enum MD_LINETYPE_tag MD_LINETYPE;
 enum MD_LINETYPE_tag {
     MD_LINE_BLANK,
     MD_LINE_HR,
+    MD_LINE_ATXHEADER,
     MD_LINE_TEXT
 };
 
@@ -277,6 +281,29 @@ md_is_hr_line(MD_CTX* ctx, OFF beg, OFF* p_end)
     return 0;
 }
 
+static int
+md_is_atxheader_line(MD_CTX* ctx, OFF beg, OFF* p_beg, OFF* p_end)
+{
+    int n;
+    OFF off = beg + 1;
+
+    while(off < ctx->size  &&  CH(off) == _T('#')  &&  off - beg < 7)
+        off++;
+    n = off - beg;
+
+    if(n > 6)
+        return -1;
+    ctx->header_level = n;
+
+    if(!(ctx->r.flags & MD_FLAG_PERMISSIVEATXHEADERS)  &&  off < ctx->size  &&  CH(off) != _T(' '))
+        return -1;
+
+    while(off < ctx->size  &&  CH(off) == _T(' '))
+        off++;
+    *p_beg = off;
+    return 0;
+}
+
 /* Analyze type of the line and find some its properties. This serves as a
  * main input for determining type and boundaries of a block. */
 static void
@@ -300,6 +327,14 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end, const MD_LINE* pivot_line, MD_
         goto done;
     }
 
+    /* Check whether we are ATX header. */
+    if(CH(off) == _T('#')) {
+        if(md_is_atxheader_line(ctx, off, &line->beg, &off) == 0) {
+            line->type = MD_LINE_ATXHEADER;
+            goto done;
+        }
+    }
+
     /* Check whether we are thematic break line. */
     if(ISANYOF(off, _T("-_*"))) {
         if(md_is_hr_line(ctx, off, &off) == 0) {
@@ -319,6 +354,19 @@ done:
     /* Set end of the line. */
     line->end = off;
 
+    /* But for ATX header, we should not include the optional tailing mark. */
+    if(line->type == MD_LINE_ATXHEADER) {
+        OFF tmp = line->end;
+        while(tmp > line->beg  &&  CH(tmp-1) == _T(' '))
+            tmp--;
+        while(tmp > line->beg  &&  CH(tmp-1) == _T('#'))
+            tmp--;
+        while(tmp > line->beg  &&  CH(tmp-1) == _T(' '))
+            tmp--;
+        if(CH(tmp) == _T(' ') || (ctx->r.flags & MD_FLAG_PERMISSIVEATXHEADERS))
+            line->end = tmp;
+    }
+
     /* Eat also the new line. */
     if(off < ctx->size  &&  CH(off) == _T('\r'))
         off++;
@@ -336,6 +384,9 @@ static int
 md_process_block(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 {
     MD_BLOCKTYPE block_type;
+    union {
+        MD_BLOCK_H_DETAIL header;
+    } det;
     int ret = 0;
 
     if(n_lines == 0)
@@ -345,18 +396,24 @@ md_process_block(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
     switch(lines[0].type) {
     case MD_LINE_BLANK:     return 0;
     case MD_LINE_HR:        block_type = MD_BLOCK_HR; break;
+
+    case MD_LINE_ATXHEADER:
+        block_type = MD_BLOCK_H;
+        det.header.level = ctx->header_level;
+        break;
+
     case MD_LINE_TEXT:      block_type = MD_BLOCK_P; break;
     }
 
     /* Process the block accordingly to is type. */
-    MD_ENTER_BLOCK(block_type, NULL);
+    MD_ENTER_BLOCK(block_type, (void*) &det);
     switch(block_type) {
     case MD_BLOCK_HR:   /* Noop. */ break;
     default:            ret = md_process_normal_block(ctx, lines, n_lines); break;
     }
     if(ret != 0)
         goto abort;
-    MD_LEAVE_BLOCK(block_type, NULL);
+    MD_LEAVE_BLOCK(block_type, (void*) &det);
 
 abort:
     return ret;
