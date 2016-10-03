@@ -1,0 +1,16 @@
+# YAML definition for travis-ci.com continuous integration.
+# See https://docs.travis-ci.com/user/languages/c
+
+language: c
+
+compiler:
+    - gcc
+    - clang
+
+before_script:
+    - mkdir build
+    - cd build
+    - cmake -G 'Unix Makefiles' ..
+
+script:
+    - make
