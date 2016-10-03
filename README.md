@@ -1,5 +1,6 @@
 [![Build status (travis-ci.com)](https://img.shields.io/travis/mity/md4c/master.svg?label=linux%20build)](https://travis-ci.org/mity/md4c)
 [![Build status (appveyor.com)](https://img.shields.io/appveyor/ci/mity/md4c/master.svg?label=windows%20build)](https://ci.appveyor.com/project/mity/md4c/branch/master)
+[![Coverage](https://img.shields.io/coveralls/mity/md4c/master.svg)](https://coveralls.io/github/mity/md4c)
 
 # MD4C Readme
 
