@@ -35,6 +35,14 @@
  ***  Miscellaneous Stuff  ***
  *****************************/
 
+#ifdef _MSC_VER
+    /* MSVC does not understand "inline" when building as pure C (not C++).
+     * However it understands "__inline" */
+    #ifndef __cplusplus
+        #define inline __inline
+    #endif
+#endif
+
 /* Magic to support UTF16-LE (i.e. what is called Unicode among Windows
  * developers) input/output on Windows. */
 #ifdef _T
