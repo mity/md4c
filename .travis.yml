@@ -14,3 +14,4 @@ before_script:
 
 script:
     - make
+    - ../scripts/run-commonmark-tests.sh
