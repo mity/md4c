@@ -72,12 +72,12 @@ The list below corresponds to chapters of the specification version 0.26 and
 more or less forms our to do list.
 
 - **Preliminaries:**
-  - [ ] 2.1 Character and lines
-  - [ ] 2.2 Tabs
+  - [x] 2.1 Character and lines
+  - [x] 2.2 Tabs
   - [ ] 2.3 Insecure characters
 
 - **Blocks and Inlines:**
-  - [ ] 3.1 Precedence
+  - [x] 3.1 Precedence
   - [ ] 3.2 Container blocks and leaf blocks
 
 - **Leaf Blocks:**
