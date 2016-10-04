@@ -85,8 +85,8 @@ more or less forms our to do list.
   - [x] 4.2 ATX headings
   - [x] 4.3 Setext headings
   - [x] 4.4 Indented code blocks
-  - [ ] 4.5 Fenced code blocks
-  - [ ] 4.6 HTML blocks
+  - [x] 4.5 Fenced code blocks
+  - [x] 4.6 HTML blocks
   - [ ] 4.7 Link reference definitions
   - [x] 4.8 Paragraphs
   - [x] 4.9 Blank lines

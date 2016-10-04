@@ -151,6 +151,7 @@ enter_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
         case MD_BLOCK_HR:       MEMBUF_APPEND_LITERAL(out, "<hr>\n"); break;
         case MD_BLOCK_H:        MEMBUF_APPEND_LITERAL(out, head[((MD_BLOCK_H_DETAIL*)detail)->level - 1]); break;
         case MD_BLOCK_CODE:     open_code_block(out, (const MD_BLOCK_CODE_DETAIL*) detail); break;
+        case MD_BLOCK_HTML:     /* noop */ break;
         case MD_BLOCK_P:        MEMBUF_APPEND_LITERAL(out, "<p>"); break;
     }
 
@@ -168,6 +169,7 @@ leave_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
         case MD_BLOCK_HR:       /*noop*/ break;
         case MD_BLOCK_H:        MEMBUF_APPEND_LITERAL(out, head[((MD_BLOCK_H_DETAIL*)detail)->level - 1]); break;
         case MD_BLOCK_CODE:     MEMBUF_APPEND_LITERAL(out, "</code></pre>\n"); break;
+        case MD_BLOCK_HTML:     /* noop */ break;
         case MD_BLOCK_P:        MEMBUF_APPEND_LITERAL(out, "</p>\n"); break;
     }
 
@@ -192,6 +194,7 @@ text_callback(MD_TEXTTYPE type, const MD_CHAR* text, MD_SIZE size, void* userdat
     struct membuffer* out = (struct membuffer*) userdata;
 
     switch(type) {
+    case MD_TEXT_HTML:      membuf_append(out, text, size); break;
     default:                membuf_append_escaped(out, text, size); break;
     }
 
@@ -304,6 +307,7 @@ static const option cmdline_options[] = {
     { "help",                       'h', 'h', OPTION_ARG_NONE },
     { "fpermissive-atx-headers",     0,  'A', OPTION_ARG_NONE },
     { "fno-indented-code",           0,  'I', OPTION_ARG_NONE },
+    { "fno-html-blocks",             0,  'H', OPTION_ARG_NONE },
     { 0 }
 };
 
@@ -322,7 +326,8 @@ usage(void)
         "\n"
         "Markdown dialect options:\n"
         "      --fpermissive-atx-headers    allow ATX headers without delimiting space\n"
-        "      --fno-indented-code          disabled indented code blocks\n"
+        "      --fno-indented-code          disable indented code blocks\n"
+        "      --fno-html-blocks            disable raw HTML blocks\n"
     );
 }
 
@@ -351,7 +356,8 @@ cmdline_callback(int opt, char const* value, void* data)
         case 'h':   usage(); exit(0); break;
 
         case 'A':   renderer_flags |= MD_FLAG_PERMISSIVEATXHEADERS; break;
-        case 'I':   renderer_flags |= MD_FLAG_NOINDENTEDCODE; break;
+        case 'I':   renderer_flags |= MD_FLAG_NOINDENTEDCODEBLOCKS; break;
+        case 'H':   renderer_flags |= MD_FLAG_NOHTMLBLOCKS; break;
 
         default:
             fprintf(stderr, "Illegal option: %s\n", value);

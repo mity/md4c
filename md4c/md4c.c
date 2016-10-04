@@ -88,6 +88,9 @@ struct MD_CTX_tag {
     OFF code_fence_indent;
     OFF code_fence_info_beg;
     OFF code_fence_info_end;
+
+    /* For MD_BLOCK_HTML. */
+    unsigned html_block_type;
 };
 
 typedef enum MD_LINETYPE_tag MD_LINETYPE;
@@ -100,6 +103,7 @@ enum MD_LINETYPE_tag {
     MD_LINE_INDENTEDCODE,
     MD_LINE_CODEFENCE,
     MD_LINE_FENCEDCODE,
+    MD_LINE_HTML,
     MD_LINE_TEXT
 };
 
@@ -205,6 +209,25 @@ md_strchr(const CHAR* str, CHAR ch)
     return NULL;
 }
 
+/* Case insensitive check of string equality. */
+static inline int
+md_str_case_eq(const CHAR* s1, const CHAR* s2, SZ n)
+{
+    OFF i;
+    for(i = 0; i < n; i++) {
+        CHAR ch1 = s1[i];
+        CHAR ch2 = s2[i];
+
+        if(ISLOWER_(ch1))
+            ch1 += ('A'-'a');
+        if(ISLOWER_(ch2))
+            ch2 += ('A'-'a');
+        if(ch1 != ch2)
+            return -1;
+    }
+    return 0;
+}
+
 
 #define MD_ENTER_BLOCK(type, arg)                                       \
     do {                                                                \
@@ -274,7 +297,7 @@ abort:
 }
 
 static int
-md_process_verbatim_block(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
+md_process_verbatim_block(MD_CTX* ctx, MD_TEXTTYPE text_type, const MD_LINE* lines, int n_lines)
 {
     static const CHAR indent_str[16] = _T("                ");
     int i;
@@ -286,17 +309,17 @@ md_process_verbatim_block(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 
         /* Output code indentation. */
         while(indent > SIZEOF_ARRAY(indent_str)) {
-            MD_TEXT(MD_TEXT_CODEBLOCK, indent_str, SIZEOF_ARRAY(indent_str));
+            MD_TEXT(text_type, indent_str, SIZEOF_ARRAY(indent_str));
             indent -= SIZEOF_ARRAY(indent_str);
         }
         if(indent > 0)
-            MD_TEXT(MD_TEXT_CODEBLOCK, indent_str, indent);
+            MD_TEXT(text_type, indent_str, indent);
 
         /* Output the code line itself. */
-        MD_TEXT(MD_TEXT_CODEBLOCK, STR(line->beg), line->end - line->beg);
+        MD_TEXT(text_type, STR(line->beg), line->end - line->beg);
 
         /* Enforce end-of-line. */
-        MD_TEXT(MD_TEXT_CODEBLOCK, _T("\n"), 1);
+        MD_TEXT(text_type, _T("\n"), 1);
     }
 
 abort:
@@ -441,6 +464,190 @@ out:
     return ret;
 }
 
+/* Returns type of the raw HTML block, or -1 if it is not HTML block.
+ * (Refer to CommonMark specification for details about the types.)
+ */
+static int
+md_is_html_block_start_condition(MD_CTX* ctx, OFF beg)
+{
+    typedef struct TAG_tag TAG;
+    struct TAG_tag {
+        const CHAR* name;
+        unsigned len    : 8;
+    };
+
+    /* Type 6 is started by a long list of allowed tags. We use two-level
+     * tree to speed-up the search. */
+#ifdef X
+    #undef X
+#endif
+#define X(name)     { _T(name), sizeof(name)-1 }
+#define Xend        { NULL, 0 }
+    static const TAG t1[] = { X("script"), X("pre"), X("style"), Xend };
+
+    static const TAG a6[] = { X("address"), X("article"), X("aside"), Xend };
+    static const TAG b6[] = { X("base"), X("basefont"), X("blockquote"), X("body"), Xend };
+    static const TAG c6[] = { X("caption"), X("center"), X("col"), X("colgroup"), Xend };
+    static const TAG d6[] = { X("dd"), X("details"), X("dialog"), X("dir"),
+                             X("div"), X("dl"), X("dt"), Xend };
+    static const TAG f6[] = { X("fieldset"), X("figcaption"), X("figure"), X("footer"),
+                             X("form"), X("frame"), X("frameset"), Xend };
+    static const TAG h6[] = { X("h1"), X("head"), X("header"), X("hr"), X("html"), Xend };
+    static const TAG i6[] = { X("iframe"), Xend };
+    static const TAG l6[] = { X("legend"), X("li"), X("link"), Xend };
+    static const TAG m6[] = { X("main"), X("menu"), X("menuitem"), X("meta"), Xend };
+    static const TAG n6[] = { X("nav"), X("noframes"), Xend };
+    static const TAG o6[] = { X("ol"), X("optgroup"), X("option"), Xend };
+    static const TAG p6[] = { X("p"), X("param"), Xend };
+    static const TAG s6[] = { X("section"), X("source"), X("summary"), Xend };
+    static const TAG t6[] = { X("table"), X("tbody"), X("td"), X("tfoot"), X("th"),
+                             X("thead"), X("title"), X("tr"), X("track"), Xend };
+    static const TAG u6[] = { X("ul"), Xend };
+    static const TAG xx[] = { Xend };
+#undef X
+
+    static const TAG* map6[26] = {
+        a6, b6, c6, d6, xx, f6, xx, h6, i6, xx, xx, l6, m6,
+        n6, o6, p6, xx, xx, s6, t6, u6, xx, xx, xx, xx, xx
+    };
+    OFF off = beg + 1;
+    int i;
+
+    MD_ASSERT(CH(beg) == _T('<'));
+
+    /* Check for type 1: <script, <pre, or <style */
+    for(i = 0; t1[i].name != NULL; i++) {
+        if(off + t1[i].len < ctx->size) {
+            if(md_str_case_eq(STR(off), t1[i].name, t1[i].len) == 0)
+                return 1;
+        }
+    }
+
+    /* Check for type 2: <!-- */
+    if(off + 3 < ctx->size  &&  CH(off) == _T('!')  &&  CH(off) == _T('-')  &&  CH(off+1) == _T('-'))
+        return 2;
+
+    /* Check for type 3: <? */
+    if(off < ctx->size  &&  CH(off) == _T('?'))
+        return 3;
+
+    /* Check for type 4 or 5: <! */
+    if(off < ctx->size  &&  CH(off) == _T('!')) {
+        /* Check for type 4: <! followed by uppercase letter. */
+        if(off + 1 < ctx->size  &&  ISUPPER(off+1))
+            return 4;
+
+        /* Check for type 5: <![CDATA[ */
+        if(off + 8 < ctx->size) {
+            if(memcmp(STR(off), _T("![CDATA["), 8 * sizeof(CHAR)) == 0)
+                return 5;
+        }
+    }
+
+    /* Check for type 6: Many possible starting tags listed above. */
+    if(off + 1 < ctx->size  &&  (ISALPHA(off) || (CH(off) == _T('/') && ISALPHA(off+1)))) {
+        int slot;
+        const TAG* tags;
+
+        if(CH(off) == _T('/'))
+            off++;
+
+        slot = (ISUPPER(off) ? CH(off) - 'A' : CH(off) - 'a');
+        tags = map6[slot];
+
+        for(i = 0; tags[i].name != NULL; i++) {
+            if(off + tags[i].len <= ctx->size) {
+                if(md_str_case_eq(STR(off), tags[i].name, tags[i].len) == 0) {
+                    OFF tmp = off + tags[i].len;
+                    if(tmp >= ctx->size)
+                        return 6;
+                    if(ISBLANK(tmp) || ISNEWLINE(tmp) || CH(tmp) == _T('>'))
+                        return 6;
+                    if(tmp+1 < ctx->size && CH(tmp) == _T('/') && CH(tmp+1) == _T('>'))
+                        return 6;
+                    break;
+                }
+            }
+        }
+    }
+
+    /* Check for type 7: any COMPLETE other opening or closing tag. */
+    // TODO: Rework this: This should be shared with some part of
+    // inline raw html (spec section 6.8).
+    if(off + 1 < ctx->size) {
+        if(ISALPHA(off)  ||  (CH(off) == _T('/') && ISALPHA(off+1))) {
+            OFF tmp = off + 1;
+
+            /* Eat tag name. */
+            while(tmp < ctx->size  &&  (ISALNUM(tmp) || CH(tmp) == _T('-')))
+                tmp++;
+
+            /* If opening tag, eat any attributes. */
+            if(tmp < ctx->size  &&  CH(tmp) != _T('/')) {
+                // TODO
+            }
+
+            /* Eat any whitespace */
+            while(tmp < ctx->size  &&  ISWHITESPACE(tmp))
+                tmp++;
+
+            if(tmp < ctx->size  &&  CH(tmp) == _T('/'))
+                tmp++;
+
+            if(tmp < ctx->size  &&  CH(tmp) == _T('>'))
+                return 7;
+        }
+    }
+
+    return -1;
+}
+
+/* Case insensitive check whether line starting at the offset contains 'what'. */
+static int
+md_line_case_contains(MD_CTX* ctx, OFF beg, const CHAR* what, SZ what_len)
+{
+    OFF i;
+    for(i = beg; i + what_len < ctx->size; i++) {
+        if(ISNEWLINE(i))
+            break;
+        if(md_str_case_eq(STR(i), what, what_len) == 0)
+            return 0;
+    }
+    return -1;
+}
+
+/* Case sensitive check whether line starting at the offset contains 'what'. */
+static int
+md_line_contains(MD_CTX* ctx, OFF beg, const CHAR* what, SZ what_len)
+{
+    OFF i;
+    for(i = beg; i + what_len < ctx->size; i++) {
+        if(ISNEWLINE(i))
+            break;
+        if(memcmp(STR(i), what, what_len * sizeof(CHAR)) == 0)
+            return 0;
+    }
+    return -1;
+}
+
+/* Returns type of HTML block end condition or -1 if not an end condition. */
+static int
+md_is_html_block_end_condition(MD_CTX* ctx, OFF beg)
+{
+    switch(ctx->html_block_type) {
+    case 1:     return (md_line_case_contains(ctx, beg, _T("</script>"), 9) == 0
+                    ||  md_line_case_contains(ctx, beg, _T("</pre>"), 6) == 0
+                    ||  md_line_case_contains(ctx, beg, _T("</style>"), 8) == 0 ? 1 : -1);
+    case 2:     return (md_line_contains(ctx, beg, _T("-->"), 3) == 0 ? 2 : -1);
+    case 3:     return (md_line_contains(ctx, beg, _T("?>"), 2) == 0 ? 3 : -1);
+    case 4:     return (md_line_contains(ctx, beg, _T(">"), 1) == 0 ? 4 : -1);
+    case 5:     return (md_line_contains(ctx, beg, _T("]]>"), 3) == 0 ? 5 : -1);
+    case 6:     /* Pass through */
+    case 7:     return (ISNEWLINE(beg) ? ctx->html_block_type : -1);
+    default:    return -1;
+    }
+}
+
 /* Analyze type of the line and find some its properties. This serves as a
  * main input for determining type and boundaries of a block. */
 static void
@@ -474,6 +681,17 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end, const MD_LINE* pivot_line, MD_
         }
 
         line->type = MD_LINE_FENCEDCODE;
+        goto done;
+    }
+
+    /* Check whether we are HTML block continuation. */
+    if(pivot_line->type == MD_LINE_HTML  &&  ctx->html_block_type > 0) {
+        if(md_is_html_block_end_condition(ctx, off) == ctx->html_block_type) {
+            /* Make sure this is the last line of the block. */
+            ctx->html_block_type = 0;
+        }
+
+        line->type = MD_LINE_HTML;
         goto done;
     }
 
@@ -542,6 +760,15 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end, const MD_LINE* pivot_line, MD_
         if(md_is_opening_code_fence(ctx, off, &off) == 0) {
             ctx->code_fence_indent = line->indent;
             line->type = MD_LINE_CODEFENCE;
+            goto done;
+        }
+    }
+
+    /* Check whether we are start of raw HTML block. */
+    if(CH(off) == _T('<')  &&  !(ctx->r.flags & MD_FLAG_NOHTMLBLOCKS)) {
+        ctx->html_block_type = md_is_html_block_start_condition(ctx, off);
+        if(ctx->html_block_type > 0) {
+            line->type = MD_LINE_HTML;
             goto done;
         }
     }
@@ -632,6 +859,10 @@ md_process_block(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             block_type = MD_BLOCK_P;
             break;
 
+        case MD_LINE_HTML:
+            block_type = MD_BLOCK_HTML;
+            break;
+
         case MD_LINE_SETEXTUNDERLINE:
         case MD_LINE_CODEFENCE:
             /* Noop. */
@@ -651,7 +882,11 @@ md_process_block(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             break;
 
         case MD_BLOCK_CODE:
-            ret = md_process_verbatim_block(ctx, lines, n_lines);
+            ret = md_process_verbatim_block(ctx, MD_TEXT_CODEBLOCK, lines, n_lines);
+            break;
+
+        case MD_BLOCK_HTML:
+            ret = md_process_verbatim_block(ctx, MD_TEXT_HTML, lines, n_lines);
             break;
 
         default:
@@ -781,7 +1016,7 @@ md_parse(const MD_CHAR* text, MD_SIZE size, const MD_RENDERER* renderer, void* u
     ctx.userdata = userdata;
 
     /* Offset for indented code block. */
-    ctx.code_indent_offset = (ctx.r.flags & MD_FLAG_NOINDENTEDCODE) ? (OFF)(-1) : 4;
+    ctx.code_indent_offset = (ctx.r.flags & MD_FLAG_NOINDENTEDCODEBLOCKS) ? (OFF)(-1) : 4;
 
     /* Do all the hard work. */
     return md_process_doc(&ctx);

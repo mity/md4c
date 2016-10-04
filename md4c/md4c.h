@@ -72,6 +72,11 @@ enum MD_BLOCKTYPE_tag {
      * Note the text lines (spans) within blocks are terminated with '\n'. */
     MD_BLOCK_CODE,
 
+    /* Raw HTML block. This itself does not correspond to any particular HTML
+     * tag. The contents of it _IS_ raw HTML source intended to be put
+     * in verbatim form to the HTML output. */
+    MD_BLOCK_HTML,
+
     /* <p>...</p> */
     MD_BLOCK_P
 };
@@ -93,7 +98,10 @@ enum MD_TEXTTYPE_tag {
     /* Text in a code block (inside MD_BLOCK_CODE).
      * Includes spaces for indentation and '\n' for new lines.
      * MD_TEXT_BR and MD_TEXT_SOFTBR are not sent for this kind of text. */
-    MD_TEXT_CODEBLOCK
+    MD_TEXT_CODEBLOCK,
+
+    /* Text is a raw HTML. */
+    MD_TEXT_HTML
 };
 
 
@@ -117,7 +125,8 @@ struct MD_BLOCK_CODE_DETAIL_tag {
  * The following flags may allow some extensions or deviations from it.
  */
 #define MD_FLAG_PERMISSIVEATXHEADERS    0x0001  /* Do not require space in ATX headers ( ###header ) */
-#define MD_FLAG_NOINDENTEDCODE          0x0002  /* Recognize only fenced code blocks. */
+#define MD_FLAG_NOINDENTEDCODEBLOCKS    0x0002  /* Disable indented code blocks. (Only fenced code works.) */
+#define MD_FLAG_NOHTMLBLOCKS            0x0004  /* Disable raw HTML blocks. */
 
 /* Caller-provided callbacks.
  *
