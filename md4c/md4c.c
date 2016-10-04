@@ -67,14 +67,24 @@ typedef MD_CHAR CHAR;
 typedef MD_SIZE SZ;
 typedef MD_OFFSET OFF;
 
+typedef struct MD_MARK_tag MD_MARK;
+
 /* Context propagated through all the parsing. */
 typedef struct MD_CTX_tag MD_CTX;
 struct MD_CTX_tag {
-    /* Immutables (parameters of md_parse()). */
+    /* Immutable stuff (parameters of md_parse()). */
     const CHAR* text;
     SZ size;
     MD_RENDERER r;
     void* userdata;
+
+    /* Stack of inline/span markers.
+     * This is only used for parsing a single block contents but by storing it
+     * here we may reuse the stack for subsequent blocks; i.e. we have fewer
+     * (re)allocations. */
+    MD_MARK* marks;
+    unsigned n_marks;
+    unsigned alloc_marks;
 
     /* For MD_BLOCK_QUOTE */
     unsigned quote_level;   /* Nesting level. */
@@ -281,6 +291,186 @@ md_str_case_eq(const CHAR* s1, const CHAR* s2, SZ n)
     } while(0)
 
 
+/******************************************************
+ ***  Processing Sequence of Inlines (a.k.a Spans)  ***
+ ******************************************************/
+
+/* Structure marking an offset which needs special attention. The type
+ * of the attention is determined by the member ch:
+ *
+ * '\\': Escape sequence.
+ *       (beg points to '\\'; beg+1 to the escaped char.)
+ *
+ * Note that not all instances of these chars in the text imply creation of the
+ * structure. Only those which have (or may have, after we see more context)
+ * the special meaning.
+ */
+struct MD_MARK_tag {
+    OFF beg;
+    OFF end;
+    MD_CHAR ch;
+    unsigned short flags;
+};
+
+/* Mark flags. */
+#define MD_MARK_ACTIVE      0x0001
+#define MD_MARK_OPENER      0x0002
+#define MD_MARK_CLOSER      0x0004
+
+
+static MD_MARK*
+md_push(MD_CTX* ctx)
+{
+    MD_MARK* mark;
+
+    if(ctx->n_marks >= ctx->alloc_marks) {
+        MD_MARK* new_marks;
+
+        ctx->alloc_marks = (ctx->alloc_marks > 0 ? ctx->alloc_marks * 2 : 64);
+        new_marks = realloc(ctx->marks, ctx->alloc_marks * sizeof(MD_MARK));
+        if(new_marks == NULL) {
+            md_log(ctx, "realloc() failed.");
+            return NULL;
+        }
+
+        ctx->marks = new_marks;
+    }
+
+    mark = &ctx->marks[ctx->n_marks];
+    ctx->n_marks++;
+    return mark;
+}
+
+#define PUSH_()                                                         \
+        do {                                                            \
+            mark = md_push(ctx);                                        \
+            if(mark == NULL) {                                          \
+                ret = -1;                                               \
+                goto abort;                                             \
+            }                                                           \
+        } while(0)
+
+#define PUSH(ch_, beg_, end_, flags_)                                   \
+        do {                                                            \
+            PUSH_();                                                    \
+            mark->ch = (ch_);                                           \
+            mark->beg = (beg_);                                         \
+            mark->end = (end_);                                         \
+            mark->flags = (flags_);                                     \
+        } while(0)
+
+static int
+md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
+{
+    int i;
+    int ret = 0;
+    MD_MARK* mark;
+
+    ctx->n_marks = 0;
+
+    for(i = 0; i < n_lines; i++) {
+        const MD_LINE* line = &lines[i];
+        OFF off = line->beg;
+        OFF end = line->end;
+
+        while(off < end) {
+            CHAR ch = CH(off);
+            /* Analyze backslash escapes.
+             * Note it can go beyond line->end as it may involve
+             * escaped new line to form a hard break. */
+            if(ch == _T('\\')  &&  off+1 < ctx->size  &&  (ISPUNCT(off+1) || ISNEWLINE(off+1))) {
+                PUSH(ch, off, off+2, MD_MARK_ACTIVE);
+                off += 2;
+                continue;
+            }
+
+            off++;
+        }
+    }
+
+    /* Add a dummy mark at the end of processed block to simplify
+     * md_process_inlines(). */
+    PUSH_();
+    mark->beg = lines[n_lines-1].end + 1;
+    mark->flags = MD_MARK_ACTIVE;
+
+abort:
+    return ret;
+}
+
+static int
+md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
+{
+    const MD_LINE* line = lines;
+    const MD_MARK* mark;
+    OFF off = lines[0].beg;
+    OFF end = lines[n_lines-1].end;
+    int enforce_hardbreak = 0;
+    int ret = 0;
+
+    /* Find first active mark. Note there is always at least one active mark,
+     * the dummy last one after the end of the latest line we actually never
+     * really reach. This saves us of a lot of special checks and cases in
+     * this function. */
+    mark = ctx->marks;
+    while(!(mark->flags & MD_MARK_ACTIVE))
+        mark++;
+
+    while(1) {
+        /* Process the text up to the next mark or end-of-line. */
+        OFF tmp = (line->end < mark->beg ? line->end : mark->beg);
+        if(tmp > off) {
+            MD_TEXT(MD_TEXT_NORMAL, STR(off), tmp - off);
+            off = tmp;
+        }
+
+        /* If reached the mark, process it and move to next one. */
+        if(off >= mark->beg) {
+            switch(mark->ch) {
+            case _T('\\'):      /* Backslash escape. */
+                if(ISNEWLINE(mark->beg+1))
+                    enforce_hardbreak = 1;
+                else
+                    MD_TEXT(MD_TEXT_NORMAL, STR(mark->beg+1), 1);
+                break;
+            }
+
+            off = mark->end;
+
+            /* Move to next active mark. */
+            mark++;
+            while(!(mark->flags & MD_MARK_ACTIVE))
+                mark++;
+        }
+
+        /* If reached end of line, move to next one. */
+        if(off >= line->end) {
+            MD_TEXTTYPE break_type;
+
+            /* If it is the last line, we are done. */
+            if(off >= end)
+                break;
+
+            /* Output soft or hard line break. */
+            if(enforce_hardbreak  ||  (CH(line->end) == _T(' ') && CH(line->end+1) == _T(' ')))
+                break_type = MD_TEXT_BR;
+            else
+                break_type = MD_TEXT_SOFTBR;
+            MD_TEXT(break_type, _T("\n"), 1);
+
+            /* Switch to the following line. */
+            line++;
+            off = line->beg;
+
+            enforce_hardbreak = 0;
+        }
+    }
+
+abort:
+    return ret;
+}
+
+
 /******************************************
  ***  Processing Single Block Contents  ***
  ******************************************/
@@ -288,24 +478,14 @@ md_str_case_eq(const CHAR* s1, const CHAR* s2, SZ n)
 static int
 md_process_normal_block(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 {
-    int i;
-    int ret = 0;
+    int ret;
 
-    for(i = 0; i < n_lines; i++) {
-        MD_TEXT(MD_TEXT_NORMAL, STR(lines[i].beg), lines[i].end - lines[i].beg);
-
-        /* Output soft or hard line break. */
-        if(i + 1 < n_lines) {
-            MD_TEXTTYPE break_type;
-
-            if(CH(lines[i].end) == _T(' ')  &&  CH(lines[i].end+1) == _T(' '))
-                break_type = MD_TEXT_BR;
-            else
-                break_type = MD_TEXT_SOFTBR;
-
-            MD_TEXT(break_type, _T("\n"), 1);
-        }
-    }
+    ret = md_analyze_inlines(ctx, lines, n_lines);
+    if(ret != 0)
+        goto abort;
+    ret = md_process_inlines(ctx, lines, n_lines);
+    if(ret != 0)
+        goto abort;
 
 abort:
     return ret;
@@ -1078,6 +1258,7 @@ int
 md_parse(const MD_CHAR* text, MD_SIZE size, const MD_RENDERER* renderer, void* userdata)
 {
     MD_CTX ctx;
+    int ret;
 
     /* Setup context structure. */
     memset(&ctx, 0, sizeof(MD_CTX));
@@ -1089,6 +1270,11 @@ md_parse(const MD_CHAR* text, MD_SIZE size, const MD_RENDERER* renderer, void* u
     /* Offset for indented code block. */
     ctx.code_indent_offset = (ctx.r.flags & MD_FLAG_NOINDENTEDCODEBLOCKS) ? (OFF)(-1) : 4;
 
-    /* Do all the hard work. */
-    return md_process_doc(&ctx);
+    /* All the work. */
+    ret = md_process_doc(&ctx);
+
+    /* Clean-up. */
+    free(ctx.marks);
+
+    return ret;
 }

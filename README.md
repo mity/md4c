@@ -97,7 +97,7 @@ more or less forms our to do list.
   - [ ] 5.3 Lists
 
 - **Inlines:**
-  - [ ] 6.1 Backslash escapes
+  - [x] 6.1 Backslash escapes
   - [ ] 6.2 Entity and numeric character references
   - [ ] 6.3 Code spans
   - [ ] 6.4 Emphasis and strong emphasis
