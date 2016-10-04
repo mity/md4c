@@ -33,9 +33,9 @@
 #include "cmdline.h"
 
 
-/********************************
- ***  Simple growable buffer  ***
- ********************************/
+/*********************************
+ ***  Simple grow-able buffer  ***
+ *********************************/
 
 /* We render to a memory buffer instead of directly outputting the rendered
  * documents, as this allows using this utility for evaluating performance
@@ -108,10 +108,10 @@ membuf_append_escaped(struct membuffer* buf, const char* data, MD_SIZE size)
 
         if(off < size) {
             switch(data[off]) {
-            case '&':   MEMBUF_APPEND_LITERAL(buf, "&amp;"); break;
-            case '<':   MEMBUF_APPEND_LITERAL(buf, "&lt;"); break;
-            case '>':   MEMBUF_APPEND_LITERAL(buf, "&gt;"); break;
-            case '"':   MEMBUF_APPEND_LITERAL(buf, "&quot;"); break;
+                case '&':   MEMBUF_APPEND_LITERAL(buf, "&amp;"); break;
+                case '<':   MEMBUF_APPEND_LITERAL(buf, "&lt;"); break;
+                case '>':   MEMBUF_APPEND_LITERAL(buf, "&gt;"); break;
+                case '"':   MEMBUF_APPEND_LITERAL(buf, "&quot;"); break;
             }
             off++;
         } else {
@@ -132,10 +132,10 @@ enter_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
     struct membuffer* out = (struct membuffer*) userdata;
 
     switch(type) {
-    case MD_BLOCK_DOC:      /* noop */ break;
-    case MD_BLOCK_HR:       MEMBUF_APPEND_LITERAL(out, "<hr>\n"); break;
-    case MD_BLOCK_H:        MEMBUF_APPEND_LITERAL(out, head[((MD_BLOCK_H_DETAIL*)detail)->level - 1]); break;
-    case MD_BLOCK_P:        MEMBUF_APPEND_LITERAL(out, "<p>"); break;
+        case MD_BLOCK_DOC:      /* noop */ break;
+        case MD_BLOCK_HR:       MEMBUF_APPEND_LITERAL(out, "<hr>\n"); break;
+        case MD_BLOCK_H:        MEMBUF_APPEND_LITERAL(out, head[((MD_BLOCK_H_DETAIL*)detail)->level - 1]); break;
+        case MD_BLOCK_P:        MEMBUF_APPEND_LITERAL(out, "<p>"); break;
     }
 
     return 0;
@@ -148,10 +148,10 @@ leave_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
     struct membuffer* out = (struct membuffer*) userdata;
 
     switch(type) {
-    case MD_BLOCK_DOC:      /*noop*/ break;
-    case MD_BLOCK_HR:       /*noop*/ break;
-    case MD_BLOCK_H:        MEMBUF_APPEND_LITERAL(out, head[((MD_BLOCK_H_DETAIL*)detail)->level - 1]); break;
-    case MD_BLOCK_P:        MEMBUF_APPEND_LITERAL(out, "</p>\n"); break;
+        case MD_BLOCK_DOC:      /*noop*/ break;
+        case MD_BLOCK_HR:       /*noop*/ break;
+        case MD_BLOCK_H:        MEMBUF_APPEND_LITERAL(out, head[((MD_BLOCK_H_DETAIL*)detail)->level - 1]); break;
+        case MD_BLOCK_P:        MEMBUF_APPEND_LITERAL(out, "</p>\n"); break;
     }
 
     return 0;
@@ -317,27 +317,27 @@ static int
 cmdline_callback(int opt, char const* value, void* data)
 {
     switch(opt) {
-    case 0:
-        if(input_path) {
-            fprintf(stderr, "Too many arguments. Only one input file can be specified.\n");
+        case 0:
+            if(input_path) {
+                fprintf(stderr, "Too many arguments. Only one input file can be specified.\n");
+                fprintf(stderr, "Use --help for more info.\n");
+                exit(1);
+            }
+            input_path = value;
+            break;
+
+        case 'o':   output_path = value; break;
+        case 'f':   want_fullhtml = 1; break;
+        case 's':   want_stat = 1; break;
+        case 'h':   usage(); exit(0); break;
+
+        case 'A':   renderer_flags |= MD_FLAG_PERMISSIVEATXHEADERS; break;
+
+        default:
+            fprintf(stderr, "Illegal option: %s\n", value);
             fprintf(stderr, "Use --help for more info.\n");
             exit(1);
-        }
-        input_path = value;
-        break;
-
-    case 'o':   output_path = value; break;
-    case 'f':   want_fullhtml = 1; break;
-    case 's':   want_stat = 1; break;
-    case 'h':   usage(); exit(0); break;
-
-    case 'A':   renderer_flags |= MD_FLAG_PERMISSIVEATXHEADERS; break;
-
-    default:
-        fprintf(stderr, "Illegal option: %s\n", value);
-        fprintf(stderr, "Use --help for more info.\n");
-        exit(1);
-        break;
+            break;
     }
 
     return 0;

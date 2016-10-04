@@ -395,25 +395,38 @@ md_process_block(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 
     /* Derive block type from type of the first line. */
     switch(lines[0].type) {
-    case MD_LINE_BLANK:     return 0;
-    case MD_LINE_HR:        block_type = MD_BLOCK_HR; break;
+        case MD_LINE_BLANK:
+            return 0;
 
-    case MD_LINE_ATXHEADER:
-        block_type = MD_BLOCK_H;
-        det.header.level = ctx->header_level;
-        break;
+        case MD_LINE_HR:
+            block_type = MD_BLOCK_HR;
+            break;
 
-    case MD_LINE_TEXT:      block_type = MD_BLOCK_P; break;
+        case MD_LINE_ATXHEADER:
+            block_type = MD_BLOCK_H;
+            det.header.level = ctx->header_level;
+            break;
+
+        case MD_LINE_TEXT:
+            block_type = MD_BLOCK_P;
+            break;
     }
 
-    /* Process the block accordingly to is type. */
     MD_ENTER_BLOCK(block_type, (void*) &det);
+
+    /* Process the block contents accordingly to is type. */
     switch(block_type) {
-    case MD_BLOCK_HR:   /* Noop. */ break;
-    default:            ret = md_process_normal_block(ctx, lines, n_lines); break;
+        case MD_BLOCK_HR:
+            /* Noop. */
+            break;
+
+        default:
+            ret = md_process_normal_block(ctx, lines, n_lines);
+            break;
     }
     if(ret != 0)
         goto abort;
+
     MD_LEAVE_BLOCK(block_type, (void*) &det);
 
 abort:
