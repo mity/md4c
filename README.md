@@ -139,7 +139,7 @@ consideration.
   - [ ] Subscript: `matrix A~i,j~`
 
 - **Miscellaneous:**
-  - [ ] Permissive ATX headers: `###Header` (without space)
+  - [x] Permissive ATX headers: `###Header` (without space)
   - [ ] Permissive autolinks: `http://google.com` (without `<`...`>`)
   - [ ] Disabling indented code blocks
   - [ ] Disabling raw HTML blocks/spans
