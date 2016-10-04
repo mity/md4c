@@ -93,7 +93,7 @@ struct MD_CTX_tag {
     OFF code_fence_info_end;
 
     /* For MD_BLOCK_HTML. */
-    unsigned html_block_type;
+    int html_block_type;
 };
 
 typedef enum MD_LINETYPE_tag MD_LINETYPE;
@@ -795,6 +795,12 @@ redo_indentation_after_blockquote_mark:
     if(CH(off) == _T('<')  &&  !(ctx->r.flags & MD_FLAG_NOHTMLBLOCKS)) {
         ctx->html_block_type = md_is_html_block_start_condition(ctx, off);
         if(ctx->html_block_type > 0) {
+            /* The line itself also may immediately close the block. */
+            if(md_is_html_block_end_condition(ctx, off) == ctx->html_block_type) {
+                /* Make sure this is the last line of the block. */
+                ctx->html_block_type = 0;
+            }
+
             line->type = MD_LINE_HTML;
             goto done;
         }
