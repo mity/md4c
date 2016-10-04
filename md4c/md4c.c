@@ -539,7 +539,7 @@ md_is_html_block_start_condition(MD_CTX* ctx, OFF beg)
     }
 
     /* Check for type 2: <!-- */
-    if(off + 3 < ctx->size  &&  CH(off) == _T('!')  &&  CH(off) == _T('-')  &&  CH(off+1) == _T('-'))
+    if(off + 3 < ctx->size  &&  CH(off) == _T('!')  &&  CH(off+1) == _T('-')  &&  CH(off+2) == _T('-'))
         return 2;
 
     /* Check for type 3: <? */
