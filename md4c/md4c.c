@@ -76,6 +76,9 @@ struct MD_CTX_tag {
     MD_RENDERER r;
     void* userdata;
 
+    /* Minimal indentation to call the block "indented code". */
+    unsigned code_indent_offset;
+
     /* For MD_BLOCK_HEADER. */
     unsigned header_level;
 };
@@ -87,6 +90,7 @@ enum MD_LINETYPE_tag {
     MD_LINE_ATXHEADER,
     MD_LINE_SETEXTHEADER,
     MD_LINE_SETEXTUNDERLINE,
+    MD_LINE_INDENTEDCODE,
     MD_LINE_TEXT
 };
 
@@ -95,6 +99,7 @@ struct MD_LINE_tag {
     MD_LINETYPE type;
     OFF beg;
     OFF end;
+    unsigned indent;        /* Indentation level. */
 };
 
 
@@ -259,6 +264,36 @@ abort:
     return ret;
 }
 
+static int
+md_process_verbatim_block(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
+{
+    static const CHAR indent_str[16] = _T("                ");
+    int i;
+    int ret = 0;
+
+    for(i = 0; i < n_lines; i++) {
+        const MD_LINE* line = &lines[i];
+        int indent = line->indent;
+
+        /* Output code indentation. */
+        while(indent > SIZEOF_ARRAY(indent_str)) {
+            MD_TEXT(MD_TEXT_CODEBLOCK, indent_str, SIZEOF_ARRAY(indent_str));
+            indent -= SIZEOF_ARRAY(indent_str);
+        }
+        if(indent > 0)
+            MD_TEXT(MD_TEXT_CODEBLOCK, indent_str, indent);
+
+        /* Output the code line itself. */
+        MD_TEXT(MD_TEXT_CODEBLOCK, STR(line->beg), line->end - line->beg);
+
+        /* Enforce end-of-line. */
+        MD_TEXT(MD_TEXT_CODEBLOCK, _T("\n"), 1);
+    }
+
+abort:
+    return ret;
+}
+
 
 /***************************************
  ***  Breaking Document into Blocks  ***
@@ -337,18 +372,51 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end, const MD_LINE* pivot_line, MD_
     OFF off = beg;
 
     line->type = MD_LINE_BLANK;
+    line->indent = 0;
 
     /* Eat indentation. */
     while(off < ctx->size  &&  ISBLANK(off)) {
+        if(CH(off) == _T('\t'))
+            line->indent = (line->indent + 4) & ~3;
+        else
+            line->indent++;
         off++;
     }
 
     line->beg = off;
 
-    /* Check whether we are blank line. Note we fall here even if we are beyond
-     * the document end. */
+    /* Check whether we are blank line.
+     * Note blank lines after indented code are treated as part of that block.
+     * If they are at the end of the block, it is discarded by caller.
+     */
     if(off >= ctx->size  ||  ISNEWLINE(off)) {
-        line->type = MD_LINE_BLANK;
+        line->indent = 0;
+        if(pivot_line->type == MD_LINE_INDENTEDCODE)
+            line->type = MD_LINE_INDENTEDCODE;
+        else
+            line->type = MD_LINE_BLANK;
+        goto done;
+    }
+
+    /* Check whether we are indented code line.
+     * Note indented code block cannot interrupt paragraph.
+     * Keep this is as the first check after the blank line: The checks below
+     * then do not need to verify that indentation < 4. */
+    if((pivot_line->type == MD_LINE_BLANK || pivot_line->type == MD_LINE_INDENTEDCODE)
+        && line->indent >= ctx->code_indent_offset) {
+        line->type = MD_LINE_INDENTEDCODE;
+        line->indent -= ctx->code_indent_offset;
+        goto done;
+    }
+
+    /* Check whether we are indented code line.
+     * Note indented code block cannot interrupt paragraph.
+     * Keep this is as the first check after the blank line: The checks below
+     * then do not need to verify that indentation < 4. */
+    if((pivot_line->type == MD_LINE_BLANK || pivot_line->type == MD_LINE_INDENTEDCODE)
+        && line->indent >= ctx->code_indent_offset) {
+        line->type = MD_LINE_INDENTEDCODE;
+        line->indent -= ctx->code_indent_offset;
         goto done;
     }
 
@@ -394,17 +462,18 @@ done:
             tmp--;
         while(tmp > line->beg && CH(tmp-1) == _T('#'))
             tmp--;
-        if(tmp == line->beg  ||  CH(tmp-1) == _T(' ')  ||  (ctx->r.flags & MD_FLAG_PERMISSIVEATXHEADERS)) {
-            while(tmp > line->beg && CH(tmp-1) == _T(' '))
-                tmp--;
+        if(tmp == line->beg || CH(tmp-1) == _T(' ') || (ctx->r.flags & MD_FLAG_PERMISSIVEATXHEADERS))
             line->end = tmp;
-        }
     }
 
+    /* Trim tailing spaces. */
+    while(line->end > line->beg && CH(line->end-1) == _T(' '))
+        line->end--;
+
     /* Eat also the new line. */
-    if(off < ctx->size  &&  CH(off) == _T('\r'))
+    if(off < ctx->size && CH(off) == _T('\r'))
         off++;
-    if(off < ctx->size  &&  CH(off) == _T('\n'))
+    if(off < ctx->size && CH(off) == _T('\n'))
         off++;
 
     *p_end = off;
@@ -441,6 +510,10 @@ md_process_block(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             det.header.level = ctx->header_level;
             break;
 
+        case MD_LINE_INDENTEDCODE:
+            block_type = MD_BLOCK_CODE;
+            break;
+
         case MD_LINE_TEXT:
             block_type = MD_BLOCK_P;
             break;
@@ -457,6 +530,10 @@ md_process_block(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
     switch(block_type) {
         case MD_BLOCK_HR:
             /* Noop. */
+            break;
+
+        case MD_BLOCK_CODE:
+            ret = md_process_verbatim_block(ctx, lines, n_lines);
             break;
 
         default:
@@ -585,6 +662,9 @@ md_parse(const MD_CHAR* text, MD_SIZE size, const MD_RENDERER* renderer, void* u
     memcpy(&ctx.r, renderer, sizeof(MD_RENDERER));
     ctx.userdata = userdata;
 
-    /* Doo all the hard work. */
+    /* Offset for indented code block. */
+    ctx.code_indent_offset = (ctx.r.flags & MD_FLAG_NOINDENTEDCODE) ? (OFF)(-1) : 4;
+
+    /* Do all the hard work. */
     return md_process_doc(&ctx);
 }

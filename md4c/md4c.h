@@ -68,6 +68,10 @@ enum MD_BLOCKTYPE_tag {
      * Detail: See structure MD_BLOCK_H_DETAIL. */
     MD_BLOCK_H,
 
+    /* <pre><code>...</code></pre>
+     * Note the text lines (spans) within blocks are terminated with '\n'. */
+    MD_BLOCK_CODE,
+
     /* <p>...</p> */
     MD_BLOCK_P
 };
@@ -84,7 +88,12 @@ enum MD_SPANTYPE_tag {
 typedef enum MD_TEXTTYPE_tag MD_TEXTTYPE;
 enum MD_TEXTTYPE_tag {
     /* Normal text. */
-    MD_TEXT_NORMAL = 0
+    MD_TEXT_NORMAL = 0,
+
+    /* Text in a code block (inside MD_BLOCK_CODE).
+     * Includes spaces for indentation and '\n' for new lines.
+     * MD_TEXT_BR and MD_TEXT_SOFTBR are not sent for this kind of text. */
+    MD_TEXT_CODEBLOCK
 };
 
 
@@ -101,6 +110,7 @@ struct MD_BLOCK_H_DETAIL_tag {
  * The following flags may allow some extensions or deviations from it.
  */
 #define MD_FLAG_PERMISSIVEATXHEADERS    0x0001  /* Do not require space in ATX headers ( ###header ) */
+#define MD_FLAG_NOINDENTEDCODE          0x0002  /* Recognize only fenced code blocks. */
 
 /* Caller-provided callbacks.
  *

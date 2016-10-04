@@ -84,7 +84,7 @@ more or less forms our to do list.
   - [x] 4.1 Thematic breaks
   - [x] 4.2 ATX headings
   - [x] 4.3 Setext headings
-  - [ ] 4.4 Indented code blocks
+  - [x] 4.4 Indented code blocks
   - [ ] 4.5 Fenced code blocks
   - [ ] 4.6 HTML blocks
   - [ ] 4.7 Link reference definitions
@@ -141,7 +141,7 @@ consideration.
 - **Miscellaneous:**
   - [x] Permissive ATX headers: `###Header` (without space)
   - [ ] Permissive autolinks: `http://google.com` (without `<`...`>`)
-  - [ ] Disabling indented code blocks
+  - [x] Disabling indented code blocks
   - [ ] Disabling raw HTML blocks/spans
 
 
