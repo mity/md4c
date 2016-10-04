@@ -85,6 +85,8 @@ enum MD_LINETYPE_tag {
     MD_LINE_BLANK,
     MD_LINE_HR,
     MD_LINE_ATXHEADER,
+    MD_LINE_SETEXTHEADER,
+    MD_LINE_SETEXTUNDERLINE,
     MD_LINE_TEXT
 };
 
@@ -304,6 +306,29 @@ md_is_atxheader_line(MD_CTX* ctx, OFF beg, OFF* p_beg, OFF* p_end)
     return 0;
 }
 
+static int
+md_is_setext_underline(MD_CTX* ctx, OFF beg, OFF* p_end)
+{
+    OFF off = beg + 1;
+
+    while(off < ctx->size  &&  CH(off) == CH(beg))
+        off++;
+
+    while(off < ctx->size  && CH(off) == _T(' '))
+        off++;
+
+    /* Optionally, space(s) can follow. */
+    while(off < ctx->size  &&  CH(off) == _T(' '))
+        off++;
+
+    /* But nothing more is allowed on the line. */
+    if(off < ctx->size  &&  !ISNEWLINE(off))
+        return -1;
+
+    ctx->header_level = (CH(beg) == _T('=') ? 1 : 2);
+    return 0;
+}
+
 /* Analyze type of the line and find some its properties. This serves as a
  * main input for determining type and boundaries of a block. */
 static void
@@ -331,6 +356,14 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end, const MD_LINE* pivot_line, MD_
     if(CH(off) == _T('#')) {
         if(md_is_atxheader_line(ctx, off, &line->beg, &off) == 0) {
             line->type = MD_LINE_ATXHEADER;
+            goto done;
+        }
+    }
+
+    /* Check whether we are setext underline. */
+    if(pivot_line->type == MD_LINE_TEXT  &&  (CH(off) == _T('=') || CH(off) == _T('-'))) {
+        if(md_is_setext_underline(ctx, off, &off) == 0) {
+            line->type = MD_LINE_SETEXTUNDERLINE;
             goto done;
         }
     }
@@ -403,12 +436,18 @@ md_process_block(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             break;
 
         case MD_LINE_ATXHEADER:
+        case MD_LINE_SETEXTHEADER:
             block_type = MD_BLOCK_H;
             det.header.level = ctx->header_level;
             break;
 
         case MD_LINE_TEXT:
             block_type = MD_BLOCK_P;
+            break;
+
+        case MD_LINE_SETEXTUNDERLINE:
+        default:
+            MD_UNREACHABLE();
             break;
     }
 
@@ -484,6 +523,13 @@ md_process_doc(MD_CTX *ctx)
             pivot_line = &dummy_line;
             n_lines = 0;
             continue;
+        }
+
+        /* MD_LINE_SETEXTUNDERLINE changes meaning of the previous block. */
+        if(line->type == MD_LINE_SETEXTUNDERLINE) {
+            MD_ASSERT(n_lines > 0);
+            lines[0].type = MD_LINE_SETEXTHEADER;
+            line->type = MD_LINE_BLANK;
         }
 
         /* New block also starts if line type changes. */
