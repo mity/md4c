@@ -95,6 +95,11 @@ enum MD_TEXTTYPE_tag {
     /* Normal text. */
     MD_TEXT_NORMAL = 0,
 
+    /* Line breaks.
+     * Note these are only sent within MD_BLOCK_CODE or MD_BLOCK_HTML. */
+    MD_TEXT_BR,         /* <br> (hard break) */
+    MD_TEXT_SOFTBR,     /* '\n' in source text where it is not semantically meaningful (soft break) */
+
     /* Text in a code block (inside MD_BLOCK_CODE) or inlined code (`code`).
      * If it is inside MD_BLOCK_CODE, it includes spaces for indentation and
      * '\n' for new lines. MD_TEXT_BR and MD_TEXT_SOFTBR are not sent for this

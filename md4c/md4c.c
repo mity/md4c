@@ -289,7 +289,18 @@ md_process_normal_block(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 
     for(i = 0; i < n_lines; i++) {
         MD_TEXT(MD_TEXT_NORMAL, STR(lines[i].beg), lines[i].end - lines[i].beg);
-        MD_TEXT(MD_TEXT_NORMAL, _T("\n"), 1);
+
+        /* Output soft or hard line break. */
+        if(i + 1 < n_lines) {
+            MD_TEXTTYPE break_type;
+
+            if(CH(lines[i].end) == _T(' ')  &&  CH(lines[i].end+1) == _T(' '))
+                break_type = MD_TEXT_BR;
+            else
+                break_type = MD_TEXT_SOFTBR;
+
+            MD_TEXT(break_type, _T("\n"), 1);
+        }
     }
 
 abort:

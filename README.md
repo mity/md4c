@@ -105,8 +105,8 @@ more or less forms our to do list.
   - [ ] 6.6 Images
   - [ ] 6.7 Autolinks
   - [ ] 6.8 Raw HTML
-  - [ ] 6.9 Hard line breaks
-  - [ ] 6.10 Soft line breaks
+  - [x] 6.9 Hard line breaks
+  - [x] 6.10 Soft line breaks
   - [x] 6.11 Textual content
 
 

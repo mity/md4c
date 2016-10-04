@@ -194,6 +194,8 @@ text_callback(MD_TEXTTYPE type, const MD_CHAR* text, MD_SIZE size, void* userdat
     struct membuffer* out = (struct membuffer*) userdata;
 
     switch(type) {
+    case MD_TEXT_BR:        MEMBUF_APPEND_LITERAL(out, "<br>\n"); break;
+    case MD_TEXT_SOFTBR:    MEMBUF_APPEND_LITERAL(out, "\n"); break;
     case MD_TEXT_HTML:      membuf_append(out, text, size); break;
     default:                membuf_append_escaped(out, text, size); break;
     }
