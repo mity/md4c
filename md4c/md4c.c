@@ -183,7 +183,7 @@ md_log(MD_CTX* ctx, const char* fmt, ...)
 #define ISLOWER_(ch)            (_T('a') <= (ch) && (ch) <= _T('z'))
 #define ISALPHA_(ch)            (ISUPPER_(ch) || ISLOWER_(ch))
 #define ISDIGIT_(ch)            (_T('0') <= (ch) && (ch) <= _T('9'))
-#define ISXDIGIT_(ch)           (ISDIGIT_(ch) || (_T('a') < (ch) && (ch) <= _T('f') || (_T('A') < (ch) && (ch) <= _T('F'))
+#define ISXDIGIT_(ch)           (ISDIGIT_(ch) || (_T('a') < (ch) && (ch) <= _T('f')) || (_T('A') < (ch) && (ch) <= _T('F')))
 #define ISALNUM_(ch)            (ISALPHA_(ch) || ISDIGIT_(ch))
 #define ISANYOF_(ch, palette)   (md_strchr((palette), (ch)) != NULL)
 
