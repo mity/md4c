@@ -882,7 +882,7 @@ md_process_block(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             break;
 
         case MD_BLOCK_CODE:
-            ret = md_process_verbatim_block(ctx, MD_TEXT_CODEBLOCK, lines, n_lines);
+            ret = md_process_verbatim_block(ctx, MD_TEXT_CODE, lines, n_lines);
             break;
 
         case MD_BLOCK_HTML:

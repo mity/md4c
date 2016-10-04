@@ -95,10 +95,11 @@ enum MD_TEXTTYPE_tag {
     /* Normal text. */
     MD_TEXT_NORMAL = 0,
 
-    /* Text in a code block (inside MD_BLOCK_CODE).
-     * Includes spaces for indentation and '\n' for new lines.
-     * MD_TEXT_BR and MD_TEXT_SOFTBR are not sent for this kind of text. */
-    MD_TEXT_CODEBLOCK,
+    /* Text in a code block (inside MD_BLOCK_CODE) or inlined code (`code`).
+     * If it is inside MD_BLOCK_CODE, it includes spaces for indentation and
+     * '\n' for new lines. MD_TEXT_BR and MD_TEXT_SOFTBR are not sent for this
+     * kind of text. */
+    MD_TEXT_CODE,
 
     /* Text is a raw HTML. */
     MD_TEXT_HTML
