@@ -125,6 +125,21 @@ membuf_append_escaped(struct membuffer* buf, const char* data, MD_SIZE size)
  ***  HTML renderer implementation  ***
  **************************************/
 
+static void
+open_code_block(struct membuffer* out, const MD_BLOCK_CODE_DETAIL* det)
+{
+    MEMBUF_APPEND_LITERAL(out, "<pre><code");
+
+    /* If known, output the HTML 5 attribute class="language-LANGNAME". */
+    if(det->lang != NULL) {
+        MEMBUF_APPEND_LITERAL(out, " class=\"language-");
+        membuf_append_escaped(out, det->lang, det->lang_size);
+        MEMBUF_APPEND_LITERAL(out, "\"");
+    }
+
+    MEMBUF_APPEND_LITERAL(out, ">");
+}
+
 static int
 enter_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
 {
@@ -135,7 +150,7 @@ enter_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
         case MD_BLOCK_DOC:      /* noop */ break;
         case MD_BLOCK_HR:       MEMBUF_APPEND_LITERAL(out, "<hr>\n"); break;
         case MD_BLOCK_H:        MEMBUF_APPEND_LITERAL(out, head[((MD_BLOCK_H_DETAIL*)detail)->level - 1]); break;
-        case MD_BLOCK_CODE:     MEMBUF_APPEND_LITERAL(out, "<pre><code>"); break;
+        case MD_BLOCK_CODE:     open_code_block(out, (const MD_BLOCK_CODE_DETAIL*) detail); break;
         case MD_BLOCK_P:        MEMBUF_APPEND_LITERAL(out, "<p>"); break;
     }
 

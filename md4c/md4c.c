@@ -81,6 +81,13 @@ struct MD_CTX_tag {
 
     /* For MD_BLOCK_HEADER. */
     unsigned header_level;
+
+    /* For MD_BLOCK_CODE (fenced). */
+    CHAR code_fence_char;   /* '~' or '`' */
+    SZ code_fence_length;
+    OFF code_fence_indent;
+    OFF code_fence_info_beg;
+    OFF code_fence_info_end;
 };
 
 typedef enum MD_LINETYPE_tag MD_LINETYPE;
@@ -91,6 +98,8 @@ enum MD_LINETYPE_tag {
     MD_LINE_SETEXTHEADER,
     MD_LINE_SETEXTUNDERLINE,
     MD_LINE_INDENTEDCODE,
+    MD_LINE_CODEFENCE,
+    MD_LINE_FENCEDCODE,
     MD_LINE_TEXT
 };
 
@@ -364,6 +373,74 @@ md_is_setext_underline(MD_CTX* ctx, OFF beg, OFF* p_end)
     return 0;
 }
 
+static int
+md_is_opening_code_fence(MD_CTX* ctx, OFF beg, OFF* p_end)
+{
+    OFF off = beg;
+
+    MD_ASSERT(CH(beg) == _T('`') || CH(beg) == _T('~'));
+
+    while(off < ctx->size && CH(off) == CH(beg))
+        off++;
+
+    /* Fence must have at least three characters. */
+    if(off - beg < 3)
+        return -1;
+
+    ctx->code_fence_length = off - beg;
+
+    /* Optionally, space(s) can follow. */
+    while(off < ctx->size  &&  CH(off) == _T(' '))
+        off++;
+
+    /* Optionally, language info can follow. It must not contain '`'. */
+    ctx->code_fence_info_beg = off;
+    while(off < ctx->size  &&  CH(off) != _T('`')  &&  !ISNEWLINE(off))
+        off++;
+    if(off < ctx->size  &&  !ISNEWLINE(off))
+        return -1;
+
+    *p_end = off;
+
+    /* Right trim of language info. */
+    while(off > ctx->code_fence_info_beg  &&  CH(off-1) == _T(' '))
+        off--;
+    ctx->code_fence_info_end = off;
+
+    ctx->code_fence_char = CH(beg);
+    return 0;
+}
+
+static int
+md_is_closing_code_fence(MD_CTX* ctx, OFF beg, OFF* p_end)
+{
+    OFF off = beg;
+    int ret = -1;
+
+    /* Closing fence must have at least the same length and use same char as
+     * opening one. */
+    while(off < ctx->size  &&  CH(off) == ctx->code_fence_char)
+        off++;
+    if(off - beg < ctx->code_fence_length)
+        goto out;
+
+    /* Optionally, space(s) can follow */
+    while(off < ctx->size  &&  CH(off) == _T(' '))
+        off++;
+
+    /* But nothing more is allowed on the line. */
+    if(off < ctx->size  &&  !ISNEWLINE(off))
+        goto out;
+
+    ret = 0;
+
+out:
+    /* Note we set *p_end even on failure: If we are not closing fence, caller
+     * would eat the line anyway without any parsing. */
+    *p_end = off;
+    return ret;
+}
+
 /* Analyze type of the line and find some its properties. This serves as a
  * main input for determining type and boundaries of a block. */
 static void
@@ -384,6 +461,21 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end, const MD_LINE* pivot_line, MD_
     }
 
     line->beg = off;
+
+    /* Check whether we are fenced code continuation. */
+    if(pivot_line->type == MD_LINE_FENCEDCODE || pivot_line->type == MD_LINE_CODEFENCE) {
+        /* We are another MD_LINE_FENCEDCODE unless we are closing fence
+         * which we transform into MD_LINE_BLANK. */
+        if(line->indent < ctx->code_indent_offset) {
+            if(md_is_closing_code_fence(ctx, off, &off) == 0) {
+                line->type = MD_LINE_BLANK;
+                goto done;
+            }
+        }
+
+        line->type = MD_LINE_FENCEDCODE;
+        goto done;
+    }
 
     /* Check whether we are blank line.
      * Note blank lines after indented code are treated as part of that block.
@@ -428,7 +520,7 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end, const MD_LINE* pivot_line, MD_
         }
     }
 
-    /* Check whether we are setext underline. */
+    /* Check whether we are Setext underline. */
     if(pivot_line->type == MD_LINE_TEXT  &&  (CH(off) == _T('=') || CH(off) == _T('-'))) {
         if(md_is_setext_underline(ctx, off, &off) == 0) {
             line->type = MD_LINE_SETEXTUNDERLINE;
@@ -436,10 +528,20 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end, const MD_LINE* pivot_line, MD_
         }
     }
 
-    /* Check whether we are thematic break line. */
+    /* Check whether we are thematic break line.
+     * (Keep this after check for Setext underline as that one has higher priority). */
     if(ISANYOF(off, _T("-_*"))) {
         if(md_is_hr_line(ctx, off, &off) == 0) {
             line->type = MD_LINE_HR;
+            goto done;
+        }
+    }
+
+    /* Check whether we are starting code fence. */
+    if(CH(off) == _T('`') || CH(off) == _T('~')) {
+        if(md_is_opening_code_fence(ctx, off, &off) == 0) {
+            ctx->code_fence_indent = line->indent;
+            line->type = MD_LINE_CODEFENCE;
             goto done;
         }
     }
@@ -489,6 +591,7 @@ md_process_block(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
     MD_BLOCKTYPE block_type;
     union {
         MD_BLOCK_H_DETAIL header;
+        MD_BLOCK_CODE_DETAIL code;
     } det;
     int ret = 0;
 
@@ -511,7 +614,18 @@ md_process_block(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             break;
 
         case MD_LINE_INDENTEDCODE:
+            det.code.lang = NULL;
+            det.code.lang_size = 0;
             block_type = MD_BLOCK_CODE;
+            break;
+
+        case MD_LINE_FENCEDCODE:
+            block_type = MD_BLOCK_CODE;
+            if(ctx->code_fence_info_beg < ctx->code_fence_info_end)
+                det.code.lang = STR(ctx->code_fence_info_beg);
+            else
+                det.code.lang = NULL;
+            det.code.lang_size = ctx->code_fence_info_end - ctx->code_fence_info_beg;
             break;
 
         case MD_LINE_TEXT:
@@ -519,6 +633,10 @@ md_process_block(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             break;
 
         case MD_LINE_SETEXTUNDERLINE:
+        case MD_LINE_CODEFENCE:
+            /* Noop. */
+            return 0;
+
         default:
             MD_UNREACHABLE();
             break;

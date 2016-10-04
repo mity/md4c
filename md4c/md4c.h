@@ -103,6 +103,13 @@ struct MD_BLOCK_H_DETAIL_tag {
     unsigned level;         /* Header level (1 - 6) */
 };
 
+/* Detailed info for MD_BLOCK_CODE. */
+typedef struct MD_BLOCK_CODE_DETAIL_tag MD_BLOCK_CODE_DETAIL;
+struct MD_BLOCK_CODE_DETAIL_tag {
+    const MD_CHAR* lang;    /* Not zero-terminated, use lang_size. */
+    MD_SIZE lang_size;
+};
+
 
 /* Flags specifying Markdown dialect.
  *
