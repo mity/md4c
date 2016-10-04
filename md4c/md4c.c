@@ -76,6 +76,9 @@ struct MD_CTX_tag {
     MD_RENDERER r;
     void* userdata;
 
+    /* For MD_BLOCK_QUOTE */
+    unsigned quote_level;   /* Nesting level. */
+
     /* Minimal indentation to call the block "indented code". */
     unsigned code_indent_offset;
 
@@ -112,6 +115,7 @@ struct MD_LINE_tag {
     MD_LINETYPE type;
     OFF beg;
     OFF end;
+    unsigned quote_level;   /* Level of nesting in <blockquote>. */
     unsigned indent;        /* Indentation level. */
 };
 
@@ -667,8 +671,10 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end, const MD_LINE* pivot_line, MD_
     OFF off = beg;
 
     line->type = MD_LINE_BLANK;
+    line->quote_level = 0;
     line->indent = 0;
 
+redo_indentation_after_blockquote_mark:
     /* Eat indentation. */
     while(off < ctx->size  &&  ISBLANK(off)) {
         if(CH(off) == _T('\t'))
@@ -704,6 +710,16 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end, const MD_LINE* pivot_line, MD_
 
         line->type = MD_LINE_HTML;
         goto done;
+    }
+
+    /* Check blockquote mark. */
+    if(off < ctx->size  &&  CH(off) == _T('>')) {
+        off++;
+        if(off < ctx->size  &&  CH(off) == _T(' '))
+            off++;
+        line->quote_level++;
+        line->indent = 0;
+        goto redo_indentation_after_blockquote_mark;
     }
 
     /* Check whether we are blank line.
@@ -787,6 +803,11 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end, const MD_LINE* pivot_line, MD_
     /* By default, we are normal text line. */
     line->type = MD_LINE_TEXT;
 
+    /* Ordinary text line may need to upgrade block quote level because
+     * of its lazy continuation. */
+    if(pivot_line->type == MD_LINE_TEXT  &&  pivot_line->quote_level > line->quote_level)
+        line->quote_level = pivot_line->quote_level;
+
 done:
     /* Eat rest of the line contents */
     while(off < ctx->size  &&  !ISNEWLINE(off))
@@ -819,6 +840,27 @@ done:
     *p_end = off;
 }
 
+static int
+md_process_blockquote_nesting(MD_CTX* ctx, unsigned desired_level)
+{
+    int ret = 0;
+
+    /* Bring blockquote nesting to expected level. */
+    if(ctx->quote_level != desired_level) {
+        while(ctx->quote_level < desired_level) {
+            MD_ENTER_BLOCK(MD_BLOCK_QUOTE, NULL);
+            ctx->quote_level++;
+        }
+        while(ctx->quote_level > desired_level) {
+            MD_LEAVE_BLOCK(MD_BLOCK_QUOTE, NULL);
+            ctx->quote_level--;
+        }
+    }
+
+abort:
+    return ret;
+}
+
 /* Determine type of the block (from type of its 1st line and some context),
  * call block_enter() callback, then appropriate function to parse contents
  * of the block, and finally block_leave() callback.
@@ -835,6 +877,12 @@ md_process_block(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 
     if(n_lines == 0)
         return 0;
+
+    /* Make sure the processed leaf block lives in the proper block quote
+     * nesting level. */
+    ret = md_process_blockquote_nesting(ctx, lines[0].quote_level);
+    if(ret != 0)
+        goto abort;
 
     /* Derive block type from type of the first line. */
     switch(lines[0].type) {
@@ -973,8 +1021,9 @@ md_process_doc(MD_CTX *ctx)
             line->type = MD_LINE_BLANK;
         }
 
-        /* New block also starts if line type changes. */
-        if(line->type != pivot_line->type) {
+        /* New block also starts if line type changes or if block quote nesting
+         * level changes. */
+        if(line->type != pivot_line->type  ||  line->quote_level != pivot_line->quote_level) {
             ret = md_process_block(ctx, lines, n_lines);
             if(ret != 0)
                 goto abort;
@@ -1001,6 +1050,11 @@ md_process_doc(MD_CTX *ctx)
         if(ret != 0)
             goto abort;
     }
+
+    /* Close any dangling parent blocks. */
+    ret = md_process_blockquote_nesting(ctx, 0);
+    if(ret != 0)
+        goto abort;
 
     MD_LEAVE_BLOCK(MD_BLOCK_DOC, NULL);
 

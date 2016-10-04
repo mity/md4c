@@ -61,6 +61,9 @@ enum MD_BLOCKTYPE_tag {
     /* <body>...</body> */
     MD_BLOCK_DOC = 0,
 
+    /* <blockquote>...</blockquote> */
+    MD_BLOCK_QUOTE,
+
     /* <hr> */
     MD_BLOCK_HR,
 
