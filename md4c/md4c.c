@@ -379,7 +379,9 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
              * Note it can go beyond line->end as it may involve
              * escaped new line to form a hard break. */
             if(ch == _T('\\')  &&  off+1 < ctx->size  &&  (ISPUNCT(off+1) || ISNEWLINE(off+1))) {
-                PUSH(ch, off, off+2, MD_MARK_ACTIVE);
+                /* Hard-break cannot be on the last line of the block. */
+                if(!ISNEWLINE(off+1)  ||  i+1 < n_lines)
+                    PUSH(ch, off, off+2, MD_MARK_ACTIVE);
                 off += 2;
                 continue;
             }
