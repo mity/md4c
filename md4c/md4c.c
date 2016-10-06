@@ -305,8 +305,8 @@ md_str_case_eq(const CHAR* s1, const CHAR* s2, SZ n)
 /* Structure marking an offset which needs special attention. The type
  * of the attention is determined by the member ch:
  *
- * '\\': Escape sequence.
- *       (beg points to '\\'; beg+1 to the escaped char.)
+ * '\\': Maybe escape sequence.
+ *  '`': Maybe code span start/end.
  *
  * Note that not all instances of these chars in the text imply creation of the
  * structure. Only those which have (or may have, after we see more context)
@@ -315,14 +315,20 @@ md_str_case_eq(const CHAR* s1, const CHAR* s2, SZ n)
 struct MD_MARK_tag {
     OFF beg;
     OFF end;
+
+    /* Index of another mark. Before resolving the member may be used for
+     * arbitrary purpose during the analyzes phase.
+     * For resolved openers, it has to point to the corresponding closer. */
+    int next;
+
     MD_CHAR ch;
     unsigned short flags;
 };
 
 /* Mark flags. */
-#define MD_MARK_RESOLVED    0x0001
-#define MD_MARK_OPENER      0x0002
-#define MD_MARK_CLOSER      0x0004
+#define MD_MARK_RESOLVED    0x0001  /* Yes, the special meaning is indeed recognized. */
+#define MD_MARK_OPENER      0x0002  /* This opens (or potentially may open) a span. */
+#define MD_MARK_CLOSER      0x0004  /* This closes (or potentially may close) a span. */
 
 
 static MD_MARK*
@@ -374,9 +380,6 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
     int ret = 0;
     MD_MARK* mark;
 
-    /* Reset the previously collected stack of marks. */
-    ctx->n_marks = 0;
-
     for(i = 0; i < n_lines; i++) {
         const MD_LINE* line = &lines[i];
         OFF off = line->beg;
@@ -384,14 +387,53 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 
         while(off < end) {
             CHAR ch = CH(off);
-            /* Analyze backslash escapes.
-             * Note it can go beyond line->end as it may involve
-             * escaped new line to form a hard break. */
+            /* A backslash escape.
+             * It can go beyond line->end as it may involve escaped new
+             * line to form a hard break. */
             if(ch == _T('\\')  &&  off+1 < ctx->size  &&  (ISPUNCT(off+1) || ISNEWLINE(off+1))) {
                 /* Hard-break cannot be on the last line of the block. */
                 if(!ISNEWLINE(off+1)  ||  i+1 < n_lines)
                     PUSH(ch, off, off+2, MD_MARK_RESOLVED);
-                off += 2;
+
+                /* If '`' follows, we need both marks as the backslash may be
+                 * inside a code span. */
+                if(CH(off+1) == _T('`'))
+                    off++;
+                else
+                    off += 2;
+                continue;
+            }
+
+            /* Turn non-trivial whitespace into single space. */
+            if(ISWHITESPACE_(ch)) {
+                OFF tmp = off+1;
+
+                while(tmp < end  &&  ISWHITESPACE(tmp))
+                    tmp++;
+
+                if(tmp - end > 1  ||  ch != _T(' ')) {
+                    PUSH(ch, off, tmp, MD_MARK_RESOLVED);
+                    off = tmp;
+                    continue;
+                }
+            }
+
+            /* A potential code span start/end. */
+            if(ch == _T('`')) {
+                unsigned flags;
+                OFF tmp = off+1;
+
+                /* It may be opener only if it is not escaped. */
+                if(ctx->n_marks > 0  &&  ctx->marks[ctx->n_marks-1].beg == off-1  &&  CH(off-1) == _T('\\'))
+                    flags = MD_MARK_CLOSER;
+                else
+                    flags = MD_MARK_OPENER | MD_MARK_CLOSER;
+
+                while(tmp < end  &&  CH(tmp) == _T('`'))
+                    tmp++;
+                PUSH(ch, off, tmp, flags);
+
+                off = tmp;
                 continue;
             }
 
@@ -409,23 +451,115 @@ abort:
     return ret;
 }
 
+
+/* Table of precedence of various span types. */
+static const CHAR* md_precedence_table[] = {
+    _T("`"),        /* Code spans. */
+    _T("\\")        /* Backslash escapes. */
+};
+
+
+static void
+md_analyze_backtick(MD_CTX* ctx, int mark_index, int* p_unresolved_openers)
+{
+    MD_MARK* mark = &ctx->marks[mark_index];
+    int opener = *p_unresolved_openers;
+
+    /* Try to find unresolved opener of the same length. If we find it,
+     * we form a code span. */
+    while(opener >= 0) {
+        MD_MARK* op = &ctx->marks[opener];
+
+        if(op->end - op->beg == mark->end - mark->beg) {
+            /* Resolve the span. */
+            op->flags = MD_MARK_OPENER | MD_MARK_RESOLVED;
+            mark->flags = MD_MARK_CLOSER | MD_MARK_RESOLVED;
+
+            /* Shorten the list of unresolved openers. */
+            *p_unresolved_openers = op->next;
+
+            /* Make the opener point to us as its closer. */
+            op->next = mark_index;
+
+            /* Cancel any escapes inside the code span. */
+            if(mark_index - opener > 1)
+                memset(ctx->marks + opener + 1, 0, sizeof(MD_MARK) * (mark_index - opener - 1));
+
+            /* Append any space or new line inside the span into the mark itself
+             * to swallow it. */
+            while(CH(op->end) == _T(' ')  ||  ISNEWLINE(op->end))
+                op->end++;
+            while(CH(mark->beg-1) == _T(' ')  ||  ISNEWLINE(mark->beg-1))
+                mark->beg--;
+
+            /* Done. */
+            return;
+        }
+
+        opener = ctx->marks[opener].next;
+    }
+
+    /* We didn't find any matching opener, remember it as a potential opener. */
+    if(mark->flags & MD_MARK_OPENER) {
+        mark->next = *p_unresolved_openers;
+        *p_unresolved_openers = mark_index;
+    }
+}
+
+static void
+md_analyze_marks(MD_CTX* ctx, int precedence_level)
+{
+    const CHAR* mark_chars = md_precedence_table[precedence_level];
+    /* Chain of potential/unresolved code span openers. */
+    int code_span_unresolved_openers = -1;
+    int i = 0;
+
+    while(i < ctx->n_marks) {
+        MD_MARK* mark = &ctx->marks[i];
+
+        /* Skip resolved spans. */
+        if(mark->flags & MD_MARK_RESOLVED) {
+            if(mark->flags & MD_MARK_OPENER)
+                i = mark->next + 1;
+            else
+                i++;
+            continue;
+        }
+
+        /* Skip marks we do not want to deal with. */
+        if(!ISANYOF_(mark->ch, mark_chars)) {
+            i++;
+            continue;
+        }
+
+        /* Analyze the mark. */
+        switch(mark->ch) {
+            case _T('`'):
+                md_analyze_backtick(ctx, i, &code_span_unresolved_openers);
+                break;
+        }
+
+        i++;
+    }
+}
+
 /* Analyze marks (build ctx->marks). */
-static int
+static void
 md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 {
-    int ret = 0;
+    int i;
 
-    MD_CHECK(md_collect_marks(ctx, lines, n_lines));
-
-abort:
-    return ret;
+    for(i = 0; i < SIZEOF_ARRAY(md_precedence_table); i++)
+        md_analyze_marks(ctx, i);
 }
 
 /* Render the output, accordingly to the analyzed ctx->marks. */
 static int
 md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 {
+    MD_TEXTTYPE text_type;
     const MD_LINE* line = lines;
+    const MD_MARK* prev_mark = NULL;
     const MD_MARK* mark;
     OFF off = lines[0].beg;
     OFF end = lines[n_lines-1].end;
@@ -440,28 +574,45 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
     while(!(mark->flags & MD_MARK_RESOLVED))
         mark++;
 
+    text_type = MD_TEXT_NORMAL;
+
     while(1) {
         /* Process the text up to the next mark or end-of-line. */
         OFF tmp = (line->end < mark->beg ? line->end : mark->beg);
         if(tmp > off) {
-            MD_TEXT(MD_TEXT_NORMAL, STR(off), tmp - off);
+            MD_TEXT(text_type, STR(off), tmp - off);
             off = tmp;
         }
 
         /* If reached the mark, process it and move to next one. */
         if(off >= mark->beg) {
             switch(mark->ch) {
-            case _T('\\'):      /* Backslash escape. */
-                if(ISNEWLINE(mark->beg+1))
-                    enforce_hardbreak = 1;
-                else
-                    MD_TEXT(MD_TEXT_NORMAL, STR(mark->beg+1), 1);
-                break;
+                case _T('\\'):      /* Backslash escape. */
+                    if(ISNEWLINE(mark->beg+1))
+                        enforce_hardbreak = 1;
+                    else
+                        MD_TEXT(text_type, STR(mark->beg+1), 1);
+                    break;
+
+                case _T(' '):       /* Non-trivial space. */
+                    MD_TEXT(text_type, _T(" "), 1);
+                    break;
+
+                case _T('`'):       /* Code span. */
+                    if(mark->flags & MD_MARK_OPENER) {
+                        MD_ENTER_SPAN(MD_SPAN_CODE, NULL);
+                        text_type = MD_TEXT_CODE;
+                    } else {
+                        MD_LEAVE_SPAN(MD_SPAN_CODE, NULL);
+                        text_type = MD_TEXT_NORMAL;
+                    }
+                    break;
             }
 
             off = mark->end;
 
             /* Move to next resolved mark. */
+            prev_mark = mark;
             mark++;
             while(!(mark->flags & MD_MARK_RESOLVED))
                 mark++;
@@ -475,12 +626,23 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             if(off >= end)
                 break;
 
-            /* Output soft or hard line break. */
-            if(enforce_hardbreak  ||  (CH(line->end) == _T(' ') && CH(line->end+1) == _T(' ')))
-                break_type = MD_TEXT_BR;
-            else
-                break_type = MD_TEXT_SOFTBR;
-            MD_TEXT(break_type, _T("\n"), 1);
+            if(text_type == MD_TEXT_CODE) {
+                /* Inside code spans, new lines are transformed into single
+                 * spaces. */
+                MD_ASSERT(prev_mark != NULL);
+                MD_ASSERT(prev_mark->ch == _T('`')  &&  (prev_mark->flags & MD_MARK_OPENER));
+                MD_ASSERT(mark->ch == _T('`')  &&  (mark->flags & MD_MARK_CLOSER));
+
+                if(prev_mark->end < off  &&  off < mark->beg)
+                    MD_TEXT(MD_SPAN_CODE, _T(" "), 1);
+            } else {
+                /* Output soft or hard line break. */
+                if(enforce_hardbreak  ||  (CH(line->end) == _T(' ') && CH(line->end+1) == _T(' ')))
+                    break_type = MD_TEXT_BR;
+                else
+                    break_type = MD_TEXT_SOFTBR;
+                MD_TEXT(break_type, _T("\n"), 1);
+            }
 
             /* Switch to the following line. */
             line++;
@@ -504,7 +666,13 @@ md_process_normal_block(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 {
     int ret;
 
-    MD_CHECK(md_analyze_inlines(ctx, lines, n_lines));
+    /* Reset the previously collected stack of marks. */
+    ctx->n_marks = 0;
+
+    MD_CHECK(md_collect_marks(ctx, lines, n_lines));
+
+    md_analyze_inlines(ctx, lines, n_lines);
+
     MD_CHECK(md_process_inlines(ctx, lines, n_lines));
 
 abort:
@@ -616,8 +784,6 @@ md_is_opening_code_fence(MD_CTX* ctx, OFF beg, OFF* p_end)
 {
     OFF off = beg;
 
-    MD_ASSERT(CH(beg) == _T('`') || CH(beg) == _T('~'));
-
     while(off < ctx->size && CH(off) == CH(beg))
         off++;
 
@@ -727,8 +893,6 @@ md_is_html_block_start_condition(MD_CTX* ctx, OFF beg)
     };
     OFF off = beg + 1;
     int i;
-
-    MD_ASSERT(CH(beg) == _T('<'));
 
     /* Check for type 1: <script, <pre, or <style */
     for(i = 0; t1[i].name != NULL; i++) {

@@ -89,7 +89,7 @@ enum MD_BLOCKTYPE_tag {
  * like paragraph or list item. */
 typedef enum MD_SPANTYPE_tag MD_SPANTYPE;
 enum MD_SPANTYPE_tag {
-    MD_SPAN_DUMMY = 0       /* not yet used... */
+    MD_SPAN_CODE
 };
 
 /* Text is the actual textual contents of span. */

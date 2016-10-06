@@ -181,12 +181,24 @@ leave_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
 static int
 enter_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
 {
+    struct membuffer* out = (struct membuffer*) userdata;
+
+    switch(type) {
+        case MD_SPAN_CODE:      MEMBUF_APPEND_LITERAL(out, "<code>"); break;
+    }
+
     return 0;
 }
 
 static int
 leave_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
 {
+    struct membuffer* out = (struct membuffer*) userdata;
+
+    switch(type) {
+        case MD_SPAN_CODE:      MEMBUF_APPEND_LITERAL(out, "</code>"); break;
+    }
+
     return 0;
 }
 
