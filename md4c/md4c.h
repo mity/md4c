@@ -143,7 +143,7 @@ struct MD_BLOCK_CODE_DETAIL_tag {
  * type-specific structure pointed by the argument 'detail'.
  *
  * The last argument of all callbacks, 'userdata', is just propagated from
- * md_parse() and is available for ue by the caller.
+ * md_parse() and is available for any use by the application.
  *
  * Callbacks may abort further parsing of the document by returning non-zero.
  */
