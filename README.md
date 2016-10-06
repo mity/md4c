@@ -1,12 +1,14 @@
 [![Build status (travis-ci.com)](https://img.shields.io/travis/mity/md4c/master.svg?label=linux%20build)](https://travis-ci.org/mity/md4c)
 [![Build status (appveyor.com)](https://img.shields.io/appveyor/ci/mity/md4c/master.svg?label=windows%20build)](https://ci.appveyor.com/project/mity/md4c/branch/master)
-[![Coverage](https://img.shields.io/coveralls/mity/md4c/master.svg)](https://coveralls.io/github/mity/md4c)
 [![Coverity Scan Build Status](https://img.shields.io/coverity/scan/mity-md4c.svg)](https://scan.coverity.com/projects/mity-md4c)
+[![Coverage](https://img.shields.io/coveralls/mity/md4c/master.svg)](https://coveralls.io/github/mity/md4c)
 
 # MD4C Readme
 
 Home: http://github.com/mity/md4c
 
+MD4C stands for "MarkDown for C" and, unsurprisingly, it is a C Markdown parser
+implementation.
 
 **Warning:** This project is very young (read "immature") and work in progress.
 Most important features are not yet implemented. See the current status below.
@@ -23,9 +25,6 @@ The following resources can explain more if you are unfamiliar with it:
 
 
 ## What is MD4C
-
-MD4C stands for "MarkDown for C" and, unsurprisingly, it is a C Markdown parser
-implementation.
 
 Main features:
 * **Compactness:** MD4C is implemented in one source file and one header file.
