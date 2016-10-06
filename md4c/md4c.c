@@ -243,6 +243,13 @@ md_str_case_eq(const CHAR* s1, const CHAR* s2, SZ n)
 }
 
 
+#define MD_CHECK(func)                                                  \
+    do {                                                                \
+        ret = (func);                                                   \
+        if(ret != 0)                                                    \
+            goto abort;                                                 \
+    } while(0)
+
 #define MD_ENTER_BLOCK(type, arg)                                       \
     do {                                                                \
         ret = ctx->r.enter_block((type), (arg), ctx->userdata);         \
@@ -313,7 +320,7 @@ struct MD_MARK_tag {
 };
 
 /* Mark flags. */
-#define MD_MARK_ACTIVE      0x0001
+#define MD_MARK_RESOLVED    0x0001
 #define MD_MARK_OPENER      0x0002
 #define MD_MARK_CLOSER      0x0004
 
@@ -359,13 +366,15 @@ md_push(MD_CTX* ctx)
             mark->flags = (flags_);                                     \
         } while(0)
 
+
 static int
-md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
+md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 {
     int i;
     int ret = 0;
     MD_MARK* mark;
 
+    /* Reset the previously collected stack of marks. */
     ctx->n_marks = 0;
 
     for(i = 0; i < n_lines; i++) {
@@ -381,7 +390,7 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             if(ch == _T('\\')  &&  off+1 < ctx->size  &&  (ISPUNCT(off+1) || ISNEWLINE(off+1))) {
                 /* Hard-break cannot be on the last line of the block. */
                 if(!ISNEWLINE(off+1)  ||  i+1 < n_lines)
-                    PUSH(ch, off, off+2, MD_MARK_ACTIVE);
+                    PUSH(ch, off, off+2, MD_MARK_RESOLVED);
                 off += 2;
                 continue;
             }
@@ -394,12 +403,25 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
      * md_process_inlines(). */
     PUSH_();
     mark->beg = lines[n_lines-1].end + 1;
-    mark->flags = MD_MARK_ACTIVE;
+    mark->flags = MD_MARK_RESOLVED;
 
 abort:
     return ret;
 }
 
+/* Analyze marks (build ctx->marks). */
+static int
+md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
+{
+    int ret = 0;
+
+    MD_CHECK(md_collect_marks(ctx, lines, n_lines));
+
+abort:
+    return ret;
+}
+
+/* Render the output, accordingly to the analyzed ctx->marks. */
 static int
 md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 {
@@ -410,12 +432,12 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
     int enforce_hardbreak = 0;
     int ret = 0;
 
-    /* Find first active mark. Note there is always at least one active mark,
-     * the dummy last one after the end of the latest line we actually never
-     * really reach. This saves us of a lot of special checks and cases in
-     * this function. */
+    /* Find first resolved mark. Note there is always at least one resolved
+     * mark,  the dummy last one after the end of the latest line we actually
+     * never really reach. This saves us of a lot of special checks and cases
+     * in this function. */
     mark = ctx->marks;
-    while(!(mark->flags & MD_MARK_ACTIVE))
+    while(!(mark->flags & MD_MARK_RESOLVED))
         mark++;
 
     while(1) {
@@ -439,9 +461,9 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 
             off = mark->end;
 
-            /* Move to next active mark. */
+            /* Move to next resolved mark. */
             mark++;
-            while(!(mark->flags & MD_MARK_ACTIVE))
+            while(!(mark->flags & MD_MARK_RESOLVED))
                 mark++;
         }
 
@@ -482,12 +504,8 @@ md_process_normal_block(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 {
     int ret;
 
-    ret = md_analyze_inlines(ctx, lines, n_lines);
-    if(ret != 0)
-        goto abort;
-    ret = md_process_inlines(ctx, lines, n_lines);
-    if(ret != 0)
-        goto abort;
+    MD_CHECK(md_analyze_inlines(ctx, lines, n_lines));
+    MD_CHECK(md_process_inlines(ctx, lines, n_lines));
 
 abort:
     return ret;
@@ -1068,9 +1086,7 @@ md_process_block(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 
     /* Make sure the processed leaf block lives in the proper block quote
      * nesting level. */
-    ret = md_process_blockquote_nesting(ctx, lines[0].quote_level);
-    if(ret != 0)
-        goto abort;
+    MD_CHECK(md_process_blockquote_nesting(ctx, lines[0].quote_level));
 
     /* Derive block type from type of the first line. */
     switch(lines[0].type) {
@@ -1188,14 +1204,10 @@ md_process_doc(MD_CTX *ctx)
         /* Some line types form block on their own. */
         if(line->type == MD_LINE_HR || line->type == MD_LINE_ATXHEADER) {
             /* Flush accumulated lines. */
-            ret = md_process_block(ctx, lines, n_lines);
-            if(ret != 0)
-                goto abort;
+            MD_CHECK(md_process_block(ctx, lines, n_lines));
 
             /* Flush ourself. */
-            ret = md_process_block(ctx, line, 1);
-            if(ret != 0)
-                goto abort;
+            MD_CHECK(md_process_block(ctx, line, 1));
 
             pivot_line = &dummy_line;
             n_lines = 0;
@@ -1212,9 +1224,7 @@ md_process_doc(MD_CTX *ctx)
         /* New block also starts if line type changes or if block quote nesting
          * level changes. */
         if(line->type != pivot_line->type  ||  line->quote_level != pivot_line->quote_level) {
-            ret = md_process_block(ctx, lines, n_lines);
-            if(ret != 0)
-                goto abort;
+            MD_CHECK(md_process_block(ctx, lines, n_lines));
 
             /* Keep the current line as the new pivot. */
             if(line != &lines[0])
@@ -1233,16 +1243,11 @@ md_process_doc(MD_CTX *ctx)
     }
 
     /* Process also the last block. */
-    if(pivot_line->type != MD_LINE_BLANK) {
-        ret = md_process_block(ctx, lines, n_lines);
-        if(ret != 0)
-            goto abort;
-    }
+    if(pivot_line->type != MD_LINE_BLANK)
+        MD_CHECK(md_process_block(ctx, lines, n_lines));
 
     /* Close any dangling parent blocks. */
-    ret = md_process_blockquote_nesting(ctx, 0);
-    if(ret != 0)
-        goto abort;
+    MD_CHECK(md_process_blockquote_nesting(ctx, 0));
 
     MD_LEAVE_BLOCK(MD_BLOCK_DOC, NULL);
 
