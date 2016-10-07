@@ -31,6 +31,14 @@
 
 #include "md4c.h"
 #include "cmdline.h"
+#include "entity.h"
+
+
+/* Global options. */
+static unsigned renderer_flags = 0;
+static int want_fullhtml = 0;
+static int want_stat = 0;
+static int want_verbatim_entities = 0;
 
 
 /*********************************
@@ -121,9 +129,10 @@ membuf_append_escaped(struct membuffer* buf, const char* data, MD_SIZE size)
     }
 }
 
-/**************************************
- ***  HTML renderer implementation  ***
- **************************************/
+
+/*****************************************
+ ***  HTML rendering helper functions  ***
+ *****************************************/
 
 static void
 open_code_block(struct membuffer* out, const MD_BLOCK_CODE_DETAIL* det)
@@ -139,6 +148,95 @@ open_code_block(struct membuffer* out, const MD_BLOCK_CODE_DETAIL* det)
 
     MEMBUF_APPEND_LITERAL(out, ">");
 }
+
+static unsigned
+hex_val(char ch)
+{
+    if('0' <= ch && ch <= '9')
+        return ch - '0';
+    if('A' <= ch && ch <= 'Z')
+        return ch - 'A' + 10;
+    else
+        return ch - 'a' + 10;
+}
+
+static void
+render_utf8_codepoint(struct membuffer* out, unsigned codepoint)
+{
+    unsigned char utf8[4];
+    size_t n;
+
+    if(codepoint <= 0x7f) {
+        n = 1;
+        utf8[0] = codepoint;
+    } else if(codepoint <= 0x7ff) {
+        n = 2;
+        utf8[0] = 0xc0 | ((codepoint >>  6) & 0x1f);
+        utf8[1] = 0x80 + ((codepoint >>  0) & 0x3f);
+    } else if(codepoint <= 0xffff) {
+        n = 3;
+        utf8[0] = 0xe0 | ((codepoint >> 12) & 0xf);
+        utf8[1] = 0x80 + ((codepoint >>  6) & 0x3f);
+        utf8[2] = 0x80 + ((codepoint >>  0) & 0x3f);
+    } else {
+        n = 4;
+        utf8[0] = 0xf0 | ((codepoint >> 18) & 0x7);
+        utf8[1] = 0x80 + ((codepoint >> 12) & 0x3f);
+        utf8[2] = 0x80 + ((codepoint >>  6) & 0x3f);
+        utf8[3] = 0x80 + ((codepoint >>  0) & 0x3f);
+    }
+
+    membuf_append_escaped(out, (char*)utf8, n);
+}
+
+/* Translate entity to its UTF-8 equivalent, or output the verbatim one
+ * if such entity is unknown (or if the translation is disabled). */
+static void
+render_entity(struct membuffer* out, const MD_CHAR* text, MD_SIZE size)
+{
+    if(want_verbatim_entities) {
+        membuf_append(out, text, size);
+        return;
+    }
+
+    /* We assume UTF-8 output is what is desired. */
+    if(size > 3 && text[1] == '#') {
+        unsigned codepoint = 0;
+
+        if(text[2] == 'x' || text[2] == 'X') {
+            /* Hexadecimal entity (e.g. "&#x1234abcd;")). */
+            int i;
+            for(i = 3; i < size-1; i++)
+                codepoint = 16 * codepoint + hex_val(text[i]);
+        } else {
+            /* Decimal entity (e.g. "&1234;") */
+            int i;
+            for(i = 2; i < size-1; i++)
+                codepoint = 10 * codepoint + (text[i] - '0');
+        }
+
+        if(codepoint <= 0x10ffff) {     /* Max. Unicode codepoint. */
+            render_utf8_codepoint(out, codepoint);
+            return;
+        }
+    } else {
+        /* Named entity (e.g. "&nbsp;". */
+        const char* ent;
+
+        ent = entity_lookup(text, size);
+        if(ent != NULL) {
+            membuf_append_escaped(out, ent, strlen(ent));
+            return;
+        }
+    }
+
+    membuf_append_escaped(out, text, size);
+}
+
+
+/**************************************
+ ***  HTML renderer implementation  ***
+ **************************************/
 
 static int
 enter_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
@@ -208,10 +306,11 @@ text_callback(MD_TEXTTYPE type, const MD_CHAR* text, MD_SIZE size, void* userdat
     struct membuffer* out = (struct membuffer*) userdata;
 
     switch(type) {
-    case MD_TEXT_BR:        MEMBUF_APPEND_LITERAL(out, "<br>\n"); break;
-    case MD_TEXT_SOFTBR:    MEMBUF_APPEND_LITERAL(out, "\n"); break;
-    case MD_TEXT_HTML:      membuf_append(out, text, size); break;
-    default:                membuf_append_escaped(out, text, size); break;
+        case MD_TEXT_BR:        MEMBUF_APPEND_LITERAL(out, "<br>\n"); break;
+        case MD_TEXT_SOFTBR:    MEMBUF_APPEND_LITERAL(out, "\n"); break;
+        case MD_TEXT_HTML:      membuf_append(out, text, size); break;
+        case MD_TEXT_ENTITY:    render_entity(out, text, size); break;
+        default:                membuf_append_escaped(out, text, size); break;
     }
 
     return 0;
@@ -229,7 +328,7 @@ debug_log_callback(const char* msg, void* userdata)
  **********************/
 
 static int
-process_file(FILE* in, FILE* out, unsigned flags, int fullhtml, int print_stat)
+process_file(FILE* in, FILE* out)
 {
     MD_RENDERER renderer = {
         enter_block_callback,
@@ -238,7 +337,7 @@ process_file(FILE* in, FILE* out, unsigned flags, int fullhtml, int print_stat)
         leave_span_callback,
         text_callback,
         debug_log_callback,
-        flags
+        renderer_flags
     };
 
     MD_SIZE n;
@@ -275,7 +374,7 @@ process_file(FILE* in, FILE* out, unsigned flags, int fullhtml, int print_stat)
     }
 
     /* Write down the document in the HTML format. */
-    if(fullhtml) {
+    if(want_fullhtml) {
         fprintf(out, "<html>\n");
         fprintf(out, "<head>\n");
         fprintf(out, "<title></title>\n");
@@ -286,12 +385,12 @@ process_file(FILE* in, FILE* out, unsigned flags, int fullhtml, int print_stat)
 
     fwrite(buf_out.data, 1, buf_out.size, out);
 
-    if(fullhtml) {
+    if(want_fullhtml) {
         fprintf(out, "</body>\n");
         fprintf(out, "</html>\n");
     }
 
-    if(print_stat) {
+    if(want_stat) {
         if(t0 != (clock_t)-1  &&  t1 != (clock_t)-1) {
             double elapsed = (double)(t1 - t0) / CLOCKS_PER_SEC;
             if (elapsed < 1)
@@ -321,6 +420,7 @@ static const option cmdline_options[] = {
     { "full-html",                  'f', 'f', OPTION_ARG_NONE },
     { "stat",                       's', 's', OPTION_ARG_NONE },
     { "help",                       'h', 'h', OPTION_ARG_NONE },
+    { "fverbatim-entities",          0,  'E', OPTION_ARG_NONE },
     { "fpermissive-atx-headers",     0,  'A', OPTION_ARG_NONE },
     { "fno-indented-code",           0,  'I', OPTION_ARG_NONE },
     { "fno-html-blocks",             0,  'H', OPTION_ARG_NONE },
@@ -341,6 +441,7 @@ usage(void)
         "  -h, --help               display this help and exit\n"
         "\n"
         "Markdown dialect options:\n"
+        "      --fverbatim-entities         do not translate entities\n"
         "      --fpermissive-atx-headers    allow ATX headers without delimiting space\n"
         "      --fno-indented-code          disable indented code blocks\n"
         "      --fno-html-blocks            disable raw HTML blocks\n"
@@ -349,9 +450,6 @@ usage(void)
 
 static const char* input_path = NULL;
 static const char* output_path = NULL;
-static unsigned renderer_flags = 0;
-static int want_fullhtml = 0;
-static int want_stat = 0;
 
 static int
 cmdline_callback(int opt, char const* value, void* data)
@@ -371,6 +469,7 @@ cmdline_callback(int opt, char const* value, void* data)
         case 's':   want_stat = 1; break;
         case 'h':   usage(); exit(0); break;
 
+        case 'E':   want_verbatim_entities = 1; break;
         case 'A':   renderer_flags |= MD_FLAG_PERMISSIVEATXHEADERS; break;
         case 'I':   renderer_flags |= MD_FLAG_NOINDENTEDCODEBLOCKS; break;
         case 'H':   renderer_flags |= MD_FLAG_NOHTMLBLOCKS; break;
@@ -412,7 +511,7 @@ main(int argc, char** argv)
         }
     }
 
-    ret = process_file(in, out, renderer_flags, want_fullhtml, want_stat);
+    ret = process_file(in, out);
     if(in != stdin)
         fclose(in);
     if(out != stdout)

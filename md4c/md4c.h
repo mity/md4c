@@ -98,6 +98,18 @@ enum MD_TEXTTYPE_tag {
     /* Normal text. */
     MD_TEXT_NORMAL = 0,
 
+    /* Entity.
+     * (a) Named entity, e.g. &nbsp; 
+     *     (Note MD4C does not have a lsit of known entities.
+     *     Anything matching the regexp /&[A-Za-z][A-Za-z0-9]{1,47};/ is
+     *     treated as a named entity.)
+     * (b) Numerical entity, e.g. &#1234;
+     * (c) Hexadecimal entity, e.g. &#x12AB;
+     *
+     * As MD4C is encoding agnostic, application gets the verbatim entity
+     * text into the MD_RENDERER::text_callback(). */
+    MD_TEXT_ENTITY,
+
     /* Line breaks.
      * Note these are only sent within MD_BLOCK_CODE or MD_BLOCK_HTML. */
     MD_TEXT_BR,         /* <br> (hard break) */

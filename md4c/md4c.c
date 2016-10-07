@@ -193,7 +193,7 @@ md_log(MD_CTX* ctx, const char* fmt, ...)
 #define ISLOWER_(ch)            (_T('a') <= (ch) && (ch) <= _T('z'))
 #define ISALPHA_(ch)            (ISUPPER_(ch) || ISLOWER_(ch))
 #define ISDIGIT_(ch)            (_T('0') <= (ch) && (ch) <= _T('9'))
-#define ISXDIGIT_(ch)           (ISDIGIT_(ch) || (_T('a') < (ch) && (ch) <= _T('f')) || (_T('A') < (ch) && (ch) <= _T('F')))
+#define ISXDIGIT_(ch)           (ISDIGIT_(ch) || (_T('a') <= (ch) && (ch) <= _T('f')) || (_T('A') <= (ch) && (ch) <= _T('F')))
 #define ISALNUM_(ch)            (ISALPHA_(ch) || ISDIGIT_(ch))
 #define ISANYOF_(ch, palette)   (md_strchr((palette), (ch)) != NULL)
 
@@ -307,6 +307,8 @@ md_str_case_eq(const CHAR* s1, const CHAR* s2, SZ n)
  *
  * '\\': Maybe escape sequence.
  *  '`': Maybe code span start/end.
+ *  '&': Maybe start of entity.
+ *  ';': Maybe end of entity.
  *
  * Note that not all instances of these chars in the text imply creation of the
  * structure. Only those which have (or may have, after we see more context)
@@ -437,6 +439,23 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 continue;
             }
 
+            /* A potential entity start. */
+            if(ch == _T('&')) {
+                PUSH(ch, off, off+1, MD_MARK_OPENER);
+                off++;
+                continue;
+            }
+
+            /* A potential entity end. */
+            if(ch == _T(';')) {
+                /* We surely cannot be entity unless previous mark is '&'. */
+                if(ctx->n_marks > 0  &&  ctx->marks[ctx->n_marks-1].ch == _T('&')) {
+                    PUSH(ch, off, off+1, MD_MARK_CLOSER);
+                    off++;
+                    continue;
+                }
+            }
+
             off++;
         }
     }
@@ -452,13 +471,8 @@ abort:
 }
 
 
-/* Table of precedence of various span types. */
-static const CHAR* md_precedence_table[] = {
-    _T("`"),        /* Code spans. */
-    _T("\\")        /* Backslash escapes. */
-};
-
-
+/* Analyze whether the backtick is really start/end mark of a code span.
+ * If yes, reset all marks inside of it and setup flags of both marks. */
 static void
 md_analyze_backtick(MD_CTX* ctx, int mark_index, int* p_unresolved_openers)
 {
@@ -499,12 +513,83 @@ md_analyze_backtick(MD_CTX* ctx, int mark_index, int* p_unresolved_openers)
         opener = ctx->marks[opener].next;
     }
 
-    /* We didn't find any matching opener, remember it as a potential opener. */
+    /* We didn't find any matching opener, remember it as a potential opener
+     * for subsequent '`' marks. */
     if(mark->flags & MD_MARK_OPENER) {
         mark->next = *p_unresolved_openers;
         *p_unresolved_openers = mark_index;
     }
 }
+
+/* Analyze whether the mark '&' starts a HTML entity.
+ * If so, update its flags as well as flags of corresponding closer ';'. */
+static void
+md_analyze_entity(MD_CTX* ctx, int mark_index)
+{
+    MD_MARK* opener = &ctx->marks[mark_index];
+    MD_MARK* closer;
+    OFF beg, end, off;
+
+    /* Cannot be entity if there is no closer as the next mark.
+     * (Any other mark between would mean strange character which cannot be
+     * part of the entity. */
+    if(mark_index + 1 >= ctx->n_marks)
+        return;
+
+    closer = &ctx->marks[mark_index+1];
+    if(closer->ch != _T(';'))
+        return;
+
+    if(CH(opener->end) == _T('#')) {
+        if(CH(opener->end+1) == _T('x') || CH(opener->end+1) == _T('X')) {
+            /* It can be only a hexadecimal entity. 
+             * Check it has 1 - 8 hexadecimal digits. */
+            beg = opener->end+2;
+            end = closer->beg;
+            if(!(1 <= end - beg  &&  end - beg <= 8))
+                return;
+            for(off = beg; off < end; off++) {
+                if(!ISXDIGIT(off))
+                    return;
+            }
+        } else {
+            /* It can be only a decimal entity.
+             * Check it has 1 - 8 decimal digits. */
+            beg = opener->end+1;
+            end = closer->beg;
+            if(!(1 <= end - beg  &&  end - beg <= 8))
+                return;
+            for(off = beg; off < end; off++) {
+                if(!ISDIGIT(off))
+                    return;
+            }
+        }
+    } else {
+        /* It can be only a named entity. 
+         * Check it starts with letter and 1-47 alnum chars follow. */
+        beg = opener->end;
+        end = closer->beg;
+        if(!(2 <= end - beg  &&  end - beg <= 48))
+            return;
+        if(!ISALPHA(beg))
+            return;
+        for(off = beg + 1; off < end; off++) {
+            if(!ISALNUM(off))
+                return;
+        }
+    }
+
+    /* Mark it as an entity. We actually make a single mark from it, 
+     * i.e. we expand the opener and leave the closer unresolved. */
+    opener->end = closer->end;
+    opener->flags |= MD_MARK_RESOLVED;
+}
+
+/* Table of precedence of various span types. */
+static const CHAR* md_precedence_table[] = {
+    _T("`"),        /* Code spans. */
+    _T("&")         /* Entities. */
+};
 
 static void
 md_analyze_marks(MD_CTX* ctx, int precedence_level)
@@ -536,6 +621,10 @@ md_analyze_marks(MD_CTX* ctx, int precedence_level)
         switch(mark->ch) {
             case _T('`'):
                 md_analyze_backtick(ctx, i, &code_span_unresolved_openers);
+                break;
+
+            case _T('&'):
+                md_analyze_entity(ctx, i);
                 break;
         }
 
@@ -606,6 +695,10 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                         MD_LEAVE_SPAN(MD_SPAN_CODE, NULL);
                         text_type = MD_TEXT_NORMAL;
                     }
+                    break;
+
+                case _T('&'):       /* Entity. */
+                    MD_TEXT(MD_TEXT_ENTITY, STR(mark->beg), mark->end - mark->beg);
                     break;
             }
 
