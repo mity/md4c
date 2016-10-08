@@ -1173,7 +1173,7 @@ md_is_hr_line(MD_CTX* ctx, OFF beg, OFF* p_end)
     OFF off = beg + 1;
     int n = 1;
 
-    while(off < ctx->size  &&  (CH(off) == CH(beg) || CH(off) == _T(' '))) {
+    while(off < ctx->size  &&  (CH(off) == CH(beg) || CH(off) == _T(' ') || CH(off) == _T('\t'))) {
         if(CH(off) == CH(beg))
             n++;
         off++;
@@ -1200,7 +1200,8 @@ md_is_atxheader_line(MD_CTX* ctx, OFF beg, OFF* p_beg, OFF* p_end)
         return -1;
     ctx->header_level = n;
 
-    if(!(ctx->r.flags & MD_FLAG_PERMISSIVEATXHEADERS)  &&  off < ctx->size  &&  CH(off) != _T(' ')  &&  !ISNEWLINE(off))
+    if(!(ctx->r.flags & MD_FLAG_PERMISSIVEATXHEADERS)  &&  off < ctx->size  &&
+       CH(off) != _T(' ')  &&  CH(off) != _T('\t')  &&  !ISNEWLINE(off))
         return -1;
 
     while(off < ctx->size  &&  CH(off) == _T(' '))
