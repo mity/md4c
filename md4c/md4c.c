@@ -1520,7 +1520,7 @@ redo_indentation_after_blockquote_mark:
     line->beg = off;
 
     /* Check whether we are fenced code continuation. */
-    if(pivot_line->type == MD_LINE_FENCEDCODE) {
+    if(pivot_line->type == MD_LINE_FENCEDCODE  &&  line->quote_level == pivot_line->quote_level) {
         /* We are another MD_LINE_FENCEDCODE unless we are closing fence
          * which we transform into MD_LINE_BLANK. */
         if(line->indent < ctx->code_indent_offset) {
