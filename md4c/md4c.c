@@ -1720,6 +1720,8 @@ md_process_block(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
     if(n_lines == 0)
         return 0;
 
+    memset(&det, 0, sizeof(det));
+
     /* Make sure the processed leaf block lives in the proper block quote
      * nesting level. */
     MD_CHECK(md_process_blockquote_nesting(ctx, lines[0].quote_level));
@@ -1740,18 +1742,23 @@ md_process_block(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             break;
 
         case MD_LINE_INDENTEDCODE:
-            det.code.lang = NULL;
-            det.code.lang_size = 0;
             block_type = MD_BLOCK_CODE;
             break;
 
         case MD_LINE_FENCEDCODE:
             block_type = MD_BLOCK_CODE;
             if(ctx->code_fence_info_beg < ctx->code_fence_info_end)
-                det.code.lang = STR(ctx->code_fence_info_beg);
+                det.code.info = STR(ctx->code_fence_info_beg);
             else
-                det.code.lang = NULL;
-            det.code.lang_size = ctx->code_fence_info_end - ctx->code_fence_info_beg;
+                det.code.info = NULL;
+            det.code.info_size = ctx->code_fence_info_end - ctx->code_fence_info_beg;
+
+            det.code.lang = det.code.info;
+            det.code.lang_size = 0;
+            while(det.code.lang_size < det.code.info_size
+                        &&  !ISWHITESPACE_(det.code.lang[det.code.lang_size]))
+                det.code.lang_size++;
+
             break;
 
         case MD_LINE_TEXT:

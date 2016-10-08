@@ -135,6 +135,11 @@ struct MD_BLOCK_H_DETAIL_tag {
 /* Detailed info for MD_BLOCK_CODE. */
 typedef struct MD_BLOCK_CODE_DETAIL_tag MD_BLOCK_CODE_DETAIL;
 struct MD_BLOCK_CODE_DETAIL_tag {
+    /* Complete "info string" */
+    const MD_CHAR* info;    /* Not zero-terminated, use lang_size. */
+    MD_SIZE info_size;
+
+    /* Language portion of the info string. */
     const MD_CHAR* lang;    /* Not zero-terminated, use lang_size. */
     MD_SIZE lang_size;
 };
