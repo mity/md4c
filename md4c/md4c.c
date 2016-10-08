@@ -1071,8 +1071,6 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 
         /* If reached end of line, move to next one. */
         if(off >= line->end) {
-            MD_TEXTTYPE break_type;
-
             /* If it is the last line, we are done. */
             if(off >= end)
                 break;
@@ -1088,10 +1086,15 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                     MD_TEXT(MD_SPAN_CODE, _T(" "), 1);
             } else {
                 /* Output soft or hard line break. */
-                if(enforce_hardbreak  ||  (CH(line->end) == _T(' ') && CH(line->end+1) == _T(' ')))
-                    break_type = MD_TEXT_BR;
-                else
-                    break_type = MD_TEXT_SOFTBR;
+                MD_TEXTTYPE break_type = MD_TEXT_SOFTBR;
+
+                if(text_type == MD_TEXT_NORMAL) {
+                    if(enforce_hardbreak)
+                        break_type = MD_TEXT_BR;
+                    else if((CH(line->end) == _T(' ') && CH(line->end+1) == _T(' ')))
+                        break_type = MD_TEXT_BR;
+                }
+
                 MD_TEXT(break_type, _T("\n"), 1);
             }
 
