@@ -114,7 +114,6 @@ enum MD_LINETYPE_tag {
     MD_LINE_SETEXTHEADER,
     MD_LINE_SETEXTUNDERLINE,
     MD_LINE_INDENTEDCODE,
-    MD_LINE_CODEFENCE,
     MD_LINE_FENCEDCODE,
     MD_LINE_HTML,
     MD_LINE_TEXT
@@ -1174,10 +1173,17 @@ md_process_code_block(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
         while(n_lines > 0  &&  lines[n_lines-1].beg == lines[n_lines-1].end) {
             n_lines--;
         }
-
-        if(n_lines == 0)
-            return 0;
     }
+
+    /* Skip the first line in case of fenced code: It is the fence.
+     * (Only the starting fence is present due to logic in md_analyze_line().) */
+    if(lines[0].type == MD_LINE_FENCEDCODE) {
+        lines++;
+        n_lines--;
+    }
+
+    if(n_lines == 0)
+        return 0;
 
     return md_process_verbatim_block(ctx, MD_TEXT_CODE, lines, n_lines);
 }
@@ -1514,7 +1520,7 @@ redo_indentation_after_blockquote_mark:
     line->beg = off;
 
     /* Check whether we are fenced code continuation. */
-    if(pivot_line->type == MD_LINE_FENCEDCODE || pivot_line->type == MD_LINE_CODEFENCE) {
+    if(pivot_line->type == MD_LINE_FENCEDCODE) {
         /* We are another MD_LINE_FENCEDCODE unless we are closing fence
          * which we transform into MD_LINE_BLANK. */
         if(line->indent < ctx->code_indent_offset) {
@@ -1608,7 +1614,7 @@ redo_indentation_after_blockquote_mark:
     if(CH(off) == _T('`') || CH(off) == _T('~')) {
         if(md_is_opening_code_fence(ctx, off, &off) == 0) {
             ctx->code_fence_indent = line->indent;
-            line->type = MD_LINE_CODEFENCE;
+            line->type = MD_LINE_FENCEDCODE;
             goto done;
         }
     }
@@ -1751,7 +1757,6 @@ md_process_block(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             break;
 
         case MD_LINE_SETEXTUNDERLINE:
-        case MD_LINE_CODEFENCE:
             /* Noop. */
             return 0;
 
