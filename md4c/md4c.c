@@ -1555,6 +1555,13 @@ redo_indentation_after_blockquote_mark:
         if(md_is_html_block_end_condition(ctx, off) == ctx->html_block_type) {
             /* Make sure this is the last line of the block. */
             ctx->html_block_type = 0;
+
+            /* Some end conditions serve as blank lines at the same time. */
+            if(ISNEWLINE(off)) {
+                line->type = MD_LINE_BLANK;
+                line->indent = 0;
+                goto done;
+            }
         }
 
         line->type = MD_LINE_HTML;
@@ -1575,9 +1582,7 @@ redo_indentation_after_blockquote_mark:
     }
 
     /* Check whether we are indented code line.
-     * Note indented code block cannot interrupt paragraph.
-     * Keep this is as the first check after the blank line: The checks below
-     * then do not need to verify that indentation < 4. */
+     * Note indented code block cannot interrupt paragraph. */
     if((pivot_line->type == MD_LINE_BLANK || pivot_line->type == MD_LINE_INDENTEDCODE)
         && line->indent >= ctx->code_indent_offset)
     {
@@ -1588,7 +1593,7 @@ redo_indentation_after_blockquote_mark:
 
     /* Check whether we are ATX header.
      * (We check the indentation to fix http://spec.commonmark.org/0.26/#example-40) */
-    if(line->indent < 4  &&  CH(off) == _T('#')) {
+    if(line->indent < ctx->code_indent_offset  &&  CH(off) == _T('#')) {
         if(md_is_atxheader_line(ctx, off, &line->beg, &off) == 0) {
             line->type = MD_LINE_ATXHEADER;
             goto done;
@@ -1596,7 +1601,7 @@ redo_indentation_after_blockquote_mark:
     }
 
     /* Check whether we are Setext underline. */
-    if(line->indent < 4  &&  pivot_line->type == MD_LINE_TEXT
+    if(line->indent < ctx->code_indent_offset  &&  pivot_line->type == MD_LINE_TEXT
         &&  line->quote_level == pivot_line->quote_level
         && (CH(off) == _T('=') || CH(off) == _T('-')))
     {
@@ -1609,7 +1614,7 @@ redo_indentation_after_blockquote_mark:
     /* Check whether we are thematic break line.
      * (We check the indentation to fix http://spec.commonmark.org/0.26/#example-19)
      * (Keep this after check for Setext underline as that one has higher priority). */
-    if(line->indent < 4  &&  ISANYOF(off, _T("-_*"))) {
+    if(line->indent < ctx->code_indent_offset  &&  ISANYOF(off, _T("-_*"))) {
         if(md_is_hr_line(ctx, off, &off) == 0) {
             line->type = MD_LINE_HR;
             goto done;
@@ -1626,7 +1631,9 @@ redo_indentation_after_blockquote_mark:
     }
 
     /* Check whether we are start of raw HTML block. */
-    if(CH(off) == _T('<')  &&  !(ctx->r.flags & MD_FLAG_NOHTMLBLOCKS)) {
+    if(CH(off) == _T('<')  &&  !(ctx->r.flags & MD_FLAG_NOHTMLBLOCKS)
+        &&  line->indent < ctx->code_indent_offset)
+    {
         ctx->html_block_type = md_is_html_block_start_condition(ctx, off);
         if(ctx->html_block_type > 0) {
             /* The line itself also may immediately close the block. */
