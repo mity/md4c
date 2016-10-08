@@ -1635,6 +1635,11 @@ redo_indentation_after_blockquote_mark:
         &&  line->indent < ctx->code_indent_offset)
     {
         ctx->html_block_type = md_is_html_block_start_condition(ctx, off);
+
+        /* HTML block type 7 cannot interrupt paragraph. */
+        if(ctx->html_block_type == 7  &&  pivot_line->type == MD_LINE_TEXT)
+            ctx->html_block_type = -1;
+
         if(ctx->html_block_type > 0) {
             /* The line itself also may immediately close the block. */
             if(md_is_html_block_end_condition(ctx, off) == ctx->html_block_type) {
