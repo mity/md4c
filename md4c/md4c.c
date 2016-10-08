@@ -1547,7 +1547,8 @@ redo_indentation_after_blockquote_mark:
      * Keep this is as the first check after the blank line: The checks below
      * then do not need to verify that indentation < 4. */
     if((pivot_line->type == MD_LINE_BLANK || pivot_line->type == MD_LINE_INDENTEDCODE)
-        && line->indent >= ctx->code_indent_offset) {
+        && line->indent >= ctx->code_indent_offset)
+    {
         line->type = MD_LINE_INDENTEDCODE;
         line->indent -= ctx->code_indent_offset;
         goto done;
@@ -1563,7 +1564,10 @@ redo_indentation_after_blockquote_mark:
     }
 
     /* Check whether we are Setext underline. */
-    if(line->indent < 4  &&  pivot_line->type == MD_LINE_TEXT  &&  (CH(off) == _T('=') || CH(off) == _T('-'))) {
+    if(line->indent < 4  &&  pivot_line->type == MD_LINE_TEXT
+        &&  line->quote_level == pivot_line->quote_level
+        && (CH(off) == _T('=') || CH(off) == _T('-')))
+    {
         if(md_is_setext_underline(ctx, off, &off) == 0) {
             line->type = MD_LINE_SETEXTUNDERLINE;
             goto done;
