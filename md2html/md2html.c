@@ -424,6 +424,7 @@ static const option cmdline_options[] = {
     { "fpermissive-atx-headers",     0,  'A', OPTION_ARG_NONE },
     { "fno-indented-code",           0,  'I', OPTION_ARG_NONE },
     { "fno-html-blocks",             0,  'H', OPTION_ARG_NONE },
+    { "fcollapse-whitespace",        0,  'W', OPTION_ARG_NONE },
     { 0 }
 };
 
@@ -441,6 +442,7 @@ usage(void)
         "  -h, --help               display this help and exit\n"
         "\n"
         "Markdown dialect options:\n"
+        "      --fcollapse-whitespace       collapse non-trivial whitespace\n"
         "      --fverbatim-entities         do not translate entities\n"
         "      --fpermissive-atx-headers    allow ATX headers without delimiting space\n"
         "      --fno-indented-code          disable indented code blocks\n"
@@ -473,6 +475,7 @@ cmdline_callback(int opt, char const* value, void* data)
         case 'A':   renderer_flags |= MD_FLAG_PERMISSIVEATXHEADERS; break;
         case 'I':   renderer_flags |= MD_FLAG_NOINDENTEDCODEBLOCKS; break;
         case 'H':   renderer_flags |= MD_FLAG_NOHTMLBLOCKS; break;
+        case 'W':   renderer_flags |= MD_FLAG_COLLAPSEWHITESPACE; break;
 
         default:
             fprintf(stderr, "Illegal option: %s\n", value);
