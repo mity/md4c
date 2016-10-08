@@ -1636,8 +1636,10 @@ done:
     }
 
     /* Trim tailing spaces. */
-    while(line->end > line->beg && CH(line->end-1) == _T(' '))
-        line->end--;
+    if(line->type != MD_LINE_INDENTEDCODE  &&  line->type != MD_LINE_FENCEDCODE) {
+        while(line->end > line->beg && CH(line->end-1) == _T(' '))
+            line->end--;
+    }
 
     /* Eat also the new line. */
     if(off < ctx->size && CH(off) == _T('\r'))
