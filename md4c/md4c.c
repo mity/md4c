@@ -1162,6 +1162,26 @@ abort:
     return ret;
 }
 
+static int
+md_process_code_block(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
+{
+    /* Ignore blank lines at start/end of indented code block. */
+    if(lines[0].type == MD_LINE_INDENTEDCODE) {
+        while(n_lines > 0  &&  lines[0].beg == lines[0].end) {
+            lines++;
+            n_lines--;
+        }
+        while(n_lines > 0  &&  lines[n_lines-1].beg == lines[n_lines-1].end) {
+            n_lines--;
+        }
+
+        if(n_lines == 0)
+            return 0;
+    }
+
+    return md_process_verbatim_block(ctx, MD_TEXT_CODE, lines, n_lines);
+}
+
 
 /***************************************
  ***  Breaking Document into Blocks  ***
@@ -1749,7 +1769,7 @@ md_process_block(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             break;
 
         case MD_BLOCK_CODE:
-            ret = md_process_verbatim_block(ctx, MD_TEXT_CODE, lines, n_lines);
+            ret = md_process_code_block(ctx, lines, n_lines);
             break;
 
         case MD_BLOCK_HTML:
