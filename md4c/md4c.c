@@ -1540,6 +1540,16 @@ redo_indentation_after_blockquote_mark:
         goto done;
     }
 
+    /* Check whether we are indented code line.
+     * Note indented code block cannot interrupt paragraph. */
+    if((pivot_line->type == MD_LINE_BLANK || pivot_line->type == MD_LINE_INDENTEDCODE)
+        && line->indent >= ctx->code_indent_offset)
+    {
+        line->type = MD_LINE_INDENTEDCODE;
+        line->indent -= ctx->code_indent_offset;
+        goto done;
+    }
+
     /* Check blockquote mark. */
     if(off < ctx->size  &&  CH(off) == _T('>')) {
         off++;
@@ -1578,16 +1588,6 @@ redo_indentation_after_blockquote_mark:
             line->type = MD_LINE_INDENTEDCODE;
         else
             line->type = MD_LINE_BLANK;
-        goto done;
-    }
-
-    /* Check whether we are indented code line.
-     * Note indented code block cannot interrupt paragraph. */
-    if((pivot_line->type == MD_LINE_BLANK || pivot_line->type == MD_LINE_INDENTEDCODE)
-        && line->indent >= ctx->code_indent_offset)
-    {
-        line->type = MD_LINE_INDENTEDCODE;
-        line->indent -= ctx->code_indent_offset;
         goto done;
     }
 
