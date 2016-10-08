@@ -1530,6 +1530,12 @@ redo_indentation_after_blockquote_mark:
             }
         }
 
+        /* Change indentation accordingly to the initial code fence. */
+        if(line->indent > pivot_line->indent)
+            line->indent -= pivot_line->indent;
+        else
+            line->indent = 0;
+
         line->type = MD_LINE_FENCEDCODE;
         goto done;
     }
