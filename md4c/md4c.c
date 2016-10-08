@@ -934,8 +934,7 @@ md_analyze_entity(MD_CTX* ctx, int mark_index)
 
 /* Table of precedence of various span types. */
 static const CHAR* md_precedence_table[] = {
-    _T("`"),        /* Code spans. */
-    _T("<"),        /* Raw HTML. */
+    _T("`<"),       /* Code spans and raw HTML have the same precedence. */
     _T("&")         /* Entities. */
 };
 
