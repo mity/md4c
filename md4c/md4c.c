@@ -1553,17 +1553,6 @@ redo_indentation_after_blockquote_mark:
         goto done;
     }
 
-    /* Check whether we are indented code line.
-     * Note indented code block cannot interrupt paragraph.
-     * Keep this is as the first check after the blank line: The checks below
-     * then do not need to verify that indentation < 4. */
-    if((pivot_line->type == MD_LINE_BLANK || pivot_line->type == MD_LINE_INDENTEDCODE)
-        && line->indent >= ctx->code_indent_offset) {
-        line->type = MD_LINE_INDENTEDCODE;
-        line->indent -= ctx->code_indent_offset;
-        goto done;
-    }
-
     /* Check whether we are ATX header.
      * (We check the indentation to fix http://spec.commonmark.org/0.26/#example-40) */
     if(line->indent < 4  &&  CH(off) == _T('#')) {
