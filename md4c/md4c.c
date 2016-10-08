@@ -1888,17 +1888,12 @@ md_process_doc(MD_CTX *ctx)
             continue;
         }
 
-        /* Not much to do with multiple blank lines. */
-        if(line->type == MD_LINE_BLANK)
-            continue;
-
         /* Otherwise we just accumulate the line into ongoing block. */
         n_lines++;
     }
 
     /* Process also the last block. */
-    if(pivot_line->type != MD_LINE_BLANK)
-        MD_CHECK(md_process_block(ctx, lines, n_lines));
+    MD_CHECK(md_process_block(ctx, lines, n_lines));
 
     /* Close any dangling parent blocks. */
     MD_CHECK(md_process_blockquote_nesting(ctx, 0));
