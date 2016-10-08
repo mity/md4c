@@ -298,6 +298,300 @@ md_str_case_eq(const CHAR* s1, const CHAR* s2, SZ n)
     } while(0)
 
 
+/******************************
+ ***  Recognizing raw HTML  ***
+ ******************************/
+
+/* md_is_html_tag() may be called when processing inlines (inline raw HTML)
+ * or when breaking document to blocks (checking for start of HTML block type 7).
+ *
+ * When breaking document to blocks, we do not yet know line boundaries, but
+ * in that case th whole tag has to live on a single line. We distinguish this
+ * by n_lines == 0.
+ */
+static int
+md_is_html_tag(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF* p_end)
+{
+    int attr_state;
+    OFF off = beg;
+    OFF line_end = (n_lines > 0) ? lines[0].end : ctx->size;
+    int i = 0;
+
+    if(off + 1 >= line_end)
+        return -1;
+    if(CH(off) != _T('<'))
+        return -1;
+    off++;
+
+    /* For parsing attributes, we need a little state automaton below.
+     * State -1: no attributes are allowed.
+     * State 0: attribute could follow after some whitespace.
+     * State 1: after a whitespace (attribute name may follow).
+     * State 2: after attribute name ('=' MAY follow).
+     * State 3: after '=' (value specification MUST follow).
+     * State 41: in middle of unquoted attribute value.
+     * State 42: in middle of single-quoted attribute value.
+     * State 43: in middle of double-quoted attribute value.
+     */
+    attr_state = 0;
+
+    if(CH(off) == _T('/')) {
+        /* Closer tag "</ ... >". No attributes may be present. */
+        attr_state = -1;
+        off++;
+    }
+
+    /* Tag name */
+    if(off >= line_end  ||  !ISALPHA(off))
+        return -1;
+    off++;
+    while(off < line_end  &&  (ISALNUM(off)  ||  ISANYOF(off, _T("_.:-"))))
+        off++;
+
+    /* (Optional) attributes (if not closer), (optional) '/' (if not closer)
+     * and final '>'. */
+    while(1) {
+        while(off < line_end) {
+            if(attr_state > 40) {
+                if(attr_state == 41 && ISANYOF(off, _T("\"'=<>`"))) {
+                    attr_state = 0;
+                    off--;  /* Put the char back for re-inspection in the new state. */
+                } else if(attr_state == 42 && CH(off) == _T('\'')) {
+                    attr_state = 0;
+                } else if(attr_state == 43 && CH(off) == _T('"')) {
+                    attr_state = 0;
+                }
+                off++;
+            } else if(ISWHITESPACE(off)) {
+                if(attr_state == 0)
+                    attr_state = 1;
+                off++;
+            } else if(attr_state <= 2 && CH(off) == _T('>')) {
+                /* End. */
+                *p_end = off+1;
+                return 0;
+            } else if(attr_state <= 2 && CH(off) == _T('/') && off+1 < line_end && CH(off+1) == _T('>')) {
+                /* End with digraph '/>' */
+                *p_end = off+2;
+                return 0;
+            } else if((attr_state == 1 || attr_state == 2) && (ISALPHA(off) || CH(off) == _T('_') || CH(off) == _T(':'))) {
+                off++;
+                /* Attribute name */
+                while(off < line_end && (ISALNUM(off) || ISANYOF(off, _T("_.:-"))))
+                    off++;
+                attr_state = 2;
+            } else if(attr_state == 2 && CH(off) == _T('=')) {
+                /* Attribute assignment sign */
+                off++;
+                attr_state = 3;
+            } else if(attr_state == 3) {
+                /* Expecting start of attribute value. */
+                if(CH(off) == _T('"'))
+                    attr_state = 43;
+                else if(CH(off) == _T('\''))
+                    attr_state = 42;
+                else if(!ISANYOF(off, _T("\"'=<>`"))  &&  !ISNEWLINE(off))
+                    attr_state = 41;
+                else
+                    return -1;
+                off++;
+            } else {
+                /* Anything unexpected. */
+                return -1;
+            }
+        }
+
+        /* We have to be on a single line. See definition of start condition
+         * of HTML block, type 7. */
+        if(n_lines == 0)
+            break;
+
+        i++;
+        if(i >= n_lines)
+            break;
+
+        off = lines[i].beg;
+        line_end = lines[i].end;
+
+        if(attr_state == 0)
+            attr_state = 1;
+    }
+
+    return -1;
+}
+
+static int
+md_is_html_comment(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF* p_end)
+{
+    OFF off = beg;
+    int i = 0;
+
+    if(off + 4 >= lines[0].end)
+        return -1;
+    if(CH(off) != _T('<')  ||  CH(off+1) != _T('!')  ||  CH(off+2) != _T('-')  ||  CH(off+3) != _T('-'))
+        return -1;
+    off += 4;
+
+    /* ">" and "->" must follow the opening. */
+    if(off < lines[0].end  &&  CH(off) == _T('>'))
+        return -1;
+    if(off+1 < lines[0].end  &&  CH(off) == _T('-')  &&  CH(off+1) == _T('>'))
+        return -1;
+
+    while(1) {
+        while(off + 2 < lines[i].end) {
+            if(CH(off) == _T('-')  &&  CH(off+1) == _T('-')) {
+                if(CH(off+2) == _T('>')) {
+                    /* Success. */
+                    *p_end = off + 3;
+                    return 0;
+                } else {
+                    /* "--" is prohibited inside the comment. */
+                    return -1;
+                }
+            }
+
+            off++;
+        }
+
+        i++;
+        if(i >= n_lines)
+            break;
+
+        off = lines[i].beg;
+    }
+
+    return -1;
+}
+
+static int
+md_is_html_processing_instruction(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF* p_end)
+{
+    OFF off = beg;
+    int i = 0;
+
+    if(off + 2 >= lines[0].end)
+        return -1;
+    if(CH(off) != _T('<')  ||  CH(off+1) != _T('?'))
+        return -1;
+    off += 2;
+
+    while(1) {
+        while(off + 1 < lines[i].end) {
+            if(CH(off) == _T('?')  &&  CH(off+1) == _T('>')) {
+                /* Success. */
+                *p_end = off + 2;
+                return 0;
+            }
+
+            off++;
+        }
+
+        i++;
+        if(i >= n_lines)
+            break;
+
+        off = lines[i].beg;
+    }
+
+    return -1;
+}
+
+static int
+md_is_html_declaration(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF* p_end)
+{
+    OFF off = beg;
+    int i = 0;
+
+    if(off + 2 >= lines[0].end)
+        return -1;
+    if(CH(off) != _T('<')  ||  CH(off+1) != _T('!'))
+        return -1;
+    off += 2;
+
+    /* Declaration name. */
+    if(off >= lines[0].end  ||  !ISALPHA(off))
+        return -1;
+    off++;
+    while(off < lines[0].end  &&  ISALPHA(off))
+        off++;
+    if(off < lines[0].end  &&  !ISWHITESPACE(off))
+        return -1;
+
+    while(1) {
+        while(off < lines[i].end) {
+            if(CH(off+1) == _T('>')) {
+                /* Success. */
+                *p_end = off + 2;
+                return 0;
+            }
+
+            off++;
+        }
+
+        i++;
+        if(i >= n_lines)
+            break;
+
+        off = lines[i].beg;
+    }
+
+    return -1;
+}
+
+static int
+md_is_html_cdata(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF* p_end)
+{
+    static const CHAR open_str[9] = _T("<![CDATA[");
+
+    OFF off = beg;
+    int i = 0;
+
+    if(off + SIZEOF_ARRAY(open_str) >= lines[0].end)
+        return -1;
+    if(memcmp(STR(off), open_str, sizeof(open_str)) != 0)
+        return -1;
+    off += SIZEOF_ARRAY(open_str);
+
+    while(1) {
+        while(off + 2 < lines[i].end) {
+            if(CH(off) == _T(']')  &&  CH(off+1) == _T(']')  &&  CH(off+2) == _T('>')) {
+                /* Success. */
+                *p_end = off + 3;
+                return 0;
+            }
+
+            off++;
+        }
+
+        i++;
+        if(i >= n_lines)
+            break;
+
+        off = lines[i].beg;
+    }
+
+    return -1;
+}
+
+static int
+md_is_html_any(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF* p_end)
+{
+    if(md_is_html_tag(ctx, lines, n_lines, beg, p_end) == 0)
+        return 0;
+    if(md_is_html_comment(ctx, lines, n_lines, beg, p_end) == 0)
+        return 0;
+    if(md_is_html_processing_instruction(ctx, lines, n_lines, beg, p_end) == 0)
+        return 0;
+    if(md_is_html_declaration(ctx, lines, n_lines, beg, p_end) == 0)
+        return 0;
+    if(md_is_html_cdata(ctx, lines, n_lines, beg, p_end) == 0)
+        return 0;
+
+    return -1;
+}
+
+
 /******************************************************
  ***  Processing Sequence of Inlines (a.k.a Spans)  ***
  ******************************************************/
@@ -309,6 +603,8 @@ md_str_case_eq(const CHAR* s1, const CHAR* s2, SZ n)
  *  '`': Maybe code span start/end.
  *  '&': Maybe start of entity.
  *  ';': Maybe end of entity.
+ *  '<': Maybe start of raw HTML.
+ *  '>': Maybe end of raw HTML.
  *
  * Note that not all instances of these chars in the text imply creation of the
  * structure. Only those which have (or may have, after we see more context)
@@ -456,6 +752,15 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 }
             }
 
+            /* A potential raw HTML start/end. */
+            if(ch == _T('<') || ch == _T('>')) {
+                if(!(ctx->r.flags & MD_FLAG_NOHTMLSPANS)) {
+                    PUSH(ch, off, off+1, (ch == _T('<') ? MD_MARK_OPENER : MD_MARK_CLOSER));
+                    off++;
+                    continue;
+                }
+            }
+
             off++;
         }
     }
@@ -495,7 +800,7 @@ md_analyze_backtick(MD_CTX* ctx, int mark_index, int* p_unresolved_openers)
             /* Make the opener point to us as its closer. */
             op->next = mark_index;
 
-            /* Cancel any escapes inside the code span. */
+            /* Cancel any already resolved marks in the code span. */
             if(mark_index - opener > 1)
                 memset(ctx->marks + opener + 1, 0, sizeof(MD_MARK) * (mark_index - opener - 1));
 
@@ -519,6 +824,49 @@ md_analyze_backtick(MD_CTX* ctx, int mark_index, int* p_unresolved_openers)
         mark->next = *p_unresolved_openers;
         *p_unresolved_openers = mark_index;
     }
+}
+
+static void
+md_analyze_raw_html(MD_CTX* ctx, int mark_index, const MD_LINE* lines, int n_lines)
+{
+    MD_MARK* opener = &ctx->marks[mark_index];
+    MD_MARK* closer;
+    OFF end;
+    int i = 0;
+
+    /* Identify the line where the mark lives. */
+    while(1) {
+        if(opener->beg < lines[i].end)
+            break;
+        i++;
+    }
+
+    /* Return if we are not really raw HTML. */
+    if(md_is_html_any(ctx, lines + i, n_lines - i, opener->beg, &end) < 0)
+        return;
+
+    /* Cancel any already resolved marks in the range up to the closer.
+     * We have to find there the close '>' or something is severly broken. */
+    mark_index++;
+    while(mark_index < ctx->n_marks  &&  ctx->marks[mark_index].end < end) {
+        ctx->marks[mark_index].ch = _T('\0');
+        ctx->marks[mark_index].flags = 0;
+        mark_index++;
+    }
+    closer = &ctx->marks[mark_index];
+/*
+    MD_ASSERT(closer->end == end);
+    MD_ASSERT(closer->ch == _T('>'));
+*/
+
+    opener->flags |= MD_MARK_RESOLVED;
+    opener->next = mark_index;
+    closer->flags |= MD_MARK_RESOLVED;
+
+    /* Make these marker zero width so the '<' and '>' are part of its
+     * contents. */
+    opener->end = opener->beg;
+    closer->beg = closer->end;
 }
 
 /* Analyze whether the mark '&' starts a HTML entity.
@@ -588,11 +936,12 @@ md_analyze_entity(MD_CTX* ctx, int mark_index)
 /* Table of precedence of various span types. */
 static const CHAR* md_precedence_table[] = {
     _T("`"),        /* Code spans. */
+    _T("<"),        /* Raw HTML. */
     _T("&")         /* Entities. */
 };
 
 static void
-md_analyze_marks(MD_CTX* ctx, int precedence_level)
+md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int precedence_level)
 {
     const CHAR* mark_chars = md_precedence_table[precedence_level];
     /* Chain of potential/unresolved code span openers. */
@@ -623,6 +972,10 @@ md_analyze_marks(MD_CTX* ctx, int precedence_level)
                 md_analyze_backtick(ctx, i, &code_span_unresolved_openers);
                 break;
 
+            case _T('<'):
+                md_analyze_raw_html(ctx, i, lines, n_lines);
+                break;
+
             case _T('&'):
                 md_analyze_entity(ctx, i);
                 break;
@@ -639,7 +992,7 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
     int i;
 
     for(i = 0; i < SIZEOF_ARRAY(md_precedence_table); i++)
-        md_analyze_marks(ctx, i);
+        md_analyze_marks(ctx, lines, n_lines, i);
 }
 
 /* Render the output, accordingly to the analyzed ctx->marks. */
@@ -695,6 +1048,13 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                         MD_LEAVE_SPAN(MD_SPAN_CODE, NULL);
                         text_type = MD_TEXT_NORMAL;
                     }
+                    break;
+
+                case _T('<'):       /* Raw HTML. */
+                    text_type = MD_TEXT_HTML;
+                    break;
+                case _T('>'):
+                    text_type = MD_TEXT_NORMAL;
                     break;
 
                 case _T('&'):       /* Entity. */
@@ -1044,29 +1404,14 @@ md_is_html_block_start_condition(MD_CTX* ctx, OFF beg)
     }
 
     /* Check for type 7: any COMPLETE other opening or closing tag. */
-    // TODO: Rework this: This should be shared with some part of
-    // inline raw html (spec section 6.8).
     if(off + 1 < ctx->size) {
-        if(ISALPHA(off)  ||  (CH(off) == _T('/') && ISALPHA(off+1))) {
-            OFF tmp = off + 1;
+        OFF end;
 
-            /* Eat tag name. */
-            while(tmp < ctx->size  &&  (ISALNUM(tmp) || CH(tmp) == _T('-')))
-                tmp++;
-
-            /* If opening tag, eat any attributes. */
-            if(tmp < ctx->size  &&  CH(tmp) != _T('/')) {
-                // TODO
-            }
-
-            /* Eat any whitespace */
-            while(tmp < ctx->size  &&  ISWHITESPACE(tmp))
-                tmp++;
-
-            if(tmp < ctx->size  &&  CH(tmp) == _T('/'))
-                tmp++;
-
-            if(tmp < ctx->size  &&  CH(tmp) == _T('>'))
+        if(md_is_html_tag(ctx, NULL, 0, beg, &end) == 0) {
+            /* Only optional whitespace and new line may follow. */
+            while(end < ctx->size  &&  ISWHITESPACE(end))
+                end++;
+            if(end >= ctx->size  ||  ISNEWLINE(end))
                 return 7;
         }
     }

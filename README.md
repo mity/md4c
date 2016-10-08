@@ -104,7 +104,7 @@ more or less forms our to do list.
   - [ ] 6.5 Links
   - [ ] 6.6 Images
   - [ ] 6.7 Autolinks
-  - [ ] 6.8 Raw HTML
+  - [x] 6.8 Raw HTML
   - [x] 6.9 Hard line breaks
   - [x] 6.10 Soft line breaks
   - [x] 6.11 Textual content
@@ -142,7 +142,7 @@ consideration.
   - [x] Permissive ATX headers: `###Header` (without space)
   - [ ] Permissive autolinks: `http://google.com` (without `<`...`>`)
   - [x] Disabling indented code blocks
-  - [ ] Disabling raw HTML blocks/spans
+  - [x] Disabling raw HTML blocks/spans
 
 
 ## License

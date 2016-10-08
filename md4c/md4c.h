@@ -148,6 +148,8 @@ struct MD_BLOCK_CODE_DETAIL_tag {
 #define MD_FLAG_PERMISSIVEATXHEADERS    0x0001  /* Do not require space in ATX headers ( ###header ) */
 #define MD_FLAG_NOINDENTEDCODEBLOCKS    0x0002  /* Disable indented code blocks. (Only fenced code works.) */
 #define MD_FLAG_NOHTMLBLOCKS            0x0004  /* Disable raw HTML blocks. */
+#define MD_FLAG_NOHTMLSPANS             0x0008  /* Disable raw HTML (inline). */
+#define MD_FLAG_NOHTML                  (MD_FLAG_NOHTMLBLOCKS | MD_FLAG_NOHTMLSPANS)
 
 /* Caller-provided callbacks.
  *
