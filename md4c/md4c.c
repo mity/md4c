@@ -1574,7 +1574,7 @@ redo_indentation_after_blockquote_mark:
     }
 
     /* Check whether we are Setext underline. */
-    if(pivot_line->type == MD_LINE_TEXT  &&  (CH(off) == _T('=') || CH(off) == _T('-'))) {
+    if(line->indent < 4  &&  pivot_line->type == MD_LINE_TEXT  &&  (CH(off) == _T('=') || CH(off) == _T('-'))) {
         if(md_is_setext_underline(ctx, off, &off) == 0) {
             line->type = MD_LINE_SETEXTUNDERLINE;
             goto done;
