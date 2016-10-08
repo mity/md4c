@@ -1584,7 +1584,7 @@ redo_indentation_after_blockquote_mark:
      */
     if(off >= ctx->size  ||  ISNEWLINE(off)) {
         line->indent = 0;
-        if(pivot_line->type == MD_LINE_INDENTEDCODE)
+        if(pivot_line->type == MD_LINE_INDENTEDCODE  &&  line->quote_level == pivot_line->quote_level)
             line->type = MD_LINE_INDENTEDCODE;
         else
             line->type = MD_LINE_BLANK;
