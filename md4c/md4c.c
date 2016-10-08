@@ -1564,8 +1564,9 @@ redo_indentation_after_blockquote_mark:
         goto done;
     }
 
-    /* Check whether we are ATX header. */
-    if(CH(off) == _T('#')) {
+    /* Check whether we are ATX header.
+     * (We check the indentation to fix http://spec.commonmark.org/0.26/#example-40) */
+    if(line->indent < 4  &&  CH(off) == _T('#')) {
         if(md_is_atxheader_line(ctx, off, &line->beg, &off) == 0) {
             line->type = MD_LINE_ATXHEADER;
             goto done;
