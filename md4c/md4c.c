@@ -1540,6 +1540,16 @@ redo_indentation_after_blockquote_mark:
         goto done;
     }
 
+    /* Check blockquote mark. */
+    if(off < ctx->size  &&  CH(off) == _T('>')) {
+        off++;
+        if(off < ctx->size  &&  CH(off) == _T(' '))
+            off++;
+        line->quote_level++;
+        line->indent = 0;
+        goto redo_indentation_after_blockquote_mark;
+    }
+
     /* Check whether we are HTML block continuation. */
     if(pivot_line->type == MD_LINE_HTML  &&  ctx->html_block_type > 0) {
         if(md_is_html_block_end_condition(ctx, off) == ctx->html_block_type) {
@@ -1549,16 +1559,6 @@ redo_indentation_after_blockquote_mark:
 
         line->type = MD_LINE_HTML;
         goto done;
-    }
-
-    /* Check blockquote mark. */
-    if(off < ctx->size  &&  CH(off) == _T('>')) {
-        off++;
-        if(off < ctx->size  &&  CH(off) == _T(' '))
-            off++;
-        line->quote_level++;
-        line->indent = 0;
-        goto redo_indentation_after_blockquote_mark;
     }
 
     /* Check whether we are blank line.
