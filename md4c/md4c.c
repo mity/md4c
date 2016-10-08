@@ -351,7 +351,7 @@ md_is_html_tag(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF* p_e
     /* (Optional) attributes (if not closer), (optional) '/' (if not closer)
      * and final '>'. */
     while(1) {
-        while(off < line_end) {
+        while(off < line_end  &&  !ISNEWLINE(off)) {
             if(attr_state > 40) {
                 if(attr_state == 41 && ISANYOF(off, _T("\"'=<>`"))) {
                     attr_state = 0;
