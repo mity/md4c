@@ -1182,6 +1182,10 @@ md_is_hr_line(MD_CTX* ctx, OFF beg, OFF* p_end)
     if(n < 3)
         return -1;
 
+    /* Nothing else can be present on the line. */
+    if(off < ctx->size  &&  !ISNEWLINE(off))
+        return -1;
+
     *p_end = off;
     return 0;
 }
@@ -1577,8 +1581,9 @@ redo_indentation_after_blockquote_mark:
     }
 
     /* Check whether we are thematic break line.
+     * (We check the indentation to fix http://spec.commonmark.org/0.26/#example-19)
      * (Keep this after check for Setext underline as that one has higher priority). */
-    if(ISANYOF(off, _T("-_*"))) {
+    if(line->indent < 4  &&  ISANYOF(off, _T("-_*"))) {
         if(md_is_hr_line(ctx, off, &off) == 0) {
             line->type = MD_LINE_HR;
             goto done;
