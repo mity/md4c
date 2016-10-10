@@ -1,16 +1,19 @@
 #!/bin/sh
+#
+# Run this script from build directory.
 
 set -e
+
+SELF_DIR=`dirname $0`
+PROJECT_DIR="$SELF_DIR/.."
+TEST_DIR="$PROJECT_DIR/test"
+
 
 PROGRAM="md2html/md2html"
 if [ ! -x "$PROGRAM" ]; then
     echo "Cannot find the $PROGRAM." >&2
     echo "You have to run this script from the build directory." >&2
     exit 1
-fi
-
-if [ ! -d commonmark ]; then
-    git clone https://github.com/jgm/commonmark.git
 fi
 
 if which python3 2>/dev/null; then
@@ -21,4 +24,4 @@ elif which python 2>/dev/null; then
     fi
 fi
 
-$PYTHON commonmark/test/spec_tests.py -s commonmark/spec.txt -p "$PROGRAM" "$@"
+$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/spec.txt" -p "$PROGRAM" "$@'

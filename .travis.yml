@@ -17,5 +17,5 @@ script:
 after_success:
     - sudo apt-get install python3
     - pip install --user cpp-coveralls
-    - ../scripts/run-commonmark-tests.sh
+    - ../scripts/run-tests.sh
     - ~/.local/bin/coveralls -r .. -i md4c

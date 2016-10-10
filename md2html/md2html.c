@@ -249,7 +249,7 @@ enter_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
 
     switch(type) {
         case MD_BLOCK_DOC:      /* noop */ break;
-        case MD_BLOCK_QUOTE:    MEMBUF_APPEND_LITERAL(out, "<blockquote>"); break;
+        case MD_BLOCK_QUOTE:    MEMBUF_APPEND_LITERAL(out, "<blockquote>\n"); break;
         case MD_BLOCK_HR:       MEMBUF_APPEND_LITERAL(out, "<hr>\n"); break;
         case MD_BLOCK_H:        MEMBUF_APPEND_LITERAL(out, head[((MD_BLOCK_H_DETAIL*)detail)->level - 1]); break;
         case MD_BLOCK_CODE:     open_code_block(out, (const MD_BLOCK_CODE_DETAIL*) detail); break;
