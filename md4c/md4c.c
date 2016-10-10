@@ -693,22 +693,24 @@ md_is_html_any(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF max_
  * Note that not all instances of these chars in the text imply creation of the
  * structure. Only those which have (or may have, after we see more context)
  * the special meaning.
+ *
+ * (Keep this struct as small as possible to fit as much of them into CPU
+ * cache line.)
  */
 struct MD_MARK_tag {
-    /* For unresolved openers, these two form the chain of open openers of
-     * given type.
+    OFF beg;
+    OFF end;
+
+    /* For unresolved openers, 'prev' and 'next' form the chain of open openers
+     * of given type 'ch'.
      *
      * During resolving, we disconnect from the chain and point to the
      * corresponding counterpart so opener points to its closer and vice versa.
      */
-    int prev;
-    int next;
-
-    OFF beg;
-    OFF end;
-
-    MD_CHAR ch;
-    unsigned char flags;
+    int prev    : 24;
+    int ch      : 8;    /* Only ASCII chars can form a mark. */
+    int next    : 24;
+    int flags   : 8;
 };
 
 /* Mark flags. */
@@ -754,11 +756,11 @@ md_push_mark(MD_CTX* ctx)
 #define PUSH_MARK(ch_, beg_, end_, flags_)                              \
         do {                                                            \
             PUSH_MARK_();                                               \
-            mark->prev = -1;                                            \
-            mark->next = -1;                                            \
-            mark->ch = (ch_);                                           \
             mark->beg = (beg_);                                         \
             mark->end = (end_);                                         \
+            mark->prev = -1;                                            \
+            mark->next = -1;                                            \
+            mark->ch = (char)(ch_);                                     \
             mark->flags = (flags_);                                     \
         } while(0)
 
@@ -833,8 +835,8 @@ md_rollback(MD_CTX* ctx, int opener_index, int closer_index)
                 MD_MARKCHAIN* chain;
 
                 switch(opener->ch) {
-                    case _T('`'):   chain = &BACKTICK_OPENERS; break;
-                    case _T('<'):   chain = &RAW_HTML_OPENERS; break;
+                    case '`':   chain = &BACKTICK_OPENERS; break;
+                    case '<':   chain = &RAW_HTML_OPENERS; break;
                     default:        MD_UNREACHABLE(); break;
                 }
 
@@ -1065,7 +1067,7 @@ md_analyze_entity(MD_CTX* ctx, int mark_index)
     if(mark_index + 1 >= ctx->n_marks)
         return;
     closer = &ctx->marks[mark_index+1];
-    if(closer->ch != _T(';'))
+    if(closer->ch != ';')
         return;
 
     if(CH(opener->end) == _T('#')) {
@@ -1146,16 +1148,16 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int precedence_
 
         /* Analyze the mark. */
         switch(mark->ch) {
-            case _T('`'):
+            case '`':
                 md_analyze_backtick(ctx, i);
                 break;
 
-            case _T('<'):
-            case _T('>'):
+            case '<':
+            case '>':
                 md_analyze_raw_html(ctx, i, lines, n_lines);
                 break;
 
-            case _T('&'):
+            case '&':
                 md_analyze_entity(ctx, i);
                 break;
         }
@@ -1224,18 +1226,18 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
         /* If reached the mark, process it and move to next one. */
         if(off >= mark->beg) {
             switch(mark->ch) {
-                case _T('\\'):      /* Backslash escape. */
+                case '\\':      /* Backslash escape. */
                     if(ISNEWLINE(mark->beg+1))
                         enforce_hardbreak = 1;
                     else
                         MD_TEXT(text_type, STR(mark->beg+1), 1);
                     break;
 
-                case _T(' '):       /* Non-trivial space. */
+                case ' ':       /* Non-trivial space. */
                     MD_TEXT(text_type, _T(" "), 1);
                     break;
 
-                case _T('`'):       /* Code span. */
+                case '`':       /* Code span. */
                     if(mark->flags & MD_MARK_OPENER) {
                         MD_ENTER_SPAN(MD_SPAN_CODE, NULL);
                         text_type = MD_TEXT_CODE;
@@ -1245,14 +1247,14 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                     }
                     break;
 
-                case _T('<'):       /* Raw HTML. */
+                case '<':       /* Raw HTML. */
                     text_type = MD_TEXT_HTML;
                     break;
-                case _T('>'):
+                case '>':
                     text_type = MD_TEXT_NORMAL;
                     break;
 
-                case _T('&'):       /* Entity. */
+                case '&':       /* Entity. */
                     MD_TEXT(MD_TEXT_ENTITY, STR(mark->beg), mark->end - mark->beg);
                     break;
             }
@@ -1276,8 +1278,8 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 /* Inside code spans, new lines are transformed into single
                  * spaces. */
                 MD_ASSERT(prev_mark != NULL);
-                MD_ASSERT(prev_mark->ch == _T('`')  &&  (prev_mark->flags & MD_MARK_OPENER));
-                MD_ASSERT(mark->ch == _T('`')  &&  (mark->flags & MD_MARK_CLOSER));
+                MD_ASSERT(prev_mark->ch == '`'  &&  (prev_mark->flags & MD_MARK_OPENER));
+                MD_ASSERT(mark->ch == '`'  &&  (mark->flags & MD_MARK_CLOSER));
 
                 if(prev_mark->end < off  &&  off < mark->beg)
                     MD_TEXT(MD_SPAN_CODE, _T(" "), 1);
