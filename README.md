@@ -74,7 +74,7 @@ more or less forms our to do list.
 - **Preliminaries:**
   - [x] 2.1 Character and lines
   - [x] 2.2 Tabs
-  - [ ] 2.3 Insecure characters
+  - [x] 2.3 Insecure characters
 
 - **Blocks and Inlines:**
   - [x] 3.1 Precedence

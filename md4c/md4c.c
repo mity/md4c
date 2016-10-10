@@ -258,6 +258,35 @@ md_str_case_eq(const CHAR* s1, const CHAR* s2, SZ n)
     return 0;
 }
 
+static int
+md_text_with_null_replacement(MD_CTX* ctx, MD_TEXTTYPE type, const CHAR* str, SZ size)
+{
+    OFF off = 0;
+    int ret = 0;
+
+    while(1) {
+        while(off < size  &&  str[off] != _T('\0'))
+            off++;
+
+        if(off > 0) {
+            ret = ctx->r.text(type, str, off, ctx->userdata);
+            if(ret != 0)
+                return ret;
+
+            str += off;
+            size -= off;
+            off = 0;
+        }
+
+        if(off >= size)
+            return 0;
+
+        ret = ctx->r.text(MD_TEXT_NULLCHAR, _T(""), 1, ctx->userdata);
+        if(ret != 0)
+            return ret;
+    }
+}
+
 
 #define MD_CHECK(func)                                                  \
     do {                                                                \
@@ -306,6 +335,17 @@ md_str_case_eq(const CHAR* s1, const CHAR* s2, SZ n)
     do {                                                                \
         if(size > 0) {                                                  \
             ret = ctx->r.text((type), (str), (size), ctx->userdata);    \
+            if(ret != 0) {                                              \
+                md_log(ctx, "Aborted from text() callback.");           \
+                goto abort;                                             \
+            }                                                           \
+        }                                                               \
+    } while(0)
+
+#define MD_TEXT_INSECURE(type, str, size)                               \
+    do {                                                                \
+        if(size > 0) {                                                  \
+            ret = md_text_with_null_replacement(ctx, type, str, size);  \
             if(ret != 0) {                                              \
                 md_log(ctx, "Aborted from text() callback.");           \
                 goto abort;                                             \
@@ -689,6 +729,7 @@ md_is_html_any(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF max_
  *  ';': Maybe end of entity.
  *  '<': Maybe start of raw HTML.
  *  '>': Maybe end of raw HTML.
+ *  '0': NULL char (need replacement).
  *
  * Note that not all instances of these chars in the text imply creation of the
  * structure. Only those which have (or may have, after we see more context)
@@ -940,6 +981,13 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 }
             }
 
+            /* NULL character. */
+            if(ch == _T('\0')) {
+                PUSH_MARK(ch, off, off+1, 0);
+                off++;
+                continue;
+            }
+
             off++;
         }
     }
@@ -1119,7 +1167,7 @@ md_analyze_entity(MD_CTX* ctx, int mark_index)
 /* Table of precedence of various span types. */
 static const CHAR* md_precedence_table[] = {
     _T("`<>"),      /* Code spans; raw HTML. */
-    _T("&")         /* Entities. */
+    _T("&"),        /* Entities. */
 };
 
 static void
@@ -1163,6 +1211,13 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int precedence_
         }
 
         i++;
+    }
+
+    for(i = 0; i < ctx->n_marks; i++) {
+        MD_MARK* mark = &ctx->marks[i];
+
+        if(mark->ch == '\0')
+            mark->flags |= MD_MARK_RESOLVED;
     }
 }
 
@@ -1257,6 +1312,10 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 case '&':       /* Entity. */
                     MD_TEXT(MD_TEXT_ENTITY, STR(mark->beg), mark->end - mark->beg);
                     break;
+
+                case '\0':
+                    MD_TEXT(MD_TEXT_NULLCHAR, _T(""), 1);
+                    break;
             }
 
             off = mark->end;
@@ -1346,7 +1405,7 @@ md_process_verbatim_block(MD_CTX* ctx, MD_TEXTTYPE text_type, const MD_LINE* lin
             MD_TEXT(text_type, indent_str, indent);
 
         /* Output the code line itself. */
-        MD_TEXT(text_type, STR(line->beg), line->end - line->beg);
+        MD_TEXT_INSECURE(text_type, STR(line->beg), line->end - line->beg);
 
         /* Enforce end-of-line. */
         MD_TEXT(text_type, _T("\n"), 1);

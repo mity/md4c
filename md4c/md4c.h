@@ -98,6 +98,16 @@ enum MD_TEXTTYPE_tag {
     /* Normal text. */
     MD_TEXT_NORMAL = 0,
 
+    /* NULL character. Markdown is supposed to replace NULL character with
+     * the replacement char U+FFFD but since we are encoding agnostic, caller
+     * has to do that. */
+    MD_TEXT_NULLCHAR,
+
+    /* Line breaks.
+     * Note these are only sent within MD_BLOCK_CODE or MD_BLOCK_HTML. */
+    MD_TEXT_BR,         /* <br> (hard break) */
+    MD_TEXT_SOFTBR,     /* '\n' in source text where it is not semantically meaningful (soft break) */
+
     /* Entity.
      * (a) Named entity, e.g. &nbsp; 
      *     (Note MD4C does not have a lsit of known entities.
@@ -109,11 +119,6 @@ enum MD_TEXTTYPE_tag {
      * As MD4C is encoding agnostic, application gets the verbatim entity
      * text into the MD_RENDERER::text_callback(). */
     MD_TEXT_ENTITY,
-
-    /* Line breaks.
-     * Note these are only sent within MD_BLOCK_CODE or MD_BLOCK_HTML. */
-    MD_TEXT_BR,         /* <br> (hard break) */
-    MD_TEXT_SOFTBR,     /* '\n' in source text where it is not semantically meaningful (soft break) */
 
     /* Text in a code block (inside MD_BLOCK_CODE) or inlined code (`code`).
      * If it is inside MD_BLOCK_CODE, it includes spaces for indentation and

@@ -163,6 +163,8 @@ hex_val(char ch)
 static void
 render_utf8_codepoint(struct membuffer* out, unsigned codepoint)
 {
+    static const char utf8_replacement_char[] = { 0xef, 0xbf, 0xbd };
+
     unsigned char utf8[4];
     size_t n;
 
@@ -186,7 +188,10 @@ render_utf8_codepoint(struct membuffer* out, unsigned codepoint)
         utf8[3] = 0x80 + ((codepoint >>  0) & 0x3f);
     }
 
-    membuf_append_escaped(out, (char*)utf8, n);
+    if(0 < codepoint  &&  codepoint <= 0x10ffff)
+        membuf_append_escaped(out, (char*)utf8, n);
+    else
+        membuf_append(out, utf8_replacement_char, 3);
 }
 
 /* Translate entity to its UTF-8 equivalent, or output the verbatim one
@@ -215,10 +220,8 @@ render_entity(struct membuffer* out, const MD_CHAR* text, MD_SIZE size)
                 codepoint = 10 * codepoint + (text[i] - '0');
         }
 
-        if(codepoint <= 0x10ffff) {     /* Max. Unicode codepoint. */
-            render_utf8_codepoint(out, codepoint);
-            return;
-        }
+        render_utf8_codepoint(out, codepoint);
+        return;
     } else {
         /* Named entity (e.g. "&nbsp;". */
         const char* ent;
@@ -306,6 +309,7 @@ text_callback(MD_TEXTTYPE type, const MD_CHAR* text, MD_SIZE size, void* userdat
     struct membuffer* out = (struct membuffer*) userdata;
 
     switch(type) {
+        case MD_TEXT_NULLCHAR:  render_utf8_codepoint(out, 0x0000); break;
         case MD_TEXT_BR:        MEMBUF_APPEND_LITERAL(out, "<br>\n"); break;
         case MD_TEXT_SOFTBR:    MEMBUF_APPEND_LITERAL(out, "\n"); break;
         case MD_TEXT_HTML:      membuf_append(out, text, size); break;
