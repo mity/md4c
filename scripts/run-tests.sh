@@ -24,4 +24,4 @@ elif which python 2>/dev/null; then
     fi
 fi
 
-$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/spec.txt" -p "$PROGRAM" "$@'
+$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/spec.txt" -p "$PROGRAM" "$@"
