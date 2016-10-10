@@ -61,9 +61,9 @@ Example implementation of simple renderer is available in the `md2html`
 directory which implements a conversion utility from Markdown to HTML.
 
 
-## Current status ##
+## Current Status
 
-### CommonMark Specification ###
+### CommonMark Specification
 
 The goal is be compliant to the latest version of
 [CommonMark specification](http://spec.commonmark.org/).
@@ -110,7 +110,7 @@ more or less forms our to do list.
   - [x] 6.11 Textual content
 
 
-### Considered Extensions ###
+### Considered Extensions
 
 Aside of CommonMark features, various Markdown implementations out there support
 various extensions and/or some deviations from the CommonMark specification
