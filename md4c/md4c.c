@@ -1038,11 +1038,9 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
         }
     }
 
-    /* Add a dummy mark at the end of processed block to simplify
+    /* Add a dummy mark after the end of processed block to simplify
      * md_process_inlines(). */
-    PUSH_MARK_();
-    mark->beg = lines[n_lines-1].end + 1;
-    mark->flags = MD_MARK_RESOLVED;
+    PUSH_MARK(127, ctx->size+1, ctx->size+1, MD_MARK_RESOLVED);
 
 abort:
     return ret;
