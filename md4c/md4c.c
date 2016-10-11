@@ -100,8 +100,8 @@ struct MD_CTX_tag {
     MD_MARKCHAIN mark_chains[2];
     /* For md_analyze_backtick(). */
     #define BACKTICK_OPENERS        ctx->mark_chains[0]
-    /* For md_analyze_raw_html(). */
-    #define RAW_HTML_OPENERS        ctx->mark_chains[1]
+    /* For md_analyze_lt_gt(). */
+    #define LT_GT_OPENERS           ctx->mark_chains[1]
 
     /* For MD_BLOCK_QUOTE */
     unsigned quote_level;   /* Nesting level. */
@@ -684,6 +684,49 @@ md_is_html_any(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF max_
 }
 
 
+/******************************************
+ ***  Recognizing Some Complex Inlines  ***
+ ******************************************/
+
+static int
+md_is_autolink(MD_CTX* ctx, OFF beg, OFF end)
+{
+    OFF off;
+
+    MD_ASSERT(CH(beg) == _T('<'));
+    MD_ASSERT(CH(end-1) == _T('>'));
+
+    beg++;
+    end--;
+
+    /* Check for scheme. */
+    off = beg;
+    if(off >= end  ||  !ISASCII(off))
+        return -1;
+    off++;
+    while(1) {
+        if(off >= end)
+            return -1;
+        if(off - beg > 32)
+            return -1;
+        if(CH(off) == _T(':')  &&  off - beg >= 2)
+            break;
+        if(!ISALNUM(off) && CH(off) != _T('+') && CH(off) != _T('-') && CH(off) != _T('.'))
+            return -1;
+        off++;
+    }
+
+    /* Check the path after the scheme. */
+    while(off < end) {
+        if(ISWHITESPACE(off) || ISCNTRL(off) || CH(off) == _T('<') || CH(off) == _T('>'))
+            return -1;
+        off++;
+    }
+
+    return 0;
+}
+
+
 /******************************************************
  ***  Processing Sequence of Inlines (a.k.a Spans)  ***
  ******************************************************/
@@ -877,7 +920,7 @@ md_rollback(MD_CTX* ctx, int opener_index, int closer_index)
 
                 switch(opener->ch) {
                     case '`':   chain = &BACKTICK_OPENERS; break;
-                    case '<':   chain = &RAW_HTML_OPENERS; break;
+                    case '<':   chain = &LT_GT_OPENERS; break;
                     default:        MD_UNREACHABLE(); break;
                 }
 
@@ -1046,47 +1089,61 @@ md_analyze_backtick(MD_CTX* ctx, int mark_index)
 }
 
 static void
-md_analyze_raw_html(MD_CTX* ctx, int mark_index, const MD_LINE* lines, int n_lines)
+md_analyze_lt_gt(MD_CTX* ctx, int mark_index, const MD_LINE* lines, int n_lines)
 {
     MD_MARK* mark = &ctx->marks[mark_index];
     int opener_index;
 
     /* If it is an opener ('<'), remember it. */
     if(mark->flags & MD_MARK_POTENTIAL_OPENER) {
-        md_mark_chain_append(ctx, &RAW_HTML_OPENERS, mark_index);
+        md_mark_chain_append(ctx, &LT_GT_OPENERS, mark_index);
         return;
     }
 
     /* Otherwise we are potential closer and we try to resolve with since all
      * the chained unresolved openers. */
-    opener_index = RAW_HTML_OPENERS.head;
+    opener_index = LT_GT_OPENERS.head;
     while(opener_index >= 0) {
         MD_MARK* opener = &ctx->marks[opener_index];
-        int line_index = 0;
         OFF detected_end;
+        int is_autolink = 0;
+        int is_raw_html = 0;
 
-        /* Identify the line where the opening mark lives. */
-        while(1) {
-            if(opener->beg < lines[line_index].end)
-                break;
-            line_index++;
+        is_autolink = (md_is_autolink(ctx, opener->beg, mark->end) == 0);
+
+        if(!is_autolink) {
+            /* Identify the line where the opening mark lives. */
+            int line_index = 0;
+            while(1) {
+                if(opener->beg < lines[line_index].end)
+                    break;
+                line_index++;
+            }
+
+            is_raw_html = (md_is_html_any(ctx, lines + line_index,
+                    n_lines - line_index, opener->beg, mark->end, &detected_end) == 0);
         }
 
         /* Check whether the range forms a valid raw HTML. */
-        if(md_is_html_any(ctx, lines + line_index, n_lines - line_index,
-                opener->beg, mark->end, &detected_end) == 0)
-        {
-            /* If this fail, it means we have missed some earlier opportunity
+        if(is_autolink || is_raw_html) {
+            /* If this fails, it means we have missed some earlier opportunity
              * to resolve the opener. */
             MD_ASSERT(detected_end == mark->end);
 
             md_rollback(ctx, opener_index, mark_index);
-            md_resolve_range(ctx, &RAW_HTML_OPENERS, opener_index, mark_index);
+            md_resolve_range(ctx, &LT_GT_OPENERS, opener_index, mark_index);
 
-            /* Make these marks zero width so the '<' and '>' are part of its
-             * contents. */
-            opener->end = opener->beg;
-            mark->beg = mark->end;
+            if(is_raw_html) {
+                /* Make these marks zero width so the '<' and '>' are part of its
+                 * contents. */
+                opener->end = opener->beg;
+                mark->beg = mark->end;
+            } else {
+                /* Hack: This is to distinguish the autolink from raw HTML in
+                 * md_process_inlines(). */
+                opener->ch = 'A';
+                mark->ch = 'B';
+            }
 
             /* And we are done. */
             return;
@@ -1202,7 +1259,7 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int precedence_
 
             case '<':
             case '>':
-                md_analyze_raw_html(ctx, i, lines, n_lines);
+                md_analyze_lt_gt(ctx, i, lines, n_lines);
                 break;
 
             case '&':
@@ -1251,6 +1308,9 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 static int
 md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 {
+    union {
+        MD_SPAN_A_DETAIL a;
+    } det;
     MD_TEXTTYPE text_type;
     const MD_LINE* line = lines;
     const MD_MARK* prev_mark = NULL;
@@ -1300,6 +1360,18 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                         MD_LEAVE_SPAN(MD_SPAN_CODE, NULL);
                         text_type = MD_TEXT_NORMAL;
                     }
+                    break;
+
+                case 'A':       /* Autolink. */
+                    det.a.href = STR(mark->end);
+                    det.a.href_size = ctx->marks[mark->next].beg - mark->end;
+                    MD_ENTER_SPAN(MD_SPAN_A, (void*) &det);
+                    break;
+                case 'B':
+                    /* The detail already has to be initialized: There cannot
+                     * be any resolved mark between the autlink opener and
+                     * closer. */
+                    MD_LEAVE_SPAN(MD_SPAN_A, (void*) &det);
                     break;
 
                 case '<':       /* Raw HTML. */

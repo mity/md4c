@@ -89,6 +89,11 @@ enum MD_BLOCKTYPE_tag {
  * like paragraph or list item. */
 typedef enum MD_SPANTYPE_tag MD_SPANTYPE;
 enum MD_SPANTYPE_tag {
+    /* <a href="xxx">...</a>
+     * Detail: See structure MD_SPAN_A_DETAIL. */
+    MD_SPAN_A,
+
+    /* <code>...</code> */
     MD_SPAN_CODE
 };
 
@@ -130,6 +135,13 @@ enum MD_TEXTTYPE_tag {
     MD_TEXT_HTML
 };
 
+
+/* Detailed info for MD_SPAN_A. */
+typedef struct MD_SPAN_A_DETAIL_tag MD_SPAN_A_DETAIL;
+struct MD_SPAN_A_DETAIL_tag {
+    const MD_CHAR* href;    /* Not zero-terminated, use href_size. */
+    MD_SIZE href_size;
+};
 
 /* Detailed info for MD_BLOCK_H. */
 typedef struct MD_BLOCK_H_DETAIL_tag MD_BLOCK_H_DETAIL;

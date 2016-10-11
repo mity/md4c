@@ -149,6 +149,14 @@ open_code_block(struct membuffer* out, const MD_BLOCK_CODE_DETAIL* det)
     MEMBUF_APPEND_LITERAL(out, ">");
 }
 
+static void
+open_a_span(struct membuffer* out, MD_SPAN_A_DETAIL* det)
+{
+    MEMBUF_APPEND_LITERAL(out, "<a href=\"");
+    membuf_append_escaped(out, det->href, det->href_size);
+    MEMBUF_APPEND_LITERAL(out, "\">");
+}
+
 static unsigned
 hex_val(char ch)
 {
@@ -285,6 +293,7 @@ enter_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
     struct membuffer* out = (struct membuffer*) userdata;
 
     switch(type) {
+        case MD_SPAN_A:         open_a_span(out, (MD_SPAN_A_DETAIL*) detail); break;
         case MD_SPAN_CODE:      MEMBUF_APPEND_LITERAL(out, "<code>"); break;
     }
 
@@ -297,6 +306,7 @@ leave_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
     struct membuffer* out = (struct membuffer*) userdata;
 
     switch(type) {
+        case MD_SPAN_A:         MEMBUF_APPEND_LITERAL(out, "</a>"); break;
         case MD_SPAN_CODE:      MEMBUF_APPEND_LITERAL(out, "</code>"); break;
     }
 

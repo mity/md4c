@@ -103,7 +103,7 @@ more or less forms our to do list.
   - [ ] 6.4 Emphasis and strong emphasis
   - [ ] 6.5 Links
   - [ ] 6.6 Images
-  - [ ] 6.7 Autolinks
+  - [x] 6.7 Autolinks
   - [x] 6.8 Raw HTML
   - [x] 6.9 Hard line breaks
   - [x] 6.10 Soft line breaks
