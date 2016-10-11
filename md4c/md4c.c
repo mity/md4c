@@ -176,17 +176,20 @@ md_log(MD_CTX* ctx, const char* fmt, ...)
                     exit(1);                                            \
                 }                                                       \
             } while(0)
+
+    #define MD_UNREACHABLE()        MD_ASSERT(1 == 0)
 #else
-    #ifdef __gnuc__
-        #define MD_ASSERT(cond)     do { __builtin_expect((condition) != 0, !0); } while(0)
+    #ifdef __GNUC__
+        #define MD_ASSERT(cond)     do { if(!(cond)) __builtin_unreachable(); } while(0)
+        #define MD_UNREACHABLE()    do { __builtin_unreachable(); } while(0)
     #elif defined _MSC_VER  &&  _MSC_VER > 120
         #define MD_ASSERT(cond)     do { __assume(cond); } while(0)
+        #define MD_UNREACHABLE()    do { __assume(0); } while(0)
     #else
         #define MD_ASSERT(cond)     do {} while(0)
+        #define MD_UNREACHABLE()    do {} while(0)
     #endif
 #endif
-
-#define MD_UNREACHABLE()            MD_ASSERT(1 == 0)
 
 
 /*****************
