@@ -401,7 +401,7 @@ md_is_html_tag(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF max_
     if(off >= line_end  ||  !ISALPHA(off))
         return -1;
     off++;
-    while(off < line_end  &&  (ISALNUM(off)  ||  ISANYOF(off, _T("_.:-"))))
+    while(off < line_end  &&  (ISALNUM(off)  ||  CH(off) == _T('-')))
         off++;
 
     /* (Optional) attributes (if not closer), (optional) '/' (if not closer)
