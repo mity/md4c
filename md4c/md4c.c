@@ -1416,7 +1416,7 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 MD_ASSERT(mark->ch == '`'  &&  (mark->flags & MD_MARK_CLOSER));
 
                 if(prev_mark->end < off  &&  off < mark->beg)
-                    MD_TEXT(MD_SPAN_CODE, _T(" "), 1);
+                    MD_TEXT(MD_TEXT_CODE, _T(" "), 1);
             } else {
                 /* Output soft or hard line break. */
                 MD_TEXTTYPE break_type = MD_TEXT_SOFTBR;
