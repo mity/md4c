@@ -97,11 +97,15 @@ struct MD_CTX_tag {
     unsigned n_marks;
     unsigned alloc_marks;
 
-    MD_MARKCHAIN mark_chains[2];
+    MD_MARKCHAIN mark_chains[4];
     /* For md_analyze_backtick(). */
     #define BACKTICK_OPENERS        ctx->mark_chains[0]
     /* For md_analyze_lt_gt(). */
     #define LT_GT_OPENERS           ctx->mark_chains[1]
+    /* For md_analyze_asterisk(). */
+    #define ASTERISK_OPENERS        ctx->mark_chains[2]
+    /* For md_analyze_underscore(). */
+    #define UNDERSCORE_OPENERS      ctx->mark_chains[3]
 
     /* For MD_BLOCK_QUOTE */
     unsigned quote_level;   /* Nesting level. */
@@ -172,7 +176,6 @@ md_log(MD_CTX* ctx, const char* fmt, ...)
                 if(!(cond)) {                                           \
                     md_log(ctx, "%s:%d: Assertion '" #cond "' failed.", \
                             __FILE__, (int)__LINE__);                   \
-                    ret = -2;                                           \
                     exit(1);                                            \
                 }                                                       \
             } while(0)
@@ -770,12 +773,13 @@ md_is_autolink(MD_CTX* ctx, OFF beg, OFF end)
 /* The mark structure.
  *
  * '\\': Maybe escape sequence.
+ *  '*': Maybe (strong) emphasis start/end.
  *  '`': Maybe code span start/end.
  *  '&': Maybe start of entity.
  *  ';': Maybe end of entity.
- *  '<': Maybe start of raw HTML.
- *  '>': Maybe end of raw HTML.
- *  '0': NULL char (need replacement).
+ *  '<': Maybe start of raw HTML or autolink.
+ *  '>': Maybe end of raw HTML or autolink.
+ *  '0': NULL char.
  *
  * Note that not all instances of these chars in the text imply creation of the
  * structure. Only those which have (or may have, after we see more context)
@@ -803,9 +807,10 @@ struct MD_MARK_tag {
 /* Mark flags. */
 #define MD_MARK_POTENTIAL_OPENER    0x01  /* Maybe opener. */
 #define MD_MARK_POTENTIAL_CLOSER    0x02  /* Maybe closer. */
+#define MD_MARK_AUTOLINK            0x04  /* Distinguisher for '<', '>'. */
 #define MD_MARK_RESOLVED            0x10  /* Yes, the special meaning is indeed recognized. */
-#define MD_MARK_OPENER              0x20  /* This opens (or potentially may open) a span. */
-#define MD_MARK_CLOSER              0x40  /* This closes (or potentially may close) a span. */
+#define MD_MARK_OPENER              0x20  /* This opens a span. */
+#define MD_MARK_CLOSER              0x40  /* This closes a span. */
 
 
 static MD_MARK*
@@ -890,8 +895,27 @@ md_resolve_range(MD_CTX* ctx, MD_MARKCHAIN* chain, int opener_index, int closer_
     closer->flags |= MD_MARK_CLOSER | MD_MARK_RESOLVED;
 }
 
+
+#define MD_ROLLBACK_ALL         0
+#define MD_ROLLBACK_CROSSING    1
+
+/* Undo some or all resolvings of ctx->marks[opener_index] ... [closer_index]:
+ *
+ * (1) If 'how' is MD_ROLLBACK_ALL, then
+ *      (1.1) all resolved closers within the range, corresponding to openers
+ *          BEFORE the range are discarded and those openers before the range
+ *          are again made ready for future resolving to closers after the
+ *          range; and
+ *      (1.2) ALL resolved marks within the range, including all closers and
+ *          any non-paired marks like entities, are discarded.
+ *
+ * (2) If 'how' is MD_ROLLBACK_CROSSING, then
+ *      (2.1) Ditto as (1.1); and
+ *      (2.2) all unresolved openers INSIDE the range are discarded from
+ *          openers their respective openers chain.
+ */
 static void
-md_rollback(MD_CTX* ctx, int opener_index, int closer_index)
+md_rollback(MD_CTX* ctx, int opener_index, int closer_index, int how)
 {
     int i;
 
@@ -909,11 +933,8 @@ md_rollback(MD_CTX* ctx, int opener_index, int closer_index)
     }
 
     /* Go backwards so that un-resolved openers are re-added into their
-     * respective chains in the right order. */
+     * respective chains, in the right order. */
     for(i = closer_index - 1; i > opener_index; i--) {
-        /* If the close has an opening counter before the range, we have to
-         * un-resolve the opener and add it back to the list of unresolved
-         * openers. */
         if(ctx->marks[i].flags & MD_MARK_CLOSER) {
             int index = ctx->marks[i].prev;
 
@@ -921,20 +942,45 @@ md_rollback(MD_CTX* ctx, int opener_index, int closer_index)
                 MD_MARK* opener = &ctx->marks[index];
                 MD_MARKCHAIN* chain;
 
+                /* (1.1) + (2.1) */
                 switch(opener->ch) {
+                    case '*':   chain = &ASTERISK_OPENERS; break;
+                    case '_':   chain = &UNDERSCORE_OPENERS; break;
                     case '`':   chain = &BACKTICK_OPENERS; break;
                     case '<':   chain = &LT_GT_OPENERS; break;
                     default:        MD_UNREACHABLE(); break;
                 }
-
                 md_mark_chain_append(ctx, chain, index);
                 opener->flags &= ~(MD_MARK_OPENER | MD_MARK_CLOSER | MD_MARK_RESOLVED);
+
+                /* (1.2) */
+                ctx->marks[i].flags &= ~(MD_MARK_OPENER | MD_MARK_CLOSER | MD_MARK_RESOLVED);
             }
         }
 
-        /* Reset any "resolved" flags in the range. */
-        ctx->marks[i].flags &= ~(MD_MARK_OPENER | MD_MARK_CLOSER | MD_MARK_RESOLVED);
+        /* (2.2) */
+        if(how == MD_ROLLBACK_ALL)
+            ctx->marks[i].flags &= ~(MD_MARK_OPENER | MD_MARK_CLOSER | MD_MARK_RESOLVED);
     }
+}
+
+/* Split a longer mark into two. The new mark takes the given count of characters.
+ * May only be called if a dummy 'D' mark follows.
+ */
+static int
+md_split_mark(MD_CTX* ctx, int mark_index, SZ n)
+{
+    MD_MARK* mark = &ctx->marks[mark_index];
+    MD_MARK* dummy = &ctx->marks[mark_index + 1];
+
+    MD_ASSERT(mark->end - mark->beg > n);
+    MD_ASSERT(dummy->ch == 'D');
+
+    memcpy(dummy, mark, sizeof(MD_MARK));
+    mark->end -= n;
+    dummy->beg = mark->end;
+
+    return mark_index + 1;
 }
 
 static int
@@ -947,9 +993,9 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
     for(i = 0; i < n_lines; i++) {
         const MD_LINE* line = &lines[i];
         OFF off = line->beg;
-        OFF end = line->end;
+        OFF line_end = line->end;
 
-        while(off < end) {
+        while(off < line_end) {
             CHAR ch = CH(off);
             /* A backslash escape.
              * It can go beyond line->end as it may involve escaped new
@@ -972,14 +1018,67 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             if((ctx->r.flags & MD_FLAG_COLLAPSEWHITESPACE)  &&  ISWHITESPACE_(ch)) {
                 OFF tmp = off+1;
 
-                while(tmp < end  &&  ISWHITESPACE(tmp))
+                while(tmp < line_end  &&  ISWHITESPACE(tmp))
                     tmp++;
 
-                if(tmp - end > 1  ||  ch != _T(' ')) {
+                if(tmp - off > 1  ||  ch != _T(' ')) {
                     PUSH_MARK(ch, off, tmp, MD_MARK_RESOLVED);
                     off = tmp;
                     continue;
                 }
+            }
+
+            /* A potential (string) emphasis start/end. */
+            if(ch == _T('*')  ||  ch == _T('_')) {
+                OFF tmp = off+1;
+                int left_level;     /* What precedes: 0 = whitespace; 1 = punctuation; 2 = other char. */
+                int right_level;    /* What follows: 0 = whitespace; 1 = punctuation; 2 = other char. */
+                unsigned flags = 0;
+
+                while(tmp < line_end  &&  CH(tmp) == ch)
+                    tmp++;
+
+                if(off == line->beg  ||  ISWHITESPACE(off-1))
+                    left_level = 0;
+                else if(ISPUNCT(off-1))
+                    left_level = 1;
+                else
+                    left_level = 2;
+
+                if(tmp == line_end  ||  ISWHITESPACE(tmp))
+                    right_level = 0;
+                else if(ISPUNCT(tmp))
+                    right_level = 1;
+                else
+                    right_level = 2;
+
+                /* Intra-word underscore doesn't have special meaning. */
+                if(ch == _T('_')  &&  left_level == 2  &&  right_level == 2) {
+                    left_level = 0;
+                    right_level = 0;
+                }
+
+                if(left_level > 0  &&  left_level >= right_level)
+                    flags |= MD_MARK_POTENTIAL_CLOSER;
+                if(right_level > 0  &&  right_level >= left_level)
+                    flags |= MD_MARK_POTENTIAL_OPENER;
+
+                if(flags != 0) {
+                    PUSH_MARK(ch, off, tmp, flags);
+
+                    /* During resolving, multiple asterisks may have to be
+                     * split into independent span start/ends. Consider e.g.
+                     * "**foo* bar*". Therefore we push also some empty dummy
+                     * marks to have enough space for that. */
+                    off++;
+                    while(off < tmp) {
+                        PUSH_MARK('D', off, off, 0);
+                        off++;
+                    }
+                    continue;
+                }
+
+                off = tmp;
             }
 
             /* A potential code span start/end. */
@@ -993,7 +1092,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 else
                     flags = MD_MARK_POTENTIAL_OPENER | MD_MARK_POTENTIAL_CLOSER;
 
-                while(tmp < end  &&  CH(tmp) == _T('`'))
+                while(tmp < line_end  &&  CH(tmp) == _T('`'))
                     tmp++;
                 PUSH_MARK(ch, off, tmp, flags);
 
@@ -1010,7 +1109,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 
             /* A potential entity end. */
             if(ch == _T(';')) {
-                /* We surely cannot be entity unless previous mark is '&'. */
+                /* We surely cannot be entity unless the previous mark is '&'. */
                 if(ctx->n_marks > 0  &&  ctx->marks[ctx->n_marks-1].ch == _T('&')) {
                     PUSH_MARK(ch, off, off+1, MD_MARK_POTENTIAL_CLOSER);
                     off++;
@@ -1018,7 +1117,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 }
             }
 
-            /* A potential raw HTML start/end. */
+            /* A potential autolink or raw HTML start/end. */
             if(ch == _T('<') || ch == _T('>')) {
                 if(!(ctx->r.flags & MD_FLAG_NOHTMLSPANS)) {
                     PUSH_MARK(ch, off, off+1, (ch == _T('<') ? MD_MARK_POTENTIAL_OPENER : MD_MARK_POTENTIAL_CLOSER));
@@ -1064,7 +1163,7 @@ md_analyze_backtick(MD_CTX* ctx, int mark_index)
             /* Rollback anything found inside it.
              * (e.g. the code span contains some back-ticks or other special
              * chars we misinterpreted.) */
-            md_rollback(ctx, opener_index, mark_index);
+            md_rollback(ctx, opener_index, mark_index, MD_ROLLBACK_ALL);
 
             /* Resolve the span. */
             md_resolve_range(ctx, &BACKTICK_OPENERS, opener_index, mark_index);
@@ -1131,7 +1230,7 @@ md_analyze_lt_gt(MD_CTX* ctx, int mark_index, const MD_LINE* lines, int n_lines)
              * to resolve the opener. */
             MD_ASSERT(detected_end == mark->end);
 
-            md_rollback(ctx, opener_index, mark_index);
+            md_rollback(ctx, opener_index, mark_index, MD_ROLLBACK_ALL);
             md_resolve_range(ctx, &LT_GT_OPENERS, opener_index, mark_index);
 
             if(is_raw_html) {
@@ -1139,11 +1238,12 @@ md_analyze_lt_gt(MD_CTX* ctx, int mark_index, const MD_LINE* lines, int n_lines)
                  * contents. */
                 opener->end = opener->beg;
                 mark->beg = mark->end;
+
+                opener->flags &= ~MD_MARK_AUTOLINK;
+                mark->flags &= ~MD_MARK_AUTOLINK;
             } else {
-                /* Hack: This is to distinguish the autolink from raw HTML in
-                 * md_process_inlines(). */
-                opener->ch = 'A';
-                mark->ch = 'B';
+                opener->flags |= MD_MARK_AUTOLINK;
+                mark->flags |= MD_MARK_AUTOLINK;
             }
 
             /* And we are done. */
@@ -1218,14 +1318,56 @@ md_analyze_entity(MD_CTX* ctx, int mark_index)
     /* Mark us as an entity.
      * As entity has no span, we may just turn the range into a single mark.
      * (This also causes we do not get called for ';'. */
+    md_resolve_range(ctx, NULL, mark_index, mark_index+1);
     opener->end = closer->end;
-    opener->flags |= MD_MARK_OPENER | MD_MARK_RESOLVED;
+}
+
+static void
+md_analyze_simple_pairing_mark(MD_CTX* ctx, MD_MARKCHAIN* chain, int mark_index)
+{
+    MD_MARK* mark = &ctx->marks[mark_index];
+
+    /* If we can be a closer, try to resolve with the preceding opener. */
+    if((mark->flags & MD_MARK_POTENTIAL_CLOSER)  &&  chain->tail >= 0) {
+        int opener_index = chain->tail;
+        MD_MARK* opener = &ctx->marks[opener_index];
+        SZ opener_size = opener->end - opener->beg;
+        SZ closer_size = mark->end - mark->beg;
+
+        if(opener_size > closer_size) {
+            opener_index = md_split_mark(ctx, opener_index, closer_size);
+            md_mark_chain_append(ctx, chain, opener_index);
+        } else if(opener_size < closer_size) {
+            md_split_mark(ctx, mark_index, closer_size - opener_size);
+        }
+
+        md_rollback(ctx, opener_index, mark_index, MD_ROLLBACK_CROSSING);
+        md_resolve_range(ctx, chain, opener_index, mark_index);
+        return;
+    }
+
+    /* If not resolved, and we can be an opener, remember the mark for
+     * the future. */
+    if(mark->flags & MD_MARK_POTENTIAL_OPENER)
+        md_mark_chain_append(ctx, chain, mark_index);
+}
+
+static inline void
+md_analyze_asterisk(MD_CTX* ctx, int mark_index)
+{
+    md_analyze_simple_pairing_mark(ctx, &ASTERISK_OPENERS, mark_index);
+}
+
+static inline void
+md_analyze_underscore(MD_CTX* ctx, int mark_index)
+{
+    md_analyze_simple_pairing_mark(ctx, &UNDERSCORE_OPENERS, mark_index);
 }
 
 /* Table of precedence of various span types. */
 static const CHAR* md_precedence_table[] = {
-    _T("`<>"),      /* Code spans; raw HTML. */
-    _T("&"),        /* Entities. */
+    _T("&`<>"),     /* Code spans; autolinks; raw HTML. */
+    _T("*_")        /* Emphasis and string emphasis. */
 };
 
 static void
@@ -1239,10 +1381,12 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int precedence_
 
         /* Skip resolved spans. */
         if(mark->flags & MD_MARK_RESOLVED) {
-            if(mark->flags & MD_MARK_OPENER)
+            if(mark->flags & MD_MARK_OPENER) {
+                MD_ASSERT(i < mark->next);
                 i = mark->next + 1;
-            else
+            } else {
                 i++;
+            }
             continue;
         }
 
@@ -1254,18 +1398,12 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int precedence_
 
         /* Analyze the mark. */
         switch(mark->ch) {
-            case '`':
-                md_analyze_backtick(ctx, i);
-                break;
-
-            case '<':
-            case '>':
-                md_analyze_lt_gt(ctx, i, lines, n_lines);
-                break;
-
-            case '&':
-                md_analyze_entity(ctx, i);
-                break;
+            case '`':   md_analyze_backtick(ctx, i); break;
+            case '<':   /* Pass through. */
+            case '>':   md_analyze_lt_gt(ctx, i, lines, n_lines); break;
+            case '&':   md_analyze_entity(ctx, i); break;
+            case '*':   md_analyze_asterisk(ctx, i); break;
+            case '_':   md_analyze_underscore(ctx, i); break;
         }
 
         i++;
@@ -1363,23 +1501,45 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                     }
                     break;
 
-                case 'A':       /* Autolink. */
-                    det.a.href = STR(mark->end);
-                    det.a.href_size = ctx->marks[mark->next].beg - mark->end;
-                    MD_ENTER_SPAN(MD_SPAN_A, (void*) &det);
-                    break;
-                case 'B':
-                    /* The detail already has to be initialized: There cannot
-                     * be any resolved mark between the autlink opener and
-                     * closer. */
-                    MD_LEAVE_SPAN(MD_SPAN_A, (void*) &det);
+                case '_':
+                case '*':       /* Emphasis, strong emphasis. */
+                    if(mark->flags & MD_MARK_OPENER) {
+                        while(off + 1 < mark->end) {
+                            MD_ENTER_SPAN(MD_SPAN_STRONG, NULL);
+                            off += 2;
+                        }
+                        if(off < mark->end)
+                            MD_ENTER_SPAN(MD_SPAN_EM, NULL);
+                    } else {
+                        if((mark->end - off) & 0x01) {
+                            MD_LEAVE_SPAN(MD_SPAN_EM, NULL);
+                            off++;
+                        }
+                        while(off < mark->end) {
+                            MD_LEAVE_SPAN(MD_SPAN_STRONG, NULL);
+                            off += 2;
+                        }
+                    }
                     break;
 
-                case '<':       /* Raw HTML. */
-                    text_type = MD_TEXT_HTML;
+                case '<':       /* Autolink or raw HTML. */
+                    if(mark->flags & MD_MARK_AUTOLINK) {
+                        det.a.href = STR(mark->end);
+                        det.a.href_size = ctx->marks[mark->next].beg - mark->end;
+                        MD_ENTER_SPAN(MD_SPAN_A, (void*) &det);
+                    } else {
+                        text_type = MD_TEXT_HTML;
+                    }
                     break;
+
                 case '>':
-                    text_type = MD_TEXT_NORMAL;
+                    if(mark->flags & MD_MARK_AUTOLINK)
+                        /* The detail already has to be initialized: There cannot
+                         * be any resolved mark between the autlink opener and
+                         * closer. */
+                        MD_LEAVE_SPAN(MD_SPAN_A, (void*) &det);
+                    else
+                        text_type = MD_TEXT_NORMAL;
                     break;
 
                 case '&':       /* Entity. */

@@ -293,6 +293,8 @@ enter_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
     struct membuffer* out = (struct membuffer*) userdata;
 
     switch(type) {
+        case MD_SPAN_EM:        MEMBUF_APPEND_LITERAL(out, "<em>"); break;
+        case MD_SPAN_STRONG:    MEMBUF_APPEND_LITERAL(out, "<strong>"); break;
         case MD_SPAN_A:         open_a_span(out, (MD_SPAN_A_DETAIL*) detail); break;
         case MD_SPAN_CODE:      MEMBUF_APPEND_LITERAL(out, "<code>"); break;
     }
@@ -306,6 +308,8 @@ leave_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
     struct membuffer* out = (struct membuffer*) userdata;
 
     switch(type) {
+        case MD_SPAN_EM:        MEMBUF_APPEND_LITERAL(out, "</em>"); break;
+        case MD_SPAN_STRONG:    MEMBUF_APPEND_LITERAL(out, "</strong>"); break;
         case MD_SPAN_A:         MEMBUF_APPEND_LITERAL(out, "</a>"); break;
         case MD_SPAN_CODE:      MEMBUF_APPEND_LITERAL(out, "</code>"); break;
     }

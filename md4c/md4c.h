@@ -89,6 +89,12 @@ enum MD_BLOCKTYPE_tag {
  * like paragraph or list item. */
 typedef enum MD_SPANTYPE_tag MD_SPANTYPE;
 enum MD_SPANTYPE_tag {
+    /* <em>...</em> */
+    MD_SPAN_EM,
+
+    /* <strong>...</strong> */
+    MD_SPAN_STRONG,
+
     /* <a href="xxx">...</a>
      * Detail: See structure MD_SPAN_A_DETAIL. */
     MD_SPAN_A,

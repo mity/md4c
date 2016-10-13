@@ -100,7 +100,7 @@ more or less forms our to do list.
   - [x] 6.1 Backslash escapes
   - [x] 6.2 Entity and numeric character references
   - [x] 6.3 Code spans
-  - [ ] 6.4 Emphasis and strong emphasis
+  - [x] 6.4 Emphasis and strong emphasis
   - [ ] 6.5 Links
   - [ ] 6.6 Images
   - [x] 6.7 Autolinks
