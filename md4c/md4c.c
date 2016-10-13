@@ -969,7 +969,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             }
 
             /* Turn non-trivial whitespace into single space. */
-            if(ISWHITESPACE_(ch)  &&  (ctx->r.flags & MD_FLAG_COLLAPSEWHITESPACE)) {
+            if((ctx->r.flags & MD_FLAG_COLLAPSEWHITESPACE)  &&  ISWHITESPACE_(ch)) {
                 OFF tmp = off+1;
 
                 while(tmp < end  &&  ISWHITESPACE(tmp))
