@@ -25,7 +25,6 @@
 
 #include "md4c.h"
 
-#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -56,6 +55,9 @@
 
 /* Misc. macros. */
 #define SIZEOF_ARRAY(a)     (sizeof(a) / sizeof(a[0]))
+
+#define STRINGIZE_(x)       #x
+#define STRINGIZE(x)        STRINGIZE_(x)
 
 
 /************************
@@ -154,28 +156,18 @@ struct MD_LINE_tag {
  ***  Debugging  ***
  *******************/
 
-static void
-md_log(MD_CTX* ctx, const char* fmt, ...)
-{
-    char buffer[256];
-    va_list args;
-
-    if(ctx->r.debug_log == NULL)
-        return;
-
-    va_start(args, fmt);
-    vsnprintf(buffer, sizeof(buffer), fmt, args);
-    va_end(args);
-    buffer[sizeof(buffer) - 1] = '\0';
-    ctx->r.debug_log(buffer, ctx->userdata);
-}
+#define MD_LOG(msg)                                                     \
+    do {                                                                \
+        if(ctx->r.debug_log != NULL)                                    \
+            ctx->r.debug_log((msg), ctx->userdata);                     \
+    } while(0)
 
 #ifdef DEBUG
     #define MD_ASSERT(cond)                                             \
             do {                                                        \
                 if(!(cond)) {                                           \
-                    md_log(ctx, "%s:%d: Assertion '" #cond "' failed.", \
-                            __FILE__, (int)__LINE__);                   \
+                    MD_LOG(__FILE__ ":" STRINGIZE(__LINE__) ": "        \
+                           "Assertion '" STRINGIZE(cond) "' failed.");  \
                     exit(1);                                            \
                 }                                                       \
             } while(0)
@@ -305,7 +297,7 @@ md_text_with_null_replacement(MD_CTX* ctx, MD_TEXTTYPE type, const CHAR* str, SZ
     do {                                                                \
         ret = ctx->r.enter_block((type), (arg), ctx->userdata);         \
         if(ret != 0) {                                                  \
-            md_log(ctx, "Aborted from enter_block() callback.");        \
+            MD_LOG("Aborted from enter_block() callback.");             \
             goto abort;                                                 \
         }                                                               \
     } while(0)
@@ -314,7 +306,7 @@ md_text_with_null_replacement(MD_CTX* ctx, MD_TEXTTYPE type, const CHAR* str, SZ
     do {                                                                \
         ret = ctx->r.leave_block((type), (arg), ctx->userdata);         \
         if(ret != 0) {                                                  \
-            md_log(ctx, "Aborted from leave_block() callback.");        \
+            MD_LOG("Aborted from leave_block() callback.");             \
             goto abort;                                                 \
         }                                                               \
     } while(0)
@@ -323,7 +315,7 @@ md_text_with_null_replacement(MD_CTX* ctx, MD_TEXTTYPE type, const CHAR* str, SZ
     do {                                                                \
         ret = ctx->r.enter_span((type), (arg), ctx->userdata);          \
         if(ret != 0) {                                                  \
-            md_log(ctx, "Aborted from enter_span() callback.");         \
+            MD_LOG("Aborted from enter_span() callback.");              \
             goto abort;                                                 \
         }                                                               \
     } while(0)
@@ -332,7 +324,7 @@ md_text_with_null_replacement(MD_CTX* ctx, MD_TEXTTYPE type, const CHAR* str, SZ
     do {                                                                \
         ret = ctx->r.leave_span((type), (arg), ctx->userdata);          \
         if(ret != 0) {                                                  \
-            md_log(ctx, "Aborted from leave_span() callback.");         \
+            MD_LOG("Aborted from leave_span() callback.");              \
             goto abort;                                                 \
         }                                                               \
     } while(0)
@@ -342,7 +334,7 @@ md_text_with_null_replacement(MD_CTX* ctx, MD_TEXTTYPE type, const CHAR* str, SZ
         if(size > 0) {                                                  \
             ret = ctx->r.text((type), (str), (size), ctx->userdata);    \
             if(ret != 0) {                                              \
-                md_log(ctx, "Aborted from text() callback.");           \
+                MD_LOG("Aborted from text() callback.");                \
                 goto abort;                                             \
             }                                                           \
         }                                                               \
@@ -353,7 +345,7 @@ md_text_with_null_replacement(MD_CTX* ctx, MD_TEXTTYPE type, const CHAR* str, SZ
         if(size > 0) {                                                  \
             ret = md_text_with_null_replacement(ctx, type, str, size);  \
             if(ret != 0) {                                              \
-                md_log(ctx, "Aborted from text() callback.");           \
+                MD_LOG("Aborted from text() callback.");                \
                 goto abort;                                             \
             }                                                           \
         }                                                               \
@@ -825,7 +817,7 @@ md_push_mark(MD_CTX* ctx)
         ctx->alloc_marks = (ctx->alloc_marks > 0 ? ctx->alloc_marks * 2 : 64);
         new_marks = realloc(ctx->marks, ctx->alloc_marks * sizeof(MD_MARK));
         if(new_marks == NULL) {
-            md_log(ctx, "realloc() failed.");
+            MD_LOG("realloc() failed.");
             return NULL;
         }
 
@@ -2384,7 +2376,7 @@ md_process_doc(MD_CTX *ctx)
             alloc_lines = (alloc_lines == 0 ? 32 : alloc_lines * 2);
             new_lines = (MD_LINE*) realloc(lines, alloc_lines * sizeof(MD_LINE));
             if(new_lines == NULL) {
-                md_log(ctx, "realloc() failed.");
+                MD_LOG("realloc() failed.");
                 ret = -1;
                 goto abort;
             }
