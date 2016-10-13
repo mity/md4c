@@ -99,15 +99,12 @@ struct MD_CTX_tag {
     unsigned n_marks;
     unsigned alloc_marks;
 
+    /* For resolving of inline spans. */
     MD_MARKCHAIN mark_chains[4];
-    /* For md_analyze_backtick(). */
-    #define BACKTICK_OPENERS        ctx->mark_chains[0]
-    /* For md_analyze_lt_gt(). */
-    #define LT_GT_OPENERS           ctx->mark_chains[1]
-    /* For md_analyze_asterisk(). */
-    #define ASTERISK_OPENERS        ctx->mark_chains[2]
-    /* For md_analyze_underscore(). */
-    #define UNDERSCORE_OPENERS      ctx->mark_chains[3]
+#define BACKTICK_OPENERS        ctx->mark_chains[0]
+#define LOWERTHEN_OPENERS       ctx->mark_chains[1]
+#define ASTERISK_OPENERS        ctx->mark_chains[2]
+#define UNDERSCORE_OPENERS      ctx->mark_chains[3]
 
     /* For MD_BLOCK_QUOTE */
     unsigned quote_level;   /* Nesting level. */
@@ -371,9 +368,9 @@ md_is_html_tag(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF max_
     OFF line_end = (n_lines > 0) ? lines[0].end : ctx->size;
     int i = 0;
 
+    MD_ASSERT(CH(beg) == _T('<'));
+
     if(off + 1 >= line_end)
-        return -1;
-    if(CH(off) != _T('<'))
         return -1;
     off++;
 
@@ -487,9 +484,11 @@ md_is_html_comment(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF 
     OFF off = beg;
     int i = 0;
 
+    MD_ASSERT(CH(beg) == _T('<'));
+
     if(off + 4 >= lines[0].end)
         return -1;
-    if(CH(off) != _T('<')  ||  CH(off+1) != _T('!')  ||  CH(off+2) != _T('-')  ||  CH(off+3) != _T('-'))
+    if(CH(off+1) != _T('!')  ||  CH(off+2) != _T('-')  ||  CH(off+3) != _T('-'))
         return -1;
     off += 4;
 
@@ -539,9 +538,11 @@ md_is_html_processing_instruction(MD_CTX* ctx, const MD_LINE* lines, int n_lines
     OFF off = beg;
     int i = 0;
 
+    MD_ASSERT(CH(beg) == _T('<'));
+
     if(off + 2 >= lines[0].end)
         return -1;
-    if(CH(off) != _T('<')  ||  CH(off+1) != _T('?'))
+    if(CH(off+1) != _T('?'))
         return -1;
     off += 2;
 
@@ -579,9 +580,11 @@ md_is_html_declaration(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, 
     OFF off = beg;
     int i = 0;
 
+    MD_ASSERT(CH(beg) == _T('<'));
+
     if(off + 2 >= lines[0].end)
         return -1;
-    if(CH(off) != _T('<')  ||  CH(off+1) != _T('!'))
+    if(CH(off+1) != _T('!'))
         return -1;
     off += 2;
 
@@ -796,14 +799,16 @@ struct MD_MARK_tag {
     int flags   : 8;
 };
 
-/* Mark flags. */
+/* Mark flags (these apply to ALL mark types). */
 #define MD_MARK_POTENTIAL_OPENER    0x01  /* Maybe opener. */
 #define MD_MARK_POTENTIAL_CLOSER    0x02  /* Maybe closer. */
-#define MD_MARK_INTRAWORD           0x04  /* Helper for emphasis (the rule of 3). */
-#define MD_MARK_AUTOLINK            0x08  /* Distinguisher for '<', '>'. */
-#define MD_MARK_RESOLVED            0x10  /* Yes, the special meaning is indeed recognized. */
-#define MD_MARK_OPENER              0x20  /* This opens a span. */
-#define MD_MARK_CLOSER              0x40  /* This closes a span. */
+#define MD_MARK_OPENER              0x04  /* Definitely opener. */
+#define MD_MARK_CLOSER              0x08  /* Definitely closer. */
+#define MD_MARK_RESOLVED            0x10  /* Resolved in any definite way. */
+
+/* Mark flags specific for various mark types (so they can share bits). */
+#define MD_MARK_INTRAWORD           0x20  /* Helper for emphasis '*', '_' ("the rule of 3"). */
+#define MD_MARK_AUTOLINK            0x20  /* Distinguisher for '<', '>'. */
 
 
 static MD_MARK*
@@ -940,8 +945,8 @@ md_rollback(MD_CTX* ctx, int opener_index, int closer_index, int how)
                     case '*':   chain = &ASTERISK_OPENERS; break;
                     case '_':   chain = &UNDERSCORE_OPENERS; break;
                     case '`':   chain = &BACKTICK_OPENERS; break;
-                    case '<':   chain = &LT_GT_OPENERS; break;
-                    default:        MD_UNREACHABLE(); break;
+                    case '<':   chain = &LOWERTHEN_OPENERS; break;
+                    default:    MD_UNREACHABLE(); break;
                 }
                 md_mark_chain_append(ctx, chain, index);
                 opener->flags &= ~(MD_MARK_OPENER | MD_MARK_CLOSER | MD_MARK_RESOLVED);
@@ -1123,7 +1128,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 
             /* NULL character. */
             if(ch == _T('\0')) {
-                PUSH_MARK(ch, off, off+1, 0);
+                PUSH_MARK(ch, off, off+1, MD_MARK_RESOLVED);
                 off++;
                 continue;
             }
@@ -1191,13 +1196,13 @@ md_analyze_lt_gt(MD_CTX* ctx, int mark_index, const MD_LINE* lines, int n_lines)
 
     /* If it is an opener ('<'), remember it. */
     if(mark->flags & MD_MARK_POTENTIAL_OPENER) {
-        md_mark_chain_append(ctx, &LT_GT_OPENERS, mark_index);
+        md_mark_chain_append(ctx, &LOWERTHEN_OPENERS, mark_index);
         return;
     }
 
     /* Otherwise we are potential closer and we try to resolve with since all
      * the chained unresolved openers. */
-    opener_index = LT_GT_OPENERS.head;
+    opener_index = LOWERTHEN_OPENERS.head;
     while(opener_index >= 0) {
         MD_MARK* opener = &ctx->marks[opener_index];
         OFF detected_end;
@@ -1226,7 +1231,7 @@ md_analyze_lt_gt(MD_CTX* ctx, int mark_index, const MD_LINE* lines, int n_lines)
             MD_ASSERT(detected_end == mark->end);
 
             md_rollback(ctx, opener_index, mark_index, MD_ROLLBACK_ALL);
-            md_resolve_range(ctx, &LT_GT_OPENERS, opener_index, mark_index);
+            md_resolve_range(ctx, &LOWERTHEN_OPENERS, opener_index, mark_index);
 
             if(is_raw_html) {
                 /* Make these marks zero width so the '<' and '>' are part of its
@@ -1415,13 +1420,6 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int precedence_
         }
 
         i++;
-    }
-
-    for(i = 0; i < ctx->n_marks; i++) {
-        MD_MARK* mark = &ctx->marks[i];
-
-        if(mark->ch == '\0')
-            mark->flags |= MD_MARK_RESOLVED;
     }
 }
 
@@ -1849,9 +1847,9 @@ md_is_html_block_start_condition(MD_CTX* ctx, OFF beg)
     static const TAG b6[] = { X("base"), X("basefont"), X("blockquote"), X("body"), Xend };
     static const TAG c6[] = { X("caption"), X("center"), X("col"), X("colgroup"), Xend };
     static const TAG d6[] = { X("dd"), X("details"), X("dialog"), X("dir"),
-                             X("div"), X("dl"), X("dt"), Xend };
+                              X("div"), X("dl"), X("dt"), Xend };
     static const TAG f6[] = { X("fieldset"), X("figcaption"), X("figure"), X("footer"),
-                             X("form"), X("frame"), X("frameset"), Xend };
+                              X("form"), X("frame"), X("frameset"), Xend };
     static const TAG h6[] = { X("h1"), X("head"), X("header"), X("hr"), X("html"), Xend };
     static const TAG i6[] = { X("iframe"), Xend };
     static const TAG l6[] = { X("legend"), X("li"), X("link"), Xend };
@@ -1861,7 +1859,7 @@ md_is_html_block_start_condition(MD_CTX* ctx, OFF beg)
     static const TAG p6[] = { X("p"), X("param"), Xend };
     static const TAG s6[] = { X("section"), X("source"), X("summary"), Xend };
     static const TAG t6[] = { X("table"), X("tbody"), X("td"), X("tfoot"), X("th"),
-                             X("thead"), X("title"), X("tr"), X("track"), Xend };
+                              X("thead"), X("title"), X("tr"), X("track"), Xend };
     static const TAG u6[] = { X("ul"), Xend };
     static const TAG xx[] = { Xend };
 #undef X
