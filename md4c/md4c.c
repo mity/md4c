@@ -1777,49 +1777,81 @@ md_is_html_block_start_condition(MD_CTX* ctx, OFF beg)
     return -1;
 }
 
-/* Case insensitive check whether line starting at the offset contains 'what'. */
+/* Case sensitive check whether there is a substring 'what' between 'beg'
+ * and end of line. */
 static int
-md_line_case_contains(MD_CTX* ctx, OFF beg, const CHAR* what, SZ what_len)
+md_line_contains(MD_CTX* ctx, OFF beg, const CHAR* what, SZ what_len, OFF* p_end)
 {
     OFF i;
     for(i = beg; i + what_len < ctx->size; i++) {
         if(ISNEWLINE(i))
             break;
-        if(md_str_case_eq(STR(i), what, what_len) == 0)
+        if(memcmp(STR(i), what, what_len * sizeof(CHAR)) == 0) {
+            *p_end = i + what_len;
             return 0;
+        }
     }
+
+    *p_end = i;
     return -1;
 }
 
-/* Case sensitive check whether line starting at the offset contains 'what'. */
+/* Returns type of HTML block end condition or -1 if not an end condition.
+ *
+ * Note it fills p_end even when it is not end condition as the caller
+ * does not need to analyze contents of a raw HTML block.
+ */
 static int
-md_line_contains(MD_CTX* ctx, OFF beg, const CHAR* what, SZ what_len)
-{
-    OFF i;
-    for(i = beg; i + what_len < ctx->size; i++) {
-        if(ISNEWLINE(i))
-            break;
-        if(memcmp(STR(i), what, what_len * sizeof(CHAR)) == 0)
-            return 0;
-    }
-    return -1;
-}
-
-/* Returns type of HTML block end condition or -1 if not an end condition. */
-static int
-md_is_html_block_end_condition(MD_CTX* ctx, OFF beg)
+md_is_html_block_end_condition(MD_CTX* ctx, OFF beg, OFF* p_end)
 {
     switch(ctx->html_block_type) {
-    case 1:     return (md_line_case_contains(ctx, beg, _T("</script>"), 9) == 0
-                    ||  md_line_case_contains(ctx, beg, _T("</pre>"), 6) == 0
-                    ||  md_line_case_contains(ctx, beg, _T("</style>"), 8) == 0 ? 1 : -1);
-    case 2:     return (md_line_contains(ctx, beg, _T("-->"), 3) == 0 ? 2 : -1);
-    case 3:     return (md_line_contains(ctx, beg, _T("?>"), 2) == 0 ? 3 : -1);
-    case 4:     return (md_line_contains(ctx, beg, _T(">"), 1) == 0 ? 4 : -1);
-    case 5:     return (md_line_contains(ctx, beg, _T("]]>"), 3) == 0 ? 5 : -1);
-    case 6:     /* Pass through */
-    case 7:     return (ISNEWLINE(beg) ? ctx->html_block_type : -1);
-    default:    return -1;
+        case 1:
+        {
+            OFF off = beg;
+
+            while(off < ctx->size  &&  !ISNEWLINE(off)) {
+                if(CH(off) == _T('<')) {
+                    if(md_str_case_eq(STR(off), _T("</script>"), 9) == 0) {
+                        *p_end = off + 9;
+                        return 1;
+                    }
+
+                    if(md_str_case_eq(STR(off), _T("</style>"), 8) == 0) {
+                        *p_end = off + 8;
+                        return 1;
+                    }
+
+                    if(md_str_case_eq(STR(off), _T("</pre>"), 6) == 0) {
+                        *p_end = off + 6;
+                        return 1;
+                    }
+                }
+
+                off++;
+            }
+            *p_end = off;
+            return -1;
+        }
+
+        case 2:
+            return (md_line_contains(ctx, beg, _T("-->"), 3, p_end) == 0 ? 2 : -1);
+
+        case 3:
+            return (md_line_contains(ctx, beg, _T("?>"), 2, p_end) == 0 ? 3 : -1);
+
+        case 4:
+            return (md_line_contains(ctx, beg, _T(">"), 1, p_end) == 0 ? 4 : -1);
+
+        case 5:
+            return (md_line_contains(ctx, beg, _T("]]>"), 3, p_end) == 0 ? 5 : -1);
+
+        case 6:     /* Pass through */
+        case 7:
+            *p_end = beg;
+            return (ISNEWLINE(beg) ? ctx->html_block_type : -1);
+
+        default:
+            MD_UNREACHABLE();
     }
 }
 
@@ -1889,12 +1921,17 @@ redo_indentation_after_blockquote_mark:
 
     /* Check whether we are HTML block continuation. */
     if(pivot_line->type == MD_LINE_HTML  &&  ctx->html_block_type > 0) {
-        if(md_is_html_block_end_condition(ctx, off) == ctx->html_block_type) {
+        int html_block_type;
+
+        html_block_type = md_is_html_block_end_condition(ctx, off, &off);
+        if(html_block_type >= 0) {
+            MD_ASSERT(html_block_type == ctx->html_block_type);
+
             /* Make sure this is the last line of the block. */
             ctx->html_block_type = 0;
 
             /* Some end conditions serve as blank lines at the same time. */
-            if(ISNEWLINE(off)) {
+            if(html_block_type == 6 || html_block_type == 7) {
                 line->type = MD_LINE_BLANK;
                 line->indent = 0;
                 goto done;
@@ -1969,7 +2006,7 @@ redo_indentation_after_blockquote_mark:
 
         if(ctx->html_block_type > 0) {
             /* The line itself also may immediately close the block. */
-            if(md_is_html_block_end_condition(ctx, off) == ctx->html_block_type) {
+            if(md_is_html_block_end_condition(ctx, off, &off) == ctx->html_block_type) {
                 /* Make sure this is the last line of the block. */
                 ctx->html_block_type = 0;
             }
