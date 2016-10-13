@@ -807,7 +807,8 @@ struct MD_MARK_tag {
 /* Mark flags. */
 #define MD_MARK_POTENTIAL_OPENER    0x01  /* Maybe opener. */
 #define MD_MARK_POTENTIAL_CLOSER    0x02  /* Maybe closer. */
-#define MD_MARK_AUTOLINK            0x04  /* Distinguisher for '<', '>'. */
+#define MD_MARK_INTRAWORD           0x04  /* Helper for emphasis (the rule of 3). */
+#define MD_MARK_AUTOLINK            0x08  /* Distinguisher for '<', '>'. */
 #define MD_MARK_RESOLVED            0x10  /* Yes, the special meaning is indeed recognized. */
 #define MD_MARK_OPENER              0x20  /* This opens a span. */
 #define MD_MARK_CLOSER              0x40  /* This closes a span. */
@@ -1062,6 +1063,8 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                     flags |= MD_MARK_POTENTIAL_CLOSER;
                 if(right_level > 0  &&  right_level >= left_level)
                     flags |= MD_MARK_POTENTIAL_OPENER;
+                if(left_level == 2  &&  right_level == 2)
+                    flags |= MD_MARK_INTRAWORD;
 
                 if(flags != 0) {
                     PUSH_MARK(ch, off, tmp, flags);
@@ -1323,7 +1326,8 @@ md_analyze_entity(MD_CTX* ctx, int mark_index)
 }
 
 static void
-md_analyze_simple_pairing_mark(MD_CTX* ctx, MD_MARKCHAIN* chain, int mark_index)
+md_analyze_simple_pairing_mark(MD_CTX* ctx, MD_MARKCHAIN* chain, int mark_index,
+                               int apply_rule_of_three)
 {
     MD_MARK* mark = &ctx->marks[mark_index];
 
@@ -1333,6 +1337,17 @@ md_analyze_simple_pairing_mark(MD_CTX* ctx, MD_MARKCHAIN* chain, int mark_index)
         MD_MARK* opener = &ctx->marks[opener_index];
         SZ opener_size = opener->end - opener->beg;
         SZ closer_size = mark->end - mark->beg;
+
+        if(apply_rule_of_three  &&  (mark->flags & MD_MARK_INTRAWORD)) {
+            while((opener_size + closer_size) % 3 == 0) {
+                if(opener->prev < 0)
+                    goto cannot_resolve;
+
+                opener = &ctx->marks[opener->prev];
+                opener_size = opener->end - opener->beg;
+                closer_size = mark->end - mark->beg;
+            }
+        }
 
         if(opener_size > closer_size) {
             opener_index = md_split_mark(ctx, opener_index, closer_size);
@@ -1346,6 +1361,7 @@ md_analyze_simple_pairing_mark(MD_CTX* ctx, MD_MARKCHAIN* chain, int mark_index)
         return;
     }
 
+cannot_resolve:
     /* If not resolved, and we can be an opener, remember the mark for
      * the future. */
     if(mark->flags & MD_MARK_POTENTIAL_OPENER)
@@ -1355,13 +1371,13 @@ md_analyze_simple_pairing_mark(MD_CTX* ctx, MD_MARKCHAIN* chain, int mark_index)
 static inline void
 md_analyze_asterisk(MD_CTX* ctx, int mark_index)
 {
-    md_analyze_simple_pairing_mark(ctx, &ASTERISK_OPENERS, mark_index);
+    md_analyze_simple_pairing_mark(ctx, &ASTERISK_OPENERS, mark_index, 1);
 }
 
 static inline void
 md_analyze_underscore(MD_CTX* ctx, int mark_index)
 {
-    md_analyze_simple_pairing_mark(ctx, &UNDERSCORE_OPENERS, mark_index);
+    md_analyze_simple_pairing_mark(ctx, &UNDERSCORE_OPENERS, mark_index, 1);
 }
 
 /* Table of precedence of various span types. */
