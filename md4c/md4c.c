@@ -629,9 +629,8 @@ md_is_html_declaration(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, 
 
     while(1) {
         while(off < lines[i].end) {
-            if(CH(off+1) == _T('>')) {
+            if(CH(off) == _T('>')) {
                 /* Success. */
-                off++;
                 goto done;
             }
 
