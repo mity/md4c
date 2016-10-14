@@ -72,11 +72,12 @@ enum MD_BLOCKTYPE_tag {
     MD_BLOCK_H,
 
     /* <pre><code>...</code></pre>
-     * Note the text lines (spans) within blocks are terminated with '\n'. */
+     * Note the text lines within code blocks are terminated with '\n'
+     * instead of explicit MD_TEXT_BR. */
     MD_BLOCK_CODE,
 
     /* Raw HTML block. This itself does not correspond to any particular HTML
-     * tag. The contents of it _IS_ raw HTML source intended to be put
+     * tag. The contents of it _is_ raw HTML source intended to be put
      * in verbatim form to the HTML output. */
     MD_BLOCK_HTML,
 
@@ -145,8 +146,11 @@ enum MD_TEXTTYPE_tag {
 /* Detailed info for MD_SPAN_A. */
 typedef struct MD_SPAN_A_DETAIL_tag MD_SPAN_A_DETAIL;
 struct MD_SPAN_A_DETAIL_tag {
-    const MD_CHAR* href;    /* Not zero-terminated, use href_size. */
+    const MD_CHAR* href;
     MD_SIZE href_size;
+
+    const MD_CHAR* title;
+    MD_SIZE title_size;
 };
 
 /* Detailed info for MD_BLOCK_H. */
@@ -159,11 +163,11 @@ struct MD_BLOCK_H_DETAIL_tag {
 typedef struct MD_BLOCK_CODE_DETAIL_tag MD_BLOCK_CODE_DETAIL;
 struct MD_BLOCK_CODE_DETAIL_tag {
     /* Complete "info string" */
-    const MD_CHAR* info;    /* Not zero-terminated, use lang_size. */
+    const MD_CHAR* info;
     MD_SIZE info_size;
 
     /* Language portion of the info string. */
-    const MD_CHAR* lang;    /* Not zero-terminated, use lang_size. */
+    const MD_CHAR* lang;
     MD_SIZE lang_size;
 };
 
