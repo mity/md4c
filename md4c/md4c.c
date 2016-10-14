@@ -2391,18 +2391,20 @@ abort:
 static int
 md_process_doc(MD_CTX *ctx)
 {
-    static const MD_LINE dummy_line = { MD_LINE_BLANK, 0 };
-    const MD_LINE* pivot_line = &dummy_line;
-    MD_LINE* line;
     MD_LINE* lines = NULL;
     int alloc_lines = 0;
     int n_lines = 0;
+    int pivot_line_index = -1;  /* Points to a line determining type of block. */
     OFF off = 0;
     int ret = 0;
 
     MD_ENTER_BLOCK(MD_BLOCK_DOC, NULL);
 
     while(off < ctx->size) {
+        static const MD_LINE dummy_line = { MD_LINE_BLANK, 0 };
+        const MD_LINE* pivot_line;
+        MD_LINE* line;
+
         if(n_lines >= alloc_lines) {
             MD_LINE* new_lines;
 
@@ -2417,6 +2419,8 @@ md_process_doc(MD_CTX *ctx)
             lines = new_lines;
         }
 
+        pivot_line = (pivot_line_index >= 0 ? &lines[pivot_line_index] : &dummy_line);
+
         md_analyze_line(ctx, off, &off, pivot_line, &lines[n_lines]);
         line = &lines[n_lines];
 
@@ -2428,7 +2432,7 @@ md_process_doc(MD_CTX *ctx)
             /* Flush ourself. */
             MD_CHECK(md_process_block(ctx, line, 1));
 
-            pivot_line = &dummy_line;
+            pivot_line_index = -1;
             n_lines = 0;
             continue;
         }
@@ -2448,7 +2452,7 @@ md_process_doc(MD_CTX *ctx)
             /* Keep the current line as the new pivot. */
             if(line != &lines[0])
                 memcpy(&lines[0], line, sizeof(MD_LINE));
-            pivot_line = &lines[0];
+            pivot_line_index = 0;
             n_lines = 1;
             continue;
         }
