@@ -140,7 +140,9 @@ consideration.
 
 - **Miscellaneous:**
   - [x] Permissive ATX headers: `###Header` (without space)
-  - [ ] Permissive autolinks: `http://google.com` (without `<`...`>`)
+  - [x] Permissive URL autolinks: `http://google.com` (without `<`...`>`)
+  - [ ] Permissive e-mail autolinks: `john.dow@example.com`
+        (without `<`...`>` and `mailto:`)
   - [x] Disabling indented code blocks
   - [x] Disabling raw HTML blocks/spans
 

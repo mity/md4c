@@ -1,0 +1,72 @@
+
+# Permissive URL Autolinks
+
+With the flag `MD_FLAG_PERMISSIVEURLAUTOLINKS`, MD4C enables more permissive recognition
+of URLs and transform them to autolinks, even if they do not exactly follow the syntax
+of autolink as specified in CommonMark specification.
+
+This is standard CommonMark autolink:
+
+```````````````````````````````` example
+Homepage: <https://github.com/mity/md4c>
+.
+<p>Homepage: <a href="https://github.com/mity/md4c">https://github.com/mity/md4c</a></p>
+````````````````````````````````
+
+With the permissive autolinks enabled, this is sufficient:
+
+```````````````````````````````` example
+Homepage: https://github.com/mity/md4c
+.
+<p>Homepage: <a href="https://github.com/mity/md4c">https://github.com/mity/md4c</a></p>
+````````````````````````````````
+
+But this permissive autolink feature can work only for very widely used URL
+schemes, in alphabetical order `ftp:`, `http:`, `https:` and `mailto:`,
+so this is not an permissive autolink.
+
+That's why this is not a permissive autolink:
+
+```````````````````````````````` example
+ssh://root@example.com
+.
+<p>ssh://root@example.com</p>
+````````````````````````````````
+
+As certain characters (`.`, `?`, `=`, `&`, `%`, `+`, `-`, `_`, `#`, `@`) can collide
+with a normal text flow, they are not recognized as part of the URL unless another
+alphanumeric character immediately follows.
+
+Therefore the question mark in this question is not part of the autolink's
+contents:
+
+```````````````````````````````` example
+Have you ever visited http://www.zombo.com?
+.
+<p>Have you ever visited <a href="http://www.zombo.com">http://www.zombo.com</a>?</p>
+````````````````````````````````
+
+But in contrast, in this example it is:
+
+```````````````````````````````` example
+http://www.bing.com/search?q=md4c
+.
+<p><a href="http://www.bing.com/search?q=md4c">http://www.bing.com/search?q=md4c</a></p>
+````````````````````````````````
+
+Please note that e-mail addresses without the `mailto:` scheme are not permissive URL
+autolinks, but MD4C implements another extension `MD_FLAG_PERMISSIVEEMAILAUTOLINKS`
+which can be used to enable that too.
+
+```````````````````````````````` example
+mailto:john.doe@example.com
+.
+<p><a href="mailto:john.doe@example.com">mailto:john.doe@example.com</a></p>
+````````````````````````````````
+
+```````````````````````````````` example
+john.doe@example.com
+.
+<p>john.doe@example.com</p>
+````````````````````````````````
+

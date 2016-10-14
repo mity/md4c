@@ -91,6 +91,10 @@ struct MD_CTX_tag {
     MD_RENDERER r;
     void* userdata;
 
+    /* Helper temporary growing buffer. */
+    CHAR* buffer;
+    unsigned alloc_buffer;
+
     /* Stack of inline/span markers.
      * This is only used for parsing a single block contents but by storing it
      * here we may reuse the stack for subsequent blocks; i.e. we have fewer
@@ -253,6 +257,12 @@ md_str_case_eq(const CHAR* s1, const CHAR* s2, SZ n)
     return 0;
 }
 
+static inline int
+md_str_eq(const CHAR* s1, const CHAR* s2, SZ n)
+{
+    return memcmp(s1, s2, n * sizeof(CHAR));
+}
+
 static int
 md_text_with_null_replacement(MD_CTX* ctx, MD_TEXTTYPE type, const CHAR* str, SZ size)
 {
@@ -289,6 +299,26 @@ md_text_with_null_replacement(MD_CTX* ctx, MD_TEXTTYPE type, const CHAR* str, SZ
         if(ret != 0)                                                    \
             goto abort;                                                 \
     } while(0)
+
+
+#define MD_TEMP_BUFFER(sz)                                              \
+    do {                                                                \
+        if(sz > ctx->alloc_buffer) {                                    \
+            CHAR* new_buffer;                                           \
+            SZ new_size = ((sz) + (sz) / 2 + 128) & ~127;               \
+                                                                        \
+            new_buffer = realloc(ctx->buffer, new_size);                \
+            if(new_buffer == NULL) {                                    \
+                MD_LOG("realloc() failed.");                            \
+                ret = -1;                                               \
+                goto abort;                                             \
+            }                                                           \
+                                                                        \
+            ctx->buffer = new_buffer;                                   \
+            ctx->alloc_buffer = new_size;                               \
+        }                                                               \
+    } while(0)
+
 
 #define MD_ENTER_BLOCK(type, arg)                                       \
     do {                                                                \
@@ -768,13 +798,15 @@ md_is_autolink(MD_CTX* ctx, OFF beg, OFF end)
 /* The mark structure.
  *
  * '\\': Maybe escape sequence.
+ * '\0': NULL char.
  *  '*': Maybe (strong) emphasis start/end.
  *  '`': Maybe code span start/end.
  *  '&': Maybe start of entity.
  *  ';': Maybe end of entity.
  *  '<': Maybe start of raw HTML or autolink.
  *  '>': Maybe end of raw HTML or autolink.
- *  '0': NULL char.
+ *  ':': Maybe permissive URL auto-link (needs MD_FLAG_PERMISSIVEURLAUTOLINKS)
+ *  '@': Maybe permissive e-mail auto-link (needs MD_FLAG_PERMISSIVEEMAILAUTOLINKS)
  *
  * Note that not all instances of these chars in the text imply creation of the
  * structure. Only those which have (or may have, after we see more context)
@@ -1161,6 +1193,54 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 }
             }
 
+            /* A potential permissive URL autolink. */
+            if((ctx->r.flags & MD_FLAG_PERMISSIVEURLAUTOLINKS)  &&  ch == _T(':')) {
+                static struct {
+                    const CHAR* scheme;
+                    SZ scheme_size;
+                    const CHAR* suffix;
+                    SZ suffix_size;
+                } scheme_map[] = {
+                    /* In the order from the most frequently used, arguably. */
+                    { _T("http"), 4,    _T("//"), 2 },
+                    { _T("https"), 5,   _T("//"), 2 },
+                    { _T("mailto"), 6,  NULL, 0 },
+                    { _T("ftp"), 3,     _T("//"), 2 },
+                };
+                int scheme_index;
+
+                for(scheme_index = 0; scheme_index < SIZEOF_ARRAY(scheme_map); scheme_index++) {
+                    const CHAR* scheme = scheme_map[scheme_index].scheme;
+                    const SZ scheme_size = scheme_map[scheme_index].scheme_size;
+                    const CHAR* suffix = scheme_map[scheme_index].suffix;
+                    const SZ suffix_size = scheme_map[scheme_index].suffix_size;
+
+                    if(line->beg + scheme_size <= off  &&  md_str_eq(STR(off-scheme_size), scheme, scheme_size) == 0  &&
+                        (line->beg + scheme_size == off || ISWHITESPACE(off-scheme_size-1))  &&
+                        off + 1 + suffix_size < line->end  &&  md_str_eq(STR(off+1), suffix, suffix_size) == 0)
+                    {
+                        PUSH_MARK(ch, off-scheme_size, off+1+suffix_size, MD_MARK_POTENTIAL_OPENER);
+                        /* Push a dummy as a reserve for a closer. */
+                        PUSH_MARK('D', off, off, 0);
+                        off += 1 + suffix_size;
+                        continue;
+                    }
+                }
+            }
+
+            /* A potential permissive e-mail autolink. */
+            if((ctx->r.flags & MD_FLAG_PERMISSIVEEMAILAUTOLINKS)  &&  ch == _T('@')) {
+                if(line->beg + 1 <= off  &&  ISALNUM(off-1)  &&
+                    off + 3 < line->end  &&  ISALNUM(off+1))
+                {
+                    PUSH_MARK(ch, off, off+1, MD_MARK_POTENTIAL_OPENER);
+                    /* Push a dummy as a reserve for a closer. */
+                    PUSH_MARK('D', off, off, 0);
+                    off++;
+                    continue;
+                }
+            }
+
             /* NULL character. */
             if(ch == _T('\0')) {
                 PUSH_MARK(ch, off, off+1, MD_MARK_RESOLVED);
@@ -1412,10 +1492,107 @@ md_analyze_underscore(MD_CTX* ctx, int mark_index)
     md_analyze_simple_pairing_mark(ctx, &UNDERSCORE_OPENERS, mark_index, 1);
 }
 
+static void
+md_analyze_permissive_url_autolink(MD_CTX* ctx, int mark_index)
+{
+    MD_MARK* opener = &ctx->marks[mark_index];
+    int closer_index;
+    MD_MARK* closer;
+    OFF off = opener->end;
+
+    if(off < ctx->size && ISALNUM(off))
+        off++;
+    else
+        return;
+
+    while(1) {
+        while(off < ctx->size && (ISALNUM(off) || CH(off) == _T('/')))
+            off++;
+
+        /* We need to be relatively careful to not include too much into the URL.
+         * Consider e.g. a dot or question mark:
+         *   "Go to http://example.com." versus "http://example.com.uk"
+         *   "Do you know http://zombo.com?" versus "http://example.com/?page=2"
+         * Therefore we include some named punctuation characters only if they
+         * are immediately followed by alnum char.
+         */
+        if(off + 1 < ctx->size && ISANYOF(off, _T("@.?=&%+-_#")) && ISALNUM(off+1))
+            off += 2;
+        else
+            break;
+    }
+
+    /* Ok. Lets call it auto-link. Adapt opener and create closer to zero
+     * length so all the contents becomes the link text. */
+    closer_index = md_split_mark(ctx, mark_index, 0);
+    closer = &ctx->marks[closer_index];
+
+    opener->end = opener->beg;
+    closer->beg = off;
+    closer->end = off;
+    md_resolve_range(ctx, NULL, mark_index, closer_index);
+}
+
+static void
+md_analyze_permissive_email_autolink(MD_CTX* ctx, int mark_index)
+{
+    MD_MARK* opener = &ctx->marks[mark_index];
+    int closer_index;
+    MD_MARK* closer;
+    OFF beg = opener->beg;
+    OFF end = opener->end;
+    int right_dot_count = 0;
+
+    MD_ASSERT(CH(beg) == _T('@'));
+
+    /* Accept any alphanumeric sequences delimited with dot before the '@'.
+     * There must be a whitespace or start of line before it. */
+    while(1) {
+        while(beg > 0  &&  ISALNUM(beg-1))
+            beg--;
+
+        if(beg > 1 && CH(beg-1) == _T('.') && ISALNUM(beg-2))
+            beg -= 2;
+        else if(beg == 0 || ISWHITESPACE(beg-1) || ISNEWLINE(beg-1))
+            break;
+        else
+            return;
+    }
+
+    /* Accept any alphanumeric sequences delimited with dot after the '@'. */
+    while(1) {
+        while(end + 1 < ctx->size  &&  ISALNUM(end))
+            end++;
+
+        if(end + 1 < ctx->size && CH(end) == _T('.') && ISALNUM(end+1)) {
+            right_dot_count++;
+            end += 2;
+        } else if(right_dot_count > 0) {
+            /* Although "user@machine" is technically correct e-mail address,
+             * we request at least one dot, as in e.g. "user@machine.com" to
+             * prevent some false positives with this very loose format. */
+            break;
+        } else {
+            return;
+        }
+    }
+
+    /* Ok. Lets call it auto-link. Adapt opener and create closer to zero
+     * length so all the contents becomes the link text. */
+    closer_index = md_split_mark(ctx, mark_index, 0);
+    closer = &ctx->marks[closer_index];
+
+    opener->beg = beg;
+    opener->end = beg;
+    closer->beg = end;
+    closer->end = end;
+    md_resolve_range(ctx, NULL, mark_index, closer_index);
+}
+
 /* Table of precedence of various span types. */
 static const CHAR* md_precedence_table[] = {
-    _T("&`<>"),     /* Code spans; autolinks; raw HTML. */
-    _T("*_")        /* Emphasis and string emphasis. */
+    _T("&`<>"),     /* Entities; code spans; autolinks; raw HTML. */
+    _T("*_@:")      /* Emphasis and string emphasis; permissive autolinks. */
 };
 
 static void
@@ -1452,6 +1629,8 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int precedence_
             case '&':   md_analyze_entity(ctx, i); break;
             case '*':   md_analyze_asterisk(ctx, i); break;
             case '_':   md_analyze_underscore(ctx, i); break;
+            case ':':   md_analyze_permissive_url_autolink(ctx, i); break;
+            case '@':   md_analyze_permissive_email_autolink(ctx, i); break;
         }
 
         i++;
@@ -1563,24 +1742,42 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                     }
                     break;
 
-                case '<':       /* Autolink or raw HTML. */
-                    if(mark->flags & MD_MARK_AUTOLINK) {
-                        det.a.href = STR(mark->end);
-                        det.a.href_size = ctx->marks[mark->next].beg - mark->end;
+                case '<':
+                case '>':       /* Autolink or raw HTML. */
+                    if(!(mark->flags & MD_MARK_AUTOLINK)) {
+                        if(mark->flags & MD_MARK_OPENER)
+                            text_type = MD_TEXT_HTML;
+                        else
+                            text_type = MD_TEXT_NORMAL;
+                        break;
+                    }
+                    /* Pass through, if auto-link. */
+
+                case '@':       /* Permissive e-mail autolink. */
+                case ':':       /* Permissive URL autolink. */
+                    if(mark->flags & MD_MARK_OPENER) {
+                        if(mark->ch == '@') {
+                            SZ sz = 7 + ctx->marks[mark->next].beg - mark->end;
+
+                            MD_TEMP_BUFFER(sz);
+                            memcpy(ctx->buffer, _T("mailto:"), 7 * sizeof(CHAR));
+                            memcpy(ctx->buffer + 7, STR(mark->end), (sz-7) * sizeof(CHAR));
+
+                            det.a.href_size = sz;
+                            det.a.href = ctx->buffer;
+                        } else {
+                            det.a.href_size = ctx->marks[mark->next].beg - mark->end;
+                            det.a.href = STR(mark->end);
+                        }
+                        det.a.title = NULL;
+                        det.a.title_size = 0;
                         MD_ENTER_SPAN(MD_SPAN_A, (void*) &det);
                     } else {
-                        text_type = MD_TEXT_HTML;
-                    }
-                    break;
-
-                case '>':
-                    if(mark->flags & MD_MARK_AUTOLINK)
                         /* The detail already has to be initialized: There cannot
-                         * be any resolved mark between the autlink opener and
+                         * be any resolved mark between the autolink opener and
                          * closer. */
                         MD_LEAVE_SPAN(MD_SPAN_A, (void*) &det);
-                    else
-                        text_type = MD_TEXT_NORMAL;
+                    }
                     break;
 
                 case '&':       /* Entity. */
@@ -1930,7 +2127,7 @@ md_is_html_block_start_condition(MD_CTX* ctx, OFF beg)
 
         /* Check for type 5: <![CDATA[ */
         if(off + 8 < ctx->size) {
-            if(memcmp(STR(off), _T("![CDATA["), 8 * sizeof(CHAR)) == 0)
+            if(md_str_eq(STR(off), _T("![CDATA["), 8 * sizeof(CHAR)) == 0)
                 return 5;
         }
     }
@@ -2500,6 +2697,7 @@ md_parse(const MD_CHAR* text, MD_SIZE size, const MD_RENDERER* renderer, void* u
 
     /* Clean-up. */
     free(ctx.marks);
+    free(ctx.buffer);
 
     return ret;
 }

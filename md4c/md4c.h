@@ -177,12 +177,15 @@ struct MD_BLOCK_CODE_DETAIL_tag {
  * By default (when MD_RENDERER::flags == 0), we follow CommonMark specification.
  * The following flags may allow some extensions or deviations from it.
  */
-#define MD_FLAG_COLLAPSEWHITESPACE      0x0001  /* In MD_TEXT_NORMAL, collapse non-trivial whitespace into single ' ' */
-#define MD_FLAG_PERMISSIVEATXHEADERS    0x0002  /* Do not require space in ATX headers ( ###header ) */
-#define MD_FLAG_NOINDENTEDCODEBLOCKS    0x0004  /* Disable indented code blocks. (Only fenced code works.) */
-#define MD_FLAG_NOHTMLBLOCKS            0x0010  /* Disable raw HTML blocks. */
-#define MD_FLAG_NOHTMLSPANS             0x0020  /* Disable raw HTML (inline). */
-#define MD_FLAG_NOHTML                  (MD_FLAG_NOHTMLBLOCKS | MD_FLAG_NOHTMLSPANS)
+#define MD_FLAG_COLLAPSEWHITESPACE          0x0001  /* In MD_TEXT_NORMAL, collapse non-trivial whitespace into single ' ' */
+#define MD_FLAG_PERMISSIVEATXHEADERS        0x0002  /* Do not require space in ATX headers ( ###header ) */
+#define MD_FLAG_PERMISSIVEURLAUTOLINKS      0x0004  /* Recognize URLs as autolinks even without '<', '>' */
+#define MD_FLAG_PERMISSIVEEMAILAUTOLINKS    0x0008  /* Recognize e-mails as autolinks even without '<', '>' and 'mailto:' */
+#define MD_FLAG_PERMISSIVEAUTOLINKS         (MD_FLAG_PERMISSIVEWWWAUTOLINKS | MD_FLAG_PERMISSIVEEMAILAUTOLINKS)
+#define MD_FLAG_NOINDENTEDCODEBLOCKS        0x0010  /* Disable indented code blocks. (Only fenced code works.) */
+#define MD_FLAG_NOHTMLBLOCKS                0x0020  /* Disable raw HTML blocks. */
+#define MD_FLAG_NOHTMLSPANS                 0x0040  /* Disable raw HTML (inline). */
+#define MD_FLAG_NOHTML                      (MD_FLAG_NOHTMLBLOCKS | MD_FLAG_NOHTMLSPANS)
 
 /* Caller-provided callbacks.
  *

@@ -440,8 +440,13 @@ static const option cmdline_options[] = {
     { "help",                       'h', 'h', OPTION_ARG_NONE },
     { "fverbatim-entities",          0,  'E', OPTION_ARG_NONE },
     { "fpermissive-atx-headers",     0,  'A', OPTION_ARG_NONE },
+    { "fpermissive-url-autolinks",   0,  'U', OPTION_ARG_NONE },
+    { "fpermissive-email-autolinks", 0,  '@', OPTION_ARG_NONE },
+    { "fpermissive-autolinks",       0,  'V', OPTION_ARG_NONE },
     { "fno-indented-code",           0,  'I', OPTION_ARG_NONE },
-    { "fno-html-blocks",             0,  'H', OPTION_ARG_NONE },
+    { "fno-html-blocks",             0,  'F', OPTION_ARG_NONE },
+    { "fno-html-spans",              0,  'G', OPTION_ARG_NONE },
+    { "fno-html",                    0,  'H', OPTION_ARG_NONE },
     { "fcollapse-whitespace",        0,  'W', OPTION_ARG_NONE },
     { 0 }
 };
@@ -454,17 +459,31 @@ usage(void)
         "Convert input FILE (or standard input) in Markdown format to HTML.\n"
         "\n"
         "General options:\n"
-        "  -o  --output=FILE        output file (default is standard output)\n"
-        "  -f, --full-html          generate full HTML document, including header\n"
-        "  -s, --stat               measure time of input parsing\n"
-        "  -h, --help               display this help and exit\n"
+        "  -o  --output=FILE    Output file (default is standard output)\n"
+        "  -f, --full-html      Generate full HTML document, including header\n"
+        "  -s, --stat           Measure time of input parsing\n"
+        "  -h, --help           Display this help and exit\n"
         "\n"
-        "Markdown dialect options:\n"
-        "      --fcollapse-whitespace       collapse non-trivial whitespace\n"
-        "      --fverbatim-entities         do not translate entities\n"
-        "      --fpermissive-atx-headers    allow ATX headers without delimiting space\n"
-        "      --fno-indented-code          disable indented code blocks\n"
-        "      --fno-html-blocks            disable raw HTML blocks\n"
+        "Markdown extension options:\n"
+        "      --fcollapse-whitespace\n"
+        "                       Collapse non-trivial whitespace\n"
+        "      --fverbatim-entities\n"
+        "                       Do not translate entities\n"
+        "      --fpermissive-atx-headers\n"
+        "                       Allow ATX headers without delimiting space\n"
+        "      --fpermissive-url-autolinks\n"
+        "                       Allow URL autolinks without '<', '>'\n"
+        "      --fpermissive-email-autolinks  \n"
+        "                       Allow e-mail autolinks without '<', '>' and 'mailto:'\n"
+        "      --fpermissive-autolinks\n"
+        "                       Same as --fpermissive-url-autolinks --fpermissive-email-autolinks\n"
+        "      --fno-indented-code\n"
+        "                       Disable indented code blocks\n"
+        "      --fno-html-blocks\n"
+        "                       Disable raw HTML blocks\n"
+        "      --fno-html-spans\n"
+        "                       Disable raw HTML spans\n"
+        "      --fno-html       Same as --fno-html-blocks --fno-html-spans\n"
     );
 }
 
@@ -492,8 +511,13 @@ cmdline_callback(int opt, char const* value, void* data)
         case 'E':   want_verbatim_entities = 1; break;
         case 'A':   renderer_flags |= MD_FLAG_PERMISSIVEATXHEADERS; break;
         case 'I':   renderer_flags |= MD_FLAG_NOINDENTEDCODEBLOCKS; break;
-        case 'H':   renderer_flags |= MD_FLAG_NOHTMLBLOCKS; break;
+        case 'F':   renderer_flags |= MD_FLAG_NOHTMLBLOCKS; break;
+        case 'G':   renderer_flags |= MD_FLAG_NOHTMLSPANS; break;
+        case 'H':   renderer_flags |= MD_FLAG_NOHTML; break;
         case 'W':   renderer_flags |= MD_FLAG_COLLAPSEWHITESPACE; break;
+        case 'U':   renderer_flags |= MD_FLAG_PERMISSIVEURLAUTOLINKS; break;
+        case '@':   renderer_flags |= MD_FLAG_PERMISSIVEEMAILAUTOLINKS; break;
+        case 'V':   renderer_flags |= MD_FLAG_PERMISSIVEURLAUTOLINKS | MD_FLAG_PERMISSIVEEMAILAUTOLINKS; break;
 
         default:
             fprintf(stderr, "Illegal option: %s\n", value);

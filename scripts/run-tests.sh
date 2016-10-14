@@ -2,7 +2,7 @@
 #
 # Run this script from build directory.
 
-set -e
+#set -e
 
 SELF_DIR=`dirname $0`
 PROJECT_DIR="$SELF_DIR/.."
@@ -24,4 +24,9 @@ elif which python 2>/dev/null; then
     fi
 fi
 
-$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/spec.txt" -p "$PROGRAM" "$@"
+# Test CommonMark specification compliance (with default options):
+$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/spec.txt" -p "$PROGRAM"
+
+# Test various extensions and deviations from the specifications:
+$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/permissive-email-autolinks.txt" -p "$PROGRAM --fpermissive-email-autolinks"
+$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/permissive-url-autolinks.txt" -p "$PROGRAM --fpermissive-url-autolinks"
