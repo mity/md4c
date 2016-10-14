@@ -805,10 +805,11 @@ struct MD_MARK_tag {
 #define MD_MARK_OPENER              0x04  /* Definitely opener. */
 #define MD_MARK_CLOSER              0x08  /* Definitely closer. */
 #define MD_MARK_RESOLVED            0x10  /* Resolved in any definite way. */
+#define MD_MARK_LEAF                0x20  /* Pair does not contain any nested spans. */
 
 /* Mark flags specific for various mark types (so they can share bits). */
-#define MD_MARK_INTRAWORD           0x20  /* Helper for emphasis '*', '_' ("the rule of 3"). */
-#define MD_MARK_AUTOLINK            0x20  /* Distinguisher for '<', '>'. */
+#define MD_MARK_INTRAWORD           0x40  /* Helper for emphasis '*', '_' ("the rule of 3"). */
+#define MD_MARK_AUTOLINK            0x40  /* Distinguisher for '<', '>'. */
 
 
 static MD_MARK*
@@ -897,25 +898,26 @@ md_resolve_range(MD_CTX* ctx, MD_MARKCHAIN* chain, int opener_index, int closer_
 #define MD_ROLLBACK_ALL         0
 #define MD_ROLLBACK_CROSSING    1
 
-/* Undo some or all resolvings of ctx->marks[opener_index] ... [closer_index]:
+/* In the range ctx->marks[opener_index] ... [closer_index], undo some or all
+ * resolvings accordingly to these rules:
  *
- * (1) If 'how' is MD_ROLLBACK_ALL, then
- *      (1.1) all resolved closers within the range, corresponding to openers
- *          BEFORE the range are discarded and those openers before the range
- *          are again made ready for future resolving to closers after the
- *          range; and
- *      (1.2) ALL resolved marks within the range, including all closers and
- *          any non-paired marks like entities, are discarded.
+ * (1) All openers BEFORE the range corresponding to any closer inside the
+ *     range are un-resolved and they are re-added to their respective chains
+ *     of unresolved openers. This ensures we can reuse the opener for closers
+ *     AFTER the range.
  *
- * (2) If 'how' is MD_ROLLBACK_CROSSING, then
- *      (2.1) Ditto as (1.1); and
- *      (2.2) all unresolved openers INSIDE the range are discarded from
- *          openers their respective openers chain.
+ * (2) If 'how' is MD_ROLLBACK_ALL, then ALL resolved marks inside the range
+ *     are discarded.
+ *
+ * (3) If 'how' is MD_ROLLBACK_CROSSING, only closers with openers handled
+ *     in (1) are discarded. I.e. pairs of openers and closers which are both
+ *     inside the range are retained as well as any unpaired marks.
  */
 static void
 md_rollback(MD_CTX* ctx, int opener_index, int closer_index, int how)
 {
     int i;
+    int mark_index;
 
     /* Cut all unresolved openers at the mark index. */
     for(i = 0; i < SIZEOF_ARRAY(ctx->mark_chains); i++) {
@@ -932,33 +934,66 @@ md_rollback(MD_CTX* ctx, int opener_index, int closer_index, int how)
 
     /* Go backwards so that un-resolved openers are re-added into their
      * respective chains, in the right order. */
-    for(i = closer_index - 1; i > opener_index; i--) {
-        if(ctx->marks[i].flags & MD_MARK_CLOSER) {
-            int index = ctx->marks[i].prev;
+    mark_index = closer_index - 1;
+    while(mark_index > opener_index) {
+        MD_MARK* mark = &ctx->marks[mark_index];
+        int mark_flags = mark->flags;
+        int discard_flag = (how == MD_ROLLBACK_ALL);
 
-            if(index < opener_index) {
-                MD_MARK* opener = &ctx->marks[index];
+        if(mark->flags & MD_MARK_CLOSER) {
+            int mark_opener_index = mark->prev;
+
+            /* Undo opener BEFORE the range. */
+            if(mark_opener_index < opener_index) {
+                MD_MARK* mark_opener = &ctx->marks[mark_opener_index];
                 MD_MARKCHAIN* chain;
 
-                /* (1.1) + (2.1) */
-                switch(opener->ch) {
+                mark_opener->flags &= ~(MD_MARK_OPENER | MD_MARK_CLOSER | MD_MARK_RESOLVED | MD_MARK_LEAF);
+
+                switch(mark_opener->ch) {
                     case '*':   chain = &ASTERISK_OPENERS; break;
                     case '_':   chain = &UNDERSCORE_OPENERS; break;
                     case '`':   chain = &BACKTICK_OPENERS; break;
                     case '<':   chain = &LOWERTHEN_OPENERS; break;
                     default:    MD_UNREACHABLE(); break;
                 }
-                md_mark_chain_append(ctx, chain, index);
-                opener->flags &= ~(MD_MARK_OPENER | MD_MARK_CLOSER | MD_MARK_RESOLVED);
+                md_mark_chain_append(ctx, chain, mark_opener_index);
 
-                /* (1.2) */
-                ctx->marks[i].flags &= ~(MD_MARK_OPENER | MD_MARK_CLOSER | MD_MARK_RESOLVED);
+                discard_flag = 1;
             }
         }
 
-        /* (2.2) */
-        if(how == MD_ROLLBACK_ALL)
-            ctx->marks[i].flags &= ~(MD_MARK_OPENER | MD_MARK_CLOSER | MD_MARK_RESOLVED);
+        /* And reset our flags. */
+        if(discard_flag)
+            mark->flags &= ~(MD_MARK_OPENER | MD_MARK_CLOSER | MD_MARK_RESOLVED | MD_MARK_LEAF);
+
+        /* Jump as far as we can over unresolved or non-interesting marks. */
+        switch(how) {
+            case MD_ROLLBACK_CROSSING:
+                if((mark_flags & MD_MARK_CLOSER)  &&  mark->prev > opener_index) {
+                    /* If we are closer with opener INSIDE the range, there may
+                     * not be any other crosser inside the subrange. */
+                    mark_index = mark->prev;
+                    break;
+                }
+                /* Pass through. */
+            case MD_ROLLBACK_ALL:
+                if((mark_flags & (MD_MARK_CLOSER | MD_MARK_LEAF)) == (MD_MARK_CLOSER | MD_MARK_LEAF)) {
+                    /* If we are closer and now there is no nested resolved mark
+                     * we can also jump right to our opener. */
+                    mark_index = mark->prev;
+                    break;
+                }
+                /* Pass through. */
+            default:
+                mark_index--;
+                break;
+        }
+    }
+
+    if(how == MD_ROLLBACK_ALL) {
+        ctx->marks[opener_index].flags |= MD_MARK_LEAF;
+        ctx->marks[closer_index].flags |= MD_MARK_LEAF;
     }
 }
 
