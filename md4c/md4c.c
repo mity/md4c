@@ -110,19 +110,17 @@ struct MD_CTX_tag {
 #define ASTERISK_OPENERS        ctx->mark_chains[2]
 #define UNDERSCORE_OPENERS      ctx->mark_chains[3]
 
-    /* For MD_BLOCK_QUOTE */
-    unsigned quote_level;   /* Nesting level. */
-
     /* Minimal indentation to call the block "indented code". */
     unsigned code_indent_offset;
+
+    /* For MD_BLOCK_QUOTE */
+    unsigned quote_level;   /* Nesting level. */
 
     /* For MD_BLOCK_HEADER. */
     unsigned header_level;
 
     /* For MD_BLOCK_CODE (fenced). */
-    CHAR code_fence_char;   /* '~' or '`' */
     SZ code_fence_length;
-    OFF code_fence_indent;
     OFF code_fence_info_beg;
     OFF code_fence_info_end;
 
@@ -2018,20 +2016,18 @@ md_is_opening_code_fence(MD_CTX* ctx, OFF beg, OFF* p_end)
     while(off > ctx->code_fence_info_beg  &&  CH(off-1) == _T(' '))
         off--;
     ctx->code_fence_info_end = off;
-
-    ctx->code_fence_char = CH(beg);
     return 0;
 }
 
 static int
-md_is_closing_code_fence(MD_CTX* ctx, OFF beg, OFF* p_end)
+md_is_closing_code_fence(MD_CTX* ctx, CHAR ch, OFF beg, OFF* p_end)
 {
     OFF off = beg;
     int ret = -1;
 
     /* Closing fence must have at least the same length and use same char as
      * opening one. */
-    while(off < ctx->size  &&  CH(off) == ctx->code_fence_char)
+    while(off < ctx->size  &&  CH(off) == ch)
         off++;
     if(off - beg < ctx->code_fence_length)
         goto out;
@@ -2280,7 +2276,7 @@ redo_indentation_after_blockquote_mark:
         /* We are another MD_LINE_FENCEDCODE unless we are closing fence
          * which we transform into MD_LINE_BLANK. */
         if(line->indent < ctx->code_indent_offset) {
-            if(md_is_closing_code_fence(ctx, off, &off) == 0) {
+            if(md_is_closing_code_fence(ctx, CH(pivot_line->beg), off, &off) == 0) {
                 line->type = MD_LINE_BLANK;
                 goto done;
             }
@@ -2385,7 +2381,6 @@ redo_indentation_after_blockquote_mark:
     /* Check whether we are starting code fence. */
     if(CH(off) == _T('`') || CH(off) == _T('~')) {
         if(md_is_opening_code_fence(ctx, off, &off) == 0) {
-            ctx->code_fence_indent = line->indent;
             line->type = MD_LINE_FENCEDCODE;
             goto done;
         }
