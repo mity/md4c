@@ -1338,14 +1338,14 @@ md_analyze_lt_gt(MD_CTX* ctx, int mark_index, const MD_LINE* lines, int n_lines)
 
         /* Check whether the range forms a valid raw HTML. */
         if(is_autolink || is_raw_html) {
-            /* If this fails, it means we have missed some earlier opportunity
-             * to resolve the opener. */
-            MD_ASSERT(detected_end == mark->end);
-
             md_rollback(ctx, opener_index, mark_index, MD_ROLLBACK_ALL);
             md_resolve_range(ctx, &LOWERTHEN_OPENERS, opener_index, mark_index);
 
             if(is_raw_html) {
+                /* If this fails, it means we have missed some earlier opportunity
+                 * to resolve the opener of raw HTML. */
+                MD_ASSERT(detected_end == mark->end);
+
                 /* Make these marks zero width so the '<' and '>' are part of its
                  * contents. */
                 opener->end = opener->beg;
