@@ -337,7 +337,7 @@ text_callback(MD_TEXTTYPE type, const MD_CHAR* text, MD_SIZE size, void* userdat
 static void
 debug_log_callback(const char* msg, void* userdata)
 {
-    fprintf(stderr, "Error:%s\n", msg);
+    fprintf(stderr, "Error: %s\n", msg);
 }
 
 
