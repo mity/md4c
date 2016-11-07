@@ -70,6 +70,7 @@ typedef MD_SIZE SZ;
 typedef MD_OFFSET OFF;
 
 typedef struct MD_MARK_tag MD_MARK;
+typedef struct MD_BLOCK_tag MD_BLOCK;
 
 
 /* During analyzes of inline marks, we need to manage some "mark chains",
@@ -112,22 +113,27 @@ struct MD_CTX_tag {
 #define ASTERISK_OPENERS        ctx->mark_chains[2]
 #define UNDERSCORE_OPENERS      ctx->mark_chains[3]
 
-    /* Minimal indentation to call the block "indented code". */
+    /* For block analysis.
+     * Notes:
+     *   -- It holds MD_BLOCK as well as MD_LINE structures. After each
+     *      MD_BLOCK, its (multiple) MD_LINE(s) follow.
+     *   -- For MD_BLOCK_HTML and MD_BLOCK_CODE, MD_VERBATIMLINE(s) are used
+     *      instead of MD_LINE(s).
+     */
+    void* block_bytes;
+    MD_BLOCK* current_block;
+    unsigned n_block_bytes;
+    unsigned alloc_block_bytes;
+
+    /* Minimal indentation to call the block "indented code block". */
     unsigned code_indent_offset;
 
     /* For MD_BLOCK_QUOTE */
     unsigned quote_level;   /* Nesting level. */
 
-    /* For MD_BLOCK_HEADER. */
-    unsigned header_level;
-
-    /* For MD_BLOCK_CODE (fenced). */
-    SZ code_fence_length;
-    OFF code_fence_info_beg;
-    OFF code_fence_info_end;
-
-    /* For MD_BLOCK_HTML. */
-    int html_block_type;
+    /* Contextual info for line analysis. */
+    SZ code_fence_length;   /* For checking closing fence length. */
+    int html_block_type;    /* For checking closing raw HTML condition. */
 };
 
 typedef enum MD_LINETYPE_tag MD_LINETYPE;
@@ -143,13 +149,27 @@ enum MD_LINETYPE_tag {
     MD_LINE_TEXT
 };
 
-typedef struct MD_LINE_tag MD_LINE;
-struct MD_LINE_tag {
-    MD_LINETYPE type;
+typedef struct MD_LINE_ANALYSIS_tag MD_LINE_ANALYSIS;
+struct MD_LINE_ANALYSIS_tag {
+    MD_LINETYPE type    : 16;
+    unsigned data       : 16;
     OFF beg;
     OFF end;
     unsigned quote_level;   /* Level of nesting in <blockquote>. */
     unsigned indent;        /* Indentation level. */
+};
+
+typedef struct MD_LINE_tag MD_LINE;
+struct MD_LINE_tag {
+    OFF beg;
+    OFF end;
+};
+
+typedef struct MD_VERBATIMLINE_tag MD_VERBATIMLINE;
+struct MD_VERBATIMLINE_tag {
+    OFF beg;
+    OFF end;
+    OFF indent;
 };
 
 
@@ -387,7 +407,7 @@ md_text_with_null_replacement(MD_CTX* ctx, MD_TEXTTYPE type, const CHAR* str, SZ
  * or when breaking document to blocks (checking for start of HTML block type 7).
  *
  * When breaking document to blocks, we do not yet know line boundaries, but
- * in that case th whole tag has to live on a single line. We distinguish this
+ * in that case the whole tag has to live on a single line. We distinguish this
  * by n_lines == 0.
  */
 static int
@@ -715,51 +735,8 @@ md_is_html_any(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF max_
 
 
 /******************************************
- ***  Recognizing Some Complex Inlines  ***
+ ***  Processing Inlines (a.k.a Spans)  ***
  ******************************************/
-
-static int
-md_is_autolink(MD_CTX* ctx, OFF beg, OFF end)
-{
-    OFF off;
-
-    MD_ASSERT(CH(beg) == _T('<'));
-    MD_ASSERT(CH(end-1) == _T('>'));
-
-    beg++;
-    end--;
-
-    /* Check for scheme. */
-    off = beg;
-    if(off >= end  ||  !ISASCII(off))
-        return -1;
-    off++;
-    while(1) {
-        if(off >= end)
-            return -1;
-        if(off - beg > 32)
-            return -1;
-        if(CH(off) == _T(':')  &&  off - beg >= 2)
-            break;
-        if(!ISALNUM(off) && CH(off) != _T('+') && CH(off) != _T('-') && CH(off) != _T('.'))
-            return -1;
-        off++;
-    }
-
-    /* Check the path after the scheme. */
-    while(off < end) {
-        if(ISWHITESPACE(off) || ISCNTRL(off) || CH(off) == _T('<') || CH(off) == _T('>'))
-            return -1;
-        off++;
-    }
-
-    return 0;
-}
-
-
-/******************************************************
- ***  Processing Sequence of Inlines (a.k.a Spans)  ***
- ******************************************************/
 
 /* We process inlines in few phases:
  *
@@ -1345,6 +1322,44 @@ md_analyze_backtick(MD_CTX* ctx, int mark_index)
         md_mark_chain_append(ctx, &BACKTICK_OPENERS, mark_index);
 }
 
+static int
+md_is_autolink(MD_CTX* ctx, OFF beg, OFF end)
+{
+    OFF off;
+
+    MD_ASSERT(CH(beg) == _T('<'));
+    MD_ASSERT(CH(end-1) == _T('>'));
+
+    beg++;
+    end--;
+
+    /* Check for scheme. */
+    off = beg;
+    if(off >= end  ||  !ISASCII(off))
+        return -1;
+    off++;
+    while(1) {
+        if(off >= end)
+            return -1;
+        if(off - beg > 32)
+            return -1;
+        if(CH(off) == _T(':')  &&  off - beg >= 2)
+            break;
+        if(!ISALNUM(off) && CH(off) != _T('+') && CH(off) != _T('-') && CH(off) != _T('.'))
+            return -1;
+        off++;
+    }
+
+    /* Check the path after the scheme. */
+    while(off < end) {
+        if(ISWHITESPACE(off) || ISCNTRL(off) || CH(off) == _T('<') || CH(off) == _T('>'))
+            return -1;
+        off++;
+    }
+
+    return 0;
+}
+
 static void
 md_analyze_lt_gt(MD_CTX* ctx, int mark_index, const MD_LINE* lines, int n_lines)
 {
@@ -1882,12 +1897,24 @@ abort:
 }
 
 
-/******************************************
- ***  Processing Single Block Contents  ***
- ******************************************/
+/*******************************
+ ***  Processing Leaf Block  ***
+ *******************************/
+
+struct MD_BLOCK_tag {
+    MD_BLOCKTYPE type   : 16;
+
+    /* MD_BLOCK_H:      header level (1 - 6)
+     * MD_BLOCK_CODE:   non-zero if fenced, zero if indented.
+     */
+    unsigned data       : 16;
+
+    unsigned n_lines;
+    unsigned quote_level;
+};
 
 static int
-md_process_normal_block(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
+md_process_normal_block_contents(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 {
     int ret;
 
@@ -1899,14 +1926,14 @@ abort:
 }
 
 static int
-md_process_verbatim_block(MD_CTX* ctx, MD_TEXTTYPE text_type, const MD_LINE* lines, int n_lines)
+md_process_verbatim_block_contents(MD_CTX* ctx, MD_TEXTTYPE text_type, const MD_VERBATIMLINE* lines, int n_lines)
 {
     static const CHAR indent_str[16] = _T("                ");
     int i;
     int ret = 0;
 
     for(i = 0; i < n_lines; i++) {
-        const MD_LINE* line = &lines[i];
+        const MD_VERBATIMLINE* line = &lines[i];
         int indent = line->indent;
 
         /* Output code indentation. */
@@ -1929,10 +1956,15 @@ abort:
 }
 
 static int
-md_process_code_block(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
+md_process_code_block_contents(MD_CTX* ctx, int is_fenced, const MD_VERBATIMLINE* lines, int n_lines)
 {
-    /* Ignore blank lines at start/end of indented code block. */
-    if(lines[0].type == MD_LINE_INDENTEDCODE) {
+    if(is_fenced) {
+        /* Skip the first line in case of fenced code: It is the fence.
+         * (Only the starting fence is present due to logic in md_analyze_line().) */
+        lines++;
+        n_lines--;
+    } else {
+        /* Ignore blank lines at start/end of indented code block. */
         while(n_lines > 0  &&  lines[0].beg == lines[0].end) {
             lines++;
             n_lines--;
@@ -1942,23 +1974,289 @@ md_process_code_block(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
         }
     }
 
-    /* Skip the first line in case of fenced code: It is the fence.
-     * (Only the starting fence is present due to logic in md_analyze_line().) */
-    if(lines[0].type == MD_LINE_FENCEDCODE) {
-        lines++;
-        n_lines--;
-    }
-
     if(n_lines == 0)
         return 0;
 
-    return md_process_verbatim_block(ctx, MD_TEXT_CODE, lines, n_lines);
+    return md_process_verbatim_block_contents(ctx, MD_TEXT_CODE, lines, n_lines);
+}
+
+static int
+md_process_blockquote_nesting(MD_CTX* ctx, unsigned desired_level)
+{
+    int ret = 0;
+
+    /* Bring blockquote nesting to expected level. */
+    if(ctx->quote_level != desired_level) {
+        while(ctx->quote_level < desired_level) {
+            MD_ENTER_BLOCK(MD_BLOCK_QUOTE, NULL);
+            ctx->quote_level++;
+        }
+        while(ctx->quote_level > desired_level) {
+            MD_LEAVE_BLOCK(MD_BLOCK_QUOTE, NULL);
+            ctx->quote_level--;
+        }
+    }
+
+abort:
+    return ret;
+}
+
+static void
+md_setup_fenced_code_detail(MD_CTX* ctx, const MD_BLOCK* block, MD_BLOCK_CODE_DETAIL* det)
+{
+    const MD_VERBATIMLINE* fence_line = (const MD_VERBATIMLINE*)(block + 1);
+    OFF beg = fence_line->beg;
+    OFF end = fence_line->end;
+    CHAR fence_ch = CH(fence_line->beg);
+
+    /* Skip the fence itself. */
+    while(CH(beg) == fence_ch)
+        beg++;
+    /* Trim initial spaces. */
+    while(CH(beg) == _T(' '))
+        beg++;
+
+    /* Trim trailing spaces. */
+    while(end > beg  &&  CH(end-1) == _T(' '))
+        end--;
+
+    if(beg < end) {
+        det->info = STR(beg);
+        det->info_size = end - beg;
+
+        det->lang = det->info;
+        while(det->lang_size < det->info_size  &&  !ISWHITESPACE_(det->lang[det->lang_size]))
+            det->lang_size++;
+    }
+}
+
+static int
+md_process_block(MD_CTX* ctx, const MD_BLOCK* block)
+{
+    union {
+        MD_BLOCK_H_DETAIL header;
+        MD_BLOCK_CODE_DETAIL code;
+    } det;
+    int ret = 0;
+
+    /* Make sure the processed leaf block lives in the proper block quote
+     * level. */
+    MD_CHECK(md_process_blockquote_nesting(ctx, block->quote_level));
+
+    memset(&det, 0, sizeof(det));
+
+    switch(block->type) {
+        case MD_BLOCK_DOC:
+            /* Noop. We just needed to solve block quote nesting. */
+            return 0;
+
+        case MD_BLOCK_H:
+            det.header.level = block->data;
+            break;
+
+        case MD_BLOCK_CODE:
+            /* For fenced code block, we may need to set the info string. */
+            if(block->data != 0)
+                md_setup_fenced_code_detail(ctx, block, &det.code);
+            break;
+
+        default:
+            /* Noop. */
+            break;
+    }
+
+    MD_ENTER_BLOCK(block->type, (void*) &det);
+
+    /* Process the block contents accordingly to is type. */
+    switch(block->type) {
+        case MD_BLOCK_HR:
+            /* noop */
+            break;
+
+        case MD_BLOCK_CODE:
+            ret = md_process_code_block_contents(ctx, (block->data != 0),
+                            (const MD_VERBATIMLINE*)(block + 1), block->n_lines);
+            break;
+
+        case MD_BLOCK_HTML:
+            ret = md_process_verbatim_block_contents(ctx, MD_TEXT_HTML,
+                            (const MD_VERBATIMLINE*)(block + 1), block->n_lines);
+            break;
+
+        default:
+            ret = md_process_normal_block_contents(ctx,
+                            (const MD_LINE*)(block + 1), block->n_lines);
+            break;
+    }
+    if(ret != 0)
+        goto abort;
+
+    MD_LEAVE_BLOCK(block->type, (void*) &det);
+
+abort:
+    return ret;
+}
+
+static int
+md_process_all_blocks(MD_CTX* ctx)
+{
+    unsigned byte_off = 0;
+    int ret = 0;
+
+    while(byte_off < ctx->n_block_bytes) {
+        MD_BLOCK* block = (MD_BLOCK*)((char*)ctx->block_bytes + byte_off);
+        MD_CHECK(md_process_block(ctx, block));
+
+        byte_off += sizeof(MD_BLOCK);
+        if(block->type == MD_BLOCK_CODE || block->type == MD_BLOCK_HTML)
+            byte_off += block->n_lines * sizeof(MD_VERBATIMLINE);
+        else
+            byte_off += block->n_lines * sizeof(MD_LINE);
+    }
+
+    ctx->n_block_bytes = 0;
+
+abort:
+    return ret;
 }
 
 
-/***************************************
- ***  Breaking Document into Blocks  ***
- ***************************************/
+/************************************
+ ***  Grouping Lines into Blocks  ***
+ ************************************/
+
+static void*
+md_push_block_bytes(MD_CTX* ctx, unsigned n_bytes)
+{
+    void* ptr;
+
+    if(ctx->n_block_bytes + n_bytes > ctx->alloc_block_bytes) {
+        void* new_block_bytes;
+
+        ctx->alloc_block_bytes = (ctx->alloc_block_bytes > 0 ? ctx->alloc_block_bytes * 2 : 512);
+        new_block_bytes = realloc(ctx->block_bytes, ctx->alloc_block_bytes);
+        if(new_block_bytes == NULL) {
+            MD_LOG("realloc() failed.");
+            return NULL;
+        }
+
+        /* Fix the ->current_block after the reallocation. */
+        if(ctx->current_block != NULL) {
+            OFF off_current_block = (char*) ctx->current_block - (char*) ctx->block_bytes;
+            ctx->current_block = (MD_BLOCK*) ((char*) new_block_bytes + off_current_block);
+        }
+
+        ctx->block_bytes = new_block_bytes;
+    }
+
+    ptr = (char*)ctx->block_bytes + ctx->n_block_bytes;
+    ctx->n_block_bytes += n_bytes;
+    return ptr;
+}
+
+static int
+md_start_new_block(MD_CTX* ctx, const MD_LINE_ANALYSIS* line)
+{
+    MD_BLOCK* block;
+
+    MD_ASSERT(ctx->current_block == NULL);
+
+    block = (MD_BLOCK*) md_push_block_bytes(ctx, sizeof(MD_BLOCK));
+    if(block == NULL)
+        return -1;
+
+    switch(line->type) {
+        case MD_LINE_BLANK:
+            /* We misuse MD_BLOCK_DOC here to mark "no real leaf block". */
+            block->type = MD_BLOCK_DOC;
+            break;
+
+        case MD_LINE_HR:
+            block->type = MD_BLOCK_HR;
+            break;
+
+        case MD_LINE_ATXHEADER:
+        case MD_LINE_SETEXTHEADER:
+            block->type = MD_BLOCK_H;
+            break;
+
+        case MD_LINE_FENCEDCODE:
+        case MD_LINE_INDENTEDCODE:
+            block->type = MD_BLOCK_CODE;
+            break;
+
+        case MD_LINE_TEXT:
+            block->type = MD_BLOCK_P;
+            break;
+
+        case MD_LINE_HTML:
+            block->type = MD_BLOCK_HTML;
+            break;
+
+        case MD_LINE_SETEXTUNDERLINE:
+        default:
+            MD_UNREACHABLE();
+            break;
+    }
+
+    block->data = line->data;
+    block->n_lines = 0;
+    block->quote_level = line->quote_level;
+
+    ctx->current_block = block;
+    return 0;
+}
+
+static int
+md_end_current_block(MD_CTX* ctx)
+{
+    int ret = 0;
+
+    if(ctx->current_block != NULL) {
+        ctx->current_block = NULL;
+
+        // TODO : consider flush of all complete blocks
+        //MD_CHECK(md_process_all_blocks(ctx));
+    }
+
+abort:
+    return ret;
+}
+
+static int
+md_add_line_into_current_block(MD_CTX* ctx, const MD_LINE_ANALYSIS* analysis)
+{
+    MD_ASSERT(ctx->current_block != NULL);
+
+    if(ctx->current_block->type == MD_BLOCK_CODE || ctx->current_block->type == MD_BLOCK_HTML) {
+        MD_VERBATIMLINE* line;
+
+        line = (MD_VERBATIMLINE*) md_push_block_bytes(ctx, sizeof(MD_VERBATIMLINE));
+        if(line == NULL)
+            return -1;
+
+        line->indent = analysis->indent;
+        line->beg = analysis->beg;
+        line->end = analysis->end;
+    } else {
+        MD_LINE* line;
+
+        line = (MD_LINE*) md_push_block_bytes(ctx, sizeof(MD_LINE));
+        if(line == NULL)
+            return -1;
+
+        line->beg = analysis->beg;
+        line->end = analysis->end;
+    }
+    ctx->current_block->n_lines++;
+
+    return 0;
+}
+
+
+/***********************
+ ***  Line Analysis  ***
+ ***********************/
 
 static int
 md_is_hr_line(MD_CTX* ctx, OFF beg, OFF* p_end)
@@ -1984,7 +2282,7 @@ md_is_hr_line(MD_CTX* ctx, OFF beg, OFF* p_end)
 }
 
 static int
-md_is_atxheader_line(MD_CTX* ctx, OFF beg, OFF* p_beg, OFF* p_end)
+md_is_atxheader_line(MD_CTX* ctx, OFF beg, OFF* p_beg, OFF* p_end, unsigned* p_level)
 {
     int n;
     OFF off = beg + 1;
@@ -1995,7 +2293,7 @@ md_is_atxheader_line(MD_CTX* ctx, OFF beg, OFF* p_beg, OFF* p_end)
 
     if(n > 6)
         return -1;
-    ctx->header_level = n;
+    *p_level = n;
 
     if(!(ctx->r.flags & MD_FLAG_PERMISSIVEATXHEADERS)  &&  off < ctx->size  &&
        CH(off) != _T(' ')  &&  CH(off) != _T('\t')  &&  !ISNEWLINE(off))
@@ -2008,7 +2306,7 @@ md_is_atxheader_line(MD_CTX* ctx, OFF beg, OFF* p_beg, OFF* p_end)
 }
 
 static int
-md_is_setext_underline(MD_CTX* ctx, OFF beg, OFF* p_end)
+md_is_setext_underline(MD_CTX* ctx, OFF beg, OFF* p_end, unsigned* p_level)
 {
     OFF off = beg + 1;
 
@@ -2026,7 +2324,7 @@ md_is_setext_underline(MD_CTX* ctx, OFF beg, OFF* p_end)
     if(off < ctx->size  &&  !ISNEWLINE(off))
         return -1;
 
-    ctx->header_level = (CH(beg) == _T('=') ? 1 : 2);
+    *p_level = (CH(beg) == _T('=') ? 1 : 2);
     return 0;
 }
 
@@ -2048,19 +2346,13 @@ md_is_opening_code_fence(MD_CTX* ctx, OFF beg, OFF* p_end)
     while(off < ctx->size  &&  CH(off) == _T(' '))
         off++;
 
-    /* Optionally, language info can follow. It must not contain '`'. */
-    ctx->code_fence_info_beg = off;
+    /* Optionally, an info string can follow. It must not contain '`'. */
     while(off < ctx->size  &&  CH(off) != _T('`')  &&  !ISNEWLINE(off))
         off++;
     if(off < ctx->size  &&  !ISNEWLINE(off))
         return -1;
 
     *p_end = off;
-
-    /* Right trim of language info. */
-    while(off > ctx->code_fence_info_beg  &&  CH(off-1) == _T(' '))
-        off--;
-    ctx->code_fence_info_end = off;
     return 0;
 }
 
@@ -2296,7 +2588,8 @@ md_is_html_block_end_condition(MD_CTX* ctx, OFF beg, OFF* p_end)
 /* Analyze type of the line and find some its properties. This serves as a
  * main input for determining type and boundaries of a block. */
 static void
-md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end, const MD_LINE* pivot_line, MD_LINE* line)
+md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
+                const MD_LINE_ANALYSIS* pivot_line, MD_LINE_ANALYSIS* line)
 {
     OFF off = beg;
 
@@ -2344,6 +2637,7 @@ redo_indentation_after_blockquote_mark:
     {
         line->type = MD_LINE_INDENTEDCODE;
         line->indent -= ctx->code_indent_offset;
+        line->data = 0;
         goto done;
     }
 
@@ -2396,8 +2690,11 @@ redo_indentation_after_blockquote_mark:
     /* Check whether we are ATX header.
      * (We check the indentation to fix http://spec.commonmark.org/0.26/#example-40) */
     if(line->indent < ctx->code_indent_offset  &&  CH(off) == _T('#')) {
-        if(md_is_atxheader_line(ctx, off, &line->beg, &off) == 0) {
+        unsigned level;
+
+        if(md_is_atxheader_line(ctx, off, &line->beg, &off, &level) == 0) {
             line->type = MD_LINE_ATXHEADER;
+            line->data = level;
             goto done;
         }
     }
@@ -2407,8 +2704,11 @@ redo_indentation_after_blockquote_mark:
         &&  line->quote_level == pivot_line->quote_level
         && (CH(off) == _T('=') || CH(off) == _T('-')))
     {
-        if(md_is_setext_underline(ctx, off, &off) == 0) {
+        unsigned level;
+
+        if(md_is_setext_underline(ctx, off, &off, &level) == 0) {
             line->type = MD_LINE_SETEXTUNDERLINE;
+            line->data = level;
             goto done;
         }
     }
@@ -2427,6 +2727,7 @@ redo_indentation_after_blockquote_mark:
     if(CH(off) == _T('`') || CH(off) == _T('~')) {
         if(md_is_opening_code_fence(ctx, off, &off) == 0) {
             line->type = MD_LINE_FENCEDCODE;
+            line->data = 1;
             goto done;
         }
     }
@@ -2495,142 +2796,67 @@ done:
     *p_end = off;
 }
 
+static const MD_LINE_ANALYSIS md_dummy_blank_line = { MD_LINE_BLANK, 0 };
+
 static int
-md_process_blockquote_nesting(MD_CTX* ctx, unsigned desired_level)
+md_process_line(MD_CTX* ctx, const MD_LINE_ANALYSIS** p_pivot_line, const MD_LINE_ANALYSIS* line)
 {
+    const MD_LINE_ANALYSIS* pivot_line = *p_pivot_line;
     int ret = 0;
 
-    /* Bring blockquote nesting to expected level. */
-    if(ctx->quote_level != desired_level) {
-        while(ctx->quote_level < desired_level) {
-            MD_ENTER_BLOCK(MD_BLOCK_QUOTE, NULL);
-            ctx->quote_level++;
-        }
-        while(ctx->quote_level > desired_level) {
-            MD_LEAVE_BLOCK(MD_BLOCK_QUOTE, NULL);
-            ctx->quote_level--;
-        }
-    }
+    /* Some line types form block on their own. */
+    if(line->type == MD_LINE_HR || line->type == MD_LINE_ATXHEADER) {
+        MD_CHECK(md_end_current_block(ctx));
 
-abort:
-    return ret;
-}
-
-/* Determine type of the block (from type of its 1st line and some context),
- * call block_enter() callback, then appropriate function to parse contents
- * of the block, and finally block_leave() callback.
- */
-static int
-md_process_block(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
-{
-    MD_BLOCKTYPE block_type;
-    union {
-        MD_BLOCK_H_DETAIL header;
-        MD_BLOCK_CODE_DETAIL code;
-    } det;
-    int ret = 0;
-
-    if(n_lines == 0)
+        /* Add our single-line block. */
+        MD_CHECK(md_start_new_block(ctx, line));
+        MD_CHECK(md_add_line_into_current_block(ctx, line));
+        MD_CHECK(md_end_current_block(ctx));
+        *p_pivot_line = &md_dummy_blank_line;
         return 0;
-
-    memset(&det, 0, sizeof(det));
-
-    /* Make sure the processed leaf block lives in the proper block quote
-     * nesting level. */
-    MD_CHECK(md_process_blockquote_nesting(ctx, lines[0].quote_level));
-
-    /* Derive block type from type of the first line. */
-    switch(lines[0].type) {
-        case MD_LINE_BLANK:
-            return 0;
-
-        case MD_LINE_HR:
-            block_type = MD_BLOCK_HR;
-            break;
-
-        case MD_LINE_ATXHEADER:
-        case MD_LINE_SETEXTHEADER:
-            block_type = MD_BLOCK_H;
-            det.header.level = ctx->header_level;
-            break;
-
-        case MD_LINE_INDENTEDCODE:
-            block_type = MD_BLOCK_CODE;
-            break;
-
-        case MD_LINE_FENCEDCODE:
-            block_type = MD_BLOCK_CODE;
-            if(ctx->code_fence_info_beg < ctx->code_fence_info_end)
-                det.code.info = STR(ctx->code_fence_info_beg);
-            else
-                det.code.info = NULL;
-            det.code.info_size = ctx->code_fence_info_end - ctx->code_fence_info_beg;
-
-            det.code.lang = det.code.info;
-            det.code.lang_size = 0;
-            while(det.code.lang_size < det.code.info_size
-                        &&  !ISWHITESPACE_(det.code.lang[det.code.lang_size]))
-                det.code.lang_size++;
-
-            break;
-
-        case MD_LINE_TEXT:
-            block_type = MD_BLOCK_P;
-            break;
-
-        case MD_LINE_HTML:
-            block_type = MD_BLOCK_HTML;
-            break;
-
-        case MD_LINE_SETEXTUNDERLINE:
-            /* Noop. */
-            return 0;
-
-        default:
-            MD_UNREACHABLE();
-            break;
     }
 
-    MD_ENTER_BLOCK(block_type, (void*) &det);
-
-    /* Process the block contents accordingly to is type. */
-    switch(block_type) {
-        case MD_BLOCK_HR:
-            /* Noop. */
-            break;
-
-        case MD_BLOCK_CODE:
-            ret = md_process_code_block(ctx, lines, n_lines);
-            break;
-
-        case MD_BLOCK_HTML:
-            ret = md_process_verbatim_block(ctx, MD_TEXT_HTML, lines, n_lines);
-            break;
-
-        default:
-            ret = md_process_normal_block(ctx, lines, n_lines);
-            break;
+    /* MD_LINE_SETEXTUNDERLINE changes meaning of the previous block and ends it. */
+    if(line->type == MD_LINE_SETEXTUNDERLINE) {
+        MD_ASSERT(ctx->current_block != NULL);
+        ctx->current_block->type = MD_BLOCK_H;
+        ctx->current_block->data = line->data;
+        MD_CHECK(md_end_current_block(ctx));
+        *p_pivot_line = &md_dummy_blank_line;
+        return 0;
     }
-    if(ret != 0)
-        goto abort;
 
-    MD_LEAVE_BLOCK(block_type, (void*) &det);
+    /* The current block also ends if the line has different type or block quote
+     * level. */
+    if(line->type != pivot_line->type || line->quote_level != pivot_line->quote_level)
+        MD_CHECK(md_end_current_block(ctx));
+
+    /* Skip blank lines, if we can.
+     * (Blank lines are still important if they differ e.g. in block quote level.) */
+    if(line->type == MD_LINE_BLANK) {
+        if(pivot_line->type == MD_LINE_BLANK  &&  line->quote_level == pivot_line->quote_level)
+            return 0;
+    }
+
+    /* The current line may start a new block. */
+    if(ctx->current_block == NULL) {
+        MD_CHECK(md_start_new_block(ctx, line));
+        *p_pivot_line = line;
+    }
+
+    /* In all other cases the line is just a continuation of the current block. */
+    MD_CHECK(md_add_line_into_current_block(ctx, line));
 
 abort:
     return ret;
 }
 
-/* Go through the document, analyze each line, on the fly identify block
- * boundaries and call md_process_block() for sequence of MD_LINE composing
- * the block.
- */
 static int
 md_process_doc(MD_CTX *ctx)
 {
-    MD_LINE* lines = NULL;
-    int alloc_lines = 0;
-    int n_lines = 0;
-    int pivot_line_index = -1;  /* Points to a line determining type of block. */
+    const MD_LINE_ANALYSIS* pivot_line = &md_dummy_blank_line;
+    MD_LINE_ANALYSIS line_buf[2];
+    MD_LINE_ANALYSIS* line = &line_buf[0];
     OFF off = 0;
     int ret = 0;
 
@@ -2639,68 +2865,15 @@ md_process_doc(MD_CTX *ctx)
     MD_ENTER_BLOCK(MD_BLOCK_DOC, NULL);
 
     while(off < ctx->size) {
-        static const MD_LINE dummy_line = { MD_LINE_BLANK, 0 };
-        const MD_LINE* pivot_line;
-        MD_LINE* line;
+        if(line == pivot_line)
+            line = (line == &line_buf[0] ? &line_buf[1] : &line_buf[0]);
 
-        if(n_lines >= alloc_lines) {
-            MD_LINE* new_lines;
-
-            alloc_lines = (alloc_lines == 0 ? 32 : alloc_lines * 2);
-            new_lines = (MD_LINE*) realloc(lines, alloc_lines * sizeof(MD_LINE));
-            if(new_lines == NULL) {
-                MD_LOG("realloc() failed.");
-                ret = -1;
-                goto abort;
-            }
-
-            lines = new_lines;
-        }
-
-        pivot_line = (pivot_line_index >= 0 ? &lines[pivot_line_index] : &dummy_line);
-
-        md_analyze_line(ctx, off, &off, pivot_line, &lines[n_lines]);
-        line = &lines[n_lines];
-
-        /* Some line types form block on their own. */
-        if(line->type == MD_LINE_HR || line->type == MD_LINE_ATXHEADER) {
-            /* Flush accumulated lines. */
-            MD_CHECK(md_process_block(ctx, lines, n_lines));
-
-            /* Flush ourself. */
-            MD_CHECK(md_process_block(ctx, line, 1));
-
-            pivot_line_index = -1;
-            n_lines = 0;
-            continue;
-        }
-
-        /* MD_LINE_SETEXTUNDERLINE changes meaning of the previous block. */
-        if(line->type == MD_LINE_SETEXTUNDERLINE) {
-            MD_ASSERT(n_lines > 0);
-            lines[0].type = MD_LINE_SETEXTHEADER;
-            line->type = MD_LINE_BLANK;
-        }
-
-        /* New block also starts if line type changes or if block quote nesting
-         * level changes. */
-        if(line->type != pivot_line->type  ||  line->quote_level != pivot_line->quote_level) {
-            MD_CHECK(md_process_block(ctx, lines, n_lines));
-
-            /* Keep the current line as the new pivot. */
-            if(line != &lines[0])
-                memcpy(&lines[0], line, sizeof(MD_LINE));
-            pivot_line_index = 0;
-            n_lines = 1;
-            continue;
-        }
-
-        /* Otherwise we just accumulate the line into ongoing block. */
-        n_lines++;
+        md_analyze_line(ctx, off, &off, pivot_line, line);
+        MD_CHECK(md_process_line(ctx, &pivot_line, line));
     }
 
-    /* Process also the last block. */
-    MD_CHECK(md_process_block(ctx, lines, n_lines));
+    /* Process all remaining blocks. */
+    MD_CHECK(md_process_all_blocks(ctx));
 
     /* Close any dangling parent blocks. */
     MD_CHECK(md_process_blockquote_nesting(ctx, 0));
@@ -2708,7 +2881,22 @@ md_process_doc(MD_CTX *ctx)
     MD_LEAVE_BLOCK(MD_BLOCK_DOC, NULL);
 
 abort:
-    free(lines);
+
+#if 0
+    /* Output some memory consumption statistics. */
+    {
+        char buffer[256];
+        sprintf(buffer, "Alloced %u bytes for block buffer.", ctx->alloc_block_bytes);
+        MD_LOG(buffer);
+
+        sprintf(buffer, "Alloced %u bytes for marks buffer.", ctx->alloc_marks * sizeof(MD_MARK));
+        MD_LOG(buffer);
+
+        sprintf(buffer, "Alloced %u bytes for aux. buffer.", ctx->alloc_buffer * sizeof(MD_CHAR));
+        MD_LOG(buffer);
+    }
+#endif
+
     return ret;
 }
 
@@ -2737,6 +2925,7 @@ md_parse(const MD_CHAR* text, MD_SIZE size, const MD_RENDERER* renderer, void* u
     ret = md_process_doc(&ctx);
 
     /* Clean-up. */
+    free(ctx.block_bytes);
     free(ctx.marks);
     free(ctx.buffer);
 
