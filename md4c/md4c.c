@@ -103,6 +103,8 @@ struct MD_CTX_tag {
     unsigned n_marks;
     unsigned alloc_marks;
 
+    char mark_char_map[128];
+
     /* For resolving of inline spans. */
     MD_MARKCHAIN mark_chains[4];
 #define BACKTICK_OPENERS        ctx->mark_chains[0]
@@ -1045,6 +1047,37 @@ md_split_mark(MD_CTX* ctx, int mark_index, SZ n)
     return mark_index + 1;
 }
 
+static void
+md_build_mark_char_map(MD_CTX* ctx)
+{
+    memset(ctx->mark_char_map, 0, sizeof(ctx->mark_char_map));
+
+    ctx->mark_char_map['\\'] = 1;
+    ctx->mark_char_map['*'] = 1;
+    ctx->mark_char_map['_'] = 1;
+    ctx->mark_char_map['`'] = 1;
+    ctx->mark_char_map['&'] = 1;
+    ctx->mark_char_map[';'] = 1;
+    ctx->mark_char_map['<'] = 1;
+    ctx->mark_char_map['>'] = 1;
+    ctx->mark_char_map['\0'] = 1;
+
+    if(ctx->r.flags & MD_FLAG_PERMISSIVEURLAUTOLINKS)
+        ctx->mark_char_map[':'] = 1;
+
+    if(ctx->r.flags & MD_FLAG_PERMISSIVEEMAILAUTOLINKS)
+        ctx->mark_char_map['@'] = 1;
+
+    if(ctx->r.flags & MD_FLAG_COLLAPSEWHITESPACE) {
+        int i;
+
+        for(i = 0; i < sizeof(ctx->mark_char_map); i++) {
+            if(ISWHITESPACE_(i))
+                ctx->mark_char_map[i] = 1;
+        }
+    }
+}
+
 static int
 md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 {
@@ -1059,6 +1092,13 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 
         while(off < line_end) {
             CHAR ch = CH(off);
+
+            /* Optimization: Fast path. */
+            if(ch >= sizeof(ctx->mark_char_map)  ||  !ctx->mark_char_map[(int) ch]) {
+                off++;
+                continue;
+            }
+
             /* A backslash escape.
              * It can go beyond line->end as it may involve escaped new
              * line to form a hard break. */
@@ -1074,20 +1114,6 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 else
                     off += 2;
                 continue;
-            }
-
-            /* Turn non-trivial whitespace into single space. */
-            if((ctx->r.flags & MD_FLAG_COLLAPSEWHITESPACE)  &&  ISWHITESPACE_(ch)) {
-                OFF tmp = off+1;
-
-                while(tmp < line_end  &&  ISWHITESPACE(tmp))
-                    tmp++;
-
-                if(tmp - off > 1  ||  ch != _T(' ')) {
-                    PUSH_MARK(ch, off, tmp, MD_MARK_RESOLVED);
-                    off = tmp;
-                    continue;
-                }
             }
 
             /* A potential (string) emphasis start/end. */
@@ -1143,6 +1169,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 }
 
                 off = tmp;
+                continue;
             }
 
             /* A potential code span start/end. */
@@ -1174,24 +1201,24 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             /* A potential entity end. */
             if(ch == _T(';')) {
                 /* We surely cannot be entity unless the previous mark is '&'. */
-                if(ctx->n_marks > 0  &&  ctx->marks[ctx->n_marks-1].ch == _T('&')) {
+                if(ctx->n_marks > 0  &&  ctx->marks[ctx->n_marks-1].ch == _T('&'))
                     PUSH_MARK(ch, off, off+1, MD_MARK_POTENTIAL_CLOSER);
-                    off++;
-                    continue;
-                }
+
+                off++;
+                continue;
             }
 
             /* A potential autolink or raw HTML start/end. */
             if(ch == _T('<') || ch == _T('>')) {
-                if(!(ctx->r.flags & MD_FLAG_NOHTMLSPANS)) {
+                if(!(ctx->r.flags & MD_FLAG_NOHTMLSPANS))
                     PUSH_MARK(ch, off, off+1, (ch == _T('<') ? MD_MARK_POTENTIAL_OPENER : MD_MARK_POTENTIAL_CLOSER));
-                    off++;
-                    continue;
-                }
+
+                off++;
+                continue;
             }
 
             /* A potential permissive URL autolink. */
-            if((ctx->r.flags & MD_FLAG_PERMISSIVEURLAUTOLINKS)  &&  ch == _T(':')) {
+            if(ch == _T(':')) {
                 static struct {
                     const CHAR* scheme;
                     SZ scheme_size;
@@ -1223,19 +1250,37 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                         continue;
                     }
                 }
+
+                off++;
+                continue;
             }
 
             /* A potential permissive e-mail autolink. */
-            if((ctx->r.flags & MD_FLAG_PERMISSIVEEMAILAUTOLINKS)  &&  ch == _T('@')) {
+            if(ch == _T('@')) {
                 if(line->beg + 1 <= off  &&  ISALNUM(off-1)  &&
                     off + 3 < line->end  &&  ISALNUM(off+1))
                 {
                     PUSH_MARK(ch, off, off+1, MD_MARK_POTENTIAL_OPENER);
                     /* Push a dummy as a reserve for a closer. */
                     PUSH_MARK('D', off, off, 0);
-                    off++;
-                    continue;
                 }
+
+                off++;
+                continue;
+            }
+
+            /* Turn non-trivial whitespace into single space. */
+            if(ISWHITESPACE_(ch)) {
+                OFF tmp = off+1;
+
+                while(tmp < line_end  &&  ISWHITESPACE(tmp))
+                    tmp++;
+
+                if(tmp - off > 1  ||  ch != _T(' '))
+                    PUSH_MARK(ch, off, tmp, MD_MARK_RESOLVED);
+
+                off = tmp;
+                continue;
             }
 
             /* NULL character. */
@@ -2588,6 +2633,8 @@ md_process_doc(MD_CTX *ctx)
     int pivot_line_index = -1;  /* Points to a line determining type of block. */
     OFF off = 0;
     int ret = 0;
+
+    md_build_mark_char_map(ctx);
 
     MD_ENTER_BLOCK(MD_BLOCK_DOC, NULL);
 
