@@ -42,8 +42,6 @@
     #endif
 #endif
 
-/* Magic to support UTF16-LE (i.e. what is called Unicode among Windows
- * developers) input/output on Windows. */
 #ifdef _T
     #undef _T
 #endif
@@ -76,6 +74,7 @@
 
 typedef struct MD_MARK_tag MD_MARK;
 typedef struct MD_BLOCK_tag MD_BLOCK;
+typedef struct MD_LINK_REF_DEF_tag MD_LINK_REF_DEF;
 
 
 /* During analyzes of inline marks, we need to manage some "mark chains",
@@ -101,6 +100,8 @@ struct MD_CTX_tag {
     CHAR* buffer;
     unsigned alloc_buffer;
 
+    MD_LINK_REF_DEF* link_ref_defs;
+
     /* Stack of inline/span markers.
      * This is only used for parsing a single block contents but by storing it
      * here we may reuse the stack for subsequent blocks; i.e. we have fewer
@@ -112,11 +113,17 @@ struct MD_CTX_tag {
     char mark_char_map[128];
 
     /* For resolving of inline spans. */
-    MD_MARKCHAIN mark_chains[4];
-#define BACKTICK_OPENERS        ctx->mark_chains[0]
-#define LOWERTHEN_OPENERS       ctx->mark_chains[1]
-#define ASTERISK_OPENERS        ctx->mark_chains[2]
-#define UNDERSCORE_OPENERS      ctx->mark_chains[3]
+    MD_MARKCHAIN mark_chains[6];
+#define PTR_CHAIN               ctx->mark_chains[0]
+#define BACKTICK_OPENERS        ctx->mark_chains[1]
+#define LOWERTHEN_OPENERS       ctx->mark_chains[2]
+#define ASTERISK_OPENERS        ctx->mark_chains[3]
+#define UNDERSCORE_OPENERS      ctx->mark_chains[4]
+#define BRACKET_OPENERS         ctx->mark_chains[5]
+
+    /* For resolving links. */
+    int unresolved_link_head;
+    int unresolved_link_tail;
 
     /* For block analysis.
      * Notes:
@@ -207,7 +214,7 @@ struct MD_VERBATIMLINE_tag {
         #define MD_ASSERT(cond)     do { __assume(cond); } while(0)
         #define MD_UNREACHABLE()    do { __assume(0); } while(0)
     #else
-        #define MD_ASSERT(cond)     do {} while(0)
+        define MD_ASSERT(cond)     do {} while(0)
         #define MD_UNREACHABLE()    do {} while(0)
     #endif
 #endif
@@ -250,95 +257,6 @@ struct MD_VERBATIMLINE_tag {
 #define ISXDIGIT(off)           ISXDIGIT_(CH(off))
 #define ISALNUM(off)            ISALNUM_(CH(off))
 #define ISANYOF(off, palette)   ISANYOF_(CH(off), (palette))
-
-
-#if defined MD4C_USE_WIN_UNICODE
-    #include <ctype.h>
-
-    #define ISUNICODEWHITESPACE(off)        iswspace(CH(off))
-    #define ISUNICODEPUNCT(off)             iswpunct(CH(off))
-    #define ISUNICODEWHITESPACEBEFORE(off)  iswspace(CH((off)-1))
-    #define ISUNICODEPUNCTBEFORE(off)       iswpunct(CH((off)-1))
-#elif defined MD4C_USE_UNICODE
-    #ifdef _WIN32
-        /* Note Win32 supports only Unicode plane 0 but better then nothing. */
-        #include <ctype.h>
-    #else
-        #include <wctype.h>
-
-        #ifndef __STDC_ISO_10646__
-            #error "MD4C relies on wchar_t to support Unicode properly."
-        #endif
-    #endif
-
-    #define IS_UTF8_LEAD1(byte)     ((unsigned char)(byte) <= 0x7f)
-    #define IS_UTF8_LEAD2(byte)     (((unsigned char)(byte) & 0xe0) == 0xc0)
-    #define IS_UTF8_LEAD3(byte)     (((unsigned char)(byte) & 0xf0) == 0xe0)
-    #define IS_UTF8_LEAD4(byte)     (((unsigned char)(byte) & 0xf8) == 0xf0)
-    #define IS_UTF8_TAIL(byte)      (((unsigned char)(byte) & 0xc0) == 0x80)
-
-    static int
-    md_decode_utf8(MD_CTX* ctx, OFF off)
-    {
-        /* For any invalid UTF-8 sequence we use the Unicode replacement char
-         * for purposes of character classification. */
-        int codepoint = 0xfffd;
-
-        if(IS_UTF8_LEAD1(CH(off))) {
-            codepoint = CH(off);
-        } else if(IS_UTF8_LEAD2(CH(off))) {
-            if(off+1 < ctx->size)
-                codepoint = (((unsigned int)CH(off) & 0x1f) << 6) |
-                            (((unsigned int)CH(off+1) & 0x3f) << 0);
-        } else if(IS_UTF8_LEAD3(CH(off))) {
-            if(off+2 < ctx->size)
-                codepoint = (((unsigned int)CH(off) & 0x0f) << 12) |
-                            (((unsigned int)CH(off+1) & 0x3f) << 6) |
-                            (((unsigned int)CH(off+2) & 0x3f) << 0);
-        } else if(IS_UTF8_LEAD4(CH(off))) {
-            if(off+3 < ctx->size)
-                codepoint = (((unsigned int)CH(off) & 0x07) << 18) |
-                            (((unsigned int)CH(off+1) & 0x3f) << 12) |
-                            (((unsigned int)CH(off+2) & 0x3f) << 6) |
-                            (((unsigned int)CH(off+3) & 0x3f) << 0);
-        }
-
-#ifdef _WIN32
-        /* On Windows, iswpace() et al. gets garbage for codepoints above
-         * the Unicode plane 0. */
-        if(codepoint > 0xffff)
-            codepoint = 0xfffd;
-#endif
-
-        return codepoint;
-    }
-
-    static int
-    md_decode_utf8_before(MD_CTX* ctx, OFF off)
-    {
-        if(off > 0  &&  IS_UTF8_LEAD1(CH(off-1)))
-            return CH(off-1);
-        if(off > 1  &&  IS_UTF8_LEAD2(CH(off-2)))
-            return md_decode_utf8(ctx, off-2);
-        if(off > 2  &&  IS_UTF8_LEAD3(CH(off-3)))
-            return md_decode_utf8(ctx, off-3);
-        if(off > 3  &&  IS_UTF8_LEAD4(CH(off-4)))
-            return md_decode_utf8(ctx, off-4);
-
-        return 0xfffd;
-    }
-
-    #define ISUNICODEWHITESPACE(off)        iswspace(md_decode_utf8(ctx, off))
-    #define ISUNICODEPUNCT(off)             iswpunct(md_decode_utf8(ctx, off))
-    #define ISUNICODEWHITESPACEBEFORE(off)  iswspace(md_decode_utf8_before(ctx, off))
-    #define ISUNICODEPUNCTBEFORE(off)       iswpunct(md_decode_utf8_before(ctx, off))
-#else
-    #define ISUNICODEWHITESPACE(off)        ISWHITESPACE(off)
-    #define ISUNICODEPUNCT(off)             ISPUNCT(off)
-    #define ISUNICODEWHITESPACEBEFORE(off)  ISWHITESPACE((off)-1)
-    #define ISUNICODEPUNCTBEFORE(off)       ISPUNCT((off)-1)
-#endif
-
 
 static inline const CHAR*
 md_strchr(const CHAR* str, CHAR ch)
@@ -490,6 +408,424 @@ md_text_with_null_replacement(MD_CTX* ctx, MD_TEXTTYPE type, const CHAR* str, SZ
             }                                                           \
         }                                                               \
     } while(0)
+
+
+
+/*************************
+ ***  Unicode Support  ***
+ *************************/
+
+typedef struct MD_UNICODE_FOLD_INFO_tag MD_UNICODE_FOLD_INFO;
+struct MD_UNICODE_FOLD_INFO_tag {
+    int codepoints[3];
+    int n_codepoints;
+};
+
+
+#if defined MD4C_USE_WIN_UNICODE || defined MD4C_USE_UNICODE
+    static int
+    md_is_unicode_whitespace__(int codepoint)
+    {
+        /* The ASCII ones are the most frequently used ones, so lets check them first. */
+        if(codepoint <= 0x7f)
+            return ISWHITESPACE_(codepoint);
+
+        /* Check for Unicode codepoints in Zs class above 127. */
+        if(codepoint == 0x00A0 || codepoint == 0x1680)
+            return TRUE;
+        if(0x2000 <= codepoint && codepoint <= 0x200a)
+            return TRUE;
+        if(codepoint == 0x202f || codepoint == 0x205f || codepoint == 0x3000)
+            return TRUE;
+
+        return FALSE;
+    }
+
+    static int
+    md_unicode_cmp__(const void* p_codepoint_a, const void* p_codepoint_b)
+    {
+        return (*(const int*)p_codepoint_a - *(const int*)p_codepoint_b);
+    }
+
+    static int
+    md_is_unicode_punct__(int codepoint)
+    {
+        /* non-ASCII (above 127) Unicode punctuation codepoints (classes
+         * Pc, Pd, Pe, Pf, Pi, Po, Ps).
+         *
+         * Warning: Keep the array sorted.
+         */
+        static const int punct_list[] = {
+            0x00a1, 0x00a7, 0x00ab, 0x00b6, 0x00b7, 0x00bb, 0x00bf, 0x037e, 0x0387, 0x055a, 0x055b, 0x055c, 0x055d, 0x055e, 0x055f, 0x0589,
+            0x058a, 0x05be, 0x05c0, 0x05c3, 0x05c6, 0x05f3, 0x05f4, 0x0609, 0x060a, 0x060c, 0x060d, 0x061b, 0x061e, 0x061f, 0x066a, 0x066b,
+            0x066c, 0x066d, 0x06d4, 0x0700, 0x0701, 0x0702, 0x0703, 0x0704, 0x0705, 0x0706, 0x0707, 0x0708, 0x0709, 0x070a, 0x070b, 0x070c,
+            0x070d, 0x07f7, 0x07f8, 0x07f9, 0x0830, 0x0831, 0x0832, 0x0833, 0x0834, 0x0835, 0x0836, 0x0837, 0x0838, 0x0839, 0x083a, 0x083b,
+            0x083c, 0x083d, 0x083e, 0x085e, 0x0964, 0x0965, 0x0970, 0x0af0, 0x0df4, 0x0e4f, 0x0e5a, 0x0e5b, 0x0f04, 0x0f05, 0x0f06, 0x0f07,
+            0x0f08, 0x0f09, 0x0f0a, 0x0f0b, 0x0f0c, 0x0f0d, 0x0f0e, 0x0f0f, 0x0f10, 0x0f11, 0x0f12, 0x0f14, 0x0f3a, 0x0f3b, 0x0f3c, 0x0f3d,
+            0x0f85, 0x0fd0, 0x0fd1, 0x0fd2, 0x0fd3, 0x0fd4, 0x0fd9, 0x0fda, 0x104a, 0x104b, 0x104c, 0x104d, 0x104e, 0x104f, 0x10fb, 0x1360,
+            0x1361, 0x1362, 0x1363, 0x1364, 0x1365, 0x1366, 0x1367, 0x1368, 0x1400, 0x166d, 0x166e, 0x169b, 0x169c, 0x16eb, 0x16ec, 0x16ed,
+            0x1735, 0x1736, 0x17d4, 0x17d5, 0x17d6, 0x17d8, 0x17d9, 0x17da, 0x1800, 0x1801, 0x1802, 0x1803, 0x1804, 0x1805, 0x1806, 0x1807,
+            0x1808, 0x1809, 0x180a, 0x1944, 0x1945, 0x1a1e, 0x1a1f, 0x1aa0, 0x1aa1, 0x1aa2, 0x1aa3, 0x1aa4, 0x1aa5, 0x1aa6, 0x1aa8, 0x1aa9,
+            0x1aaa, 0x1aab, 0x1aac, 0x1aad, 0x1b5a, 0x1b5b, 0x1b5c, 0x1b5d, 0x1b5e, 0x1b5f, 0x1b60, 0x1bfc, 0x1bfd, 0x1bfe, 0x1bff, 0x1c3b,
+            0x1c3c, 0x1c3d, 0x1c3e, 0x1c3f, 0x1c7e, 0x1c7f, 0x1cc0, 0x1cc1, 0x1cc2, 0x1cc3, 0x1cc4, 0x1cc5, 0x1cc6, 0x1cc7, 0x1cd3, 0x2010,
+            0x2011, 0x2012, 0x2013, 0x2014, 0x2015, 0x2016, 0x2017, 0x2018, 0x2019, 0x201a, 0x201b, 0x201c, 0x201d, 0x201e, 0x201f, 0x2020,
+            0x2021, 0x2022, 0x2023, 0x2024, 0x2025, 0x2026, 0x2027, 0x2030, 0x2031, 0x2032, 0x2033, 0x2034, 0x2035, 0x2036, 0x2037, 0x2038,
+            0x2039, 0x203a, 0x203b, 0x203c, 0x203d, 0x203e, 0x203f, 0x2040, 0x2041, 0x2042, 0x2043, 0x2045, 0x2046, 0x2047, 0x2048, 0x2049,
+            0x204a, 0x204b, 0x204c, 0x204d, 0x204e, 0x204f, 0x2050, 0x2051, 0x2053, 0x2054, 0x2055, 0x2056, 0x2057, 0x2058, 0x2059, 0x205a,
+            0x205b, 0x205c, 0x205d, 0x205e, 0x207d, 0x207e, 0x208d, 0x208e, 0x2308, 0x2309, 0x230a, 0x230b, 0x2329, 0x232a, 0x2768, 0x2769,
+            0x276a, 0x276b, 0x276c, 0x276d, 0x276e, 0x276f, 0x2770, 0x2771, 0x2772, 0x2773, 0x2774, 0x2775, 0x27c5, 0x27c6, 0x27e6, 0x27e7,
+            0x27e8, 0x27e9, 0x27ea, 0x27eb, 0x27ec, 0x27ed, 0x27ee, 0x27ef, 0x2983, 0x2984, 0x2985, 0x2986, 0x2987, 0x2988, 0x2989, 0x298a,
+            0x298b, 0x298c, 0x298d, 0x298e, 0x298f, 0x2990, 0x2991, 0x2992, 0x2993, 0x2994, 0x2995, 0x2996, 0x2997, 0x2998, 0x29d8, 0x29d9,
+            0x29da, 0x29db, 0x29fc, 0x29fd, 0x2cf9, 0x2cfa, 0x2cfb, 0x2cfc, 0x2cfe, 0x2cff, 0x2d70, 0x2e00, 0x2e01, 0x2e02, 0x2e03, 0x2e04,
+            0x2e05, 0x2e06, 0x2e07, 0x2e08, 0x2e09, 0x2e0a, 0x2e0b, 0x2e0c, 0x2e0d, 0x2e0e, 0x2e0f, 0x2e10, 0x2e11, 0x2e12, 0x2e13, 0x2e14,
+            0x2e15, 0x2e16, 0x2e17, 0x2e18, 0x2e19, 0x2e1a, 0x2e1b, 0x2e1c, 0x2e1d, 0x2e1e, 0x2e1f, 0x2e20, 0x2e21, 0x2e22, 0x2e23, 0x2e24,
+            0x2e25, 0x2e26, 0x2e27, 0x2e28, 0x2e29, 0x2e2a, 0x2e2b, 0x2e2c, 0x2e2d, 0x2e2e, 0x2e30, 0x2e31, 0x2e32, 0x2e33, 0x2e34, 0x2e35,
+            0x2e36, 0x2e37, 0x2e38, 0x2e39, 0x2e3a, 0x2e3b, 0x2e3c, 0x2e3d, 0x2e3e, 0x2e3f, 0x2e40, 0x2e41, 0x2e42, 0x2e43, 0x2e44, 0x3001,
+            0x3002, 0x3003, 0x3008, 0x3009, 0x300a, 0x300b, 0x300c, 0x300d, 0x300e, 0x300f, 0x3010, 0x3011, 0x3014, 0x3015, 0x3016, 0x3017,
+            0x3018, 0x3019, 0x301a, 0x301b, 0x301c, 0x301d, 0x301e, 0x301f, 0x3030, 0x303d, 0x30a0, 0x30fb, 0xa4fe, 0xa4ff, 0xa60d, 0xa60e,
+            0xa60f, 0xa673, 0xa67e, 0xa6f2, 0xa6f3, 0xa6f4, 0xa6f5, 0xa6f6, 0xa6f7, 0xa874, 0xa875, 0xa876, 0xa877, 0xa8ce, 0xa8cf, 0xa8f8,
+            0xa8f9, 0xa8fa, 0xa8fc, 0xa92e, 0xa92f, 0xa95f, 0xa9c1, 0xa9c2, 0xa9c3, 0xa9c4, 0xa9c5, 0xa9c6, 0xa9c7, 0xa9c8, 0xa9c9, 0xa9ca,
+            0xa9cb, 0xa9cc, 0xa9cd, 0xa9de, 0xa9df, 0xaa5c, 0xaa5d, 0xaa5e, 0xaa5f, 0xaade, 0xaadf, 0xaaf0, 0xaaf1, 0xabeb, 0xfd3e, 0xfd3f,
+            0xfe10, 0xfe11, 0xfe12, 0xfe13, 0xfe14, 0xfe15, 0xfe16, 0xfe17, 0xfe18, 0xfe19, 0xfe30, 0xfe31, 0xfe32, 0xfe33, 0xfe34, 0xfe35,
+            0xfe36, 0xfe37, 0xfe38, 0xfe39, 0xfe3a, 0xfe3b, 0xfe3c, 0xfe3d, 0xfe3e, 0xfe3f, 0xfe40, 0xfe41, 0xfe42, 0xfe43, 0xfe44, 0xfe45,
+            0xfe46, 0xfe47, 0xfe48, 0xfe49, 0xfe4a, 0xfe4b, 0xfe4c, 0xfe4d, 0xfe4e, 0xfe4f, 0xfe50, 0xfe51, 0xfe52, 0xfe54, 0xfe55, 0xfe56,
+            0xfe57, 0xfe58, 0xfe59, 0xfe5a, 0xfe5b, 0xfe5c, 0xfe5d, 0xfe5e, 0xfe5f, 0xfe60, 0xfe61, 0xfe63, 0xfe68, 0xfe6a, 0xfe6b, 0xff01,
+            0xff02, 0xff03, 0xff05, 0xff06, 0xff07, 0xff08, 0xff09, 0xff0a, 0xff0c, 0xff0d, 0xff0e, 0xff0f, 0xff1a, 0xff1b, 0xff1f, 0xff20,
+            0xff3b, 0xff3c, 0xff3d, 0xff3f, 0xff5b, 0xff5d, 0xff5f, 0xff60, 0xff61, 0xff62, 0xff63, 0xff64, 0xff65, 0x10100, 0x10101, 0x10102,
+            0x1039f, 0x103d0, 0x1056f, 0x10857, 0x1091f, 0x1093f, 0x10a50, 0x10a51, 0x10a52, 0x10a53, 0x10a54, 0x10a55, 0x10a56, 0x10a57, 0x10a58, 0x10a7f,
+            0x10af0, 0x10af1, 0x10af2, 0x10af3, 0x10af4, 0x10af5, 0x10af6, 0x10b39, 0x10b3a, 0x10b3b, 0x10b3c, 0x10b3d, 0x10b3e, 0x10b3f, 0x10b99, 0x10b9a,
+            0x10b9b, 0x10b9c, 0x11047, 0x11048, 0x11049, 0x1104a, 0x1104b, 0x1104c, 0x1104d, 0x110bb, 0x110bc, 0x110be, 0x110bf, 0x110c0, 0x110c1, 0x11140,
+            0x11141, 0x11142, 0x11143, 0x11174, 0x11175, 0x111c5, 0x111c6, 0x111c7, 0x111c8, 0x111c9, 0x111cd, 0x111db, 0x111dd, 0x111de, 0x111df, 0x11238,
+            0x11239, 0x1123a, 0x1123b, 0x1123c, 0x1123d, 0x112a9, 0x1144b, 0x1144c, 0x1144d, 0x1144e, 0x1144f, 0x1145b, 0x1145d, 0x114c6, 0x115c1, 0x115c2,
+            0x115c3, 0x115c4, 0x115c5, 0x115c6, 0x115c7, 0x115c8, 0x115c9, 0x115ca, 0x115cb, 0x115cc, 0x115cd, 0x115ce, 0x115cf, 0x115d0, 0x115d1, 0x115d2,
+            0x115d3, 0x115d4, 0x115d5, 0x115d6, 0x115d7, 0x11641, 0x11642, 0x11643, 0x11660, 0x11661, 0x11662, 0x11663, 0x11664, 0x11665, 0x11666, 0x11667,
+            0x11668, 0x11669, 0x1166a, 0x1166b, 0x1166c, 0x1173c, 0x1173d, 0x1173e, 0x11c41, 0x11c42, 0x11c43, 0x11c44, 0x11c45, 0x11c70, 0x11c71, 0x12470,
+            0x12471, 0x12472, 0x12473, 0x12474, 0x16a6e, 0x16a6f, 0x16af5, 0x16b37, 0x16b38, 0x16b39, 0x16b3a, 0x16b3b, 0x16b44, 0x1bc9f, 0x1da87, 0x1da88,
+            0x1da89, 0x1da8a, 0x1da8b, 0x1e95e, 0x1e95f
+        };
+
+        /* The ASCII ones are the most frequently used ones, so lets check them first. */
+        if(codepoint <= 0x7f)
+            return ISPUNCT_(codepoint);
+
+        return (bsearch(&codepoint, punct_list, SIZEOF_ARRAY(punct_list), sizeof(int), md_unicode_cmp__) != NULL);
+    }
+
+    static void
+    md_get_unicode_fold_info(int codepoint, MD_UNICODE_FOLD_INFO* info)
+    {
+        /* This maps single codepoint within a range to a single codepoint
+         * within an offseted range. */
+        static const struct {
+            int min_codepoint;
+            int max_codepoint;
+            int offset;
+        } range_map[] = {
+            { 0x00c0, 0x00d6, 32 }, { 0x00d8, 0x00de, 32 }, { 0x0388, 0x038a, 37 }, { 0x0391, 0x03a1, 32 }, { 0x03a3, 0x03ab, 32 }, { 0x0400, 0x040f, 80 },
+            { 0x0410, 0x042f, 32 }, { 0x0531, 0x0556, 48 }, { 0x1f08, 0x1f0f, -8 }, { 0x1f18, 0x1f1d, -8 }, { 0x1f28, 0x1f2f, -8 }, { 0x1f38, 0x1f3f, -8 },
+            { 0x1f48, 0x1f4d, -8 }, { 0x1f68, 0x1f6f, -8 }, { 0x1fc8, 0x1fcb, -86 }, { 0x2160, 0x216f, 16 }, { 0x24b6, 0x24cf, 26 }, { 0xff21, 0xff3a, 32 },
+            { 0x10400, 0x10425, 40 }
+        };
+
+        /* This maps single codepoint to another single codepoint. */
+        static const struct {
+            int src_codepoint;
+            int dest_codepoint;
+        } single_map[] = {
+            { 0x00b5, 0x03bc }, { 0x0100, 0x0101 }, { 0x0102, 0x0103 }, { 0x0104, 0x0105 }, { 0x0106, 0x0107 }, { 0x0108, 0x0109 }, { 0x010a, 0x010b }, { 0x010c, 0x010d },
+            { 0x010e, 0x010f }, { 0x0110, 0x0111 }, { 0x0112, 0x0113 }, { 0x0114, 0x0115 }, { 0x0116, 0x0117 }, { 0x0118, 0x0119 }, { 0x011a, 0x011b }, { 0x011c, 0x011d },
+            { 0x011e, 0x011f }, { 0x0120, 0x0121 }, { 0x0122, 0x0123 }, { 0x0124, 0x0125 }, { 0x0126, 0x0127 }, { 0x0128, 0x0129 }, { 0x012a, 0x012b }, { 0x012c, 0x012d },
+            { 0x012e, 0x012f }, { 0x0132, 0x0133 }, { 0x0134, 0x0135 }, { 0x0136, 0x0137 }, { 0x0139, 0x013a }, { 0x013b, 0x013c }, { 0x013d, 0x013e }, { 0x013f, 0x0140 },
+            { 0x0141, 0x0142 }, { 0x0143, 0x0144 }, { 0x0145, 0x0146 }, { 0x0147, 0x0148 }, { 0x014a, 0x014b }, { 0x014c, 0x014d }, { 0x014e, 0x014f }, { 0x0150, 0x0151 },
+            { 0x0152, 0x0153 }, { 0x0154, 0x0155 }, { 0x0156, 0x0157 }, { 0x0158, 0x0159 }, { 0x015a, 0x015b }, { 0x015c, 0x015d }, { 0x015e, 0x015f }, { 0x0160, 0x0161 },
+            { 0x0162, 0x0163 }, { 0x0164, 0x0165 }, { 0x0166, 0x0167 }, { 0x0168, 0x0169 }, { 0x016a, 0x016b }, { 0x016c, 0x016d }, { 0x016e, 0x016f }, { 0x0170, 0x0171 },
+            { 0x0172, 0x0173 }, { 0x0174, 0x0175 }, { 0x0176, 0x0177 }, { 0x0178, 0x00ff }, { 0x0179, 0x017a }, { 0x017b, 0x017c }, { 0x017d, 0x017e }, { 0x017f, 0x0073 },
+            { 0x0181, 0x0253 }, { 0x0182, 0x0183 }, { 0x0184, 0x0185 }, { 0x0186, 0x0254 }, { 0x0187, 0x0188 }, { 0x0189, 0x0256 }, { 0x018a, 0x0257 }, { 0x018b, 0x018c },
+            { 0x018e, 0x01dd }, { 0x018f, 0x0259 }, { 0x0190, 0x025b }, { 0x0191, 0x0192 }, { 0x0193, 0x0260 }, { 0x0194, 0x0263 }, { 0x0196, 0x0269 }, { 0x0197, 0x0268 },
+            { 0x0198, 0x0199 }, { 0x019c, 0x026f }, { 0x019d, 0x0272 }, { 0x019f, 0x0275 }, { 0x01a0, 0x01a1 }, { 0x01a2, 0x01a3 }, { 0x01a4, 0x01a5 }, { 0x01a6, 0x0280 },
+            { 0x01a7, 0x01a8 }, { 0x01a9, 0x0283 }, { 0x01ac, 0x01ad }, { 0x01ae, 0x0288 }, { 0x01af, 0x01b0 }, { 0x01b1, 0x028a }, { 0x01b2, 0x028b }, { 0x01b3, 0x01b4 },
+            { 0x01b5, 0x01b6 }, { 0x01b7, 0x0292 }, { 0x01b8, 0x01b9 }, { 0x01bc, 0x01bd }, { 0x01c4, 0x01c6 }, { 0x01c5, 0x01c6 }, { 0x01c7, 0x01c9 }, { 0x01c8, 0x01c9 },
+            { 0x01ca, 0x01cc }, { 0x01cb, 0x01cc }, { 0x01cd, 0x01ce }, { 0x01cf, 0x01d0 }, { 0x01d1, 0x01d2 }, { 0x01d3, 0x01d4 }, { 0x01d5, 0x01d6 }, { 0x01d7, 0x01d8 },
+            { 0x01d9, 0x01da }, { 0x01db, 0x01dc }, { 0x01de, 0x01df }, { 0x01e0, 0x01e1 }, { 0x01e2, 0x01e3 }, { 0x01e4, 0x01e5 }, { 0x01e6, 0x01e7 }, { 0x01e8, 0x01e9 },
+            { 0x01ea, 0x01eb }, { 0x01ec, 0x01ed }, { 0x01ee, 0x01ef }, { 0x01f1, 0x01f3 }, { 0x01f2, 0x01f3 }, { 0x01f4, 0x01f5 }, { 0x01f6, 0x0195 }, { 0x01f7, 0x01bf },
+            { 0x01f8, 0x01f9 }, { 0x01fa, 0x01fb }, { 0x01fc, 0x01fd }, { 0x01fe, 0x01ff }, { 0x0200, 0x0201 }, { 0x0202, 0x0203 }, { 0x0204, 0x0205 }, { 0x0206, 0x0207 },
+            { 0x0208, 0x0209 }, { 0x020a, 0x020b }, { 0x020c, 0x020d }, { 0x020e, 0x020f }, { 0x0210, 0x0211 }, { 0x0212, 0x0213 }, { 0x0214, 0x0215 }, { 0x0216, 0x0217 },
+            { 0x0218, 0x0219 }, { 0x021a, 0x021b }, { 0x021c, 0x021d }, { 0x021e, 0x021f }, { 0x0220, 0x019e }, { 0x0222, 0x0223 }, { 0x0224, 0x0225 }, { 0x0226, 0x0227 },
+            { 0x0228, 0x0229 }, { 0x022a, 0x022b }, { 0x022c, 0x022d }, { 0x022e, 0x022f }, { 0x0230, 0x0231 }, { 0x0232, 0x0233 }, { 0x0345, 0x03b9 }, { 0x0386, 0x03ac },
+            { 0x038c, 0x03cc }, { 0x038e, 0x03cd }, { 0x038f, 0x03ce }, { 0x03c2, 0x03c3 }, { 0x03d0, 0x03b2 }, { 0x03d1, 0x03b8 }, { 0x03d5, 0x03c6 }, { 0x03d6, 0x03c0 },
+            { 0x03d8, 0x03d9 }, { 0x03da, 0x03db }, { 0x03dc, 0x03dd }, { 0x03de, 0x03df }, { 0x03e0, 0x03e1 }, { 0x03e2, 0x03e3 }, { 0x03e4, 0x03e5 }, { 0x03e6, 0x03e7 },
+            { 0x03e8, 0x03e9 }, { 0x03ea, 0x03eb }, { 0x03ec, 0x03ed }, { 0x03ee, 0x03ef }, { 0x03f0, 0x03ba }, { 0x03f1, 0x03c1 }, { 0x03f2, 0x03c3 }, { 0x03f4, 0x03b8 },
+            { 0x03f5, 0x03b5 }, { 0x0460, 0x0461 }, { 0x0462, 0x0463 }, { 0x0464, 0x0465 }, { 0x0466, 0x0467 }, { 0x0468, 0x0469 }, { 0x046a, 0x046b }, { 0x046c, 0x046d },
+            { 0x046e, 0x046f }, { 0x0470, 0x0471 }, { 0x0472, 0x0473 }, { 0x0474, 0x0475 }, { 0x0476, 0x0477 }, { 0x0478, 0x0479 }, { 0x047a, 0x047b }, { 0x047c, 0x047d },
+            { 0x047e, 0x047f }, { 0x0480, 0x0481 }, { 0x048a, 0x048b }, { 0x048c, 0x048d }, { 0x048e, 0x048f }, { 0x0490, 0x0491 }, { 0x0492, 0x0493 }, { 0x0494, 0x0495 },
+            { 0x0496, 0x0497 }, { 0x0498, 0x0499 }, { 0x049a, 0x049b }, { 0x049c, 0x049d }, { 0x049e, 0x049f }, { 0x04a0, 0x04a1 }, { 0x04a2, 0x04a3 }, { 0x04a4, 0x04a5 },
+            { 0x04a6, 0x04a7 }, { 0x04a8, 0x04a9 }, { 0x04aa, 0x04ab }, { 0x04ac, 0x04ad }, { 0x04ae, 0x04af }, { 0x04b0, 0x04b1 }, { 0x04b2, 0x04b3 }, { 0x04b4, 0x04b5 },
+            { 0x04b6, 0x04b7 }, { 0x04b8, 0x04b9 }, { 0x04ba, 0x04bb }, { 0x04bc, 0x04bd }, { 0x04be, 0x04bf }, { 0x04c1, 0x04c2 }, { 0x04c3, 0x04c4 }, { 0x04c5, 0x04c6 },
+            { 0x04c7, 0x04c8 }, { 0x04c9, 0x04ca }, { 0x04cb, 0x04cc }, { 0x04cd, 0x04ce }, { 0x04d0, 0x04d1 }, { 0x04d2, 0x04d3 }, { 0x04d4, 0x04d5 }, { 0x04d6, 0x04d7 },
+            { 0x04d8, 0x04d9 }, { 0x04da, 0x04db }, { 0x04dc, 0x04dd }, { 0x04de, 0x04df }, { 0x04e0, 0x04e1 }, { 0x04e2, 0x04e3 }, { 0x04e4, 0x04e5 }, { 0x04e6, 0x04e7 },
+            { 0x04e8, 0x04e9 }, { 0x04ea, 0x04eb }, { 0x04ec, 0x04ed }, { 0x04ee, 0x04ef }, { 0x04f0, 0x04f1 }, { 0x04f2, 0x04f3 }, { 0x04f4, 0x04f5 }, { 0x04f8, 0x04f9 },
+            { 0x0500, 0x0501 }, { 0x0502, 0x0503 }, { 0x0504, 0x0505 }, { 0x0506, 0x0507 }, { 0x0508, 0x0509 }, { 0x050a, 0x050b }, { 0x050c, 0x050d }, { 0x050e, 0x050f },
+            { 0x1e00, 0x1e01 }, { 0x1e02, 0x1e03 }, { 0x1e04, 0x1e05 }, { 0x1e06, 0x1e07 }, { 0x1e08, 0x1e09 }, { 0x1e0a, 0x1e0b }, { 0x1e0c, 0x1e0d }, { 0x1e0e, 0x1e0f },
+            { 0x1e10, 0x1e11 }, { 0x1e12, 0x1e13 }, { 0x1e14, 0x1e15 }, { 0x1e16, 0x1e17 }, { 0x1e18, 0x1e19 }, { 0x1e1a, 0x1e1b }, { 0x1e1c, 0x1e1d }, { 0x1e1e, 0x1e1f },
+            { 0x1e20, 0x1e21 }, { 0x1e22, 0x1e23 }, { 0x1e24, 0x1e25 }, { 0x1e26, 0x1e27 }, { 0x1e28, 0x1e29 }, { 0x1e2a, 0x1e2b }, { 0x1e2c, 0x1e2d }, { 0x1e2e, 0x1e2f },
+            { 0x1e30, 0x1e31 }, { 0x1e32, 0x1e33 }, { 0x1e34, 0x1e35 }, { 0x1e36, 0x1e37 }, { 0x1e38, 0x1e39 }, { 0x1e3a, 0x1e3b }, { 0x1e3c, 0x1e3d }, { 0x1e3e, 0x1e3f },
+            { 0x1e40, 0x1e41 }, { 0x1e42, 0x1e43 }, { 0x1e44, 0x1e45 }, { 0x1e46, 0x1e47 }, { 0x1e48, 0x1e49 }, { 0x1e4a, 0x1e4b }, { 0x1e4c, 0x1e4d }, { 0x1e4e, 0x1e4f },
+            { 0x1e50, 0x1e51 }, { 0x1e52, 0x1e53 }, { 0x1e54, 0x1e55 }, { 0x1e56, 0x1e57 }, { 0x1e58, 0x1e59 }, { 0x1e5a, 0x1e5b }, { 0x1e5c, 0x1e5d }, { 0x1e5e, 0x1e5f },
+            { 0x1e60, 0x1e61 }, { 0x1e62, 0x1e63 }, { 0x1e64, 0x1e65 }, { 0x1e66, 0x1e67 }, { 0x1e68, 0x1e69 }, { 0x1e6a, 0x1e6b }, { 0x1e6c, 0x1e6d }, { 0x1e6e, 0x1e6f },
+            { 0x1e70, 0x1e71 }, { 0x1e72, 0x1e73 }, { 0x1e74, 0x1e75 }, { 0x1e76, 0x1e77 }, { 0x1e78, 0x1e79 }, { 0x1e7a, 0x1e7b }, { 0x1e7c, 0x1e7d }, { 0x1e7e, 0x1e7f },
+            { 0x1e80, 0x1e81 }, { 0x1e82, 0x1e83 }, { 0x1e84, 0x1e85 }, { 0x1e86, 0x1e87 }, { 0x1e88, 0x1e89 }, { 0x1e8a, 0x1e8b }, { 0x1e8c, 0x1e8d }, { 0x1e8e, 0x1e8f },
+            { 0x1e90, 0x1e91 }, { 0x1e92, 0x1e93 }, { 0x1e94, 0x1e95 }, { 0x1e9b, 0x1e61 }, { 0x1ea0, 0x1ea1 }, { 0x1ea2, 0x1ea3 }, { 0x1ea4, 0x1ea5 }, { 0x1ea6, 0x1ea7 },
+            { 0x1ea8, 0x1ea9 }, { 0x1eaa, 0x1eab }, { 0x1eac, 0x1ead }, { 0x1eae, 0x1eaf }, { 0x1eb0, 0x1eb1 }, { 0x1eb2, 0x1eb3 }, { 0x1eb4, 0x1eb5 }, { 0x1eb6, 0x1eb7 },
+            { 0x1eb8, 0x1eb9 }, { 0x1eba, 0x1ebb }, { 0x1ebc, 0x1ebd }, { 0x1ebe, 0x1ebf }, { 0x1ec0, 0x1ec1 }, { 0x1ec2, 0x1ec3 }, { 0x1ec4, 0x1ec5 }, { 0x1ec6, 0x1ec7 },
+            { 0x1ec8, 0x1ec9 }, { 0x1eca, 0x1ecb }, { 0x1ecc, 0x1ecd }, { 0x1ece, 0x1ecf }, { 0x1ed0, 0x1ed1 }, { 0x1ed2, 0x1ed3 }, { 0x1ed4, 0x1ed5 }, { 0x1ed6, 0x1ed7 },
+            { 0x1ed8, 0x1ed9 }, { 0x1eda, 0x1edb }, { 0x1edc, 0x1edd }, { 0x1ede, 0x1edf }, { 0x1ee0, 0x1ee1 }, { 0x1ee2, 0x1ee3 }, { 0x1ee4, 0x1ee5 }, { 0x1ee6, 0x1ee7 },
+            { 0x1ee8, 0x1ee9 }, { 0x1eea, 0x1eeb }, { 0x1eec, 0x1eed }, { 0x1eee, 0x1eef }, { 0x1ef0, 0x1ef1 }, { 0x1ef2, 0x1ef3 }, { 0x1ef4, 0x1ef5 }, { 0x1ef6, 0x1ef7 },
+            { 0x1ef8, 0x1ef9 }, { 0x1f59, 0x1f51 }, { 0x1f5b, 0x1f53 }, { 0x1f5d, 0x1f55 }, { 0x1f5f, 0x1f57 }, { 0x1fb8, 0x1fb0 }, { 0x1fb9, 0x1fb1 }, { 0x1fba, 0x1f70 },
+            { 0x1fbb, 0x1f71 }, { 0x1fbe, 0x03b9 }, { 0x1fd8, 0x1fd0 }, { 0x1fd9, 0x1fd1 }, { 0x1fda, 0x1f76 }, { 0x1fdb, 0x1f77 }, { 0x1fe8, 0x1fe0 }, { 0x1fe9, 0x1fe1 },
+            { 0x1fea, 0x1f7a }, { 0x1feb, 0x1f7b }, { 0x1fec, 0x1fe5 }, { 0x1ff8, 0x1f78 }, { 0x1ff9, 0x1f79 }, { 0x1ffa, 0x1f7c }, { 0x1ffb, 0x1f7d }, { 0x2126, 0x03c9 },
+            { 0x212a, 0x006b }, { 0x212b, 0x00e5 },
+        };
+
+        /* This maps single codepoint to two codepoints. */
+        static const struct {
+            int src_codepoint;
+            int dest_codepoint0;
+            int dest_codepoint1;
+            int dest_codepoint2;
+        } double_map[] = {
+            { 0x00df, 0x0073, 0x0073 }, { 0x0130, 0x0069, 0x0307 }, { 0x0149, 0x02bc, 0x006e }, { 0x01f0, 0x006a, 0x030c }, { 0x0587, 0x0565, 0x0582 }, { 0x1e96, 0x0068, 0x0331 },
+            { 0x1e97, 0x0074, 0x0308 }, { 0x1e98, 0x0077, 0x030a }, { 0x1e99, 0x0079, 0x030a }, { 0x1e9a, 0x0061, 0x02be }, { 0x1f50, 0x03c5, 0x0313 }, { 0x1f80, 0x1f00, 0x03b9 },
+            { 0x1f81, 0x1f01, 0x03b9 }, { 0x1f82, 0x1f02, 0x03b9 }, { 0x1f83, 0x1f03, 0x03b9 }, { 0x1f84, 0x1f04, 0x03b9 }, { 0x1f85, 0x1f05, 0x03b9 }, { 0x1f86, 0x1f06, 0x03b9 },
+            { 0x1f87, 0x1f07, 0x03b9 }, { 0x1f88, 0x1f00, 0x03b9 }, { 0x1f89, 0x1f01, 0x03b9 }, { 0x1f8a, 0x1f02, 0x03b9 }, { 0x1f8b, 0x1f03, 0x03b9 }, { 0x1f8c, 0x1f04, 0x03b9 },
+            { 0x1f8d, 0x1f05, 0x03b9 }, { 0x1f8e, 0x1f06, 0x03b9 }, { 0x1f8f, 0x1f07, 0x03b9 }, { 0x1f90, 0x1f20, 0x03b9 }, { 0x1f91, 0x1f21, 0x03b9 }, { 0x1f92, 0x1f22, 0x03b9 },
+            { 0x1f93, 0x1f23, 0x03b9 }, { 0x1f94, 0x1f24, 0x03b9 }, { 0x1f95, 0x1f25, 0x03b9 }, { 0x1f96, 0x1f26, 0x03b9 }, { 0x1f97, 0x1f27, 0x03b9 }, { 0x1f98, 0x1f20, 0x03b9 },
+            { 0x1f99, 0x1f21, 0x03b9 }, { 0x1f9a, 0x1f22, 0x03b9 }, { 0x1f9b, 0x1f23, 0x03b9 }, { 0x1f9c, 0x1f24, 0x03b9 }, { 0x1f9d, 0x1f25, 0x03b9 }, { 0x1f9e, 0x1f26, 0x03b9 },
+            { 0x1f9f, 0x1f27, 0x03b9 }, { 0x1fa0, 0x1f60, 0x03b9 }, { 0x1fa1, 0x1f61, 0x03b9 }, { 0x1fa2, 0x1f62, 0x03b9 }, { 0x1fa3, 0x1f63, 0x03b9 }, { 0x1fa4, 0x1f64, 0x03b9 },
+            { 0x1fa5, 0x1f65, 0x03b9 }, { 0x1fa6, 0x1f66, 0x03b9 }, { 0x1fa7, 0x1f67, 0x03b9 }, { 0x1fa8, 0x1f60, 0x03b9 }, { 0x1fa9, 0x1f61, 0x03b9 }, { 0x1faa, 0x1f62, 0x03b9 },
+            { 0x1fab, 0x1f63, 0x03b9 }, { 0x1fac, 0x1f64, 0x03b9 }, { 0x1fad, 0x1f65, 0x03b9 }, { 0x1fae, 0x1f66, 0x03b9 }, { 0x1faf, 0x1f67, 0x03b9 }, { 0x1fb2, 0x1f70, 0x03b9 },
+            { 0x1fb3, 0x03b1, 0x03b9 }, { 0x1fb4, 0x03ac, 0x03b9 }, { 0x1fb6, 0x03b1, 0x0342 }, { 0x1fbc, 0x03b1, 0x03b9 }, { 0x1fc2, 0x1f74, 0x03b9 }, { 0x1fc3, 0x03b7, 0x03b9 },
+            { 0x1fc4, 0x03ae, 0x03b9 }, { 0x1fc6, 0x03b7, 0x0342 }, { 0x1fcc, 0x03b7, 0x03b9 }, { 0x1fd6, 0x03b9, 0x0342 }, { 0x1fe4, 0x03c1, 0x0313 }, { 0x1fe6, 0x03c5, 0x0342 },
+            { 0x1ff2, 0x1f7c, 0x03b9 }, { 0x1ff3, 0x03c9, 0x03b9 }, { 0x1ff4, 0x03ce, 0x03b9 }, { 0x1ff6, 0x03c9, 0x0342 }, { 0x1ffc, 0x03c9, 0x03b9 }, { 0xfb00, 0x0066, 0x0066 },
+            { 0xfb01, 0x0066, 0x0069 }, { 0xfb02, 0x0066, 0x006c }, { 0xfb05, 0x0073, 0x0074 }, { 0xfb06, 0x0073, 0x0074 }, { 0xfb13, 0x0574, 0x0576 }, { 0xfb14, 0x0574, 0x0565 },
+            { 0xfb15, 0x0574, 0x056b }, { 0xfb16, 0x057e, 0x0576 }, { 0xfb17, 0x0574, 0x056d }
+        };
+
+        /* This maps single codepoint to three codepoints. */
+        static const struct {
+            int src_codepoint;
+            int dest_codepoint0;
+            int dest_codepoint1;
+            int dest_codepoint2;
+        } triple_map[] = {
+            { 0x0390, 0x03b9, 0x0308, 0x0301 }, { 0x03b0, 0x03c5, 0x0308, 0x0301 }, { 0x1f52, 0x03c5, 0x0313, 0x0300 }, { 0x1f54, 0x03c5, 0x0313, 0x0301 },
+            { 0x1f56, 0x03c5, 0x0313, 0x0342 }, { 0x1fb7, 0x03b1, 0x0342, 0x03b9 }, { 0x1fc7, 0x03b7, 0x0342, 0x03b9 }, { 0x1fd2, 0x03b9, 0x0308, 0x0300 },
+            { 0x1fd3, 0x03b9, 0x0308, 0x0301 }, { 0x1fd7, 0x03b9, 0x0308, 0x0342 }, { 0x1fe2, 0x03c5, 0x0308, 0x0300 }, { 0x1fe3, 0x03c5, 0x0308, 0x0301 },
+            { 0x1fe7, 0x03c5, 0x0308, 0x0342 }, { 0x1ff7, 0x03c9, 0x0342, 0x03b9 }, { 0xfb03, 0x0066, 0x0066, 0x0069 }, { 0xfb04, 0x0066, 0x0066, 0x006c }
+        };
+
+        int i;
+
+        /* Fast path for ASCII characters. */
+        if(codepoint <= 0x7f) {
+            info->codepoints[0] = codepoint;
+            if(ISUPPER_(codepoint))
+                info->codepoints[0] += 'a' - 'A';
+            info->n_codepoints = 1;
+            return;
+        }
+
+        for(i = 0; i < SIZEOF_ARRAY(range_map); i++) {
+            if(range_map[i].min_codepoint <= codepoint && codepoint <= range_map[i].max_codepoint) {
+                info->codepoints[0] = codepoint + range_map[i].offset;
+                info->n_codepoints = 1;
+                return;
+            }
+        }
+
+        for(i = 0; i < SIZEOF_ARRAY(single_map); i++) {
+            if(codepoint == single_map[i].src_codepoint) {
+                info->codepoints[0] = single_map[i].dest_codepoint;
+                info->n_codepoints = 1;
+                return;
+            }
+        }
+
+        for(i = 0; i < SIZEOF_ARRAY(double_map); i++) {
+            if(codepoint == double_map[i].src_codepoint) {
+                info->codepoints[0] = double_map[i].dest_codepoint0;
+                info->codepoints[1] = double_map[i].dest_codepoint1;
+                info->n_codepoints = 2;
+                return;
+            }
+        }
+
+        for(i = 0; i < SIZEOF_ARRAY(triple_map); i++) {
+            if(codepoint == triple_map[i].src_codepoint) {
+                info->codepoints[0] = triple_map[i].dest_codepoint0;
+                info->codepoints[1] = triple_map[i].dest_codepoint1;
+                info->codepoints[2] = triple_map[i].dest_codepoint2;
+                info->n_codepoints = 3;
+                return;
+            }
+        }
+
+        info->codepoints[0] = codepoint;
+        info->n_codepoints = 1;
+    }
+#endif
+
+
+#if defined MD4C_USE_WIN_UNICODE
+    #define IS_UTF16_SURROGATE_HI(word)         (((WORD)(word) & 0xfc) == 0xd800)
+    #define IS_UTF16_SURROGATE_LO(word)         (((WORD)(word) & 0xfc) == 0xdc00)
+    #define UTF16_COMPUTE_SURROGATE(hi, lo)     ((((unsigned)(hi) & 0x3ff) << 10) | (((unsigned)(lo) & 0x3ff) << 0))
+
+    static int
+    md_decode_utf16le__(const CHAR* str, SZ str_size, SZ* p_size)
+    {
+        /* The encoding known called on Windows simply as "Unicode" is actually
+         * little-endian UTF-16, i.e. the low surrogate precedes the high
+         * surrogate. */
+        if(IS_UTF16_SURROGATE_LO(str[0])) {
+            if(off+1 < str_size && IS_UTF16_SURROGATE_HI(str[1])) {
+                if(p_size != NULL)
+                    *p_size = 2;
+                return UTF16_COMPUTE_SURROGATE(str[1], str[0]);
+            }
+        }
+
+        if(p_size != NULL)
+            *p_size = 1;
+        return str[0];
+    }
+
+    static int
+    md_decode_utf16le_before__(MD_CTX* ctx, OFF off)
+    {
+        if(off > 2 && IS_UTF16_SURROGATE_LO(CH(off-2)) && IS_UTF16_SURROGATE_HI(CH(off-1)))
+            return UTF16_COMPUTE_SURROGATE(CH(off-1), CH(off-2));
+
+        return CH(off);
+    }
+
+    /* No whitespace uses surrogates, so no decoding needed here. */
+    #define ISUNICODEWHITESPACE_(codepoint) md_is_unicode_whitespace__(codepoint)
+    #define ISUNICODEWHITESPACE(off)        md_is_unicode_whitespace__(CH(off))
+    #define ISUNICODEWHITESPACEBEFORE(off)  md_is_unicode_whitespace__(CH((off)-1))
+
+    #define ISUNICODEPUNCT(off)             md_is_unicode_punct__(md_decode_utf16le__(STR(off), ctx->size - (off), NULL))
+    #define ISUNICODEPUNCTBEFORE(off)       md_is_unicode_punct__(md_decode_utf16le_before__(ctx, off))
+
+    static inline int
+    md_decode_unicode(const CHAR* str, OFF off, SZ str_size, SZ* p_char_size)
+    {
+        return md_decode_utf16le__(str+off, str_size-off, p_char_size);
+    }
+#elif defined MD4C_USE_UNICODE
+    #define IS_UTF8_LEAD1(byte)     ((unsigned char)(byte) <= 0x7f)
+    #define IS_UTF8_LEAD2(byte)     (((unsigned char)(byte) & 0xe0) == 0xc0)
+    #define IS_UTF8_LEAD3(byte)     (((unsigned char)(byte) & 0xf0) == 0xe0)
+    #define IS_UTF8_LEAD4(byte)     (((unsigned char)(byte) & 0xf8) == 0xf0)
+    #define IS_UTF8_TAIL(byte)      (((unsigned char)(byte) & 0xc0) == 0x80)
+
+    static int
+    md_decode_utf8__(const CHAR* str, SZ str_size, SZ* p_size)
+    {
+        if(!IS_UTF8_LEAD1(str[0])) {
+            if(IS_UTF8_LEAD2(str[0])) {
+                if(1 < str_size && IS_UTF8_TAIL(str[1])) {
+                    if(p_size != NULL)
+                        *p_size = 2;
+
+                    return (((unsigned int)str[0] & 0x1f) << 6) |
+                           (((unsigned int)str[1] & 0x3f) << 0);
+                }
+            } else if(IS_UTF8_LEAD3(str[0])) {
+                if(2 < str_size && IS_UTF8_TAIL(str[1]) && IS_UTF8_TAIL(str[2])) {
+                    if(p_size != NULL)
+                        *p_size = 3;
+
+                    return (((unsigned int)str[0] & 0x0f) << 12) |
+                           (((unsigned int)str[1] & 0x3f) << 6) |
+                           (((unsigned int)str[2] & 0x3f) << 0);
+                }
+            } else if(IS_UTF8_LEAD4(str[0])) {
+                if(3 < str_size && IS_UTF8_TAIL(str[1]) && IS_UTF8_TAIL(str[2]) && IS_UTF8_TAIL(str[3])) {
+                    if(p_size != NULL)
+                        *p_size = 4;
+
+                    return (((unsigned int)str[0] & 0x07) << 18) |
+                           (((unsigned int)str[1] & 0x3f) << 12) |
+                           (((unsigned int)str[2] & 0x3f) << 6) |
+                           (((unsigned int)str[3] & 0x3f) << 0);
+                }
+            }
+        }
+
+        if(p_size != NULL)
+            *p_size = 1;
+        return str[0];
+    }
+
+    static int
+    md_decode_utf8_before__(MD_CTX* ctx, OFF off)
+    {
+        if(!IS_UTF8_LEAD1(CH(off-1))) {
+            if(off > 1 && IS_UTF8_LEAD2(CH(off-2)) && IS_UTF8_TAIL(CH(off-1)))
+                return (((unsigned int)CH(off-2) & 0x1f) << 6) |
+                       (((unsigned int)CH(off-1) & 0x3f) << 0);
+
+            if(off > 2 && IS_UTF8_LEAD3(CH(off-3)) && IS_UTF8_TAIL(CH(off-2)) && IS_UTF8_TAIL(CH(off-1)))
+                return (((unsigned int)CH(off-3) & 0x0f) << 12) |
+                       (((unsigned int)CH(off-2) & 0x3f) << 6) |
+                       (((unsigned int)CH(off-1) & 0x3f) << 0);
+
+            if(off > 3 && IS_UTF8_LEAD4(CH(off-4)) && IS_UTF8_TAIL(CH(off-3)) && IS_UTF8_TAIL(CH(off-2)) && IS_UTF8_TAIL(CH(off-1)))
+                return (((unsigned int)CH(off-4) & 0x07) << 18) |
+                       (((unsigned int)CH(off-3) & 0x3f) << 12) |
+                       (((unsigned int)CH(off-2) & 0x3f) << 6) |
+                       (((unsigned int)CH(off-1) & 0x3f) << 0);
+        }
+
+        return CH(off-1);
+    }
+
+    #define ISUNICODEWHITESPACE_(codepoint) md_is_unicode_whitespace__(codepoint)
+    #define ISUNICODEWHITESPACE(off)        md_is_unicode_whitespace__(md_decode_utf8__(STR(off), ctx->size - (off), NULL))
+    #define ISUNICODEWHITESPACEBEFORE(off)  md_is_unicode_whitespace__(md_decode_utf8_before__(ctx, off))
+
+    #define ISUNICODEPUNCT(off)             md_is_unicode_punct__(md_decode_utf8__(STR(off), ctx->size - (off), NULL))
+    #define ISUNICODEPUNCTBEFORE(off)       md_is_unicode_punct__(md_decode_utf8_before__(ctx, off))
+
+    static inline int
+    md_decode_unicode(const CHAR* str, OFF off, SZ str_size, SZ* p_char_size)
+    {
+        return md_decode_utf8__(str+off, str_size-off, p_char_size);
+    }
+#else
+    #define ISUNICODEWHITESPACE_(codepoint) ISWHITESPACE_(codepoint)
+    #define ISUNICODEWHITESPACE(off)        ISWHITESPACE(off)
+    #define ISUNICODEWHITESPACEBEFORE(off)  ISWHITESPACE((off)-1)
+
+    #define ISUNICODEPUNCT(off)             ISPUNCT(off)
+    #define ISUNICODEPUNCTBEFORE(off)       ISPUNCT((off)-1)
+
+    static inline void
+    md_get_unicode_fold_info(int codepoint, MD_UNICODE_FOLD_INFO* info)
+    {
+        info->codepoints[0] = codepoint;
+        if(ISUPPER_(codepoint))
+            info->codepoints[0] += 'a' - 'A';
+        info->n_codepoints = 1;
+    }
+
+    static inline int
+    md_decode_unicode(const CHAR* str, OFF off, SZ str_size, SZ* p_size)
+    {
+        *p_size = 1;
+        return str[off];
+    }
+#endif
 
 
 /******************************
@@ -827,6 +1163,569 @@ md_is_html_any(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF max_
 }
 
 
+/***************************
+ ***  Recognizing Links  ***
+ ***************************/
+
+/* Note this code is partially shared between processing inlines and blocks
+ * as link reference definitions and links share some helper parser functions.
+ */
+
+struct MD_LINK_REF_DEF_tag {
+    CHAR* label;
+    CHAR* title;
+    SZ label_size             : 24;
+    unsigned label_needs_free :  1;
+    unsigned title_needs_free :  1;
+    SZ title_size;
+    OFF dest_beg;
+    OFF dest_end;
+
+    MD_LINK_REF_DEF* next;
+};
+
+typedef struct MD_LINK_ATTR_tag MD_LINK_ATTR;
+struct MD_LINK_ATTR_tag {
+    OFF dest_beg;
+    OFF dest_end;
+
+    CHAR* title;
+    SZ title_size;
+    int title_needs_free;
+};
+
+
+static int
+md_is_link_label(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
+                 OFF* p_end, int* p_beg_line_index, int* p_end_line_index,
+                 OFF* p_contents_beg, OFF* p_contents_end)
+{
+    OFF off = beg;
+    OFF contents_beg = 0;
+    OFF contents_end = 0;
+    int line_index = 0;
+    int len = 0;
+
+    if(CH(off) != _T('['))
+        return -1;
+    off++;
+
+    while(line_index < n_lines) {
+        OFF line_end = lines[line_index].end;
+
+        while(off < line_end) {
+            if(CH(off) == _T('\\')  &&  off < ctx->size  &&  (ISPUNCT(off+1) || ISNEWLINE(off+1))) {
+                off++;
+                if(contents_end == 0)
+                    contents_beg = off;
+                contents_end = off + 2;
+            } else if(CH(off) == _T('[')) {
+                return -1;
+            } else if(CH(off) == _T(']')) {
+                if(contents_beg < contents_end) {
+                    /* Success. */
+                    *p_contents_beg = contents_beg;
+                    *p_contents_end = contents_end;
+                    *p_end = off+1;
+                    *p_end_line_index = line_index;
+                    return 0;
+                } else {
+                    /* Link label must have some non-whitespace contents. */
+                    return -1;
+                }
+            } else {
+                if(contents_end == 0) {
+                    contents_beg = off;
+                    *p_beg_line_index = line_index;
+                }
+                contents_end = off + 1;
+            }
+
+            len++;
+            if(len > 999)
+                return -1;
+            off++;
+        }
+
+        line_index++;
+        len++;
+    }
+
+    return -1;
+}
+
+static int
+md_is_link_destination_A(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end,
+                         OFF* p_contents_beg, OFF* p_contents_end)
+{
+    OFF off = beg;
+
+    if(off >= max_end  ||  CH(off) != _T('<'))
+        return -1;
+    off++;
+
+    while(off < max_end) {
+        if(CH(off) == _T('\\')  &&  off < max_end  &&  ISPUNCT(off+1)) {
+            off += 2;
+            continue;
+        }
+
+        if(ISWHITESPACE(off)  ||  CH(off) == _T('<'))
+            return -1;
+
+        if(CH(off) == _T('>')) {
+            /* Success. */
+            *p_contents_beg = beg+1;
+            *p_contents_end = off;
+            *p_end = off+1;
+            return 0;
+        }
+
+        off++;
+    }
+
+    return -1;
+}
+
+static int
+md_is_link_destination_B(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end,
+                         OFF* p_contents_beg, OFF* p_contents_end)
+{
+    OFF off = beg;
+    int in_parentheses = 0;
+
+    while(off < max_end) {
+        if(CH(off) == _T('\\')  &&  off < max_end  &&  ISPUNCT(off+1)) {
+            off += 2;
+            continue;
+        }
+
+        if(ISWHITESPACE(off) || ISCNTRL(off))
+            break;
+
+        /* Link destination may include balanced pair of unescaped '(' ')'
+         * but only if they are not nested. */
+        if(CH(off) == _T('(')) {
+            if(in_parentheses)
+                return -1;
+            else
+                in_parentheses = 1;
+        } else if(CH(off) == _T(')')) {
+            if(in_parentheses)
+                in_parentheses = 0;
+            else
+                return -1;
+        }
+
+        off++;
+    }
+
+    if(in_parentheses  ||  off == beg)
+        return -1;
+
+    /* Success. */
+    *p_contents_beg = beg;
+    *p_contents_end = off;
+    *p_end = off;
+    return 0;
+}
+
+static int
+md_is_link_destination(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end,
+                       OFF* p_contents_beg, OFF* p_contents_end)
+{
+    if(md_is_link_destination_A(ctx, beg, max_end, p_end, p_contents_beg, p_contents_end) == 0)
+        return 0;
+
+    if(md_is_link_destination_B(ctx, beg, max_end, p_end, p_contents_beg, p_contents_end) == 0)
+        return 0;
+
+    return -1;
+}
+
+static int
+md_is_link_title(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
+                 OFF* p_end, int* p_beg_line_index, int* p_end_line_index,
+                 OFF* p_contents_beg, OFF* p_contents_end)
+{
+    OFF off = beg;
+    CHAR closer_char;
+    int line_index = 0;
+
+    /* Optional white space with up to one line break. */
+    while(off < lines[line_index].end  &&  ISWHITESPACE(off))
+        off++;
+    if(off >= lines[line_index].end  &&  ISNEWLINE(off)) {
+        line_index++;
+        if(line_index >= n_lines)
+            return -1;
+        off = lines[line_index].beg;
+    }
+
+    *p_beg_line_index = line_index;
+
+    /* First char determines how to detect end of it. */
+    switch(CH(off)) {
+        case _T('"'):   closer_char = _T('"'); break;
+        case _T('\''):  closer_char = _T('\''); break;
+        case _T('('):   closer_char = _T(')'); break;
+        default:        return -1;
+    }
+    off++;
+
+    *p_contents_beg = off;
+
+    while(line_index < n_lines) {
+        OFF line_end = lines[line_index].end;
+
+        while(off < line_end) {
+            if(CH(off) == _T('\\')  &&  off < ctx->size  &&  (ISPUNCT(off+1) || ISNEWLINE(off+1))) {
+                off++;
+            } else if(CH(off) == closer_char) {
+                /* Success. */
+                *p_contents_end = off;
+                *p_end = off+1;
+                *p_end_line_index = line_index;
+                return 0;
+            }
+
+            off++;
+        }
+
+        line_index++;
+    }
+
+    return -1;
+}
+
+/* Allocate new buffer, and fill it with copy of the string between
+ * 'beg' and 'end' but replace any line breaks with single space.
+ */
+static int
+md_remove_line_breaks(MD_CTX* ctx, OFF beg, OFF end, const MD_LINE* lines, int n_lines,
+                      CHAR** p_str, SZ* p_size)
+{
+    CHAR* buffer;
+    CHAR* ptr;
+    int line_index = 0;
+    OFF off = beg;
+
+    buffer = (CHAR*) malloc(sizeof(CHAR) * (end - beg));
+    if(buffer == NULL) {
+        MD_LOG("malloc() failed.");
+        return -1;
+    }
+    ptr = buffer;
+
+    while(1) {
+        const MD_LINE* line = &lines[line_index];
+        OFF line_end = line->end;
+
+        while(off < line_end) {
+            *ptr = CH(off);
+            ptr++;
+
+            off++;
+            if(off >= end) {
+                *p_str = buffer;
+                *p_size = ptr - buffer;
+                return 0;
+            }
+        }
+
+        *ptr = _T(' ');
+        ptr++;
+
+        line_index++;
+        off = lines[line_index].beg;
+    }
+}
+
+/* Returns 0 if it is not a link reference definition.
+ *
+ * Returns N > 0 if it is not a link reference definition (then N corresponds
+ * to the number of lines forming it). In this case the definition is stored
+ * for resolving any links referring to it.
+ *
+ * If there is an error (cannot alloc memory for storing it), we return -1.
+ */
+static int
+md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
+{
+    OFF label_contents_beg;
+    OFF label_contents_end;
+    int label_contents_line_index;
+    int label_is_multiline;
+    OFF dest_contents_beg;
+    OFF dest_contents_end;
+    OFF title_contents_beg;
+    OFF title_contents_end;
+    int title_contents_line_index;
+    int title_is_multiline;
+    OFF off;
+    int line_index = 0;
+    int tmp_line_index;
+    MD_LINK_REF_DEF* def;
+    int ret = 0;
+
+    /* Link label. */
+    if(md_is_link_label(ctx, lines, n_lines, lines[0].beg,
+                &off, &label_contents_line_index, &line_index,
+                &label_contents_beg, &label_contents_end) != 0)
+        return 0;
+    label_is_multiline = (label_contents_line_index != line_index);
+
+    /* Colon. */
+    if(off >= lines[line_index].end  ||  CH(off) != _T(':'))
+        return 0;
+    off++;
+
+    /* Optional white space with up to one line break. */
+    while(off < lines[line_index].end  &&  ISWHITESPACE(off))
+        off++;
+    if(off >= lines[line_index].end  &&  ISNEWLINE(off)) {
+        line_index++;
+        if(line_index >= n_lines)
+            return 0;
+        off = lines[line_index].beg;
+    }
+
+    /* Link destination. */
+    if(md_is_link_destination(ctx, off, lines[line_index].end,
+                &off, &dest_contents_beg, &dest_contents_end) != 0)
+        return 0;
+
+    /* (Optional) title. Note we interpret it as an title only if nothing
+     * more follows on its last line. */
+    if(md_is_link_title(ctx, lines + line_index, n_lines - line_index, off,
+                &off, &title_contents_line_index, &tmp_line_index, &title_contents_beg, &title_contents_end) == 0
+        &&  off >= lines[line_index].end)
+    {
+        title_is_multiline = (tmp_line_index != title_contents_line_index);
+        title_contents_line_index += line_index;
+        line_index += tmp_line_index;
+    } else {
+        /* Not a title. */
+        title_contents_beg = off;
+        title_contents_end = off;
+    }
+
+    /* Nothing more can follow on the last line. */
+    if(off < lines[line_index].end)
+        return 0;
+
+    /* Store the link reference definition. */
+    def = (MD_LINK_REF_DEF*) malloc(sizeof(MD_LINK_REF_DEF));
+    if(def == NULL) {
+        MD_LOG("malloc() failed.");
+        return -1;
+    }
+    memset(def, 0, sizeof(MD_LINK_REF_DEF));
+
+    if(label_is_multiline) {
+        def->label = (CHAR*) STR(label_contents_beg);
+        def->label_size = label_contents_end - label_contents_beg;
+    } else {
+        SZ label_size;
+
+        MD_CHECK(md_remove_line_breaks(ctx, label_contents_beg, label_contents_end,
+                    lines + label_contents_line_index, n_lines - label_contents_line_index,
+                    &def->label, &label_size));
+        def->label_size = label_size;
+        def->label_needs_free = 1;
+    }
+
+    def->dest_beg = dest_contents_beg;
+    def->dest_end = dest_contents_end;
+
+    if(title_contents_beg >= title_contents_end) {
+        def->title = NULL;
+        def->title_size = 0;
+    } else if(!title_is_multiline) {
+        def->title = (CHAR*) STR(title_contents_beg);
+        def->title_size = title_contents_end - title_contents_beg;
+    } else {
+        MD_CHECK(md_remove_line_breaks(ctx, title_contents_beg, title_contents_end,
+                    lines + title_contents_line_index, n_lines - title_contents_line_index,
+                    &def->title, &def->title_size));
+        def->title_needs_free = 1;
+    }
+
+    def->next = ctx->link_ref_defs;
+    ctx->link_ref_defs = def;
+
+    ret = line_index + 1;
+
+abort:
+    return ret;
+}
+
+static OFF
+md_skip_unicode_whitespace(const CHAR* label, OFF off, SZ size)
+{
+    SZ char_size;
+    int codepoint;
+
+    while(off < size) {
+        codepoint = md_decode_unicode(label, off, size, &char_size);
+        if(!ISUNICODEWHITESPACE_(codepoint))
+            break;
+        off += char_size;
+    }
+
+    return off;
+}
+
+static int
+md_link_label_eq(const CHAR* a_label, SZ a_size, const CHAR* b_label, SZ b_size)
+{
+    OFF a_off;
+    OFF b_off;
+
+    /* Fast path: Most real-life reference labels are using exact match. */
+    if(a_size == b_size  &&  memcmp(a_label, b_label, a_size * sizeof(CHAR)) == 0)
+        return TRUE;
+
+    /* The slow path, with Unicode case folding and Unicode whitespace collapsing. */
+    a_off = md_skip_unicode_whitespace(a_label, 0, a_size);
+    b_off = md_skip_unicode_whitespace(b_label, 0, b_size);
+    while(a_off < a_size  ||  b_off < b_size) {
+        int a_codepoint, b_codepoint;
+        SZ a_char_size, b_char_size;
+        int a_is_whitespace, b_is_whitespace;
+
+        if(a_off < a_size) {
+            a_codepoint = md_decode_unicode(a_label, a_off, a_size, &a_char_size);
+            a_is_whitespace = ISUNICODEWHITESPACE_(a_codepoint);
+        } else {
+            /* Treat end of label as a whitespace. */
+            a_is_whitespace = TRUE;
+        }
+
+        if(b_off < b_size) {
+            b_codepoint = md_decode_unicode(b_label, b_off, b_size, &b_char_size);
+            b_is_whitespace = ISUNICODEWHITESPACE_(b_codepoint);
+        } else {
+            /* Treat end of label as a whitespace. */
+            b_is_whitespace = TRUE;
+        }
+
+        if(a_is_whitespace || b_is_whitespace) {
+            if(!a_is_whitespace || !b_is_whitespace)
+                return FALSE;
+
+            a_off = md_skip_unicode_whitespace(a_label, a_off, a_size);
+            b_off = md_skip_unicode_whitespace(b_label, b_off, b_size);
+        } else {
+            MD_UNICODE_FOLD_INFO a_fold_info, b_fold_info;
+
+            md_get_unicode_fold_info(a_codepoint, &a_fold_info);
+            md_get_unicode_fold_info(b_codepoint, &b_fold_info);
+
+            if(a_fold_info.n_codepoints != b_fold_info.n_codepoints)
+                return FALSE;
+            if(memcmp(a_fold_info.codepoints, b_fold_info.codepoints, a_fold_info.n_codepoints * sizeof(int)) != 0)
+                return FALSE;
+
+            a_off += a_char_size;
+            b_off += b_char_size;
+        }
+    }
+
+    return TRUE;
+}
+
+static int
+md_lookup_link_ref_def(MD_CTX* ctx, const CHAR* label, SZ label_size, MD_LINK_REF_DEF** p_def)
+{
+    MD_LINK_REF_DEF* def;
+
+    def = ctx->link_ref_defs;
+    while(def != NULL) {
+        if(md_link_label_eq(def->label, def->label_size, label, label_size)) {
+            *p_def = def;
+            return TRUE;
+        }
+
+        def = def->next;
+    }
+
+    *p_def = NULL;
+    return FALSE;
+}
+
+static int
+md_is_link_reference(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
+                     OFF beg, OFF end, MD_LINK_ATTR* attr)
+{
+    MD_LINK_REF_DEF* def;
+    const MD_LINE* beg_line;
+    const MD_LINE* end_line;
+    CHAR* label;
+    SZ label_size;
+    int ret;
+
+    MD_ASSERT(CH(beg) == _T('['));
+    MD_ASSERT(CH(end-1) == _T(']'));
+
+    beg++;
+    end--;
+
+    /* Find lines corresponding to the beg and end positions. */
+    MD_ASSERT(lines[0].beg <= beg);
+    beg_line = lines;
+    while(beg >= beg_line->end)
+        beg_line++;
+
+    MD_ASSERT(end <= lines[n_lines-1].end);
+    end_line = beg_line;
+    while(end >= end_line->end)
+        end_line++;
+
+    if(beg_line != end_line) {
+        MD_CHECK(md_remove_line_breaks(ctx, beg, end, beg_line,
+                 n_lines - (beg_line - lines), &label, &label_size));
+    } else {
+        label = (char*) STR(beg);
+        label_size = end - beg;
+    }
+
+    ret = md_lookup_link_ref_def(ctx, label, label_size, &def);
+    if(ret == TRUE) {
+        attr->dest_beg = def->dest_beg;
+        attr->dest_end = def->dest_end;
+        attr->title = def->title;
+        attr->title_size = def->title_size;
+        attr->title_needs_free = 0;
+    }
+
+    if(beg_line != end_line)
+        free(label);
+
+abort:
+    return ret;
+}
+
+static void
+md_free_link_ref_defs(MD_CTX* ctx)
+{
+    MD_LINK_REF_DEF* def = ctx->link_ref_defs;
+    MD_LINK_REF_DEF* def_next;
+
+    while(def != NULL) {
+        def_next = def->next;
+
+        if(def->label_needs_free)
+            free(def->label);
+        if(def->title_needs_free)
+            free(def->title);
+        free(def);
+
+        def = def_next;
+    }
+}
+
+
 /******************************************
  ***  Processing Inlines (a.k.a Spans)  ***
  ******************************************/
@@ -874,8 +1773,13 @@ md_is_html_any(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF max_
  *  ';': Maybe end of entity.
  *  '<': Maybe start of raw HTML or autolink.
  *  '>': Maybe end of raw HTML or autolink.
- *  ':': Maybe permissive URL auto-link (needs MD_FLAG_PERMISSIVEURLAUTOLINKS)
- *  '@': Maybe permissive e-mail auto-link (needs MD_FLAG_PERMISSIVEEMAILAUTOLINKS)
+ *  '[': Maybe start of link label or link text.
+ *  ']': Maybe end of link label or link text.
+ *  ':': Maybe permissive URL auto-link (needs MD_FLAG_PERMISSIVEURLAUTOLINKS).
+ *  '@': Maybe permissive e-mail auto-link (needs MD_FLAG_PERMISSIVEEMAILAUTOLINKS).
+ *  'D': Dummy mark, it reserves a space for splitting a previous mark
+ *       (e.g. emphasis) or to make more space for storing some special data
+ *       related to the preceding mark (e.g. link).
  *
  * Note that not all instances of these chars in the text imply creation of the
  * structure. Only those which have (or may have, after we see more context)
@@ -967,6 +1871,29 @@ md_mark_chain_append(MD_CTX* ctx, MD_MARKCHAIN* chain, int mark_index)
 
     ctx->marks[mark_index].prev = chain->tail;
     chain->tail = mark_index;
+}
+
+/* Sometimes, we need to store a pointer into the mark. It is quite rare
+ * so we do not bother to make MD_MARK use union, and it can only happen
+ * for dummy marks. */
+static inline void
+md_mark_store_ptr(MD_CTX* ctx, int mark_index, void* ptr)
+{
+    MD_MARK* mark = &ctx->marks[mark_index];
+    MD_ASSERT(mark->ch == 'D');
+
+    /* Check only members beg and end are misused for this. */
+    MD_ASSERT(sizeof(void*) <= 2 * sizeof(OFF));
+
+    *((void**) &mark->beg) = ptr;
+}
+
+static inline void*
+md_mark_get_ptr(MD_CTX* ctx, int mark_index)
+{
+    MD_MARK* mark = &ctx->marks[mark_index];
+    MD_ASSERT(mark->ch == 'D');
+    return *((void**) &mark->beg);
 }
 
 static void
@@ -1130,6 +2057,8 @@ md_build_mark_char_map(MD_CTX* ctx)
     ctx->mark_char_map[';'] = 1;
     ctx->mark_char_map['<'] = 1;
     ctx->mark_char_map['>'] = 1;
+    ctx->mark_char_map['['] = 1;
+    ctx->mark_char_map[']'] = 1;
     ctx->mark_char_map['\0'] = 1;
 
     if(ctx->r.flags & MD_FLAG_PERMISSIVEURLAUTOLINKS)
@@ -1283,6 +2212,22 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 if(!(ctx->r.flags & MD_FLAG_NOHTMLSPANS))
                     PUSH_MARK(ch, off, off+1, (ch == _T('<') ? MD_MARK_POTENTIAL_OPENER : MD_MARK_POTENTIAL_CLOSER));
 
+                off++;
+                continue;
+            }
+
+            /* A potential link or its part. */
+            if(ch == _T('[')) {
+                PUSH_MARK(ch, off, off+1, MD_MARK_POTENTIAL_OPENER);
+                off++;
+                /* Two dummies to make enough place for data we need if it is
+                 * a link. */
+                PUSH_MARK('D', off, off, 0);
+                PUSH_MARK('D', off, off, 0);
+                continue;
+            }
+            if(ch == _T(']')) {
+                PUSH_MARK(ch, off, off+1, MD_MARK_POTENTIAL_CLOSER);
                 off++;
                 continue;
             }
@@ -1584,6 +2529,129 @@ md_analyze_lt_gt(MD_CTX* ctx, int mark_index, const MD_LINE* lines, int n_lines)
     }
 }
 
+static void
+md_analyze_bracket(MD_CTX* ctx, int mark_index)
+{
+    /* We cannot really resolve links here as for that we would need
+     * more context. E.g. a following pair of brackets (reference link),
+     * or enclosing pair of brackets (if the inner is the link, the outer
+     * one cannot be.)
+     *
+     * Therefore we here only construct a list of resolved '[' ']' pairs
+     * ordered by position of the closer. This allows ur to analyze what is
+     * or is not link in the right order, from inside to outside in case
+     * of nested brackets.
+     *
+     * The resolving itself is deferred into md_resolve_links().
+     */
+
+    MD_MARK* mark = &ctx->marks[mark_index];
+
+    if(mark->flags & MD_MARK_POTENTIAL_OPENER) {
+        md_mark_chain_append(ctx, &BRACKET_OPENERS, mark_index);
+        return;
+    }
+
+    if(BRACKET_OPENERS.tail >= 0) {
+        /* Pop the opener from the chain. */
+        int opener_index = BRACKET_OPENERS.tail;
+        MD_MARK* opener = &ctx->marks[opener_index];
+        if(opener->prev >= 0)
+            ctx->marks[opener->prev].next = -1;
+        else
+            BRACKET_OPENERS.head = -1;
+        BRACKET_OPENERS.tail = opener->prev;
+
+        /* Interconnect the opener and closer. */
+        opener->next = mark_index;
+        mark->prev = opener_index;
+
+        /* Add the pair into chain of potential links for md_resolve_links().
+         * Note we misuse opener->prev for this as opener->next points to its
+         * closer. */
+        if(ctx->unresolved_link_tail >= 0)
+            ctx->marks[ctx->unresolved_link_tail].prev = opener_index;
+        else
+            ctx->unresolved_link_head = opener_index;
+        ctx->unresolved_link_tail = opener_index;
+        opener->prev = -1;
+    }
+}
+
+static int
+md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
+{
+    int opener_index = ctx->unresolved_link_head;
+
+    // TODO: Handle nested links: we need to remember end offset of most recent
+    // resolved link. If we later iterate to anything with opener BEFORE that
+    // then it cannot be link.
+
+    while(opener_index >= 0) {
+        MD_MARK* opener = &ctx->marks[opener_index];
+        int closer_index = opener->next;
+        MD_MARK* closer = &ctx->marks[closer_index];
+        int next_index = opener->prev;
+        MD_MARK* next_opener = &ctx->marks[next_index];
+        MD_MARK* next_closer = &ctx->marks[next_opener->next];
+        MD_LINK_ATTR attr;
+        int is_link = FALSE;
+
+        if(next_index >= 0) {
+            next_opener = &ctx->marks[next_index];
+            next_closer = &ctx->marks[next_opener->next];
+        } else {
+            next_opener = NULL;
+        }
+
+        // TODO: Check for inline link
+
+        if(next_opener != NULL  &&  next_opener->beg == closer->end) {
+            if(next_closer->beg > closer->end + 1) {
+                /* Might be full reference link. */
+                is_link = (md_is_link_reference(ctx, lines, n_lines, next_opener->beg, next_closer->end, &attr));
+            } else {
+                /* Might be shortcut reference link. */
+                is_link = (md_is_link_reference(ctx, lines, n_lines, opener->beg, closer->end, &attr));
+            }
+
+            if(is_link == TRUE) {
+                /* Eat the 2nd "[...]". */
+                closer->end = next_closer->end;
+                next_index = next_opener->prev;
+            }
+        } else {
+            /* Might be collapsed reference link. */
+            is_link = (md_is_link_reference(ctx, lines, n_lines, opener->beg, closer->end, &attr));
+        }
+
+        if(is_link < 0)
+            return -1;
+
+        if(is_link == TRUE) {
+            /* Resolve the brackets as a link. */
+            opener->flags |= MD_MARK_RESOLVED;
+            closer->flags |= MD_MARK_RESOLVED;
+
+            /* If it is a link, we store the destination and title in the two
+             * dummy marks after the opener. */
+            MD_ASSERT(ctx->marks[opener_index+1].ch == 'D');
+            ctx->marks[opener_index+1].beg = attr.dest_beg;
+            ctx->marks[opener_index+1].end = attr.dest_end;
+
+            MD_ASSERT(ctx->marks[opener_index+2].ch == 'D');
+            md_mark_store_ptr(ctx, opener_index+2, attr.title);
+            if(attr.title_needs_free)
+                md_mark_chain_append(ctx, &PTR_CHAIN, opener_index+2);
+            ctx->marks[opener_index+2].prev = attr.title_size;
+        }
+
+        opener_index = next_index;
+    }
+
+    return 0;
+}
+
 /* Analyze whether the mark '&' starts a HTML entity.
  * If so, update its flags as well as flags of corresponding closer ';'. */
 static void
@@ -1812,16 +2880,9 @@ md_analyze_permissive_email_autolink(MD_CTX* ctx, int mark_index)
     md_resolve_range(ctx, NULL, mark_index, closer_index);
 }
 
-/* Table of precedence of various span types. */
-static const CHAR* md_precedence_table[] = {
-    _T("&`<>"),     /* Entities; code spans; autolinks; raw HTML. */
-    _T("*_@:")      /* Emphasis and string emphasis; permissive autolinks. */
-};
-
 static void
-md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int precedence_level)
+md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, const CHAR* mark_chars)
 {
-    const CHAR* mark_chars = md_precedence_table[precedence_level];
     int i = 0;
 
     while(i < ctx->n_marks) {
@@ -1849,6 +2910,8 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int precedence_
             case '`':   md_analyze_backtick(ctx, i); break;
             case '<':   /* Pass through. */
             case '>':   md_analyze_lt_gt(ctx, i, lines, n_lines); break;
+            case '[':   /* Pass through. */
+            case ']':   md_analyze_bracket(ctx, i); break;
             case '&':   md_analyze_entity(ctx, i); break;
             case '*':   md_analyze_asterisk(ctx, i); break;
             case '_':   md_analyze_underscore(ctx, i); break;
@@ -1865,6 +2928,7 @@ static int
 md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 {
     int i;
+    int ret;
 
     /* Reset the previously collected stack of marks. */
     ctx->n_marks = 0;
@@ -1874,16 +2938,42 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
         ctx->mark_chains[i].head = -1;
         ctx->mark_chains[i].tail = -1;
     }
+    ctx->unresolved_link_head = -1;
+    ctx->unresolved_link_tail = -1;
 
     /* Collect all marks. */
     if(md_collect_marks(ctx, lines, n_lines) != 0)
         return -1;
 
-    /* Analyze all marks. */
-    for(i = 0; i < SIZEOF_ARRAY(md_precedence_table); i++)
-        md_analyze_marks(ctx, lines, n_lines, i);
+    /* We analyze marks in few groups to handle their precedence. */
+    /* (1) Entities; code spans; autolinks; raw HTML. */
+    md_analyze_marks(ctx, lines, n_lines, _T("&`<>"));
+    /* (2) Links. */
+    md_analyze_marks(ctx, lines, n_lines, _T("[]"));
+    MD_CHECK(md_resolve_links(ctx, lines, n_lines));
+    /* (3) Emphasis and strong emphasis; permissive autolinks. */
+    md_analyze_marks(ctx, lines, n_lines, _T("*_@:"));
 
-    return 0;
+abort:
+    return ret;
+}
+
+static void
+md_setup_span_a_detail(MD_CTX* ctx, const MD_MARK* mark, MD_SPAN_A_DETAIL* det)
+{
+    const MD_MARK* dest_mark = mark+1;
+    const MD_MARK* title_mark = mark+2;
+
+    MD_ASSERT(dest_mark->ch == 'D');
+    if(dest_mark->beg < dest_mark->end)
+        det->href = STR(dest_mark->beg);
+    else
+        det->href = NULL;
+    det->href_size = dest_mark->end - dest_mark->beg;
+
+    MD_ASSERT(title_mark->ch == 'D');
+    det->title = md_mark_get_ptr(ctx, title_mark - ctx->marks);
+    det->title_size = title_mark->prev;
 }
 
 /* Render the output, accordingly to the analyzed ctx->marks. */
@@ -1965,9 +3055,19 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                     }
                     break;
 
+                case '[':       /* Link. */
+                    md_setup_span_a_detail(ctx, mark, &det.a);
+                    MD_ENTER_SPAN(MD_SPAN_A, &det.a);
+                    break;
+                case ']':
+                    md_setup_span_a_detail(ctx, &ctx->marks[mark->prev], &det.a);
+                    MD_LEAVE_SPAN(MD_SPAN_A, &det.a);
+                    break;
+
                 case '<':
                 case '>':       /* Autolink or raw HTML. */
                     if(!(mark->flags & MD_MARK_AUTOLINK)) {
+                        /* Raw HTML. */
                         if(mark->flags & MD_MARK_OPENER)
                             text_type = MD_TEXT_HTML;
                         else
@@ -2082,12 +3182,17 @@ struct MD_BLOCK_tag {
 static int
 md_process_normal_block_contents(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 {
+    int i;
     int ret;
 
     MD_CHECK(md_analyze_inlines(ctx, lines, n_lines));
     MD_CHECK(md_process_inlines(ctx, lines, n_lines));
 
 abort:
+    /* Free any temporary memory blocks stored within some dummy marks. */
+    for(i = PTR_CHAIN.head; i >= 0; i = ctx->marks[i].next)
+        free(md_mark_get_ptr(ctx, i));
+
     return ret;
 }
 
@@ -2373,17 +3478,80 @@ md_start_new_block(MD_CTX* ctx, const MD_LINE_ANALYSIS* line)
     return 0;
 }
 
+/* Eat from start of current (textual) block any link reference definitions
+ * and remember them so we can resolve any links referring to them.
+ *
+ * (Link reference definitions can only be at start of it as they cannot break
+ * a paragraph.)
+ */
+static int
+md_consume_link_reference_definitions(MD_CTX* ctx)
+{
+    MD_LINE* lines = (MD_LINE*) (ctx->current_block + 1);
+    int n_lines = ctx->current_block->n_lines;
+    int n = 0;
+
+    /* Compute how many lines at the start of the block form one or more
+     * link reference definitions. */
+    while(n < n_lines) {
+        int n_link_ref_lines;
+
+        n_link_ref_lines = md_is_link_reference_definition(ctx,
+                                    lines + n, n_lines - n);
+        /* Not a link reference definition? */
+        if(n_link_ref_lines == 0)
+            break;
+
+        /* We fail if it is the link ref. def. but it could not be stored due
+         * a memory allocation error. */
+        if(n_link_ref_lines < 0)
+            return -1;
+
+        n += n_link_ref_lines;
+    }
+
+    /* If there was at least one link reference definition, we need to remove
+     * its lines from the block, or perhaps even the whole block. */
+    if(n > 0) {
+        if(n == n_lines) {
+            /* Remove complete block. */
+            ctx->n_block_bytes -= n * sizeof(MD_LINE);
+            ctx->n_block_bytes -= sizeof(MD_BLOCK);
+        } else {
+            /* Remove just some initial lines from the block. */
+            memmove(lines, lines + n, n_lines - n);
+            ctx->current_block->n_lines -= n;
+            ctx->n_block_bytes -= n * sizeof(MD_LINE);
+        }
+    }
+
+    return 0;
+}
+
 static int
 md_end_current_block(MD_CTX* ctx)
 {
     int ret = 0;
 
-    if(ctx->current_block != NULL) {
-        ctx->current_block = NULL;
+    if(ctx->current_block == NULL)
+        return ret;
 
-        // TODO : consider flush of all complete blocks
-        //MD_CHECK(md_process_all_blocks(ctx));
+    /* Check whether there is a link reference definition. (We do this here
+     * instead of in md_analyze_line() because link reference definition can
+     * take multiple lines.) */
+    if(ctx->current_block->type == MD_BLOCK_P) {
+        MD_LINE* lines = (MD_LINE*) (ctx->current_block + 1);
+        if(CH(lines[0].beg) == _T('['))
+            MD_CHECK(md_consume_link_reference_definitions(ctx));
     }
+
+    /* Mark we are not building any block anymore. */
+    ctx->current_block = NULL;
+
+    /* Consider flush of all complete blocks */
+    // TODO: we cannot do this if we look ahead for link ref. def. or if we
+    //       are inside a list which can yet turn from tight to loose.
+    //MD_CHECK(md_process_all_blocks(ctx));
 
 abort:
     return ret;
@@ -3038,7 +4206,8 @@ md_process_doc(MD_CTX *ctx)
         MD_CHECK(md_process_line(ctx, &pivot_line, line));
     }
 
-    /* Process all remaining blocks. */
+    /* Process all blocks. */
+    md_end_current_block(ctx);
     MD_CHECK(md_process_all_blocks(ctx));
 
     /* Close any dangling parent blocks. */
@@ -3091,6 +4260,7 @@ md_parse(const MD_CHAR* text, MD_SIZE size, const MD_RENDERER* renderer, void* u
     ret = md_process_doc(&ctx);
 
     /* Clean-up. */
+    md_free_link_ref_defs(&ctx);
     free(ctx.block_bytes);
     free(ctx.marks);
     free(ctx.buffer);

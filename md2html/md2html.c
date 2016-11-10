@@ -154,6 +154,12 @@ open_a_span(struct membuffer* out, MD_SPAN_A_DETAIL* det)
 {
     MEMBUF_APPEND_LITERAL(out, "<a href=\"");
     membuf_append_escaped(out, det->href, det->href_size);
+
+    if(det->title != NULL) {
+        MEMBUF_APPEND_LITERAL(out, "\" href=\"");
+        membuf_append_escaped(out, det->title, det->title_size);
+    }
+
     MEMBUF_APPEND_LITERAL(out, "\">");
 }
 
