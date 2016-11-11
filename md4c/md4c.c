@@ -1323,18 +1323,11 @@ md_analyze_backtick(MD_CTX* ctx, int mark_index)
 }
 
 static int
-md_is_autolink(MD_CTX* ctx, OFF beg, OFF end)
+md_is_autolink_uri(MD_CTX* ctx, OFF beg, OFF end)
 {
-    OFF off;
-
-    MD_ASSERT(CH(beg) == _T('<'));
-    MD_ASSERT(CH(end-1) == _T('>'));
-
-    beg++;
-    end--;
+    OFF off = beg;
 
     /* Check for scheme. */
-    off = beg;
     if(off >= end  ||  !ISASCII(off))
         return -1;
     off++;
@@ -1360,6 +1353,74 @@ md_is_autolink(MD_CTX* ctx, OFF beg, OFF end)
     return 0;
 }
 
+static int
+md_is_autolink_email(MD_CTX* ctx, OFF beg, OFF end)
+{
+    OFF off = beg;
+    int label_len;
+
+    /* The code should correspond to this regexp:
+            /^[a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+
+            @[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?
+            (?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/
+     */
+
+    /* Username (before '@'). */
+    while(off < end  &&  (ISALNUM(off) || ISANYOF(off, _T(".!#$%&'*+/=?^_`{|}~-"))))
+        off++;
+    if(off <= beg)
+        return -1;
+
+    /* '@' */
+    if(off >= end  ||  CH(off) != _T('@'))
+        return -1;
+    off++;
+
+    /* Labels delimited with '.'; each label is sequence of 1 - 62 alnum
+     * characters or '-', but '-' is not allowed as first or last char. */
+    label_len = 0;
+    while(off < end) {
+        if(ISALNUM(off))
+            label_len++;
+        else if(CH(off) == _T('-')  &&  label_len > 0)
+            label_len++;
+        else if(CH(off) == _T('.')  &&  label_len > 0  &&  CH(off-1) != _T('-'))
+            label_len = 0;
+        else
+            return -1;
+
+        if(label_len > 63)
+            return -1;
+
+        off++;
+    }
+
+    if(label_len <= 0  ||  CH(off-1) == _T('-'))
+        return -1;
+
+    return 0;
+}
+
+static int
+md_is_autolink(MD_CTX* ctx, OFF beg, OFF end, int* p_missing_mailto)
+{
+    MD_ASSERT(CH(beg) == _T('<'));
+    MD_ASSERT(CH(end-1) == _T('>'));
+
+    beg++;
+    end--;
+
+    if(md_is_autolink_uri(ctx, beg, end) == 0)
+        return 0;
+
+    if(md_is_autolink_email(ctx, beg, end) == 0) {
+        *p_missing_mailto = 1;
+        return 0;
+    }
+
+    return -1;
+}
+
 static void
 md_analyze_lt_gt(MD_CTX* ctx, int mark_index, const MD_LINE* lines, int n_lines)
 {
@@ -1379,11 +1440,15 @@ md_analyze_lt_gt(MD_CTX* ctx, int mark_index, const MD_LINE* lines, int n_lines)
         MD_MARK* opener = &ctx->marks[opener_index];
         OFF detected_end;
         int is_autolink = 0;
+        int is_missing_mailto = 0;
         int is_raw_html = 0;
 
-        is_autolink = (md_is_autolink(ctx, opener->beg, mark->end) == 0);
+        is_autolink = (md_is_autolink(ctx, opener->beg, mark->end, &is_missing_mailto) == 0);
 
-        if(!is_autolink) {
+        if(is_autolink) {
+            if(is_missing_mailto)
+                opener->ch = _T('@');
+        } else {
             /* Identify the line where the opening mark lives. */
             int line_index = 0;
             while(1) {
@@ -1590,6 +1655,10 @@ md_analyze_permissive_url_autolink(MD_CTX* ctx, int mark_index)
     md_resolve_range(ctx, NULL, mark_index, closer_index);
 }
 
+/* The permissive autolinks do not have to be enclosed in '<' '>' but we
+ * instead impose stricter rules what is understood as an e-mail address
+ * here. Actually any non-alphanumeric characters with exception of '.'
+ * are prohibited both in username and after '@'. */
 static void
 md_analyze_permissive_email_autolink(MD_CTX* ctx, int mark_index)
 {
@@ -1616,10 +1685,14 @@ md_analyze_permissive_email_autolink(MD_CTX* ctx, int mark_index)
             return;
     }
 
-    /* Accept any alphanumeric sequences delimited with dot after the '@'. */
+    /* Accept any alphanumeric sequences delimited with dot after the '@',
+     * limiting the sequences length by 64 characters. */
     while(1) {
+        OFF label_start = end;
         while(end + 1 < ctx->size  &&  ISALNUM(end))
             end++;
+        if(end - label_start > 63)
+            return;
 
         if(end + 1 < ctx->size && CH(end) == _T('.') && ISALNUM(end+1)) {
             right_dot_count++;
