@@ -59,6 +59,11 @@
 #define STRINGIZE_(x)       #x
 #define STRINGIZE(x)        STRINGIZE_(x)
 
+#ifndef TRUE
+    #define TRUE            1
+    #define FALSE           0
+#endif
+
 
 /************************
  ***  Internal Types  ***
@@ -348,7 +353,7 @@ md_strchr(const CHAR* str, CHAR ch)
 
 /* Case insensitive check of string equality. */
 static inline int
-md_str_case_eq(const CHAR* s1, const CHAR* s2, SZ n)
+md_ascii_case_eq(const CHAR* s1, const CHAR* s2, SZ n)
 {
     OFF i;
     for(i = 0; i < n; i++) {
@@ -360,15 +365,15 @@ md_str_case_eq(const CHAR* s1, const CHAR* s2, SZ n)
         if(ISLOWER_(ch2))
             ch2 += ('A'-'a');
         if(ch1 != ch2)
-            return -1;
+            return FALSE;
     }
-    return 0;
+    return TRUE;
 }
 
 static inline int
-md_str_eq(const CHAR* s1, const CHAR* s2, SZ n)
+md_ascii_eq(const CHAR* s1, const CHAR* s2, SZ n)
 {
-    return memcmp(s1, s2, n * sizeof(CHAR));
+    return memcmp(s1, s2, n * sizeof(CHAR)) == 0;
 }
 
 static int
@@ -404,7 +409,7 @@ md_text_with_null_replacement(MD_CTX* ctx, MD_TEXTTYPE type, const CHAR* str, SZ
 #define MD_CHECK(func)                                                  \
     do {                                                                \
         ret = (func);                                                   \
-        if(ret != 0)                                                    \
+        if(ret < 0)                                                     \
             goto abort;                                                 \
     } while(0)
 
@@ -509,7 +514,7 @@ md_is_html_tag(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF max_
     MD_ASSERT(CH(beg) == _T('<'));
 
     if(off + 1 >= line_end)
-        return -1;
+        return FALSE;
     off++;
 
     /* For parsing attributes, we need a little state automaton below.
@@ -532,7 +537,7 @@ md_is_html_tag(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF max_
 
     /* Tag name */
     if(off >= line_end  ||  !ISALPHA(off))
-        return -1;
+        return FALSE;
     off++;
     while(off < line_end  &&  (ISALNUM(off)  ||  CH(off) == _T('-')))
         off++;
@@ -581,22 +586,22 @@ md_is_html_tag(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF max_
                 else if(!ISANYOF(off, _T("\"'=<>`"))  &&  !ISNEWLINE(off))
                     attr_state = 41;
                 else
-                    return -1;
+                    return FALSE;
                 off++;
             } else {
                 /* Anything unexpected. */
-                return -1;
+                return FALSE;
             }
         }
 
         /* We have to be on a single line. See definition of start condition
          * of HTML block, type 7. */
         if(n_lines == 0)
-            return -1;
+            return FALSE;
 
         i++;
         if(i >= n_lines)
-            return -1;
+            return FALSE;
 
         off = lines[i].beg;
         line_end = lines[i].end;
@@ -605,15 +610,15 @@ md_is_html_tag(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF max_
             attr_state = 1;
 
         if(off >= max_end)
-            return -1;
+            return FALSE;
     }
 
 done:
     if(off >= max_end)
-        return -1;
+        return FALSE;
 
     *p_end = off+1;
-    return 0;
+    return TRUE;
 }
 
 static int
@@ -625,16 +630,16 @@ md_is_html_comment(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF 
     MD_ASSERT(CH(beg) == _T('<'));
 
     if(off + 4 >= lines[0].end)
-        return -1;
+        return FALSE;
     if(CH(off+1) != _T('!')  ||  CH(off+2) != _T('-')  ||  CH(off+3) != _T('-'))
-        return -1;
+        return FALSE;
     off += 4;
 
     /* ">" and "->" must follow the opening. */
     if(off < lines[0].end  &&  CH(off) == _T('>'))
-        return -1;
+        return FALSE;
     if(off+1 < lines[0].end  &&  CH(off) == _T('-')  &&  CH(off+1) == _T('>'))
-        return -1;
+        return FALSE;
 
     while(1) {
         while(off + 2 < lines[i].end) {
@@ -645,7 +650,7 @@ md_is_html_comment(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF 
                     goto done;
                 } else {
                     /* "--" is prohibited inside the comment. */
-                    return -1;
+                    return FALSE;
                 }
             }
 
@@ -654,20 +659,20 @@ md_is_html_comment(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF 
 
         i++;
         if(i >= n_lines)
-            return -1;
+            return FALSE;
 
         off = lines[i].beg;
 
         if(off >= max_end)
-            return -1;
+            return FALSE;
     }
 
 done:
     if(off >= max_end)
-        return -1;
+        return FALSE;
 
     *p_end = off+1;
-    return 0;
+    return TRUE;
 }
 
 static int
@@ -679,9 +684,9 @@ md_is_html_processing_instruction(MD_CTX* ctx, const MD_LINE* lines, int n_lines
     MD_ASSERT(CH(beg) == _T('<'));
 
     if(off + 2 >= lines[0].end)
-        return -1;
+        return FALSE;
     if(CH(off+1) != _T('?'))
-        return -1;
+        return FALSE;
     off += 2;
 
     while(1) {
@@ -697,19 +702,19 @@ md_is_html_processing_instruction(MD_CTX* ctx, const MD_LINE* lines, int n_lines
 
         i++;
         if(i >= n_lines)
-            return -1;
+            return FALSE;
 
         off = lines[i].beg;
         if(off >= max_end)
-            return -1;
+            return FALSE;
     }
 
 done:
     if(off >= max_end)
-        return -1;
+        return FALSE;
 
     *p_end = off+1;
-    return 0;
+    return TRUE;
 }
 
 static int
@@ -721,19 +726,19 @@ md_is_html_declaration(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, 
     MD_ASSERT(CH(beg) == _T('<'));
 
     if(off + 2 >= lines[0].end)
-        return -1;
+        return FALSE;
     if(CH(off+1) != _T('!'))
-        return -1;
+        return FALSE;
     off += 2;
 
     /* Declaration name. */
     if(off >= lines[0].end  ||  !ISALPHA(off))
-        return -1;
+        return FALSE;
     off++;
     while(off < lines[0].end  &&  ISALPHA(off))
         off++;
     if(off < lines[0].end  &&  !ISWHITESPACE(off))
-        return -1;
+        return FALSE;
 
     while(1) {
         while(off < lines[i].end) {
@@ -747,19 +752,19 @@ md_is_html_declaration(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, 
 
         i++;
         if(i >= n_lines)
-            return -1;
+            return FALSE;
 
         off = lines[i].beg;
         if(off >= max_end)
-            return -1;
+            return FALSE;
     }
 
 done:
     if(off >= max_end)
-        return -1;
+        return FALSE;
 
     *p_end = off+1;
-    return 0;
+    return TRUE;
 }
 
 static int
@@ -771,9 +776,9 @@ md_is_html_cdata(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF ma
     int i = 0;
 
     if(off + SIZEOF_ARRAY(open_str) >= lines[0].end)
-        return -1;
+        return FALSE;
     if(memcmp(STR(off), open_str, sizeof(open_str)) != 0)
-        return -1;
+        return FALSE;
     off += SIZEOF_ARRAY(open_str);
 
     while(1) {
@@ -789,36 +794,36 @@ md_is_html_cdata(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF ma
 
         i++;
         if(i >= n_lines)
-            return -1;
+            return FALSE;
 
         off = lines[i].beg;
         if(off >= max_end)
-            return -1;
+            return FALSE;
     }
 
 done:
     if(off >= max_end)
-        return -1;
+        return FALSE;
 
     *p_end = off+1;
-    return 0;
+    return TRUE;
 }
 
 static int
 md_is_html_any(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF max_end, OFF* p_end)
 {
-    if(md_is_html_tag(ctx, lines, n_lines, beg, max_end, p_end) == 0)
-        return 0;
-    if(md_is_html_comment(ctx, lines, n_lines, beg, max_end, p_end) == 0)
-        return 0;
-    if(md_is_html_processing_instruction(ctx, lines, n_lines, beg, max_end, p_end) == 0)
-        return 0;
-    if(md_is_html_declaration(ctx, lines, n_lines, beg, max_end, p_end) == 0)
-        return 0;
-    if(md_is_html_cdata(ctx, lines, n_lines, beg, max_end, p_end) == 0)
-        return 0;
+    if(md_is_html_tag(ctx, lines, n_lines, beg, max_end, p_end) == TRUE)
+        return TRUE;
+    if(md_is_html_comment(ctx, lines, n_lines, beg, max_end, p_end) == TRUE)
+        return TRUE;
+    if(md_is_html_processing_instruction(ctx, lines, n_lines, beg, max_end, p_end) == TRUE)
+        return TRUE;
+    if(md_is_html_declaration(ctx, lines, n_lines, beg, max_end, p_end) == TRUE)
+        return TRUE;
+    if(md_is_html_cdata(ctx, lines, n_lines, beg, max_end, p_end) == TRUE)
+        return TRUE;
 
-    return -1;
+    return FALSE;
 }
 
 
@@ -1304,9 +1309,9 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                     const CHAR* suffix = scheme_map[scheme_index].suffix;
                     const SZ suffix_size = scheme_map[scheme_index].suffix_size;
 
-                    if(line->beg + scheme_size <= off  &&  md_str_eq(STR(off-scheme_size), scheme, scheme_size) == 0  &&
+                    if(line->beg + scheme_size <= off  &&  md_ascii_eq(STR(off-scheme_size), scheme, scheme_size)  &&
                         (line->beg + scheme_size == off || ISWHITESPACE(off-scheme_size-1))  &&
-                        off + 1 + suffix_size < line->end  &&  md_str_eq(STR(off+1), suffix, suffix_size) == 0)
+                        off + 1 + suffix_size < line->end  &&  md_ascii_eq(STR(off+1), suffix, suffix_size))
                     {
                         PUSH_MARK(ch, off-scheme_size, off+1+suffix_size, MD_MARK_POTENTIAL_OPENER);
                         /* Push a dummy as a reserve for a closer. */
@@ -1417,28 +1422,28 @@ md_is_autolink_uri(MD_CTX* ctx, OFF beg, OFF end)
 
     /* Check for scheme. */
     if(off >= end  ||  !ISASCII(off))
-        return -1;
+        return FALSE;
     off++;
     while(1) {
         if(off >= end)
-            return -1;
+            return FALSE;
         if(off - beg > 32)
-            return -1;
+            return FALSE;
         if(CH(off) == _T(':')  &&  off - beg >= 2)
             break;
         if(!ISALNUM(off) && CH(off) != _T('+') && CH(off) != _T('-') && CH(off) != _T('.'))
-            return -1;
+            return FALSE;
         off++;
     }
 
     /* Check the path after the scheme. */
     while(off < end) {
         if(ISWHITESPACE(off) || ISCNTRL(off) || CH(off) == _T('<') || CH(off) == _T('>'))
-            return -1;
+            return FALSE;
         off++;
     }
 
-    return 0;
+    return TRUE;
 }
 
 static int
@@ -1457,11 +1462,11 @@ md_is_autolink_email(MD_CTX* ctx, OFF beg, OFF end)
     while(off < end  &&  (ISALNUM(off) || ISANYOF(off, _T(".!#$%&'*+/=?^_`{|}~-"))))
         off++;
     if(off <= beg)
-        return -1;
+        return FALSE;
 
     /* '@' */
     if(off >= end  ||  CH(off) != _T('@'))
-        return -1;
+        return FALSE;
     off++;
 
     /* Labels delimited with '.'; each label is sequence of 1 - 62 alnum
@@ -1475,18 +1480,18 @@ md_is_autolink_email(MD_CTX* ctx, OFF beg, OFF end)
         else if(CH(off) == _T('.')  &&  label_len > 0  &&  CH(off-1) != _T('-'))
             label_len = 0;
         else
-            return -1;
+            return FALSE;
 
         if(label_len > 63)
-            return -1;
+            return FALSE;
 
         off++;
     }
 
     if(label_len <= 0  ||  CH(off-1) == _T('-'))
-        return -1;
+        return FALSE;
 
-    return 0;
+    return TRUE;
 }
 
 static int
@@ -1498,15 +1503,15 @@ md_is_autolink(MD_CTX* ctx, OFF beg, OFF end, int* p_missing_mailto)
     beg++;
     end--;
 
-    if(md_is_autolink_uri(ctx, beg, end) == 0)
-        return 0;
+    if(md_is_autolink_uri(ctx, beg, end))
+        return TRUE;
 
-    if(md_is_autolink_email(ctx, beg, end) == 0) {
+    if(md_is_autolink_email(ctx, beg, end)) {
         *p_missing_mailto = 1;
-        return 0;
+        return TRUE;
     }
 
-    return -1;
+    return FALSE;
 }
 
 static void
@@ -1531,7 +1536,7 @@ md_analyze_lt_gt(MD_CTX* ctx, int mark_index, const MD_LINE* lines, int n_lines)
         int is_missing_mailto = 0;
         int is_raw_html = 0;
 
-        is_autolink = (md_is_autolink(ctx, opener->beg, mark->end, &is_missing_mailto) == 0);
+        is_autolink = (md_is_autolink(ctx, opener->beg, mark->end, &is_missing_mailto));
 
         if(is_autolink) {
             if(is_missing_mailto)
@@ -1546,7 +1551,7 @@ md_analyze_lt_gt(MD_CTX* ctx, int mark_index, const MD_LINE* lines, int n_lines)
             }
 
             is_raw_html = (md_is_html_any(ctx, lines + line_index,
-                    n_lines - line_index, opener->beg, mark->end, &detected_end) == 0);
+                    n_lines - line_index, opener->beg, mark->end, &detected_end));
         }
 
         /* Check whether the range forms a valid raw HTML. */
@@ -2432,14 +2437,14 @@ md_is_hr_line(MD_CTX* ctx, OFF beg, OFF* p_end)
     }
 
     if(n < 3)
-        return -1;
+        return FALSE;
 
     /* Nothing else can be present on the line. */
     if(off < ctx->size  &&  !ISNEWLINE(off))
-        return -1;
+        return FALSE;
 
     *p_end = off;
-    return 0;
+    return TRUE;
 }
 
 static int
@@ -2453,17 +2458,17 @@ md_is_atxheader_line(MD_CTX* ctx, OFF beg, OFF* p_beg, OFF* p_end, unsigned* p_l
     n = off - beg;
 
     if(n > 6)
-        return -1;
+        return FALSE;
     *p_level = n;
 
     if(!(ctx->r.flags & MD_FLAG_PERMISSIVEATXHEADERS)  &&  off < ctx->size  &&
        CH(off) != _T(' ')  &&  CH(off) != _T('\t')  &&  !ISNEWLINE(off))
-        return -1;
+        return FALSE;
 
     while(off < ctx->size  &&  CH(off) == _T(' '))
         off++;
     *p_beg = off;
-    return 0;
+    return TRUE;
 }
 
 static int
@@ -2483,10 +2488,10 @@ md_is_setext_underline(MD_CTX* ctx, OFF beg, OFF* p_end, unsigned* p_level)
 
     /* But nothing more is allowed on the line. */
     if(off < ctx->size  &&  !ISNEWLINE(off))
-        return -1;
+        return FALSE;
 
     *p_level = (CH(beg) == _T('=') ? 1 : 2);
-    return 0;
+    return TRUE;
 }
 
 static int
@@ -2499,7 +2504,7 @@ md_is_opening_code_fence(MD_CTX* ctx, OFF beg, OFF* p_end)
 
     /* Fence must have at least three characters. */
     if(off - beg < 3)
-        return -1;
+        return FALSE;
 
     ctx->code_fence_length = off - beg;
 
@@ -2511,17 +2516,17 @@ md_is_opening_code_fence(MD_CTX* ctx, OFF beg, OFF* p_end)
     while(off < ctx->size  &&  CH(off) != _T('`')  &&  !ISNEWLINE(off))
         off++;
     if(off < ctx->size  &&  !ISNEWLINE(off))
-        return -1;
+        return FALSE;
 
     *p_end = off;
-    return 0;
+    return TRUE;
 }
 
 static int
 md_is_closing_code_fence(MD_CTX* ctx, CHAR ch, OFF beg, OFF* p_end)
 {
     OFF off = beg;
-    int ret = -1;
+    int ret = FALSE;
 
     /* Closing fence must have at least the same length and use same char as
      * opening one. */
@@ -2538,7 +2543,7 @@ md_is_closing_code_fence(MD_CTX* ctx, CHAR ch, OFF beg, OFF* p_end)
     if(off < ctx->size  &&  !ISNEWLINE(off))
         goto out;
 
-    ret = 0;
+    ret = TRUE;
 
 out:
     /* Note we set *p_end even on failure: If we are not closing fence, caller
@@ -2599,7 +2604,7 @@ md_is_html_block_start_condition(MD_CTX* ctx, OFF beg)
     /* Check for type 1: <script, <pre, or <style */
     for(i = 0; t1[i].name != NULL; i++) {
         if(off + t1[i].len < ctx->size) {
-            if(md_str_case_eq(STR(off), t1[i].name, t1[i].len) == 0)
+            if(md_ascii_case_eq(STR(off), t1[i].name, t1[i].len))
                 return 1;
         }
     }
@@ -2620,7 +2625,7 @@ md_is_html_block_start_condition(MD_CTX* ctx, OFF beg)
 
         /* Check for type 5: <![CDATA[ */
         if(off + 8 < ctx->size) {
-            if(md_str_eq(STR(off), _T("![CDATA["), 8 * sizeof(CHAR)) == 0)
+            if(md_ascii_eq(STR(off), _T("![CDATA["), 8 * sizeof(CHAR)))
                 return 5;
         }
     }
@@ -2638,7 +2643,7 @@ md_is_html_block_start_condition(MD_CTX* ctx, OFF beg)
 
         for(i = 0; tags[i].name != NULL; i++) {
             if(off + tags[i].len <= ctx->size) {
-                if(md_str_case_eq(STR(off), tags[i].name, tags[i].len) == 0) {
+                if(md_ascii_case_eq(STR(off), tags[i].name, tags[i].len)) {
                     OFF tmp = off + tags[i].len;
                     if(tmp >= ctx->size)
                         return 6;
@@ -2656,7 +2661,7 @@ md_is_html_block_start_condition(MD_CTX* ctx, OFF beg)
     if(off + 1 < ctx->size) {
         OFF end;
 
-        if(md_is_html_tag(ctx, NULL, 0, beg, ctx->size, &end) == 0) {
+        if(md_is_html_tag(ctx, NULL, 0, beg, ctx->size, &end)) {
             /* Only optional whitespace and new line may follow. */
             while(end < ctx->size  &&  ISWHITESPACE(end))
                 end++;
@@ -2665,7 +2670,7 @@ md_is_html_block_start_condition(MD_CTX* ctx, OFF beg)
         }
     }
 
-    return -1;
+    return FALSE;
 }
 
 /* Case sensitive check whether there is a substring 'what' between 'beg'
@@ -2679,12 +2684,12 @@ md_line_contains(MD_CTX* ctx, OFF beg, const CHAR* what, SZ what_len, OFF* p_end
             break;
         if(memcmp(STR(i), what, what_len * sizeof(CHAR)) == 0) {
             *p_end = i + what_len;
-            return 0;
+            return TRUE;
         }
     }
 
     *p_end = i;
-    return -1;
+    return FALSE;
 }
 
 /* Returns type of HTML block end condition or -1 if not an end condition.
@@ -2702,17 +2707,17 @@ md_is_html_block_end_condition(MD_CTX* ctx, OFF beg, OFF* p_end)
 
             while(off < ctx->size  &&  !ISNEWLINE(off)) {
                 if(CH(off) == _T('<')) {
-                    if(md_str_case_eq(STR(off), _T("</script>"), 9) == 0) {
+                    if(md_ascii_case_eq(STR(off), _T("</script>"), 9)) {
                         *p_end = off + 9;
                         return 1;
                     }
 
-                    if(md_str_case_eq(STR(off), _T("</style>"), 8) == 0) {
+                    if(md_ascii_case_eq(STR(off), _T("</style>"), 8)) {
                         *p_end = off + 8;
                         return 1;
                     }
 
-                    if(md_str_case_eq(STR(off), _T("</pre>"), 6) == 0) {
+                    if(md_ascii_case_eq(STR(off), _T("</pre>"), 6)) {
                         *p_end = off + 6;
                         return 1;
                     }
@@ -2721,25 +2726,25 @@ md_is_html_block_end_condition(MD_CTX* ctx, OFF beg, OFF* p_end)
                 off++;
             }
             *p_end = off;
-            return -1;
+            return FALSE;
         }
 
         case 2:
-            return (md_line_contains(ctx, beg, _T("-->"), 3, p_end) == 0 ? 2 : -1);
+            return (md_line_contains(ctx, beg, _T("-->"), 3, p_end) ? 2 : FALSE);
 
         case 3:
-            return (md_line_contains(ctx, beg, _T("?>"), 2, p_end) == 0 ? 3 : -1);
+            return (md_line_contains(ctx, beg, _T("?>"), 2, p_end) ? 3 : FALSE);
 
         case 4:
-            return (md_line_contains(ctx, beg, _T(">"), 1, p_end) == 0 ? 4 : -1);
+            return (md_line_contains(ctx, beg, _T(">"), 1, p_end) ? 4 : FALSE);
 
         case 5:
-            return (md_line_contains(ctx, beg, _T("]]>"), 3, p_end) == 0 ? 5 : -1);
+            return (md_line_contains(ctx, beg, _T("]]>"), 3, p_end) ? 5 : FALSE);
 
         case 6:     /* Pass through */
         case 7:
             *p_end = beg;
-            return (ISNEWLINE(beg) ? ctx->html_block_type : -1);
+            return (ISNEWLINE(beg) ? ctx->html_block_type : FALSE);
 
         default:
             MD_UNREACHABLE();
@@ -2775,7 +2780,7 @@ redo_indentation_after_blockquote_mark:
         /* We are another MD_LINE_FENCEDCODE unless we are closing fence
          * which we transform into MD_LINE_BLANK. */
         if(line->indent < ctx->code_indent_offset) {
-            if(md_is_closing_code_fence(ctx, CH(pivot_line->beg), off, &off) == 0) {
+            if(md_is_closing_code_fence(ctx, CH(pivot_line->beg), off, &off)) {
                 line->type = MD_LINE_BLANK;
                 goto done;
             }
@@ -2817,7 +2822,7 @@ redo_indentation_after_blockquote_mark:
         int html_block_type;
 
         html_block_type = md_is_html_block_end_condition(ctx, off, &off);
-        if(html_block_type >= 0) {
+        if(html_block_type > 0) {
             MD_ASSERT(html_block_type == ctx->html_block_type);
 
             /* Make sure this is the last line of the block. */
@@ -2853,7 +2858,7 @@ redo_indentation_after_blockquote_mark:
     if(line->indent < ctx->code_indent_offset  &&  CH(off) == _T('#')) {
         unsigned level;
 
-        if(md_is_atxheader_line(ctx, off, &line->beg, &off, &level) == 0) {
+        if(md_is_atxheader_line(ctx, off, &line->beg, &off, &level)) {
             line->type = MD_LINE_ATXHEADER;
             line->data = level;
             goto done;
@@ -2867,7 +2872,7 @@ redo_indentation_after_blockquote_mark:
     {
         unsigned level;
 
-        if(md_is_setext_underline(ctx, off, &off, &level) == 0) {
+        if(md_is_setext_underline(ctx, off, &off, &level)) {
             line->type = MD_LINE_SETEXTUNDERLINE;
             line->data = level;
             goto done;
@@ -2878,7 +2883,7 @@ redo_indentation_after_blockquote_mark:
      * (We check the indentation to fix http://spec.commonmark.org/0.26/#example-19)
      * (Keep this after check for Setext underline as that one has higher priority). */
     if(line->indent < ctx->code_indent_offset  &&  ISANYOF(off, _T("-_*"))) {
-        if(md_is_hr_line(ctx, off, &off) == 0) {
+        if(md_is_hr_line(ctx, off, &off)) {
             line->type = MD_LINE_HR;
             goto done;
         }
@@ -2886,7 +2891,7 @@ redo_indentation_after_blockquote_mark:
 
     /* Check whether we are starting code fence. */
     if(CH(off) == _T('`') || CH(off) == _T('~')) {
-        if(md_is_opening_code_fence(ctx, off, &off) == 0) {
+        if(md_is_opening_code_fence(ctx, off, &off)) {
             line->type = MD_LINE_FENCEDCODE;
             line->data = 1;
             goto done;
@@ -2901,7 +2906,7 @@ redo_indentation_after_blockquote_mark:
 
         /* HTML block type 7 cannot interrupt paragraph. */
         if(ctx->html_block_type == 7  &&  pivot_line->type == MD_LINE_TEXT)
-            ctx->html_block_type = -1;
+            ctx->html_block_type = 0;
 
         if(ctx->html_block_type > 0) {
             /* The line itself also may immediately close the block. */
