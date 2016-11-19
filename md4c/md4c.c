@@ -1215,10 +1215,10 @@ md_is_link_label(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
 
         while(off < line_end) {
             if(CH(off) == _T('\\')  &&  off < ctx->size  &&  (ISPUNCT(off+1) || ISNEWLINE(off+1))) {
-                off++;
                 if(contents_end == 0)
                     contents_beg = off;
                 contents_end = off + 2;
+                off += 2;
             } else if(CH(off) == _T('[')) {
                 return -1;
             } else if(CH(off) == _T(']')) {
@@ -1234,21 +1234,29 @@ md_is_link_label(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
                     return -1;
                 }
             } else {
-                if(contents_end == 0) {
-                    contents_beg = off;
-                    *p_beg_line_index = line_index;
+                int codepoint;
+                SZ char_size;
+
+                codepoint = md_decode_unicode(ctx->text, off, ctx->size, &char_size);
+                if(!ISUNICODEWHITESPACE_(codepoint)) {
+                    if(contents_end == 0) {
+                        contents_beg = off;
+                        *p_beg_line_index = line_index;
+                    }
+                    contents_end = off + char_size;
                 }
-                contents_end = off + 1;
+
+                off += char_size;
             }
 
             len++;
             if(len > 999)
                 return -1;
-            off++;
         }
 
         line_index++;
         len++;
+        off = lines[line_index].beg;
     }
 
     return -1;
