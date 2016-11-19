@@ -4030,8 +4030,7 @@ redo_indentation_after_blockquote_mark:
         goto done;
     }
 
-    /* Check whether we are ATX header.
-     * (We check the indentation to fix http://spec.commonmark.org/0.26/#example-40) */
+    /* Check whether we are ATX header. */
     if(line->indent < ctx->code_indent_offset  &&  CH(off) == _T('#')) {
         unsigned level;
 
