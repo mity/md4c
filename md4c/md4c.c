@@ -47,7 +47,7 @@
 #ifdef _T
     #undef _T
 #endif
-#if defined _WIN32  &&  defined MD_WIN_UNICODE
+#if defined MD4C_USE_WIN_UNICODE
     #define _T(x)           L##x
 #else
     #define _T(x)           x
@@ -65,9 +65,9 @@
  ************************/
 
 /* These are omnipresent so lets save some typing. */
-typedef MD_CHAR CHAR;
-typedef MD_SIZE SZ;
-typedef MD_OFFSET OFF;
+#define CHAR    MD_CHAR
+#define SZ      MD_SIZE
+#define OFF     MD_OFFSET
 
 typedef struct MD_MARK_tag MD_MARK;
 typedef struct MD_BLOCK_tag MD_BLOCK;
@@ -245,6 +245,94 @@ struct MD_VERBATIMLINE_tag {
 #define ISXDIGIT(off)           ISXDIGIT_(CH(off))
 #define ISALNUM(off)            ISALNUM_(CH(off))
 #define ISANYOF(off, palette)   ISANYOF_(CH(off), (palette))
+
+
+#if defined MD4C_USE_WIN_UNICODE
+    #include <ctype.h>
+
+    #define ISUNICODEWHITESPACE(off)        iswspace(CH(off))
+    #define ISUNICODEPUNCT(off)             iswpunct(CH(off))
+    #define ISUNICODEWHITESPACEBEFORE(off)  iswspace(CH((off)-1))
+    #define ISUNICODEPUNCTBEFORE(off)       iswpunct(CH((off)-1))
+#elif defined MD4C_USE_UNICODE
+    #ifdef _WIN32
+        /* Note Win32 supports only Unicode plane 0 but better then nothing. */
+        #include <ctype.h>
+    #else
+        #include <wctype.h>
+
+        #ifndef __STDC_ISO_10646__
+            #error "MD4C relies on wchar_t to support Unicode properly."
+        #endif
+    #endif
+
+    #define IS_UTF8_LEAD1(byte)     ((unsigned char)(byte) <= 0x7f)
+    #define IS_UTF8_LEAD2(byte)     (((unsigned char)(byte) & 0xe0) == 0xc0)
+    #define IS_UTF8_LEAD3(byte)     (((unsigned char)(byte) & 0xf0) == 0xe0)
+    #define IS_UTF8_LEAD4(byte)     (((unsigned char)(byte) & 0xf8) == 0xf0)
+    #define IS_UTF8_TAIL(byte)      (((unsigned char)(byte) & 0xc0) == 0x80)
+
+    static int
+    md_decode_utf8(MD_CTX* ctx, OFF off)
+    {
+        /* For any invalid UTF-8 sequence we use the Unicode replacement char
+         * for purposes of character classification. */
+        int codepoint = 0xfffd;
+
+        if(IS_UTF8_LEAD1(CH(off))) {
+            codepoint = CH(off);
+        } else if(IS_UTF8_LEAD2(CH(off))) {
+            if(off+1 < ctx->size)
+                codepoint = (((unsigned int)CH(off) & 0x1f) << 6) |
+                            (((unsigned int)CH(off+1) & 0x3f) << 0);
+        } else if(IS_UTF8_LEAD3(CH(off))) {
+            if(off+2 < ctx->size)
+                codepoint = (((unsigned int)CH(off) & 0x0f) << 12) |
+                            (((unsigned int)CH(off+1) & 0x3f) << 6) |
+                            (((unsigned int)CH(off+2) & 0x3f) << 0);
+        } else if(IS_UTF8_LEAD4(CH(off))) {
+            if(off+3 < ctx->size)
+                codepoint = (((unsigned int)CH(off) & 0x07) << 18) |
+                            (((unsigned int)CH(off+1) & 0x3f) << 12) |
+                            (((unsigned int)CH(off+2) & 0x3f) << 6) |
+                            (((unsigned int)CH(off+3) & 0x3f) << 0);
+        }
+
+#ifdef _WIN32
+        /* On Windows, iswpace() et al. gets garbage for codepoints above
+         * the Unicode plane 0. */
+        if(codepoint > 0xffff)
+            codepoint = 0xfffd;
+#endif
+
+        return codepoint;
+    }
+
+    static int
+    md_decode_utf8_before(MD_CTX* ctx, OFF off)
+    {
+        if(off > 0  &&  IS_UTF8_LEAD1(CH(off-1)))
+            return CH(off-1);
+        if(off > 1  &&  IS_UTF8_LEAD2(CH(off-2)))
+            return md_decode_utf8(ctx, off-2);
+        if(off > 2  &&  IS_UTF8_LEAD3(CH(off-3)))
+            return md_decode_utf8(ctx, off-3);
+        if(off > 3  &&  IS_UTF8_LEAD4(CH(off-4)))
+            return md_decode_utf8(ctx, off-4);
+
+        return 0xfffd;
+    }
+
+    #define ISUNICODEWHITESPACE(off)        iswspace(md_decode_utf8(ctx, off))
+    #define ISUNICODEPUNCT(off)             iswpunct(md_decode_utf8(ctx, off))
+    #define ISUNICODEWHITESPACEBEFORE(off)  iswspace(md_decode_utf8_before(ctx, off))
+    #define ISUNICODEPUNCTBEFORE(off)       iswpunct(md_decode_utf8_before(ctx, off))
+#else
+    #define ISUNICODEWHITESPACE(off)        ISWHITESPACE(off)
+    #define ISUNICODEPUNCT(off)             ISPUNCT(off)
+    #define ISUNICODEWHITESPACEBEFORE(off)  ISWHITESPACE((off)-1)
+    #define ISUNICODEPUNCTBEFORE(off)       ISPUNCT((off)-1)
+#endif
 
 
 static inline const CHAR*
@@ -1103,16 +1191,16 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 while(tmp < line_end  &&  CH(tmp) == ch)
                     tmp++;
 
-                if(off == line->beg  ||  ISWHITESPACE(off-1))
+                if(off == line->beg  ||  ISUNICODEWHITESPACEBEFORE(off))
                     left_level = 0;
-                else if(ISPUNCT(off-1))
+                else if(ISUNICODEPUNCTBEFORE(off))
                     left_level = 1;
                 else
                     left_level = 2;
 
-                if(tmp == line_end  ||  ISWHITESPACE(tmp))
+                if(tmp == line_end  ||  ISUNICODEWHITESPACE(tmp))
                     right_level = 0;
-                else if(ISPUNCT(tmp))
+                else if(ISUNICODEPUNCT(tmp))
                     right_level = 1;
                 else
                     right_level = 2;

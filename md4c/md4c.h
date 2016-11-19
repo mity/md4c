@@ -41,10 +41,8 @@
  * On Windows, when UNICODE is defined, we by default switch to WCHAR.
  * This behavior may be disabled by predefining MD4C_DISABLE_WIN_UNICODE.
  */
-#if defined _WIN32  &&  defined UNICODE  &&  !defined MD4C_DISABLE_WIN_UNICODE
+#if defined MD4C_USE_WIN_UNICODE
     #include <windows.h>
-
-    #define MD4C_USE_WIN_UNICODE
     typedef WCHAR   MD_CHAR;
 #else
     typedef char    MD_CHAR;
