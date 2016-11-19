@@ -1207,7 +1207,7 @@ md_is_link_label(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
     int len = 0;
 
     if(CH(off) != _T('['))
-        return -1;
+        return FALSE;
     off++;
 
     while(line_index < n_lines) {
@@ -1220,7 +1220,7 @@ md_is_link_label(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
                 contents_end = off + 2;
                 off += 2;
             } else if(CH(off) == _T('[')) {
-                return -1;
+                return FALSE;
             } else if(CH(off) == _T(']')) {
                 if(contents_beg < contents_end) {
                     /* Success. */
@@ -1228,10 +1228,10 @@ md_is_link_label(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
                     *p_contents_end = contents_end;
                     *p_end = off+1;
                     *p_end_line_index = line_index;
-                    return 0;
+                    return TRUE;
                 } else {
                     /* Link label must have some non-whitespace contents. */
-                    return -1;
+                    return FALSE;
                 }
             } else {
                 int codepoint;
@@ -1251,7 +1251,7 @@ md_is_link_label(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
 
             len++;
             if(len > 999)
-                return -1;
+                return FALSE;
         }
 
         line_index++;
@@ -1259,7 +1259,7 @@ md_is_link_label(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
         off = lines[line_index].beg;
     }
 
-    return -1;
+    return FALSE;
 }
 
 static int
@@ -1269,7 +1269,7 @@ md_is_link_destination_A(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end,
     OFF off = beg;
 
     if(off >= max_end  ||  CH(off) != _T('<'))
-        return -1;
+        return FALSE;
     off++;
 
     while(off < max_end) {
@@ -1279,20 +1279,20 @@ md_is_link_destination_A(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end,
         }
 
         if(ISWHITESPACE(off)  ||  CH(off) == _T('<'))
-            return -1;
+            return FALSE;
 
         if(CH(off) == _T('>')) {
             /* Success. */
             *p_contents_beg = beg+1;
             *p_contents_end = off;
             *p_end = off+1;
-            return 0;
+            return TRUE;
         }
 
         off++;
     }
 
-    return -1;
+    return FALSE;
 }
 
 static int
@@ -1315,40 +1315,40 @@ md_is_link_destination_B(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end,
          * but only if they are not nested. */
         if(CH(off) == _T('(')) {
             if(in_parentheses)
-                return -1;
+                return FALSE;
             else
                 in_parentheses = 1;
         } else if(CH(off) == _T(')')) {
             if(in_parentheses)
                 in_parentheses = 0;
             else
-                return -1;
+                return FALSE;
         }
 
         off++;
     }
 
     if(in_parentheses  ||  off == beg)
-        return -1;
+        return FALSE;
 
     /* Success. */
     *p_contents_beg = beg;
     *p_contents_end = off;
     *p_end = off;
-    return 0;
+    return TRUE;
 }
 
 static int
 md_is_link_destination(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end,
                        OFF* p_contents_beg, OFF* p_contents_end)
 {
-    if(md_is_link_destination_A(ctx, beg, max_end, p_end, p_contents_beg, p_contents_end) == 0)
-        return 0;
+    if(md_is_link_destination_A(ctx, beg, max_end, p_end, p_contents_beg, p_contents_end))
+        return TRUE;
 
-    if(md_is_link_destination_B(ctx, beg, max_end, p_end, p_contents_beg, p_contents_end) == 0)
-        return 0;
+    if(md_is_link_destination_B(ctx, beg, max_end, p_end, p_contents_beg, p_contents_end))
+        return TRUE;
 
-    return -1;
+    return FALSE;
 }
 
 static int
@@ -1366,7 +1366,7 @@ md_is_link_title(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
     if(off >= lines[line_index].end  &&  ISNEWLINE(off)) {
         line_index++;
         if(line_index >= n_lines)
-            return -1;
+            return FALSE;
         off = lines[line_index].beg;
     }
 
@@ -1377,7 +1377,7 @@ md_is_link_title(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
         case _T('"'):   closer_char = _T('"'); break;
         case _T('\''):  closer_char = _T('\''); break;
         case _T('('):   closer_char = _T(')'); break;
-        default:        return -1;
+        default:        return FALSE;
     }
     off++;
 
@@ -1394,7 +1394,7 @@ md_is_link_title(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
                 *p_contents_end = off;
                 *p_end = off+1;
                 *p_end_line_index = line_index;
-                return 0;
+                return TRUE;
             }
 
             off++;
@@ -1403,7 +1403,7 @@ md_is_link_title(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
         line_index++;
     }
 
-    return -1;
+    return FALSE;
 }
 
 /* Allocate new buffer, and fill it with copy of the string between
@@ -1477,15 +1477,15 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
     int ret = 0;
 
     /* Link label. */
-    if(md_is_link_label(ctx, lines, n_lines, lines[0].beg,
+    if(!md_is_link_label(ctx, lines, n_lines, lines[0].beg,
                 &off, &label_contents_line_index, &line_index,
-                &label_contents_beg, &label_contents_end) != 0)
-        return 0;
+                &label_contents_beg, &label_contents_end))
+        return FALSE;
     label_is_multiline = (label_contents_line_index != line_index);
 
     /* Colon. */
     if(off >= lines[line_index].end  ||  CH(off) != _T(':'))
-        return 0;
+        return FALSE;
     off++;
 
     /* Optional white space with up to one line break. */
@@ -1494,20 +1494,21 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
     if(off >= lines[line_index].end  &&  ISNEWLINE(off)) {
         line_index++;
         if(line_index >= n_lines)
-            return 0;
+            return FALSE;
         off = lines[line_index].beg;
     }
 
     /* Link destination. */
-    if(md_is_link_destination(ctx, off, lines[line_index].end,
-                &off, &dest_contents_beg, &dest_contents_end) != 0)
-        return 0;
+    if(!md_is_link_destination(ctx, off, lines[line_index].end,
+                &off, &dest_contents_beg, &dest_contents_end))
+        return FALSE;
 
     /* (Optional) title. Note we interpret it as an title only if nothing
      * more follows on its last line. */
     if(md_is_link_title(ctx, lines + line_index, n_lines - line_index, off,
-                &off, &title_contents_line_index, &tmp_line_index, &title_contents_beg, &title_contents_end) == 0
-        &&  off >= lines[line_index].end)
+                &off, &title_contents_line_index, &tmp_line_index,
+                &title_contents_beg, &title_contents_end)
+        &&  off >= lines[line_index + tmp_line_index].end)
     {
         title_is_multiline = (tmp_line_index != title_contents_line_index);
         title_contents_line_index += line_index;
@@ -1520,7 +1521,7 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 
     /* Nothing more can follow on the last line. */
     if(off < lines[line_index].end)
-        return 0;
+        return FALSE;
 
     /* Store the link reference definition. */
     def = (MD_LINK_REF_DEF*) malloc(sizeof(MD_LINK_REF_DEF));
@@ -3527,7 +3528,7 @@ md_consume_link_reference_definitions(MD_CTX* ctx)
             ctx->n_block_bytes -= sizeof(MD_BLOCK);
         } else {
             /* Remove just some initial lines from the block. */
-            memmove(lines, lines + n, n_lines - n);
+            memmove(lines, lines + n, (n_lines - n) * sizeof(MD_LINE));
             ctx->current_block->n_lines -= n;
             ctx->n_block_bytes -= n * sizeof(MD_LINE);
         }
