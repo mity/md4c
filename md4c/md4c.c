@@ -100,7 +100,8 @@ struct MD_CTX_tag {
     CHAR* buffer;
     unsigned alloc_buffer;
 
-    MD_LINK_REF_DEF* link_ref_defs;
+    MD_LINK_REF_DEF* link_ref_head;
+    MD_LINK_REF_DEF* link_ref_tail;
 
     /* Stack of inline/span markers.
      * This is only used for parsing a single block contents but by storing it
@@ -1562,8 +1563,12 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
         def->title_needs_free = TRUE;
     }
 
-    def->next = ctx->link_ref_defs;
-    ctx->link_ref_defs = def;
+    if(ctx->link_ref_tail != NULL)
+        ctx->link_ref_tail->next = def;
+    else
+        ctx->link_ref_head = def;
+    ctx->link_ref_tail = def;
+    def->next = NULL;
 
     ret = line_index + 1;
 
@@ -1653,7 +1658,7 @@ md_lookup_link_ref_def(MD_CTX* ctx, const CHAR* label, SZ label_size, MD_LINK_RE
 {
     MD_LINK_REF_DEF* def;
 
-    def = ctx->link_ref_defs;
+    def = ctx->link_ref_head;
     while(def != NULL) {
         if(md_link_label_eq(def->label, def->label_size, label, label_size)) {
             *p_def = def;
@@ -1807,7 +1812,7 @@ abort:
 static void
 md_free_link_ref_defs(MD_CTX* ctx)
 {
-    MD_LINK_REF_DEF* def = ctx->link_ref_defs;
+    MD_LINK_REF_DEF* def = ctx->link_ref_head;
     MD_LINK_REF_DEF* def_next;
 
     while(def != NULL) {
