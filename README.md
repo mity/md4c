@@ -101,7 +101,7 @@ more or less forms our to do list.
   - [x] 6.2 Entity and numeric character references
   - [x] 6.3 Code spans
   - [x] 6.4 Emphasis and strong emphasis
-  - [ ] 6.5 Links
+  - [x] 6.5 Links
   - [ ] 6.6 Images
   - [x] 6.7 Autolinks
   - [x] 6.8 Raw HTML
@@ -141,7 +141,7 @@ consideration.
 - **Miscellaneous:**
   - [x] Permissive ATX headers: `###Header` (without space)
   - [x] Permissive URL autolinks: `http://google.com` (without `<`...`>`)
-  - [x] Permissive e-mail autolinks: `john.dow@example.com`
+  - [x] Permissive e-mail autolinks: `john.doe@example.com`
         (without `<`...`>` and `mailto:`)
   - [x] Disabling indented code blocks
   - [x] Disabling raw HTML blocks/spans
