@@ -2591,10 +2591,7 @@ static int
 md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 {
     int opener_index = ctx->unresolved_link_head;
-
-    // TODO: Handle nested links: we need to remember end offset of most recent
-    // resolved link. If we later iterate to anything with opener BEFORE that
-    // then it cannot be link.
+    OFF most_recent_link_beg = 0;
 
     while(opener_index >= 0) {
         MD_MARK* opener = &ctx->marks[opener_index];
@@ -2611,6 +2608,16 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             next_closer = &ctx->marks[next_opener->next];
         } else {
             next_opener = NULL;
+        }
+
+        /* Links cannot be nested. If they are, the most nested one is the
+         * link and the outer one is not. Given the order of '[' ']' marks
+         * here is ordered by closer position, we enter the most inner brackets
+         * first. */
+        if(opener->beg < most_recent_link_beg) {
+            /* Cannot be a link as it is outer to some previously resolved link. */
+            opener_index = next_index;
+            continue;
         }
 
         // TODO: Check for inline link
@@ -2653,6 +2660,8 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             if(attr.title_needs_free)
                 md_mark_chain_append(ctx, &PTR_CHAIN, opener_index+2);
             ctx->marks[opener_index+2].prev = attr.title_size;
+
+            most_recent_link_beg = opener->beg;
         }
 
         opener_index = next_index;
