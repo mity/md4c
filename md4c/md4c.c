@@ -1462,7 +1462,7 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 {
     OFF label_contents_beg;
     OFF label_contents_end;
-    int label_contents_line_index;
+    int label_contents_line_index = -1;
     int label_is_multiline;
     OFF dest_contents_beg;
     OFF dest_contents_end;
@@ -1515,8 +1515,10 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
         line_index += tmp_line_index;
     } else {
         /* Not a title. */
+        title_is_multiline = FALSE;
         title_contents_beg = off;
         title_contents_end = off;
+        title_contents_line_index = 0;
     }
 
     /* Nothing more can follow on the last line. */
@@ -1608,6 +1610,7 @@ md_link_label_eq(const CHAR* a_label, SZ a_size, const CHAR* b_label, SZ b_size)
             a_is_whitespace = ISUNICODEWHITESPACE_(a_codepoint);
         } else {
             /* Treat end of label as a whitespace. */
+            a_codepoint = -1;
             a_is_whitespace = TRUE;
         }
 
@@ -1616,6 +1619,7 @@ md_link_label_eq(const CHAR* a_label, SZ a_size, const CHAR* b_label, SZ b_size)
             b_is_whitespace = ISUNICODEWHITESPACE_(b_codepoint);
         } else {
             /* Treat end of label as a whitespace. */
+            b_codepoint = -1;
             b_is_whitespace = TRUE;
         }
 
@@ -1893,16 +1897,17 @@ md_mark_store_ptr(MD_CTX* ctx, int mark_index, void* ptr)
 
     /* Check only members beg and end are misused for this. */
     MD_ASSERT(sizeof(void*) <= 2 * sizeof(OFF));
-
-    *((void**) &mark->beg) = ptr;
+    memcpy(mark, &ptr, sizeof(void*));
 }
 
 static inline void*
 md_mark_get_ptr(MD_CTX* ctx, int mark_index)
 {
+    void* ptr;
     MD_MARK* mark = &ctx->marks[mark_index];
     MD_ASSERT(mark->ch == 'D');
-    return *((void**) &mark->beg);
+    memcpy(&ptr, mark, sizeof(void*));
+    return ptr;
 }
 
 static void
