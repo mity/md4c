@@ -2677,6 +2677,9 @@ md_analyze_bracket(MD_CTX* ctx, int mark_index)
     }
 }
 
+/* Forward declaration. */
+static void md_analyze_link_contents(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF end);
+
 static int
 md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 {
@@ -2777,8 +2780,8 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 
         if(is_link) {
             /* Resolve the brackets as a link. */
-            opener->flags |= MD_MARK_RESOLVED;
-            closer->flags |= MD_MARK_RESOLVED;
+            opener->flags |= MD_MARK_OPENER | MD_MARK_RESOLVED;
+            closer->flags |= MD_MARK_CLOSER | MD_MARK_RESOLVED;
 
             /* If it is a link, we store the destination and title in the two
              * dummy marks after the opener. */
@@ -2793,6 +2796,8 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             ctx->marks[opener_index+2].prev = attr.title_size;
 
             last_link_end = closer->end;
+
+            md_analyze_link_contents(ctx, lines, n_lines, opener->end, closer->beg);
         }
 
         opener_index = next_index;
@@ -3030,12 +3035,20 @@ md_analyze_permissive_email_autolink(MD_CTX* ctx, int mark_index)
 }
 
 static void
-md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, const CHAR* mark_chars)
+md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF end, const CHAR* mark_chars)
 {
     int i = 0;
 
     while(i < ctx->n_marks) {
         MD_MARK* mark = &ctx->marks[i];
+
+        /* Do not care about marks outside the given range. */
+        if(mark->end > end  &&  mark->ch != 'D')
+            break;
+        if(mark->beg < beg  &&  mark->ch != 'D') {
+            i++;
+            continue;
+        }
 
         /* Skip resolved spans. */
         if(mark->flags & MD_MARK_RESOLVED) {
@@ -3078,6 +3091,8 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 {
     int i;
     int ret;
+    OFF beg = lines[0].beg;
+    OFF end = lines[n_lines-1].end;
 
     /* Reset the previously collected stack of marks. */
     ctx->n_marks = 0;
@@ -3096,15 +3111,27 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 
     /* We analyze marks in few groups to handle their precedence. */
     /* (1) Entities; code spans; autolinks; raw HTML. */
-    md_analyze_marks(ctx, lines, n_lines, _T("&`<>"));
+    md_analyze_marks(ctx, lines, n_lines, beg, end, _T("&`<>"));
     /* (2) Links. */
-    md_analyze_marks(ctx, lines, n_lines, _T("[]"));
+    md_analyze_marks(ctx, lines, n_lines, beg, end, _T("[]"));
     MD_CHECK(md_resolve_links(ctx, lines, n_lines));
     /* (3) Emphasis and strong emphasis; permissive autolinks. */
-    md_analyze_marks(ctx, lines, n_lines, _T("*_@:"));
+    md_analyze_marks(ctx, lines, n_lines, beg, end, _T("*_@:"));
 
 abort:
     return ret;
+}
+
+static void
+md_analyze_link_contents(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF end)
+{
+    md_analyze_marks(ctx, lines, n_lines, beg, end, _T("*_@:"));
+
+    /* Reset the chains we could use. */
+    ASTERISK_OPENERS.head = -1;
+    ASTERISK_OPENERS.tail = -1;
+    UNDERSCORE_OPENERS.head = -1;
+    UNDERSCORE_OPENERS.tail = -1;
 }
 
 static void
@@ -3231,7 +3258,7 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                         if(mark->ch == '@') {
                             SZ sz = 7 + ctx->marks[mark->next].beg - mark->end;
 
-                            MD_TEMP_BUFFER(sz);
+                            MD_TEMP_BUFFER(sz * sizeof(CHAR));
                             memcpy(ctx->buffer, _T("mailto:"), 7 * sizeof(CHAR));
                             memcpy(ctx->buffer + 7, STR(mark->end), (sz-7) * sizeof(CHAR));
 
