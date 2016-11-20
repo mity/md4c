@@ -2887,12 +2887,13 @@ md_analyze_simple_pairing_mark(MD_CTX* ctx, MD_MARKCHAIN* chain, int mark_index,
         SZ opener_size = opener->end - opener->beg;
         SZ closer_size = mark->end - mark->beg;
 
-        if(apply_rule_of_three  &&  (mark->flags & MD_MARK_INTRAWORD)) {
+        if(apply_rule_of_three  &&  ((mark->flags & MD_MARK_INTRAWORD) || (opener->flags & MD_MARK_INTRAWORD))) {
             while((opener_size + closer_size) % 3 == 0) {
                 if(opener->prev < 0)
                     goto cannot_resolve;
 
-                opener = &ctx->marks[opener->prev];
+                opener_index = opener->prev;
+                opener = &ctx->marks[opener_index];
                 opener_size = opener->end - opener->beg;
                 closer_size = mark->end - mark->beg;
             }
