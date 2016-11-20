@@ -1322,7 +1322,7 @@ md_is_link_destination_B(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end,
             if(in_parentheses)
                 in_parentheses = 0;
             else
-                return FALSE;
+                break;
         }
 
         off++;
@@ -1543,7 +1543,7 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                     lines + label_contents_line_index, n_lines - label_contents_line_index,
                     &def->label, &label_size));
         def->label_size = label_size;
-        def->label_needs_free = 1;
+        def->label_needs_free = TRUE;
     }
 
     def->dest_beg = dest_contents_beg;
@@ -1559,7 +1559,7 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
         MD_CHECK(md_remove_line_breaks(ctx, title_contents_beg, title_contents_end,
                     lines + title_contents_line_index, n_lines - title_contents_line_index,
                     &def->title, &def->title_size));
-        def->title_needs_free = 1;
+        def->title_needs_free = TRUE;
     }
 
     def->next = ctx->link_ref_defs;
@@ -1709,11 +1709,96 @@ md_is_link_reference(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
         attr->dest_end = def->dest_end;
         attr->title = def->title;
         attr->title_size = def->title_size;
-        attr->title_needs_free = 0;
+        attr->title_needs_free = FALSE;
     }
 
     if(beg_line != end_line)
         free(label);
+
+abort:
+    return ret;
+}
+
+static int
+md_is_inline_link_spec(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
+                       OFF beg, OFF* p_end, MD_LINK_ATTR* attr)
+{
+    int line_index = 0;
+    int tmp_line_index;
+    OFF title_contents_beg;
+    OFF title_contents_end;
+    int title_contents_line_index;
+    int title_is_multiline;
+    OFF off = beg;
+    int ret = FALSE;
+
+    while(off >= lines[line_index].end)
+        line_index++;
+
+    MD_ASSERT(CH(off) == _T('('));
+    off++;
+
+    /* Optional white space with up to one line break. */
+    while(off < lines[line_index].end  &&  ISWHITESPACE(off))
+        off++;
+    if(off >= lines[line_index].end  &&  ISNEWLINE(off)) {
+        line_index++;
+        if(line_index >= n_lines)
+            return FALSE;
+        off = lines[line_index].beg;
+    }
+
+    /* (Optional) link destination. */
+    if(!md_is_link_destination(ctx, off, lines[line_index].end,
+            &off, &attr->dest_beg, &attr->dest_end)) {
+        attr->dest_beg = off;
+        attr->dest_end = off;
+    }
+
+    /* (Optional) title. */
+    if(md_is_link_title(ctx, lines + line_index, n_lines - line_index, off,
+                &off, &title_contents_line_index, &tmp_line_index,
+                &title_contents_beg, &title_contents_end))
+    {
+        title_is_multiline = (tmp_line_index != title_contents_line_index);
+        title_contents_line_index += line_index;
+        line_index += tmp_line_index;
+    } else {
+        /* Not a title. */
+        title_is_multiline = FALSE;
+        title_contents_beg = off;
+        title_contents_end = off;
+        title_contents_line_index = 0;
+    }
+
+    /* Optional whitespace followed with final ')'. */
+    while(off < lines[line_index].end  &&  ISWHITESPACE(off))
+        off++;
+    if(off >= lines[line_index].end  &&  ISNEWLINE(off)) {
+        line_index++;
+        if(line_index >= n_lines)
+            return FALSE;
+        off = lines[line_index].beg;
+    }
+    if(CH(off) != _T(')'))
+        goto abort;
+
+    if(title_contents_beg >= title_contents_end) {
+        attr->title = NULL;
+        attr->title_size = 0;
+        attr->title_needs_free = FALSE;
+    } else if(!title_is_multiline) {
+        attr->title = (CHAR*) STR(title_contents_beg);
+        attr->title_size = title_contents_end - title_contents_beg;
+        attr->title_needs_free = FALSE;
+    } else {
+        MD_CHECK(md_remove_line_breaks(ctx, title_contents_beg, title_contents_end,
+                    lines + title_contents_line_index, n_lines - title_contents_line_index,
+                    &attr->title, &attr->title_size));
+        attr->title_needs_free = TRUE;
+    }
+
+    ret = TRUE;
 
 abort:
     return ret;
@@ -2596,7 +2681,7 @@ static int
 md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 {
     int opener_index = ctx->unresolved_link_head;
-    OFF most_recent_link_beg = 0;
+    OFF last_link_end = 0;
 
     while(opener_index >= 0) {
         MD_MARK* opener = &ctx->marks[opener_index];
@@ -2619,37 +2704,78 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
          * link and the outer one is not. Given the order of '[' ']' marks
          * here is ordered by closer position, we enter the most inner brackets
          * first. */
-        if(opener->beg < most_recent_link_beg) {
+        if(opener->beg < last_link_end) {
             /* Cannot be a link as it is outer to some previously resolved link. */
             opener_index = next_index;
             continue;
         }
 
-        // TODO: Check for inline link
-
         if(next_opener != NULL  &&  next_opener->beg == closer->end) {
             if(next_closer->beg > closer->end + 1) {
                 /* Might be full reference link. */
-                is_link = (md_is_link_reference(ctx, lines, n_lines, next_opener->beg, next_closer->end, &attr));
+                is_link = md_is_link_reference(ctx, lines, n_lines, next_opener->beg, next_closer->end, &attr);
             } else {
                 /* Might be shortcut reference link. */
-                is_link = (md_is_link_reference(ctx, lines, n_lines, opener->beg, closer->end, &attr));
+                is_link = md_is_link_reference(ctx, lines, n_lines, opener->beg, closer->end, &attr);
             }
 
-            if(is_link == TRUE) {
+            if(is_link < 0)
+                return -1;
+
+            if(is_link) {
                 /* Eat the 2nd "[...]". */
                 closer->end = next_closer->end;
-                next_index = next_opener->prev;
             }
         } else {
-            /* Might be collapsed reference link. */
-            is_link = (md_is_link_reference(ctx, lines, n_lines, opener->beg, closer->end, &attr));
+            if(closer->end < ctx->size  &&  CH(closer->end) == _T('(')) {
+                /* Might be inline link. */
+                OFF inline_link_end;
+
+                is_link = md_is_inline_link_spec(ctx, lines, n_lines, closer->end, &inline_link_end, &attr);
+                if(is_link < 0)
+                    return -1;
+
+                /* Check the closing ')' is not inside an already resolved range
+                 * (i.e. a range with a higher priority), e.g. a code span. */
+                if(is_link) {
+                    int i = closer_index + 1;
+
+                    while(i < ctx->n_marks) {
+                        MD_MARK* mark = &ctx->marks[i];
+
+                        if(mark->beg >= inline_link_end)
+                            break;
+                        if((mark->flags & (MD_MARK_OPENER | MD_MARK_RESOLVED)) == (MD_MARK_OPENER | MD_MARK_RESOLVED)) {
+                            if(ctx->marks[mark->next].beg >= inline_link_end) {
+                                /* Cancel the link status. */
+                                if(attr.title_needs_free)
+                                    free(attr.title);
+                                is_link = FALSE;
+                                break;
+                            }
+
+                            i = mark->next + 1;
+                        } else {
+                            i++;
+                        }
+                    }
+                }
+
+                if(is_link) {
+                    /* Eat the "(...)" */
+                    closer->end = inline_link_end;
+                }
+            }
+
+            if(!is_link) {
+                /* Might be collapsed reference link. */
+                is_link = md_is_link_reference(ctx, lines, n_lines, opener->beg, closer->end, &attr);
+                if(is_link < 0)
+                    return -1;
+            }
         }
 
-        if(is_link < 0)
-            return -1;
-
-        if(is_link == TRUE) {
+        if(is_link) {
             /* Resolve the brackets as a link. */
             opener->flags |= MD_MARK_RESOLVED;
             closer->flags |= MD_MARK_RESOLVED;
@@ -2666,7 +2792,7 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 md_mark_chain_append(ctx, &PTR_CHAIN, opener_index+2);
             ctx->marks[opener_index+2].prev = attr.title_size;
 
-            most_recent_link_beg = opener->beg;
+            last_link_end = closer->end;
         }
 
         opener_index = next_index;
