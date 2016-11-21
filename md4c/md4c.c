@@ -1789,6 +1789,7 @@ md_is_inline_link_spec(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
     }
     if(CH(off) != _T(')'))
         goto abort;
+    off++;
 
     if(title_contents_beg >= title_contents_end) {
         attr->title = NULL;
@@ -1805,6 +1806,7 @@ md_is_inline_link_spec(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
         attr->title_needs_free = TRUE;
     }
 
+    *p_end = off;
     ret = TRUE;
 
 abort:
