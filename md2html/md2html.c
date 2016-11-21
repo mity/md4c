@@ -585,7 +585,7 @@ cmdline_callback(int opt, char const* value, void* data)
         case 'W':   renderer_flags |= MD_FLAG_COLLAPSEWHITESPACE; break;
         case 'U':   renderer_flags |= MD_FLAG_PERMISSIVEURLAUTOLINKS; break;
         case '@':   renderer_flags |= MD_FLAG_PERMISSIVEEMAILAUTOLINKS; break;
-        case 'V':   renderer_flags |= MD_FLAG_PERMISSIVEURLAUTOLINKS | MD_FLAG_PERMISSIVEEMAILAUTOLINKS; break;
+        case 'V':   renderer_flags |= MD_FLAG_PERMISSIVEAUTOLINKS; break;
 
         default:
             fprintf(stderr, "Illegal option: %s\n", value);
