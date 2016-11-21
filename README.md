@@ -102,7 +102,7 @@ more or less forms our to do list.
   - [x] 6.3 Code spans
   - [x] 6.4 Emphasis and strong emphasis
   - [x] 6.5 Links
-  - [ ] 6.6 Images
+  - [x] 6.6 Images
   - [x] 6.7 Autolinks
   - [x] 6.8 Raw HTML
   - [x] 6.9 Hard line breaks

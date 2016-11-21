@@ -98,6 +98,10 @@ enum MD_SPANTYPE_tag {
      * Detail: See structure MD_SPAN_A_DETAIL. */
     MD_SPAN_A,
 
+    /* <img src="xxx">...</a>
+     * Detail: See structure MD_SPAN_IMG_DETAIL. */
+    MD_SPAN_IMG,
+
     /* <code>...</code> */
     MD_SPAN_CODE
 };
@@ -146,6 +150,19 @@ typedef struct MD_SPAN_A_DETAIL_tag MD_SPAN_A_DETAIL;
 struct MD_SPAN_A_DETAIL_tag {
     const MD_CHAR* href;
     MD_SIZE href_size;
+
+    const MD_CHAR* title;
+    MD_SIZE title_size;
+};
+
+/* Detailed info for MD_SPAN_IMG. */
+typedef struct MD_SPAN_IMG_DETAIL_tag MD_SPAN_IMG_DETAIL;
+struct MD_SPAN_IMG_DETAIL_tag {
+    const MD_CHAR* src;
+    MD_SIZE src_size;
+
+    const MD_CHAR* alt;
+    MD_SIZE alt_size;
 
     const MD_CHAR* title;
     MD_SIZE title_size;

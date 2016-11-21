@@ -150,10 +150,27 @@ open_code_block(struct membuffer* out, const MD_BLOCK_CODE_DETAIL* det)
 }
 
 static void
-open_a_span(struct membuffer* out, MD_SPAN_A_DETAIL* det)
+open_a_span(struct membuffer* out, const MD_SPAN_A_DETAIL* det)
 {
     MEMBUF_APPEND_LITERAL(out, "<a href=\"");
     membuf_append_escaped(out, det->href, det->href_size);
+
+    if(det->title != NULL) {
+        MEMBUF_APPEND_LITERAL(out, "\" title=\"");
+        membuf_append_escaped(out, det->title, det->title_size);
+    }
+
+    MEMBUF_APPEND_LITERAL(out, "\">");
+}
+
+static void
+open_img_span(struct membuffer* out, const MD_SPAN_IMG_DETAIL* det)
+{
+    MEMBUF_APPEND_LITERAL(out, "<img src=\"");
+    membuf_append_escaped(out, det->src, det->src_size);
+
+    MEMBUF_APPEND_LITERAL(out, "\" alt=\"");
+    membuf_append_escaped(out, det->alt, det->alt_size);
 
     if(det->title != NULL) {
         MEMBUF_APPEND_LITERAL(out, "\" title=\"");
@@ -302,6 +319,7 @@ enter_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
         case MD_SPAN_EM:        MEMBUF_APPEND_LITERAL(out, "<em>"); break;
         case MD_SPAN_STRONG:    MEMBUF_APPEND_LITERAL(out, "<strong>"); break;
         case MD_SPAN_A:         open_a_span(out, (MD_SPAN_A_DETAIL*) detail); break;
+        case MD_SPAN_IMG:       open_img_span(out, (MD_SPAN_IMG_DETAIL*) detail); break;
         case MD_SPAN_CODE:      MEMBUF_APPEND_LITERAL(out, "<code>"); break;
     }
 
@@ -317,6 +335,7 @@ leave_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
         case MD_SPAN_EM:        MEMBUF_APPEND_LITERAL(out, "</em>"); break;
         case MD_SPAN_STRONG:    MEMBUF_APPEND_LITERAL(out, "</strong>"); break;
         case MD_SPAN_A:         MEMBUF_APPEND_LITERAL(out, "</a>"); break;
+        case MD_SPAN_IMG:       /* noop */ break;
         case MD_SPAN_CODE:      MEMBUF_APPEND_LITERAL(out, "</code>"); break;
     }
 
