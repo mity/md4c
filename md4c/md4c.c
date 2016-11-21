@@ -2740,7 +2740,7 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
         } else {
             if(closer->end < ctx->size  &&  CH(closer->end) == _T('(')) {
                 /* Might be inline link. */
-                OFF inline_link_end;
+                OFF inline_link_end = -1;
 
                 is_link = md_is_inline_link_spec(ctx, lines, n_lines, closer->end, &inline_link_end, &attr);
                 if(is_link < 0)
