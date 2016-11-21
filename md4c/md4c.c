@@ -3931,6 +3931,7 @@ md_is_setext_underline(MD_CTX* ctx, OFF beg, OFF* p_end, unsigned* p_level)
         return FALSE;
 
     *p_level = (CH(beg) == _T('=') ? 1 : 2);
+    *p_end = off;
     return TRUE;
 }
 
