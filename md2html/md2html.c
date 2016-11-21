@@ -98,7 +98,10 @@ membuf_append(struct membuffer* buf, const char* data, MD_SIZE size)
 
 #define MEMBUF_APPEND_LITERAL(buf, literal)    membuf_append((buf), (literal), strlen(literal))
 
-#define HTML_NEED_ESCAPE(ch)        ((ch) == '&' || (ch) == '<' || (ch) == '>' || (ch) == '"')
+#define ISDIGIT(ch)     ('0' <= (ch) && (ch) <= '9')
+#define ISLOWER(ch)     ('a' <= (ch) && (ch) <= 'z')
+#define ISUPPER(ch)     ('A' <= (ch) && (ch) <= 'Z')
+#define ISALNUM(ch)     (ISLOWER(ch) || ISUPPER(ch) || ISDIGIT(ch))
 
 static void
 membuf_append_escaped(struct membuffer* buf, const char* data, MD_SIZE size)
@@ -107,6 +110,8 @@ membuf_append_escaped(struct membuffer* buf, const char* data, MD_SIZE size)
     MD_OFFSET off = 0;
 
     /* Some characters need to be escaped in normal HTML text. */
+    #define HTML_NEED_ESCAPE(ch)                                            \
+            ((ch) == '&' || (ch) == '<' || (ch) == '>' || (ch) == '"')
 
     while(1) {
         while(off < size  &&  !HTML_NEED_ESCAPE(data[off]))
@@ -125,6 +130,44 @@ membuf_append_escaped(struct membuffer* buf, const char* data, MD_SIZE size)
         } else {
             break;
         }
+        beg = off;
+    }
+}
+
+static void
+membuf_append_url_escaped(struct membuffer* buf, const char* data, MD_SIZE size)
+{
+    static const uint8_t hex_chars[] = "0123456789ABCDEF";
+    MD_OFFSET beg = 0;
+    MD_OFFSET off = 0;
+
+    #define URL_NEED_ESCAPE(ch)                                             \
+            (!ISALNUM(ch)  &&  strchr("-_.+!*'(),%#@?=;:/,+&$", ch) == NULL)
+
+    while(1) {
+        while(off < size  &&  !URL_NEED_ESCAPE(data[off]))
+            off++;
+        if(off > beg)
+            membuf_append(buf, data + beg, off - beg);
+
+        if(off < size) {
+            char hex[3];
+
+            switch(data[off]) {
+                case '&':   MEMBUF_APPEND_LITERAL(buf, "&amp;"); break;
+                case '\'':  MEMBUF_APPEND_LITERAL(buf, "&#x27;"); break;
+                default:
+                    hex[0] = '%';
+                    hex[1] = hex_chars[((unsigned)data[off] >> 4) & 0xf];
+                    hex[2] = hex_chars[((unsigned)data[off] >> 0) & 0xf];
+                    membuf_append(buf, hex, 3);
+                    break;
+            }
+            off++;
+        } else {
+            break;
+        }
+
         beg = off;
     }
 }
@@ -153,7 +196,7 @@ static void
 open_a_span(struct membuffer* out, const MD_SPAN_A_DETAIL* det)
 {
     MEMBUF_APPEND_LITERAL(out, "<a href=\"");
-    membuf_append_escaped(out, det->href, det->href_size);
+    membuf_append_url_escaped(out, det->href, det->href_size);
 
     if(det->title != NULL) {
         MEMBUF_APPEND_LITERAL(out, "\" title=\"");
@@ -167,7 +210,7 @@ static void
 open_img_span(struct membuffer* out, const MD_SPAN_IMG_DETAIL* det)
 {
     MEMBUF_APPEND_LITERAL(out, "<img src=\"");
-    membuf_append_escaped(out, det->src, det->src_size);
+    membuf_append_url_escaped(out, det->src, det->src_size);
 
     MEMBUF_APPEND_LITERAL(out, "\" alt=\"");
     membuf_append_escaped(out, det->alt, det->alt_size);
