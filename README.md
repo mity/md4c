@@ -126,7 +126,7 @@ The list below is incomplete list of extensions I see as worth of
 consideration.
 
 - **Block Extensions:**
-  - [ ] Tables
+  - [x] Tables
   - [ ] Header anchors: `## Chapter {#anchor}`
     (allowing fragment links pointing to it, e.g. `[link text](#anchor)`)
 

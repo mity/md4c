@@ -1,0 +1,249 @@
+
+# Tables
+
+With the flag `MD_FLAG_TABLES`, MD4C enables extension for recognition of
+tables.
+
+Basic table example of a table with two columns and three lines (when not
+counting the header) is as follows:
+
+```````````````````````````````` example
+| Column 1 | Column 2 |
+|----------|----------|
+| foo      | bar      |
+| baz      | qux      |
+| quux     | quuz     |
+.
+<table>
+<thead>
+<tr><th>Column 1</th><th>Column 2</th></tr>
+</thead>
+<tbody>
+<tr><td>foo</td><td>bar</td></tr>
+<tr><td>baz</td><td>qux</td></tr>
+<tr><td>quux</td><td>quuz</td></tr>
+</tbody>
+</table>
+````````````````````````````````
+
+The leading and succeeding pipe characters (`|`) on each line are optional:
+
+```````````````````````````````` example
+Column 1 | Column 2 |
+---------|--------- |
+foo      | bar      |
+baz      | qux      |
+quux     | quuz     |
+.
+<table>
+<thead>
+<tr><th>Column 1</th><th>Column 2</th></tr>
+</thead>
+<tbody>
+<tr><td>foo</td><td>bar</td></tr>
+<tr><td>baz</td><td>qux</td></tr>
+<tr><td>quux</td><td>quuz</td></tr>
+</tbody>
+</table>
+````````````````````````````````
+
+```````````````````````````````` example
+| Column 1 | Column 2
+|----------|---------
+| foo      | bar
+| baz      | qux
+| quux     | quuz
+.
+<table>
+<thead>
+<tr><th>Column 1</th><th>Column 2</th></tr>
+</thead>
+<tbody>
+<tr><td>foo</td><td>bar</td></tr>
+<tr><td>baz</td><td>qux</td></tr>
+<tr><td>quux</td><td>quuz</td></tr>
+</tbody>
+</table>
+````````````````````````````````
+
+```````````````````````````````` example
+Column 1 | Column 2
+---------|---------
+foo      | bar
+baz      | qux
+quux     | quuz
+.
+<table>
+<thead>
+<tr><th>Column 1</th><th>Column 2</th></tr>
+</thead>
+<tbody>
+<tr><td>foo</td><td>bar</td></tr>
+<tr><td>baz</td><td>qux</td></tr>
+<tr><td>quux</td><td>quuz</td></tr>
+</tbody>
+</table>
+````````````````````````````````
+
+However for one-column table, at least one of those has to be used, otherwise
+it would be parsed as a Setext title followed by paragraph.
+
+```````````````````````````````` example
+Column 1
+--------
+foo
+baz
+quux
+.
+<h2>Column 1</h2>
+<p>foo
+baz
+quux</p>
+````````````````````````````````
+
+Leading and trailing whitespace in a table cell is ignored and the columns do
+not need to be aligned.
+
+```````````````````````````````` example
+Column 1 |Column 2
+---|---
+foo | bar
+baz| qux
+quux|quuz
+.
+<table>
+<thead>
+<tr><th>Column 1</th><th>Column 2</th></tr>
+</thead>
+<tbody>
+<tr><td>foo</td><td>bar</td></tr>
+<tr><td>baz</td><td>qux</td></tr>
+<tr><td>quux</td><td>quuz</td></tr>
+</tbody>
+</table>
+````````````````````````````````
+
+The table cannot interrupt a paragraph.
+
+```````````````````````````````` example
+Lorem ipsum dolor sit amet.
+| Column 1 | Column 2
+| ---------|---------
+| foo      | bar
+| baz      | qux
+| quux     | quuz
+.
+<p>Lorem ipsum dolor sit amet.
+| Column 1 | Column 2
+| ---------|---------
+| foo      | bar
+| baz      | qux
+| quux     | quuz</p>
+````````````````````````````````
+
+But paragraph or other block can interrupt a table as a line without any pipe
+ends the table.
+
+```````````````````````````````` example
+Column 1 | Column 2
+---------|---------
+foo      | bar
+baz      | qux
+quux     | quuz
+Lorem ipsum dolor sit amet.
+.
+<table>
+<thead>
+<tr><th>Column 1</th><th>Column 2</th></tr>
+</thead>
+<tbody>
+<tr><td>foo</td><td>bar</td></tr>
+<tr><td>baz</td><td>qux</td></tr>
+<tr><td>quux</td><td>quuz</td></tr>
+</tbody>
+</table>
+<p>Lorem ipsum dolor sit amet.</p>
+````````````````````````````````
+
+The ruling line between head and body of the table must include the same amount
+of cells as the line with column names, and each cell has to consist of three
+dash (`-`) characters. However first, last or both dashes may be replaced with
+colon to denote column alignment.
+
+Thus this is not a table because there are too few dashes for Column 2.
+
+```````````````````````````````` example
+| Column 1 | Column 2
+| ---------|--
+| foo      | bar
+| baz      | qux
+| quux     | quuz
+.
+<p>| Column 1 | Column 2
+| ---------|--
+| foo      | bar
+| baz      | qux
+| quux     | quuz</p>
+````````````````````````````````
+
+And this is a table where each of the four column uses different alignment.
+
+```````````````````````````````` example
+| Column 1 | Column 2 | Column 3 | Column 4 |
+|----------|:---------|:--------:|---------:|
+| default  | left     | center   | right    |
+.
+<table>
+<thead>
+<tr><th>Column 1</th><th align="left">Column 2</th><th align="center">Column 3</th><th align="right">Column 4</th></tr>
+</thead>
+<tbody>
+<tr><td>default</td><td align="left">left</td><td align="center">center</td><td align="right">right</td></tr>
+</tbody>
+</table>
+````````````````````````````````
+
+To include a literal pipe character in any cell, it has to be escaped.
+
+```````````````````````````````` example
+Column 1 | Column 2
+---------|---------
+foo      | bar
+baz      | qux \| xyzzy
+quux     | quuz
+.
+<table>
+<thead>
+<tr><th>Column 1</th><th>Column 2</th></tr>
+</thead>
+<tbody>
+<tr><td>foo</td><td>bar</td></tr>
+<tr><td>baz</td><td>qux | xyzzy</td></tr>
+<tr><td>quux</td><td>quuz</td></tr>
+</tbody>
+</table>
+````````````````````````````````
+
+Contents of each cell is parsed as an inline text which may contents any
+inline Markdown spans like emphasis, strong emphasis, links etc.
+
+```````````````````````````````` example
+Column 1 | Column 2
+---------|---------
+*foo*    | bar
+**baz**  | [qux]
+quux     | [quuz](/url2)
+
+[qux]: /url
+.
+<table>
+<thead>
+<tr><th>Column 1</th><th>Column 2</th></tr>
+</thead>
+<tbody>
+<tr><td><em>foo</em></td><td>bar</td></tr>
+<tr><td><strong>baz</strong></td><td><a href="/url">qux</a></td></tr>
+<tr><td>quux</td><td><a href="/url2">quuz</a></td></tr>
+</tbody>
+</table>
+````````````````````````````````

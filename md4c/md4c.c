@@ -159,7 +159,9 @@ enum MD_LINETYPE_tag {
     MD_LINE_INDENTEDCODE,
     MD_LINE_FENCEDCODE,
     MD_LINE_HTML,
-    MD_LINE_TEXT
+    MD_LINE_TEXT,
+    MD_LINE_TABLE,
+    MD_LINE_TABLEUNDERLINE
 };
 
 typedef struct MD_LINE_ANALYSIS_tag MD_LINE_ANALYSIS;
@@ -3435,6 +3437,126 @@ abort:
 }
 
 
+/***************************
+ ***  Processing Tables  ***
+ ***************************/
+
+static void
+md_analyze_table_alignment(MD_CTX* ctx, OFF beg, OFF end, MD_ALIGN* align, int n_align)
+{
+    static const MD_ALIGN align_map[] = { MD_ALIGN_DEFAULT, MD_ALIGN_LEFT, MD_ALIGN_RIGHT, MD_ALIGN_CENTER };
+    OFF off = beg;
+
+    while(n_align > 0) {
+        int index = 0;  /* index into align_map[] */
+
+        while(CH(off) != _T('-'))
+            off++;
+        if(off > beg  &&  CH(off-1) == _T(':'))
+            index |= 1;
+        while(off < end  &&  CH(off) == _T('-'))
+            off++;
+        if(off < end  &&  CH(off) == _T(':'))
+            index |= 2;
+
+        *align = align_map[index];
+        align++;
+        n_align--;
+    }
+
+}
+
+/* Forward declaration. */
+static int md_process_normal_block_contents(MD_CTX* ctx, const MD_LINE* lines, int n_lines);
+
+static int
+md_process_table_row(MD_CTX* ctx, MD_BLOCKTYPE cell_type, OFF beg, OFF end,
+                     const MD_ALIGN* align, int n_align)
+{
+    OFF off = beg;
+    OFF cell_beg, cell_end;
+    int cell_index = 0;
+    int ret = 0;
+
+    MD_ENTER_BLOCK(MD_BLOCK_TR, NULL);
+
+    if(CH(off) == _T('|'))
+        off++;
+
+    while(off < end) {
+        cell_beg = off;
+        while(off < end  &&  CH(off) != _T('|')) {
+            if(CH(off) == _T('\\')  &&  off+1 < end  &&  ISPUNCT(off+1))
+                off += 2;
+            else
+                off++;
+        }
+        cell_end = off;
+
+        while(cell_beg < end  &&  ISWHITESPACE(cell_beg))
+            cell_beg++;
+        while(cell_end > cell_beg  &&  ISWHITESPACE(cell_end-1))
+            cell_end--;
+
+        if(cell_end > cell_beg  ||  off < end) {
+            MD_LINE cell_line = { cell_beg, cell_end };
+            MD_BLOCK_TD_DETAIL det;
+
+            det.align = (cell_index < n_align ? align[cell_index] : MD_ALIGN_DEFAULT);
+
+            MD_ENTER_BLOCK(cell_type, &det);
+            MD_CHECK(md_process_normal_block_contents(ctx, &cell_line, 1));
+            MD_LEAVE_BLOCK(cell_type, &det);
+            cell_index++;
+        }
+
+        off++;
+    }
+
+    MD_LEAVE_BLOCK(MD_BLOCK_TR, NULL);
+
+abort:
+    return ret;
+}
+
+static int
+md_process_table_block_contents(MD_CTX* ctx, int col_count, const MD_LINE* lines, int n_lines)
+{
+    MD_ALIGN* align;
+    int i;
+    int ret = 0;
+
+    /* At least the line with column names and the table underline have to
+     * be present. */
+    MD_ASSERT(n_lines >= 2);
+
+    align = malloc(col_count * sizeof(MD_ALIGN));
+    if(align == NULL) {
+        MD_LOG("malloc() failed.");
+        ret = -1;
+        goto abort;
+    }
+
+    md_analyze_table_alignment(ctx, lines[1].beg, lines[1].end, align, col_count);
+
+    MD_ENTER_BLOCK(MD_BLOCK_THEAD, NULL);
+    MD_CHECK(md_process_table_row(ctx, MD_BLOCK_TH,
+                        lines[0].beg, lines[0].end, align, col_count));
+    MD_LEAVE_BLOCK(MD_BLOCK_THEAD, NULL);
+
+    MD_ENTER_BLOCK(MD_BLOCK_TBODY, NULL);
+    for(i = 2; i < n_lines; i++) {
+        MD_CHECK(md_process_table_row(ctx, MD_BLOCK_TD,
+                        lines[i].beg, lines[i].end, align, col_count));
+    }
+    MD_LEAVE_BLOCK(MD_BLOCK_TBODY, NULL);
+
+abort:
+    free(align);
+    return ret;
+}
+
+
 /*******************************
  ***  Processing Leaf Block  ***
  *******************************/
@@ -3442,8 +3564,9 @@ abort:
 struct MD_BLOCK_tag {
     MD_BLOCKTYPE type   : 16;
 
-    /* MD_BLOCK_H:      header level (1 - 6)
-     * MD_BLOCK_CODE:   non-zero if fenced, zero if indented.
+    /* MD_BLOCK_H:      Header level (1 - 6)
+     * MD_BLOCK_CODE:   Non-zero if fenced, zero if indented.
+     * MD_BLOCK_TABLE:  Column count (as determined by the table underline)
      */
     unsigned data       : 16;
 
@@ -3626,6 +3749,11 @@ md_process_block(MD_CTX* ctx, const MD_BLOCK* block)
                             (const MD_VERBATIMLINE*)(block + 1), block->n_lines);
             break;
 
+        case MD_BLOCK_TABLE:
+            ret = md_process_table_block_contents(ctx, block->data,
+                            (const MD_LINE*)(block + 1), block->n_lines);
+            break;
+
         default:
             ret = md_process_normal_block_contents(ctx,
                             (const MD_LINE*)(block + 1), block->n_lines);
@@ -3737,6 +3865,7 @@ md_start_new_block(MD_CTX* ctx, const MD_LINE_ANALYSIS* line)
             break;
 
         case MD_LINE_SETEXTUNDERLINE:
+        case MD_LINE_TABLEUNDERLINE:
         default:
             MD_UNREACHABLE();
             break;
@@ -3932,6 +4061,58 @@ md_is_setext_underline(MD_CTX* ctx, OFF beg, OFF* p_end, unsigned* p_level)
 
     *p_level = (CH(beg) == _T('=') ? 1 : 2);
     *p_end = off;
+    return TRUE;
+}
+
+static int
+md_is_table_underline(MD_CTX* ctx, OFF beg, OFF* p_end, unsigned* p_col_count)
+{
+    OFF off = beg;
+    unsigned col_count = 0;
+
+    if(off < ctx->size  &&  CH(off) == _T('|')) {
+        off++;
+        while(off < ctx->size  &&  ISWHITESPACE(off))
+            off++;
+    }
+
+    while(1) {
+        OFF cell_beg;
+        int delimited = FALSE;
+
+        /* Cell underline ("-----", ":----", "----:" or ":----:") */
+        cell_beg = off;
+        if(off < ctx->size  &&  CH(off) == _T(':'))
+            off++;
+        while(off < ctx->size  &&  CH(off) == _T('-'))
+            off++;
+        if(off < ctx->size  &&  CH(off) == _T(':'))
+            off++;
+        if(off - cell_beg < 3)
+            return FALSE;
+
+        col_count++;
+
+        /* Pipe delimiter (optional at the end of line). */
+        while(off < ctx->size  &&  ISWHITESPACE(off))
+            off++;
+        if(off < ctx->size  &&  CH(off) == _T('|')) {
+            delimited = TRUE;
+            off++;
+            while(off < ctx->size  &&  ISWHITESPACE(off))
+                off++;
+        }
+
+        /* Success, if we reach end of line. */
+        if(off >= ctx->size  ||  ISNEWLINE(off))
+            break;
+
+        if(!delimited)
+            return FALSE;
+    }
+
+    *p_end = off;
+    *p_col_count = col_count;
     return TRUE;
 }
 
@@ -4192,6 +4373,29 @@ md_is_html_block_end_condition(MD_CTX* ctx, OFF beg, OFF* p_end)
     }
 }
 
+/* Check whether there is a given unescaped char 'ch' between 'beg' and end of line. */
+static int
+md_line_contains_char(MD_CTX* ctx, OFF beg, CHAR ch, OFF* p_pos)
+{
+    OFF off = beg;
+
+    while(off < ctx->size) {
+        if(ISNEWLINE(off)) {
+            return FALSE;
+        } else if(CH(off) == _T('\\')  &&  off+1 < ctx->size  &&  ISPUNCT(off+1)) {
+            off += 2;
+        } else if(CH(off) == ch) {
+            if(p_pos != NULL)
+                *p_pos = off;
+            return TRUE;
+        } else {
+            off++;
+        }
+    }
+
+    return FALSE;
+}
+
 /* Analyze type of the line and find some its properties. This serves as a
  * main input for determining type and boundaries of a block. */
 static void
@@ -4281,6 +4485,14 @@ redo_indentation_after_blockquote_mark:
         goto done;
     }
 
+    /* Check whether we are table continuation. */
+    if(pivot_line->type == MD_LINE_TABLE) {
+        if(md_line_contains_char(ctx, off, _T('|'), &off)) {
+            line->type = MD_LINE_TABLE;
+            goto done;
+        }
+    }
+
     /* Check whether we are blank line.
      * Note blank lines after indented code are treated as part of that block.
      * If they are at the end of the block, it is discarded by caller.
@@ -4360,6 +4572,22 @@ redo_indentation_after_blockquote_mark:
         }
     }
 
+    /* Check whether we are table underline. */
+    if((ctx->r.flags & MD_FLAG_TABLES)  &&  pivot_line->type == MD_LINE_TEXT  &&
+       (CH(off) == _T('|') || CH(off) == _T('-') || CH(off) == _T(':')))
+    {
+        unsigned col_count;
+
+        if(ctx->current_block != NULL  &&  ctx->current_block->n_lines == 1  &&
+            md_line_contains_char(ctx, pivot_line->beg, _T('|'), NULL)  &&
+            md_is_table_underline(ctx, off, &off, &col_count))
+        {
+            line->data = col_count;
+            line->type = MD_LINE_TABLEUNDERLINE;
+            goto done;
+        }
+    }
+
     /* By default, we are normal text line. */
     line->type = MD_LINE_TEXT;
 
@@ -4422,13 +4650,25 @@ md_process_line(MD_CTX* ctx, const MD_LINE_ANALYSIS** p_pivot_line, const MD_LIN
         return 0;
     }
 
-    /* MD_LINE_SETEXTUNDERLINE changes meaning of the previous block and ends it. */
+    /* MD_LINE_SETEXTUNDERLINE changes meaning of the current block and ends it. */
     if(line->type == MD_LINE_SETEXTUNDERLINE) {
         MD_ASSERT(ctx->current_block != NULL);
         ctx->current_block->type = MD_BLOCK_H;
         ctx->current_block->data = line->data;
         MD_CHECK(md_end_current_block(ctx));
         *p_pivot_line = &md_dummy_blank_line;
+        return 0;
+    }
+
+    /* MD_LINE_TABLEUNDERLINE changes meaning of the current block. */
+    if(line->type == MD_LINE_TABLEUNDERLINE) {
+        MD_ASSERT(ctx->current_block != NULL);
+        MD_ASSERT(ctx->current_block->n_lines == 1);
+        ctx->current_block->type = MD_BLOCK_TABLE;
+        ctx->current_block->data = line->data;
+        MD_ASSERT(pivot_line != &md_dummy_blank_line);
+        ((MD_LINE_ANALYSIS*)pivot_line)->type = MD_LINE_TABLE;
+        MD_CHECK(md_add_line_into_current_block(ctx, line));
         return 0;
     }
 

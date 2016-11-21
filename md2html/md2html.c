@@ -193,6 +193,20 @@ open_code_block(struct membuffer* out, const MD_BLOCK_CODE_DETAIL* det)
 }
 
 static void
+open_td_block(struct membuffer* out, const char* cell_type, const MD_BLOCK_TD_DETAIL* det)
+{
+    MEMBUF_APPEND_LITERAL(out, "<");
+    MEMBUF_APPEND_LITERAL(out, cell_type);
+
+    switch(det->align) {
+        case MD_ALIGN_LEFT:     MEMBUF_APPEND_LITERAL(out, " align=\"left\">"); break;
+        case MD_ALIGN_CENTER:   MEMBUF_APPEND_LITERAL(out, " align=\"center\">"); break;
+        case MD_ALIGN_RIGHT:    MEMBUF_APPEND_LITERAL(out, " align=\"right\">"); break;
+        default:                MEMBUF_APPEND_LITERAL(out, ">"); break;
+    }
+}
+
+static void
 open_a_span(struct membuffer* out, const MD_SPAN_A_DETAIL* det)
 {
     MEMBUF_APPEND_LITERAL(out, "<a href=\"");
@@ -329,6 +343,12 @@ enter_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
         case MD_BLOCK_CODE:     open_code_block(out, (const MD_BLOCK_CODE_DETAIL*) detail); break;
         case MD_BLOCK_HTML:     /* noop */ break;
         case MD_BLOCK_P:        MEMBUF_APPEND_LITERAL(out, "<p>"); break;
+        case MD_BLOCK_TABLE:    MEMBUF_APPEND_LITERAL(out, "<table>\n"); break;
+        case MD_BLOCK_THEAD:    MEMBUF_APPEND_LITERAL(out, "<thead>\n"); break;
+        case MD_BLOCK_TBODY:    MEMBUF_APPEND_LITERAL(out, "<tbody>\n"); break;
+        case MD_BLOCK_TR:       MEMBUF_APPEND_LITERAL(out, "<tr>\n"); break;
+        case MD_BLOCK_TH:       open_td_block(out, "th", (MD_BLOCK_TD_DETAIL*)detail); break;
+        case MD_BLOCK_TD:       open_td_block(out, "td", (MD_BLOCK_TD_DETAIL*)detail); break;
     }
 
     return 0;
@@ -348,6 +368,12 @@ leave_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
         case MD_BLOCK_CODE:     MEMBUF_APPEND_LITERAL(out, "</code></pre>\n"); break;
         case MD_BLOCK_HTML:     /* noop */ break;
         case MD_BLOCK_P:        MEMBUF_APPEND_LITERAL(out, "</p>\n"); break;
+        case MD_BLOCK_TABLE:    MEMBUF_APPEND_LITERAL(out, "</table>\n"); break;
+        case MD_BLOCK_THEAD:    MEMBUF_APPEND_LITERAL(out, "</thead>\n"); break;
+        case MD_BLOCK_TBODY:    MEMBUF_APPEND_LITERAL(out, "</tbody>\n"); break;
+        case MD_BLOCK_TR:       MEMBUF_APPEND_LITERAL(out, "</tr>\n"); break;
+        case MD_BLOCK_TH:       MEMBUF_APPEND_LITERAL(out, "</th>\n"); break;
+        case MD_BLOCK_TD:       MEMBUF_APPEND_LITERAL(out, "</td>\n"); break;
     }
 
     return 0;
@@ -516,6 +542,7 @@ static const option cmdline_options[] = {
     { "fno-html-spans",              0,  'G', OPTION_ARG_NONE },
     { "fno-html",                    0,  'H', OPTION_ARG_NONE },
     { "fcollapse-whitespace",        0,  'W', OPTION_ARG_NONE },
+    { "ftables",                     0,  'T', OPTION_ARG_NONE },
     { 0 }
 };
 
@@ -552,6 +579,7 @@ usage(void)
         "      --fno-html-spans\n"
         "                       Disable raw HTML spans\n"
         "      --fno-html       Same as --fno-html-blocks --fno-html-spans\n"
+        "      --ftables        Enable tables\n"
     );
 }
 
@@ -586,6 +614,7 @@ cmdline_callback(int opt, char const* value, void* data)
         case 'U':   renderer_flags |= MD_FLAG_PERMISSIVEURLAUTOLINKS; break;
         case '@':   renderer_flags |= MD_FLAG_PERMISSIVEEMAILAUTOLINKS; break;
         case 'V':   renderer_flags |= MD_FLAG_PERMISSIVEAUTOLINKS; break;
+        case 'T':   renderer_flags |= MD_FLAG_TABLES; break;
 
         default:
             fprintf(stderr, "Illegal option: %s\n", value);

@@ -66,7 +66,7 @@ enum MD_BLOCKTYPE_tag {
     MD_BLOCK_HR,
 
     /* <h1>...</h1> (for levels up to 6)
-     * Detail: See structure MD_BLOCK_H_DETAIL. */
+     * Detail: Structure MD_BLOCK_H_DETAIL. */
     MD_BLOCK_H,
 
     /* <pre><code>...</code></pre>
@@ -80,7 +80,17 @@ enum MD_BLOCKTYPE_tag {
     MD_BLOCK_HTML,
 
     /* <p>...</p> */
-    MD_BLOCK_P
+    MD_BLOCK_P,
+
+    /* <table>...</table> and its contents.
+     * Detail: Structure MD_BLOCK_TD_DETAIL (used with MD_BLOCK_TH and MD_BLOCK_TD)
+     * Note all of these are used only if extension MD_FLAG_TABLES is enabled. */
+    MD_BLOCK_TABLE,
+    MD_BLOCK_THEAD,
+    MD_BLOCK_TBODY,
+    MD_BLOCK_TR,
+    MD_BLOCK_TH,
+    MD_BLOCK_TD
 };
 
 /* Span represents an in-line piece of a document which should be rendered with
@@ -95,11 +105,11 @@ enum MD_SPANTYPE_tag {
     MD_SPAN_STRONG,
 
     /* <a href="xxx">...</a>
-     * Detail: See structure MD_SPAN_A_DETAIL. */
+     * Detail: Structure MD_SPAN_A_DETAIL. */
     MD_SPAN_A,
 
     /* <img src="xxx">...</a>
-     * Detail: See structure MD_SPAN_IMG_DETAIL. */
+     * Detail: Structure MD_SPAN_IMG_DETAIL. */
     MD_SPAN_IMG,
 
     /* <code>...</code> */
@@ -145,6 +155,40 @@ enum MD_TEXTTYPE_tag {
 };
 
 
+/* Alignment enumeration. */
+typedef enum MD_ALIGN_tag MD_ALIGN;
+enum MD_ALIGN_tag {
+    MD_ALIGN_DEFAULT = 0,   /* When unspecified. */
+    MD_ALIGN_LEFT,
+    MD_ALIGN_CENTER,
+    MD_ALIGN_RIGHT
+};
+
+
+/* Detailed info for MD_BLOCK_H. */
+typedef struct MD_BLOCK_H_DETAIL_tag MD_BLOCK_H_DETAIL;
+struct MD_BLOCK_H_DETAIL_tag {
+    unsigned level;         /* Header level (1 - 6) */
+};
+
+/* Detailed info for MD_BLOCK_CODE. */
+typedef struct MD_BLOCK_CODE_DETAIL_tag MD_BLOCK_CODE_DETAIL;
+struct MD_BLOCK_CODE_DETAIL_tag {
+    /* Complete "info string" */
+    const MD_CHAR* info;
+    MD_SIZE info_size;
+
+    /* Language portion of the info string. */
+    const MD_CHAR* lang;
+    MD_SIZE lang_size;
+};
+
+/* Detailed info for MD_BLOCK_TH and MD_BLOCK_TD. */
+typedef struct MD_BLOCK_TD_DETAIL_tag MD_BLOCK_TD_DETAIL;
+struct MD_BLOCK_TD_DETAIL_tag {
+    MD_ALIGN align;
+};
+
 /* Detailed info for MD_SPAN_A. */
 typedef struct MD_SPAN_A_DETAIL_tag MD_SPAN_A_DETAIL;
 struct MD_SPAN_A_DETAIL_tag {
@@ -168,24 +212,6 @@ struct MD_SPAN_IMG_DETAIL_tag {
     MD_SIZE title_size;
 };
 
-/* Detailed info for MD_BLOCK_H. */
-typedef struct MD_BLOCK_H_DETAIL_tag MD_BLOCK_H_DETAIL;
-struct MD_BLOCK_H_DETAIL_tag {
-    unsigned level;         /* Header level (1 - 6) */
-};
-
-/* Detailed info for MD_BLOCK_CODE. */
-typedef struct MD_BLOCK_CODE_DETAIL_tag MD_BLOCK_CODE_DETAIL;
-struct MD_BLOCK_CODE_DETAIL_tag {
-    /* Complete "info string" */
-    const MD_CHAR* info;
-    MD_SIZE info_size;
-
-    /* Language portion of the info string. */
-    const MD_CHAR* lang;
-    MD_SIZE lang_size;
-};
-
 
 /* Flags specifying Markdown dialect.
  *
@@ -201,6 +227,7 @@ struct MD_BLOCK_CODE_DETAIL_tag {
 #define MD_FLAG_NOHTMLBLOCKS                0x0020  /* Disable raw HTML blocks. */
 #define MD_FLAG_NOHTMLSPANS                 0x0040  /* Disable raw HTML (inline). */
 #define MD_FLAG_NOHTML                      (MD_FLAG_NOHTMLBLOCKS | MD_FLAG_NOHTMLSPANS)
+#define MD_FLAG_TABLES                      0x0100  /* Enable tables extension. */
 
 /* Caller-provided callbacks.
  *
