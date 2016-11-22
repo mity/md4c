@@ -3678,10 +3678,10 @@ md_setup_fenced_code_detail(MD_CTX* ctx, const MD_BLOCK* block, MD_BLOCK_CODE_DE
     CHAR fence_ch = CH(fence_line->beg);
 
     /* Skip the fence itself. */
-    while(CH(beg) == fence_ch)
+    while(beg < ctx->size  &&  CH(beg) == fence_ch)
         beg++;
     /* Trim initial spaces. */
-    while(CH(beg) == _T(' '))
+    while(beg < ctx->size  &&  CH(beg) == _T(' '))
         beg++;
 
     /* Trim trailing spaces. */
