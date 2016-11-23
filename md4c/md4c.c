@@ -141,9 +141,6 @@ struct MD_CTX_tag {
     /* Minimal indentation to call the block "indented code block". */
     unsigned code_indent_offset;
 
-    /* For MD_BLOCK_QUOTE */
-    unsigned quote_level;   /* Nesting level. */
-
     /* Contextual info for line analysis. */
     SZ code_fence_length;   /* For checking closing fence length. */
     int html_block_type;    /* For checking closing raw HTML condition. */
@@ -170,7 +167,6 @@ struct MD_LINE_ANALYSIS_tag {
     unsigned data       : 16;
     OFF beg;
     OFF end;
-    unsigned quote_level;   /* Level of nesting in <blockquote>. */
     unsigned indent;        /* Indentation level. */
 };
 
@@ -3573,7 +3569,6 @@ struct MD_BLOCK_tag {
     unsigned data       : 16;
 
     unsigned n_lines;
-    unsigned quote_level;
 };
 
 static int
@@ -3648,27 +3643,6 @@ md_process_code_block_contents(MD_CTX* ctx, int is_fenced, const MD_VERBATIMLINE
     return md_process_verbatim_block_contents(ctx, MD_TEXT_CODE, lines, n_lines);
 }
 
-static int
-md_process_blockquote_nesting(MD_CTX* ctx, unsigned desired_level)
-{
-    int ret = 0;
-
-    /* Bring blockquote nesting to expected level. */
-    if(ctx->quote_level != desired_level) {
-        while(ctx->quote_level < desired_level) {
-            MD_ENTER_BLOCK(MD_BLOCK_QUOTE, NULL);
-            ctx->quote_level++;
-        }
-        while(ctx->quote_level > desired_level) {
-            MD_LEAVE_BLOCK(MD_BLOCK_QUOTE, NULL);
-            ctx->quote_level--;
-        }
-    }
-
-abort:
-    return ret;
-}
-
 static void
 md_setup_fenced_code_detail(MD_CTX* ctx, const MD_BLOCK* block, MD_BLOCK_CODE_DETAIL* det)
 {
@@ -3707,17 +3681,9 @@ md_process_block(MD_CTX* ctx, const MD_BLOCK* block)
     } det;
     int ret = 0;
 
-    /* Make sure the processed leaf block lives in the proper block quote
-     * level. */
-    MD_CHECK(md_process_blockquote_nesting(ctx, block->quote_level));
-
     memset(&det, 0, sizeof(det));
 
     switch(block->type) {
-        case MD_BLOCK_DOC:
-            /* Noop. We just needed to solve block quote nesting. */
-            return 0;
-
         case MD_BLOCK_H:
             det.header.level = block->data;
             break;
@@ -3839,11 +3805,6 @@ md_start_new_block(MD_CTX* ctx, const MD_LINE_ANALYSIS* line)
         return -1;
 
     switch(line->type) {
-        case MD_LINE_BLANK:
-            /* We misuse MD_BLOCK_DOC here to mark "no real leaf block". */
-            block->type = MD_BLOCK_DOC;
-            break;
-
         case MD_LINE_HR:
             block->type = MD_BLOCK_HR;
             break;
@@ -3866,6 +3827,7 @@ md_start_new_block(MD_CTX* ctx, const MD_LINE_ANALYSIS* line)
             block->type = MD_BLOCK_HTML;
             break;
 
+        case MD_LINE_BLANK:
         case MD_LINE_SETEXTUNDERLINE:
         case MD_LINE_TABLEUNDERLINE:
         default:
@@ -3875,7 +3837,6 @@ md_start_new_block(MD_CTX* ctx, const MD_LINE_ANALYSIS* line)
 
     block->data = line->data;
     block->n_lines = 0;
-    block->quote_level = line->quote_level;
 
     ctx->current_block = block;
     return 0;
@@ -4413,10 +4374,8 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
     OFF off = beg;
 
     line->type = MD_LINE_BLANK;
-    line->quote_level = 0;
     line->indent = 0;
 
-redo_indentation_after_blockquote_mark:
     /* Eat indentation. */
     while(off < ctx->size  &&  ISBLANK(off)) {
         if(CH(off) == _T('\t'))
@@ -4429,7 +4388,7 @@ redo_indentation_after_blockquote_mark:
     line->beg = off;
 
     /* Check whether we are fenced code continuation. */
-    if(pivot_line->type == MD_LINE_FENCEDCODE  &&  line->quote_level == pivot_line->quote_level) {
+    if(pivot_line->type == MD_LINE_FENCEDCODE) {
         /* We are another MD_LINE_FENCEDCODE unless we are closing fence
          * which we transform into MD_LINE_BLANK. */
         if(line->indent < ctx->code_indent_offset) {
@@ -4458,16 +4417,6 @@ redo_indentation_after_blockquote_mark:
         line->indent -= ctx->code_indent_offset;
         line->data = 0;
         goto done;
-    }
-
-    /* Check blockquote mark. */
-    if(off < ctx->size  &&  CH(off) == _T('>')) {
-        off++;
-        if(off < ctx->size  &&  CH(off) == _T(' '))
-            off++;
-        line->quote_level++;
-        line->indent = 0;
-        goto redo_indentation_after_blockquote_mark;
     }
 
     /* Check whether we are HTML block continuation. */
@@ -4507,7 +4456,7 @@ redo_indentation_after_blockquote_mark:
      */
     if(off >= ctx->size  ||  ISNEWLINE(off)) {
         line->indent = 0;
-        if(pivot_line->type == MD_LINE_INDENTEDCODE  &&  line->quote_level == pivot_line->quote_level)
+        if(pivot_line->type == MD_LINE_INDENTEDCODE)
             line->type = MD_LINE_INDENTEDCODE;
         else
             line->type = MD_LINE_BLANK;
@@ -4527,7 +4476,6 @@ redo_indentation_after_blockquote_mark:
 
     /* Check whether we are Setext underline. */
     if(line->indent < ctx->code_indent_offset  &&  pivot_line->type == MD_LINE_TEXT
-        &&  line->quote_level == pivot_line->quote_level
         && (CH(off) == _T('=') || CH(off) == _T('-')))
     {
         unsigned level;
@@ -4599,11 +4547,6 @@ redo_indentation_after_blockquote_mark:
     /* By default, we are normal text line. */
     line->type = MD_LINE_TEXT;
 
-    /* Ordinary text line may need to upgrade block quote level because
-     * of its lazy continuation. */
-    if(pivot_line->type == MD_LINE_TEXT  &&  pivot_line->quote_level > line->quote_level)
-        line->quote_level = pivot_line->quote_level;
-
 done:
     /* Eat rest of the line contents */
     while(off < ctx->size  &&  !ISNEWLINE(off))
@@ -4646,6 +4589,13 @@ md_process_line(MD_CTX* ctx, const MD_LINE_ANALYSIS** p_pivot_line, const MD_LIN
     const MD_LINE_ANALYSIS* pivot_line = *p_pivot_line;
     int ret = 0;
 
+    /* Blank line ends current leaf block. */
+    if(line->type == MD_LINE_BLANK) {
+        MD_CHECK(md_end_current_block(ctx));
+        *p_pivot_line = &md_dummy_blank_line;
+        return 0;
+    }
+
     /* Some line types form block on their own. */
     if(line->type == MD_LINE_HR || line->type == MD_LINE_ATXHEADER) {
         MD_CHECK(md_end_current_block(ctx));
@@ -4680,17 +4630,9 @@ md_process_line(MD_CTX* ctx, const MD_LINE_ANALYSIS** p_pivot_line, const MD_LIN
         return 0;
     }
 
-    /* The current block also ends if the line has different type or block quote
-     * level. */
-    if(line->type != pivot_line->type || line->quote_level != pivot_line->quote_level)
+    /* The current block also ends if the line has different type. */
+    if(line->type != pivot_line->type)
         MD_CHECK(md_end_current_block(ctx));
-
-    /* Skip blank lines, if we can.
-     * (Blank lines are still important if they differ e.g. in block quote level.) */
-    if(line->type == MD_LINE_BLANK) {
-        if(pivot_line->type == MD_LINE_BLANK  &&  line->quote_level == pivot_line->quote_level)
-            return 0;
-    }
 
     /* The current line may start a new block. */
     if(ctx->current_block == NULL) {
@@ -4730,9 +4672,6 @@ md_process_doc(MD_CTX *ctx)
     md_end_current_block(ctx);
     MD_CHECK(md_process_all_blocks(ctx));
 
-    /* Close any dangling parent blocks. */
-    MD_CHECK(md_process_blockquote_nesting(ctx, 0));
-
     MD_LEAVE_BLOCK(MD_BLOCK_DOC, NULL);
 
 abort:
@@ -4741,13 +4680,16 @@ abort:
     /* Output some memory consumption statistics. */
     {
         char buffer[256];
-        sprintf(buffer, "Alloced %u bytes for block buffer.", ctx->alloc_block_bytes);
+        sprintf(buffer, "Alloced %u bytes for block buffer.",
+                    (unsigned)(ctx->alloc_block_bytes));
         MD_LOG(buffer);
 
-        sprintf(buffer, "Alloced %u bytes for marks buffer.", ctx->alloc_marks * sizeof(MD_MARK));
+        sprintf(buffer, "Alloced %u bytes for marks buffer.",
+                    (unsigned)(ctx->alloc_marks * sizeof(MD_MARK)));
         MD_LOG(buffer);
 
-        sprintf(buffer, "Alloced %u bytes for aux. buffer.", ctx->alloc_buffer * sizeof(MD_CHAR));
+        sprintf(buffer, "Alloced %u bytes for aux. buffer.",
+                    (unsigned)(ctx->alloc_buffer * sizeof(MD_CHAR)));
         MD_LOG(buffer);
     }
 #endif
