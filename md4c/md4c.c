@@ -4070,9 +4070,11 @@ static int
 md_is_table_underline(MD_CTX* ctx, OFF beg, OFF* p_end, unsigned* p_col_count)
 {
     OFF off = beg;
+    int found_pipe = FALSE;
     unsigned col_count = 0;
 
     if(off < ctx->size  &&  CH(off) == _T('|')) {
+        found_pipe = TRUE;
         off++;
         while(off < ctx->size  &&  ISWHITESPACE(off))
             off++;
@@ -4100,6 +4102,7 @@ md_is_table_underline(MD_CTX* ctx, OFF beg, OFF* p_end, unsigned* p_col_count)
             off++;
         if(off < ctx->size  &&  CH(off) == _T('|')) {
             delimited = TRUE;
+            found_pipe =  TRUE;
             off++;
             while(off < ctx->size  &&  ISWHITESPACE(off))
                 off++;
@@ -4112,6 +4115,9 @@ md_is_table_underline(MD_CTX* ctx, OFF beg, OFF* p_end, unsigned* p_col_count)
         if(!delimited)
             return FALSE;
     }
+
+    if(!found_pipe)
+        return FALSE;
 
     *p_end = off;
     *p_col_count = col_count;
