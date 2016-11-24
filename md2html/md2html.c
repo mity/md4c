@@ -33,6 +33,10 @@
 #include "cmdline.h"
 #include "entity.h"
 
+#ifdef _WIN32
+    #define snprintf _snprintf
+#endif
+
 
 /* Global options. */
 static unsigned renderer_flags = 0;
