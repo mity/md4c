@@ -1418,7 +1418,7 @@ md_is_link_title(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
  */
 static int
 md_remove_line_breaks(MD_CTX* ctx, OFF beg, OFF end, const MD_LINE* lines, int n_lines,
-                      CHAR** p_str, SZ* p_size)
+                      CHAR replacement_char, CHAR** p_str, SZ* p_size)
 {
     CHAR* buffer;
     CHAR* ptr;
@@ -1437,18 +1437,19 @@ md_remove_line_breaks(MD_CTX* ctx, OFF beg, OFF end, const MD_LINE* lines, int n
         OFF line_end = line->end;
 
         while(off < line_end) {
-            *ptr = CH(off);
-            ptr++;
-
-            off++;
             if(off >= end) {
                 *p_str = buffer;
                 *p_size = ptr - buffer;
                 return 0;
             }
+
+            *ptr = CH(off);
+            ptr++;
+
+            off++;
         }
 
-        *ptr = _T(' ');
+        *ptr = replacement_char;
         ptr++;
 
         line_index++;
@@ -1548,7 +1549,7 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 
         MD_CHECK(md_remove_line_breaks(ctx, label_contents_beg, label_contents_end,
                     lines + label_contents_line_index, n_lines - label_contents_line_index,
-                    &def->label, &label_size));
+                    _T(' '), &def->label, &label_size));
         def->label_size = label_size;
         def->label_needs_free = TRUE;
     }
@@ -1565,7 +1566,7 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
     } else {
         MD_CHECK(md_remove_line_breaks(ctx, title_contents_beg, title_contents_end,
                     lines + title_contents_line_index, n_lines - title_contents_line_index,
-                    &def->title, &def->title_size));
+                    _T('\n'), &def->title, &def->title_size));
         def->title_needs_free = TRUE;
     }
 
@@ -1708,7 +1709,7 @@ md_is_link_reference(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
 
     if(beg_line != end_line) {
         MD_CHECK(md_remove_line_breaks(ctx, beg, end, beg_line,
-                 n_lines - (beg_line - lines), &label, &label_size));
+                 n_lines - (beg_line - lines), _T(' '), &label, &label_size));
     } else {
         label = (char*) STR(beg);
         label_size = end - beg;
@@ -1806,7 +1807,7 @@ md_is_inline_link_spec(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
     } else {
         MD_CHECK(md_remove_line_breaks(ctx, title_contents_beg, title_contents_end,
                     lines + title_contents_line_index, n_lines - title_contents_line_index,
-                    &attr->title, &attr->title_size));
+                    _T('\n'), &attr->title, &attr->title_size));
         attr->title_needs_free = TRUE;
     }
 
