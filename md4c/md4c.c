@@ -4683,9 +4683,12 @@ redo:
     if(off >= ctx->size  ||  ISNEWLINE(off)) {
         /* Blank line does not need any real indentation to be nested inside
          * a list. */
-        n_parents = ctx->n_containers;
+        if(n_brothers + n_children == 0) {
+            while(n_parents < ctx->n_containers  &&  ctx->containers[n_parents].ch != _T('>'))
+                n_parents++;
+        }
 
-        if(pivot_line->type == MD_LINE_INDENTEDCODE) {
+        if(pivot_line->type == MD_LINE_INDENTEDCODE  &&  n_parents == ctx->n_containers) {
             line->type = MD_LINE_INDENTEDCODE;
             if(line->indent > ctx->code_indent_offset)
                 line->indent -= ctx->code_indent_offset;
@@ -4745,8 +4748,8 @@ redo:
 
     /* Check for start of a new container block. */
     if(md_is_container_mark(ctx, line->indent, off, &off, &container)) {
-        line->beg = off;
         line->indent = md_line_indentation(ctx, off, &off);
+        line->beg = off;
 
         if(n_brothers + n_children == 0) {
             pivot_line = &md_dummy_blank_line;
