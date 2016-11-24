@@ -4442,6 +4442,10 @@ md_line_contains_char(MD_CTX* ctx, OFF beg, CHAR ch, OFF* p_pos)
 static int
 md_is_container_compatible(const MD_CONTAINER* pivot, const MD_CONTAINER* container)
 {
+    /* Block quote has no "items" like lists. */
+    if(container->ch == _T('>'))
+        return FALSE;
+
     if(container->ch != pivot->ch)
         return FALSE;
     if(container->mark_indent > pivot->contents_indent)
@@ -4490,6 +4494,10 @@ md_enter_child_containers(MD_CTX* ctx, int n_children)
                 MD_CHECK(md_push_container_bytes(ctx, MD_BLOCK_LI, MD_BLOCK_CONTAINER_OPENER));
                 break;
 
+            case _T('>'):
+                MD_CHECK(md_push_container_bytes(ctx, MD_BLOCK_QUOTE, MD_BLOCK_CONTAINER_OPENER));
+                break;
+
             default:
                 MD_UNREACHABLE();
                 break;
@@ -4514,6 +4522,10 @@ md_leave_child_containers(MD_CTX* ctx, int n_keep)
                 MD_CHECK(md_push_container_bytes(ctx, MD_BLOCK_UL, MD_BLOCK_CONTAINER_CLOSER));
                 break;
 
+            case _T('>'):
+                MD_CHECK(md_push_container_bytes(ctx, MD_BLOCK_QUOTE, MD_BLOCK_CONTAINER_CLOSER));
+                break;
+
             default:
                 MD_UNREACHABLE();
                 break;
@@ -4531,6 +4543,20 @@ md_is_container_mark(MD_CTX* ctx, unsigned indent, OFF beg, OFF* p_end, MD_CONTA
 {
     OFF off = beg;
 
+    /* Check for block quote mark. */
+    if(off < ctx->size  &&  CH(off) == _T('>')) {
+        off++;
+        if(off < ctx->size  &&  CH(off) == _T(' '))
+            off++;
+        p_container->ch = _T('>');
+        p_container->is_loose = FALSE;
+        p_container->mark_indent = indent;
+        /*p_container->contents_indent = indent+1;  Not meaningful*/
+        *p_end = off;
+        return TRUE;
+    }
+
+    /* Check for list item bullet mark. */
     if(off+1 < ctx->size  &&  ISANYOF(off, _T("-+*"))  &&  CH(off+1) == _T(' ')) {
         p_container->ch = CH(off);
         p_container->is_loose = FALSE;
@@ -4580,12 +4606,27 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
     line->indent = md_line_indentation(ctx, off, &off);
     line->beg = off;
 
-    /* Given the indentation, determine how many of the current containers
-     * are our parents. */
-    while(n_parents < ctx->n_containers  &&
-            line->indent >= ctx->containers[n_parents].contents_indent)
-    {
-        line->indent -= ctx->containers[n_parents].contents_indent;
+    /* Given the indentation and block quote marks '>', determine how many of
+     * the current containers are our parents. */
+    while(n_parents < ctx->n_containers) {
+        MD_CONTAINER* c = &ctx->containers[n_parents];
+
+        if(c->ch == _T('>')  &&  line->indent < ctx->code_indent_offset  &&
+            off < ctx->size  &&  CH(off) == _T('>'))
+        {
+            /* Block quote mark. */
+            off++;
+            if(off < ctx->size  &&  CH(off) == _T(' '))
+                off++;
+            line->indent = md_line_indentation(ctx, off, &off);
+            line->beg = off;
+        } else if(c->ch != _T('>')  &&  line->indent >= c->contents_indent) {
+            /* List. */
+            line->indent -= c->contents_indent;
+        } else {
+            break;
+        }
+
         n_parents++;
     }
 
@@ -4674,7 +4715,8 @@ redo:
 
     /* Check whether we are Setext underline. */
     if(line->indent < ctx->code_indent_offset  &&  pivot_line->type == MD_LINE_TEXT
-        && (CH(off) == _T('=') || CH(off) == _T('-')))
+        &&  (CH(off) == _T('=') || CH(off) == _T('-'))
+        &&  (n_parents == ctx->n_containers))
     {
         unsigned level;
 
@@ -4820,11 +4862,13 @@ done:
 
     *p_end = off;
 
-    /* If we belong to a list after seeing a blank line, the list is loose. */
+    /* If we belong to a list after seeing a blank line, the enclosing is loose. */
     if(prev_line_is_blank  &&  line->type != MD_LINE_BLANK  &&  n_parents + n_brothers > 0) {
-        MD_BLOCK* block = (MD_BLOCK*) (((char*)ctx->block_bytes) +
-                    ctx->containers[n_parents + n_brothers - 1].block_byte_off);
-        block->flags |= MD_BLOCK_LOOSE_LIST;
+        MD_CONTAINER* c = &ctx->containers[n_parents + n_brothers - 1];
+        if(c->ch != _T('>')) {
+            MD_BLOCK* block = (MD_BLOCK*) (((char*)ctx->block_bytes) + c->block_byte_off);
+            block->flags |= MD_BLOCK_LOOSE_LIST;
+        }
     }
 
     /* Leave any containers we are not part of anymore. */

@@ -92,7 +92,7 @@ more or less forms our to do list.
   - [x] 4.9 Blank lines
 
 - **Container Blocks:**
-  - [ ] 5.1 Block quotes
+  - [x] 5.1 Block quotes
   - [ ] 5.2 List items
   - [ ] 5.3 Lists
 
