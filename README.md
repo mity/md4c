@@ -64,14 +64,15 @@ Example implementation of simple renderer is available in the `md2html`
 directory which implements a conversion utility from Markdown to HTML.
 
 
-## Extensions
+## Markdown Extensions
 
 By default, MD4C recognizes only elements defined by CommonMark specification.
 
-Currently, these extensions are available:
+However with appropriate flags enabling it, behavior of MD4C parse can be tuned
+to enable some extensions or allowing some deviations from the specification.
 
  * With the flag `MD_FLAG_COLLAPSEWHITESPACE`, non-trivial whitespace is
-   colalpsed into single space.
+   collapsed into a single space.
  * With the flag `MD_FLAG_TABLES`, GitHub-style tables are supported.
  * With the flag `MD_FLAG_PERMISSIVEURLAUTOLINKS` permissive URL autolinks
    (not enclosed in '<' and '>') are supported.
@@ -82,7 +83,7 @@ Currently, these extensions are available:
    disabled.
 
 
-## Support Encodings
+## Input/Output Encoding
 
 The CommonMark specification generally assumes UTF-8 input, but under closer
 inspection Unicode is actually used on very few occasions.
