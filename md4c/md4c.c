@@ -3583,7 +3583,8 @@ struct MD_BLOCK_tag {
 
 struct MD_CONTAINER_tag {
     CHAR ch;
-    int is_loose;
+    unsigned is_loose    : 8;
+    unsigned start;
     unsigned mark_indent;
     unsigned contents_indent;
     OFF block_byte_off;
@@ -3779,19 +3780,26 @@ md_process_all_blocks(MD_CTX* ctx)
 
     while(byte_off < ctx->n_block_bytes) {
         MD_BLOCK* block = (MD_BLOCK*)((char*)ctx->block_bytes + byte_off);
+        MD_BLOCK_OL_DETAIL ol_det;
+        void* det = NULL;
+
+        if(block->type == MD_BLOCK_OL) {
+            ol_det.start = block->n_lines;
+            det = &ol_det;
+        }
 
         if(block->flags & MD_BLOCK_CONTAINER) {
             if(block->flags & MD_BLOCK_CONTAINER_CLOSER) {
-                MD_LEAVE_BLOCK(block->type, NULL);
+                MD_LEAVE_BLOCK(block->type, det);
 
-                if(block->type == MD_BLOCK_UL)
+                if(block->type == MD_BLOCK_UL || block->type == MD_BLOCK_OL)
                     ctx->n_containers--;
             }
 
             if(block->flags & MD_BLOCK_CONTAINER_OPENER) {
-                MD_ENTER_BLOCK(block->type, NULL);
+                MD_ENTER_BLOCK(block->type, det);
 
-                if(block->type == MD_BLOCK_UL) {
+                if(block->type == MD_BLOCK_UL || block->type == MD_BLOCK_OL) {
                     ctx->containers[ctx->n_containers].is_loose = (block->flags & MD_BLOCK_LOOSE_LIST);
                     ctx->n_containers++;
                 }
@@ -4003,7 +4011,7 @@ md_add_line_into_current_block(MD_CTX* ctx, const MD_LINE_ANALYSIS* analysis)
 }
 
 static int
-md_push_container_bytes(MD_CTX* ctx, MD_BLOCKTYPE type, unsigned flags)
+md_push_container_bytes(MD_CTX* ctx, MD_BLOCKTYPE type, unsigned start, unsigned flags)
 {
     MD_BLOCK* block;
     int ret = 0;
@@ -4017,7 +4025,7 @@ md_push_container_bytes(MD_CTX* ctx, MD_BLOCKTYPE type, unsigned flags)
     block->type = type;
     block->flags = flags;
     block->data = 0;
-    block->n_lines = 0;
+    block->n_lines = start;
 
 abort:
     return ret;
@@ -4482,20 +4490,28 @@ md_enter_child_containers(MD_CTX* ctx, int n_children)
 
     for(i = ctx->n_containers - n_children; i < ctx->n_containers; i++) {
         MD_CONTAINER* c = &ctx->containers[i];
+        int is_ordered_list = FALSE;
 
         switch(c->ch) {
+            case _T(')'):
+            case _T('.'):
+                is_ordered_list = TRUE;
+                /* Pass through */
+
             case _T('-'):
             case _T('+'):
             case _T('*'):
                 /* Remember offset in ctx->block_bytes so we can revisit the
                  * block if we detect it is a loose list. */
                 c->block_byte_off = ctx->n_block_bytes;
-                MD_CHECK(md_push_container_bytes(ctx, MD_BLOCK_UL, MD_BLOCK_CONTAINER_OPENER));
-                MD_CHECK(md_push_container_bytes(ctx, MD_BLOCK_LI, MD_BLOCK_CONTAINER_OPENER));
+                MD_CHECK(md_push_container_bytes(ctx,
+                                (is_ordered_list ? MD_BLOCK_OL : MD_BLOCK_UL),
+                                c->start, MD_BLOCK_CONTAINER_OPENER));
+                MD_CHECK(md_push_container_bytes(ctx, MD_BLOCK_LI, 0, MD_BLOCK_CONTAINER_OPENER));
                 break;
 
             case _T('>'):
-                MD_CHECK(md_push_container_bytes(ctx, MD_BLOCK_QUOTE, MD_BLOCK_CONTAINER_OPENER));
+                MD_CHECK(md_push_container_bytes(ctx, MD_BLOCK_QUOTE, 0, MD_BLOCK_CONTAINER_OPENER));
                 break;
 
             default:
@@ -4514,16 +4530,26 @@ md_leave_child_containers(MD_CTX* ctx, int n_keep)
     int ret = 0;
 
     while(ctx->n_containers > n_keep) {
-        switch(ctx->containers[ctx->n_containers-1].ch) {
+        MD_CONTAINER* c = &ctx->containers[ctx->n_containers-1];
+        int is_ordered_list = FALSE;
+
+        switch(c->ch) {
+            case _T(')'):
+            case _T('.'):
+                is_ordered_list = TRUE;
+                /* Pass through */
+
             case _T('-'):
             case _T('+'):
             case _T('*'):
-                MD_CHECK(md_push_container_bytes(ctx, MD_BLOCK_LI, MD_BLOCK_CONTAINER_CLOSER));
-                MD_CHECK(md_push_container_bytes(ctx, MD_BLOCK_UL, MD_BLOCK_CONTAINER_CLOSER));
+                MD_CHECK(md_push_container_bytes(ctx, MD_BLOCK_LI, 0, MD_BLOCK_CONTAINER_CLOSER));
+                MD_CHECK(md_push_container_bytes(ctx,
+                                (is_ordered_list ? MD_BLOCK_OL : MD_BLOCK_UL), 0,
+                                MD_BLOCK_CONTAINER_CLOSER));
                 break;
 
             case _T('>'):
-                MD_CHECK(md_push_container_bytes(ctx, MD_BLOCK_QUOTE, MD_BLOCK_CONTAINER_CLOSER));
+                MD_CHECK(md_push_container_bytes(ctx, MD_BLOCK_QUOTE, 0, MD_BLOCK_CONTAINER_CLOSER));
                 break;
 
             default:
@@ -4542,6 +4568,7 @@ static int
 md_is_container_mark(MD_CTX* ctx, unsigned indent, OFF beg, OFF* p_end, MD_CONTAINER* p_container)
 {
     OFF off = beg;
+    OFF max_end;
 
     /* Check for block quote mark. */
     if(off < ctx->size  &&  CH(off) == _T('>')) {
@@ -4563,6 +4590,25 @@ md_is_container_mark(MD_CTX* ctx, unsigned indent, OFF beg, OFF* p_end, MD_CONTA
         p_container->mark_indent = indent;
         p_container->contents_indent = indent + 2;
         *p_end = off+2;
+        return TRUE;
+    }
+
+    /* Check for ordered list item marks. */
+    max_end = off + 9;
+    if(max_end > ctx->size)
+        max_end = ctx->size;
+    p_container->start = 0;
+    while(off < max_end  &&  ISDIGIT(off)) {
+        p_container->start = p_container->start * 10 + CH(off) - _T('0');
+        off++;
+    }
+    if(off+1 < ctx->size  &&  (CH(off) == _T('.') || CH(off) == _T(')'))   &&  CH(off+1) == _T(' ')) {
+        p_container->ch = CH(off);
+        p_container->is_loose = FALSE;
+        p_container->mark_indent = indent;
+        p_container->contents_indent = indent + off - beg;
+        off++;
+        *p_end = off;
         return TRUE;
     }
 
@@ -4881,7 +4927,7 @@ done:
     /* Enter any container we found a mark for. */
     if(n_brothers > 0) {
         MD_ASSERT(n_brothers == 1);
-        MD_CHECK(md_push_container_bytes(ctx, MD_BLOCK_LI,
+        MD_CHECK(md_push_container_bytes(ctx, MD_BLOCK_LI, 0,
                 MD_BLOCK_CONTAINER_CLOSER | MD_BLOCK_CONTAINER_OPENER));
     }
 

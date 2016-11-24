@@ -65,6 +65,10 @@ enum MD_BLOCKTYPE_tag {
     /* <ul>...</ul> */
     MD_BLOCK_UL,
 
+    /* <ol>...</ol>
+     * Detail: Structure MD_BLOCK_OL_DETAIL. */
+    MD_BLOCK_OL,
+
     /* <li>...</li> */
     MD_BLOCK_LI,
 
@@ -170,6 +174,12 @@ enum MD_ALIGN_tag {
     MD_ALIGN_RIGHT
 };
 
+
+/* Detailed info for MD_BLOCK_H. */
+typedef struct MD_BLOCK_OL_DETAIL_tag MD_BLOCK_OL_DETAIL;
+struct MD_BLOCK_OL_DETAIL_tag {
+    unsigned start;         /* Start index of the ordered list. */
+};
 
 /* Detailed info for MD_BLOCK_H. */
 typedef struct MD_BLOCK_H_DETAIL_tag MD_BLOCK_H_DETAIL;

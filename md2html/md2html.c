@@ -178,6 +178,20 @@ membuf_append_url_escaped(struct membuffer* buf, const char* data, MD_SIZE size)
  *****************************************/
 
 static void
+open_ol_block(struct membuffer* out, const MD_BLOCK_OL_DETAIL* det)
+{
+    char buf[64];
+
+    if(det->start == 1) {
+        MEMBUF_APPEND_LITERAL(out, "<ol>");
+        return;
+    }
+
+    snprintf(buf, sizeof(buf), "<ol start=\"%u\">", det->start);
+    MEMBUF_APPEND_LITERAL(out, buf);
+}
+
+static void
 open_code_block(struct membuffer* out, const MD_BLOCK_CODE_DETAIL* det)
 {
     MEMBUF_APPEND_LITERAL(out, "<pre><code");
@@ -339,6 +353,7 @@ enter_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
         case MD_BLOCK_DOC:      /* noop */ break;
         case MD_BLOCK_QUOTE:    MEMBUF_APPEND_LITERAL(out, "<blockquote>\n"); break;
         case MD_BLOCK_UL:       MEMBUF_APPEND_LITERAL(out, "<ul>\n"); break;
+        case MD_BLOCK_OL:       open_ol_block(out, (const MD_BLOCK_OL_DETAIL*)detail); break;
         case MD_BLOCK_LI:       MEMBUF_APPEND_LITERAL(out, "<li>"); break;
         case MD_BLOCK_HR:       MEMBUF_APPEND_LITERAL(out, "<hr>\n"); break;
         case MD_BLOCK_H:        MEMBUF_APPEND_LITERAL(out, head[((MD_BLOCK_H_DETAIL*)detail)->level - 1]); break;
@@ -366,6 +381,7 @@ leave_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
         case MD_BLOCK_DOC:      /*noop*/ break;
         case MD_BLOCK_QUOTE:    MEMBUF_APPEND_LITERAL(out, "</blockquote>\n"); break;
         case MD_BLOCK_UL:       MEMBUF_APPEND_LITERAL(out, "</ul>\n"); break;
+        case MD_BLOCK_OL:       MEMBUF_APPEND_LITERAL(out, "</ol>\n"); break;
         case MD_BLOCK_LI:       MEMBUF_APPEND_LITERAL(out, "</li>\n"); break;
         case MD_BLOCK_HR:       /*noop*/ break;
         case MD_BLOCK_H:        MEMBUF_APPEND_LITERAL(out, head[((MD_BLOCK_H_DETAIL*)detail)->level - 1]); break;

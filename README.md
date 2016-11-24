@@ -93,8 +93,8 @@ more or less forms our to do list.
 
 - **Container Blocks:**
   - [x] 5.1 Block quotes
-  - [ ] 5.2 List items
-  - [ ] 5.3 Lists
+  - [x] 5.2 List items
+  - [x] 5.3 Lists
 
 - **Inlines:**
   - [x] 6.1 Backslash escapes
