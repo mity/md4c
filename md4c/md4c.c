@@ -4721,8 +4721,10 @@ redo:
             }
         }
 
-        line->type = MD_LINE_HTML;
-        goto done;
+        if(n_parents == ctx->n_containers) {
+            line->type = MD_LINE_HTML;
+            goto done;
+        }
     }
 
     /* Check for blank line. */
