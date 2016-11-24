@@ -74,6 +74,7 @@
 
 typedef struct MD_MARK_tag MD_MARK;
 typedef struct MD_BLOCK_tag MD_BLOCK;
+typedef struct MD_CONTAINER_tag MD_CONTAINER;
 typedef struct MD_LINK_REF_DEF_tag MD_LINK_REF_DEF;
 
 
@@ -137,6 +138,13 @@ struct MD_CTX_tag {
     MD_BLOCK* current_block;
     unsigned n_block_bytes;
     unsigned alloc_block_bytes;
+
+    /* For container block analysis. */
+    MD_CONTAINER* containers;
+    unsigned n_containers;
+    unsigned alloc_containers;
+
+    int last_line_is_blank;
 
     /* Minimal indentation to call the block "indented code block". */
     unsigned code_indent_offset;
@@ -1924,8 +1932,6 @@ struct MD_MARK_tag {
 static MD_MARK*
 md_push_mark(MD_CTX* ctx)
 {
-    MD_MARK* mark;
-
     if(ctx->n_marks >= ctx->alloc_marks) {
         MD_MARK* new_marks;
 
@@ -1939,9 +1945,7 @@ md_push_mark(MD_CTX* ctx)
         ctx->marks = new_marks;
     }
 
-    mark = &ctx->marks[ctx->n_marks];
-    ctx->n_marks++;
-    return mark;
+    return &ctx->marks[ctx->n_marks++];
 }
 
 #define PUSH_MARK_()                                                    \
@@ -3555,21 +3559,36 @@ abort:
 }
 
 
-/*******************************
- ***  Processing Leaf Block  ***
- *******************************/
+/**************************
+ ***  Processing Block  ***
+ **************************/
+
+#define MD_BLOCK_CONTAINER_OPENER   0x01
+#define MD_BLOCK_CONTAINER_CLOSER   0x02
+#define MD_BLOCK_CONTAINER          (MD_BLOCK_CONTAINER_OPENER | MD_BLOCK_CONTAINER_CLOSER)
+#define MD_BLOCK_LOOSE_LIST         0x04
 
 struct MD_BLOCK_tag {
-    MD_BLOCKTYPE type   : 16;
+    MD_BLOCKTYPE type  :  8;
+    unsigned flags     :  8;
 
     /* MD_BLOCK_H:      Header level (1 - 6)
      * MD_BLOCK_CODE:   Non-zero if fenced, zero if indented.
      * MD_BLOCK_TABLE:  Column count (as determined by the table underline)
      */
-    unsigned data       : 16;
+    unsigned data      : 16;
 
     unsigned n_lines;
 };
+
+struct MD_CONTAINER_tag {
+    CHAR ch;
+    int is_loose;
+    unsigned mark_indent;
+    unsigned contents_indent;
+    OFF block_byte_off;
+};
+
 
 static int
 md_process_normal_block_contents(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
@@ -3598,6 +3617,8 @@ md_process_verbatim_block_contents(MD_CTX* ctx, MD_TEXTTYPE text_type, const MD_
     for(i = 0; i < n_lines; i++) {
         const MD_VERBATIMLINE* line = &lines[i];
         int indent = line->indent;
+
+        MD_ASSERT(indent >= 0);
 
         /* Output code indentation. */
         while(indent > SIZEOF_ARRAY(indent_str)) {
@@ -3673,15 +3694,21 @@ md_setup_fenced_code_detail(MD_CTX* ctx, const MD_BLOCK* block, MD_BLOCK_CODE_DE
 }
 
 static int
-md_process_block(MD_CTX* ctx, const MD_BLOCK* block)
+md_process_leaf_block(MD_CTX* ctx, const MD_BLOCK* block)
 {
     union {
         MD_BLOCK_H_DETAIL header;
         MD_BLOCK_CODE_DETAIL code;
     } det;
     int ret = 0;
+    int is_in_tight_list;
 
     memset(&det, 0, sizeof(det));
+
+    if(ctx->n_containers == 0)
+        is_in_tight_list = FALSE;
+    else
+        is_in_tight_list = !ctx->containers[ctx->n_containers-1].is_loose;
 
     switch(block->type) {
         case MD_BLOCK_H:
@@ -3699,7 +3726,8 @@ md_process_block(MD_CTX* ctx, const MD_BLOCK* block)
             break;
     }
 
-    MD_ENTER_BLOCK(block->type, (void*) &det);
+    if(!is_in_tight_list  ||  block->type != MD_BLOCK_P)
+        MD_ENTER_BLOCK(block->type, (void*) &det);
 
     /* Process the block contents accordingly to is type. */
     switch(block->type) {
@@ -3730,7 +3758,8 @@ md_process_block(MD_CTX* ctx, const MD_BLOCK* block)
     if(ret != 0)
         goto abort;
 
-    MD_LEAVE_BLOCK(block->type, (void*) &det);
+    if(!is_in_tight_list  ||  block->type != MD_BLOCK_P)
+        MD_LEAVE_BLOCK(block->type, (void*) &det);
 
 abort:
     return ret;
@@ -3742,15 +3771,41 @@ md_process_all_blocks(MD_CTX* ctx)
     unsigned byte_off = 0;
     int ret = 0;
 
+    /* ctx->containers now is not needed for detection of lists and list items
+     * so we reuse it for tracking what lists are loose or tight. We rely
+     * on the fact the vector is large enough to hold the deepest nesting
+     * level of lists. */
+    ctx->n_containers = 0;
+
     while(byte_off < ctx->n_block_bytes) {
         MD_BLOCK* block = (MD_BLOCK*)((char*)ctx->block_bytes + byte_off);
-        MD_CHECK(md_process_block(ctx, block));
+
+        if(block->flags & MD_BLOCK_CONTAINER) {
+            if(block->flags & MD_BLOCK_CONTAINER_CLOSER) {
+                MD_LEAVE_BLOCK(block->type, NULL);
+
+                if(block->type == MD_BLOCK_UL)
+                    ctx->n_containers--;
+            }
+
+            if(block->flags & MD_BLOCK_CONTAINER_OPENER) {
+                MD_ENTER_BLOCK(block->type, NULL);
+
+                if(block->type == MD_BLOCK_UL) {
+                    ctx->containers[ctx->n_containers].is_loose = (block->flags & MD_BLOCK_LOOSE_LIST);
+                    ctx->n_containers++;
+                }
+            }
+        } else {
+            MD_CHECK(md_process_leaf_block(ctx, block));
+
+            if(block->type == MD_BLOCK_CODE || block->type == MD_BLOCK_HTML)
+                byte_off += block->n_lines * sizeof(MD_VERBATIMLINE);
+            else
+                byte_off += block->n_lines * sizeof(MD_LINE);
+        }
 
         byte_off += sizeof(MD_BLOCK);
-        if(block->type == MD_BLOCK_CODE || block->type == MD_BLOCK_HTML)
-            byte_off += block->n_lines * sizeof(MD_VERBATIMLINE);
-        else
-            byte_off += block->n_lines * sizeof(MD_LINE);
     }
 
     ctx->n_block_bytes = 0;
@@ -3835,6 +3890,7 @@ md_start_new_block(MD_CTX* ctx, const MD_LINE_ANALYSIS* line)
             break;
     }
 
+    block->flags = 0;
     block->data = line->data;
     block->n_lines = 0;
 
@@ -3912,11 +3968,6 @@ md_end_current_block(MD_CTX* ctx)
     /* Mark we are not building any block anymore. */
     ctx->current_block = NULL;
 
-    /* Consider flush of all complete blocks */
-    // TODO: we cannot do this if we look ahead for link ref. def. or if we
-    //       are inside a list which can yet turn from tight to loose.
-    //MD_CHECK(md_process_all_blocks(ctx));
-
 abort:
     return ret;
 }
@@ -3950,6 +4001,28 @@ md_add_line_into_current_block(MD_CTX* ctx, const MD_LINE_ANALYSIS* analysis)
 
     return 0;
 }
+
+static int
+md_push_container_bytes(MD_CTX* ctx, MD_BLOCKTYPE type, unsigned flags)
+{
+    MD_BLOCK* block;
+    int ret = 0;
+
+    MD_CHECK(md_end_current_block(ctx));
+
+    block = (MD_BLOCK*) md_push_block_bytes(ctx, sizeof(MD_BLOCK));
+    if(block == NULL)
+        return -1;
+
+    block->type = type;
+    block->flags = flags;
+    block->data = 0;
+    block->n_lines = 0;
+
+abort:
+    return ret;
+}
+
 
 
 /***********************
@@ -4365,30 +4438,162 @@ md_line_contains_char(MD_CTX* ctx, OFF beg, CHAR ch, OFF* p_pos)
     return FALSE;
 }
 
-/* Analyze type of the line and find some its properties. This serves as a
- * main input for determining type and boundaries of a block. */
-static void
-md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
-                const MD_LINE_ANALYSIS* pivot_line, MD_LINE_ANALYSIS* line)
+
+static int
+md_is_container_compatible(const MD_CONTAINER* pivot, const MD_CONTAINER* container)
+{
+    if(container->ch != pivot->ch)
+        return FALSE;
+    if(container->mark_indent > pivot->contents_indent)
+        return FALSE;
+
+    return TRUE;
+}
+
+static int
+md_push_container(MD_CTX* ctx, const MD_CONTAINER* container)
+{
+    if(ctx->n_containers >= ctx->alloc_containers) {
+        MD_CONTAINER* new_containers;
+
+        ctx->alloc_containers = (ctx->alloc_containers > 0 ? ctx->alloc_containers * 2 : 16);
+        new_containers = realloc(ctx->containers, ctx->alloc_containers * sizeof(MD_CONTAINER));
+        if(new_containers == NULL) {
+            MD_LOG("realloc() failed.");
+            return -1;
+        }
+
+        ctx->containers = new_containers;
+    }
+
+    memcpy(&ctx->containers[ctx->n_containers++], container, sizeof(MD_CONTAINER));
+    return 0;
+}
+
+static int
+md_enter_child_containers(MD_CTX* ctx, int n_children)
+{
+    int i;
+    int ret = 0;
+
+    for(i = ctx->n_containers - n_children; i < ctx->n_containers; i++) {
+        MD_CONTAINER* c = &ctx->containers[i];
+
+        switch(c->ch) {
+            case _T('-'):
+            case _T('+'):
+            case _T('*'):
+                /* Remember offset in ctx->block_bytes so we can revisit the
+                 * block if we detect it is a loose list. */
+                c->block_byte_off = ctx->n_block_bytes;
+                MD_CHECK(md_push_container_bytes(ctx, MD_BLOCK_UL, MD_BLOCK_CONTAINER_OPENER));
+                MD_CHECK(md_push_container_bytes(ctx, MD_BLOCK_LI, MD_BLOCK_CONTAINER_OPENER));
+                break;
+
+            default:
+                MD_UNREACHABLE();
+                break;
+        }
+    }
+
+abort:
+    return ret;
+}
+
+static int
+md_leave_child_containers(MD_CTX* ctx, int n_keep)
+{
+    int ret = 0;
+
+    while(ctx->n_containers > n_keep) {
+        switch(ctx->containers[ctx->n_containers-1].ch) {
+            case _T('-'):
+            case _T('+'):
+            case _T('*'):
+                MD_CHECK(md_push_container_bytes(ctx, MD_BLOCK_LI, MD_BLOCK_CONTAINER_CLOSER));
+                MD_CHECK(md_push_container_bytes(ctx, MD_BLOCK_UL, MD_BLOCK_CONTAINER_CLOSER));
+                break;
+
+            default:
+                MD_UNREACHABLE();
+                break;
+        }
+
+        ctx->n_containers--;
+    }
+
+abort:
+    return ret;
+}
+
+static int
+md_is_container_mark(MD_CTX* ctx, unsigned indent, OFF beg, OFF* p_end, MD_CONTAINER* p_container)
 {
     OFF off = beg;
 
-    line->type = MD_LINE_BLANK;
-    line->indent = 0;
+    if(off+1 < ctx->size  &&  ISANYOF(off, _T("-+*"))  &&  CH(off+1) == _T(' ')) {
+        p_container->ch = CH(off);
+        p_container->is_loose = FALSE;
+        p_container->mark_indent = indent;
+        p_container->contents_indent = indent + 2;
+        *p_end = off+2;
+        return TRUE;
+    }
 
-    /* Eat indentation. */
+    return FALSE;
+}
+
+static unsigned
+md_line_indentation(MD_CTX* ctx, OFF beg, OFF* p_end)
+{
+    OFF off = beg;
+    unsigned indent = 0;
+
     while(off < ctx->size  &&  ISBLANK(off)) {
         if(CH(off) == _T('\t'))
-            line->indent = (line->indent + 4) & ~3;
+            indent = (indent + 4) & ~3;
         else
-            line->indent++;
+            indent++;
         off++;
     }
 
+    *p_end = off;
+    return indent;
+}
+
+static const MD_LINE_ANALYSIS md_dummy_blank_line = { MD_LINE_BLANK, 0 };
+
+/* Analyze type of the line and find some its properties. This serves as a
+ * main input for determining type and boundaries of a block. */
+static int
+md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
+                const MD_LINE_ANALYSIS* pivot_line, MD_LINE_ANALYSIS* line)
+{
+    int n_parents = 0;
+    int n_brothers = 0;
+    int n_children = 0;
+    MD_CONTAINER container;
+    int prev_line_is_blank = ctx->last_line_is_blank;
+    OFF off = beg;
+    int ret = 0;
+
+    line->indent = md_line_indentation(ctx, off, &off);
     line->beg = off;
 
+    /* Given the indentation, determine how many of the current containers
+     * are our parents. */
+    while(n_parents < ctx->n_containers  &&
+            line->indent >= ctx->containers[n_parents].contents_indent)
+    {
+        line->indent -= ctx->containers[n_parents].contents_indent;
+        n_parents++;
+    }
+
+redo:
     /* Check whether we are fenced code continuation. */
     if(pivot_line->type == MD_LINE_FENCEDCODE) {
+        line->beg = off;
+
         /* We are another MD_LINE_FENCEDCODE unless we are closing fence
          * which we transform into MD_LINE_BLANK. */
         if(line->indent < ctx->code_indent_offset) {
@@ -4399,24 +4604,15 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
         }
 
         /* Change indentation accordingly to the initial code fence. */
-        if(line->indent > pivot_line->indent)
-            line->indent -= pivot_line->indent;
-        else
-            line->indent = 0;
+        if(n_parents == ctx->n_containers) {
+            if(line->indent > pivot_line->indent)
+                line->indent -= pivot_line->indent;
+            else
+                line->indent = 0;
 
-        line->type = MD_LINE_FENCEDCODE;
-        goto done;
-    }
-
-    /* Check whether we are indented code line.
-     * Note indented code block cannot interrupt paragraph. */
-    if((pivot_line->type == MD_LINE_BLANK || pivot_line->type == MD_LINE_INDENTEDCODE)
-        && line->indent >= ctx->code_indent_offset)
-    {
-        line->type = MD_LINE_INDENTEDCODE;
-        line->indent -= ctx->code_indent_offset;
-        line->data = 0;
-        goto done;
+            line->type = MD_LINE_FENCEDCODE;
+            goto done;
+        }
     }
 
     /* Check whether we are HTML block continuation. */
@@ -4442,36 +4638,38 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
         goto done;
     }
 
-    /* Check whether we are table continuation. */
-    if(pivot_line->type == MD_LINE_TABLE) {
-        if(md_line_contains_char(ctx, off, _T('|'), &off)) {
-            line->type = MD_LINE_TABLE;
-            goto done;
-        }
-    }
-
-    /* Check whether we are blank line.
-     * Note blank lines after indented code are treated as part of that block.
-     * If they are at the end of the block, it is discarded by caller.
-     */
+    /* Check for blank line. */
     if(off >= ctx->size  ||  ISNEWLINE(off)) {
-        line->indent = 0;
-        if(pivot_line->type == MD_LINE_INDENTEDCODE)
+        /* Blank line does not need any real indentation to be nested inside
+         * a list. */
+        n_parents = ctx->n_containers;
+
+        if(pivot_line->type == MD_LINE_INDENTEDCODE) {
             line->type = MD_LINE_INDENTEDCODE;
-        else
+            if(line->indent > ctx->code_indent_offset)
+                line->indent -= ctx->code_indent_offset;
+            else
+                line->indent = 0;
+            ctx->last_line_is_blank = FALSE;
+        } else {
             line->type = MD_LINE_BLANK;
+            ctx->last_line_is_blank = TRUE;
+        }
         goto done;
+    } else {
+        ctx->last_line_is_blank = FALSE;
     }
 
-    /* Check whether we are ATX header. */
-    if(line->indent < ctx->code_indent_offset  &&  CH(off) == _T('#')) {
-        unsigned level;
-
-        if(md_is_atxheader_line(ctx, off, &line->beg, &off, &level)) {
-            line->type = MD_LINE_ATXHEADER;
-            line->data = level;
-            goto done;
-        }
+    /* Check for indented code.
+     * Note indented code block cannot interrupt paragraph. */
+    if(line->indent >= ctx->code_indent_offset  &&
+        (pivot_line->type == MD_LINE_BLANK || pivot_line->type == MD_LINE_INDENTEDCODE))
+    {
+        line->type = MD_LINE_INDENTEDCODE;
+        MD_ASSERT(line->indent >= ctx->code_indent_offset);
+        line->indent -= ctx->code_indent_offset;
+        line->data = 0;
+        goto done;
     }
 
     /* Check whether we are Setext underline. */
@@ -4487,12 +4685,51 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
         }
     }
 
-    /* Check whether we are thematic break line.
-     * (We check the indentation to fix http://spec.commonmark.org/0.26/#example-19)
-     * (Keep this after check for Setext underline as that one has higher priority). */
+    /* Check for thematic break line. */
     if(line->indent < ctx->code_indent_offset  &&  ISANYOF(off, _T("-_*"))) {
         if(md_is_hr_line(ctx, off, &off)) {
             line->type = MD_LINE_HR;
+            goto done;
+        }
+    }
+
+    /* Check whether we are table continuation. */
+    if(pivot_line->type == MD_LINE_TABLE) {
+        if(md_line_contains_char(ctx, off, _T('|'), &off)) {
+            line->type = MD_LINE_TABLE;
+            goto done;
+        }
+    }
+
+    /* Check for start of a new container block. */
+    if(md_is_container_mark(ctx, line->indent, off, &off, &container)) {
+        line->beg = off;
+        line->indent = md_line_indentation(ctx, off, &off);
+
+        if(n_brothers + n_children == 0) {
+            pivot_line = &md_dummy_blank_line;
+
+            if(n_parents < ctx->n_containers  &&  md_is_container_compatible(&ctx->containers[n_parents], &container)) {
+                n_brothers++;
+                goto redo;
+            }
+        }
+
+        if(n_children == 0)
+            MD_CHECK(md_leave_child_containers(ctx, n_parents + n_brothers));
+
+        n_children++;
+        MD_CHECK(md_push_container(ctx, &container));
+        goto redo;
+    }
+
+    /* Check for ATX header. */
+    if(line->indent < ctx->code_indent_offset  &&  CH(off) == _T('#')) {
+        unsigned level;
+
+        if(md_is_atxheader_line(ctx, off, &line->beg, &off, &level)) {
+            line->type = MD_LINE_ATXHEADER;
+            line->data = level;
             goto done;
         }
     }
@@ -4506,9 +4743,8 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
         }
     }
 
-    /* Check whether we are start of raw HTML block. */
-    if(CH(off) == _T('<')  &&  !(ctx->r.flags & MD_FLAG_NOHTMLBLOCKS)
-        &&  line->indent < ctx->code_indent_offset)
+    /* Check for start of raw HTML block. */
+    if(CH(off) == _T('<')  &&  !(ctx->r.flags & MD_FLAG_NOHTMLBLOCKS))
     {
         ctx->html_block_type = md_is_html_block_start_condition(ctx, off);
 
@@ -4528,7 +4764,7 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
         }
     }
 
-    /* Check whether we are table underline. */
+    /* Check for table underline. */
     if((ctx->r.flags & MD_FLAG_TABLES)  &&  pivot_line->type == MD_LINE_TEXT  &&
        (CH(off) == _T('|') || CH(off) == _T('-') || CH(off) == _T(':')))
     {
@@ -4546,6 +4782,10 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
 
     /* By default, we are normal text line. */
     line->type = MD_LINE_TEXT;
+    if(pivot_line->type == MD_LINE_TEXT  &&  n_brothers + n_children == 0) {
+        /* Lazy continuation. */
+        n_parents = ctx->n_containers;
+    }
 
 done:
     /* Eat rest of the line contents */
@@ -4555,7 +4795,7 @@ done:
     /* Set end of the line. */
     line->end = off;
 
-    /* But for ATX header, we should not include the optional tailing mark. */
+    /* But for ATX header, we should exclude the optional trailing mark. */
     if(line->type == MD_LINE_ATXHEADER) {
         OFF tmp = line->end;
         while(tmp > line->beg && CH(tmp-1) == _T(' '))
@@ -4566,7 +4806,7 @@ done:
             line->end = tmp;
     }
 
-    /* Trim tailing spaces. */
+    /* Trim trailing spaces. */
     if(line->type != MD_LINE_INDENTEDCODE  &&  line->type != MD_LINE_FENCEDCODE) {
         while(line->end > line->beg && CH(line->end-1) == _T(' '))
             line->end--;
@@ -4579,9 +4819,31 @@ done:
         off++;
 
     *p_end = off;
-}
 
-static const MD_LINE_ANALYSIS md_dummy_blank_line = { MD_LINE_BLANK, 0 };
+    /* If we belong to a list after seeing a blank line, the list is loose. */
+    if(prev_line_is_blank  &&  line->type != MD_LINE_BLANK  &&  n_parents + n_brothers > 0) {
+        MD_BLOCK* block = (MD_BLOCK*) (((char*)ctx->block_bytes) +
+                    ctx->containers[n_parents + n_brothers - 1].block_byte_off);
+        block->flags |= MD_BLOCK_LOOSE_LIST;
+    }
+
+    /* Leave any containers we are not part of anymore. */
+    if(n_children == 0  &&  n_parents + n_brothers < ctx->n_containers)
+        MD_CHECK(md_leave_child_containers(ctx, n_parents + n_brothers));
+
+    /* Enter any container we found a mark for. */
+    if(n_brothers > 0) {
+        MD_ASSERT(n_brothers == 1);
+        MD_CHECK(md_push_container_bytes(ctx, MD_BLOCK_LI,
+                MD_BLOCK_CONTAINER_CLOSER | MD_BLOCK_CONTAINER_OPENER));
+    }
+
+    if(n_children > 0)
+        MD_CHECK(md_enter_child_containers(ctx, n_children));
+
+abort:
+    return ret;
+}
 
 static int
 md_process_line(MD_CTX* ctx, const MD_LINE_ANALYSIS** p_pivot_line, const MD_LINE_ANALYSIS* line)
@@ -4664,12 +4926,13 @@ md_process_doc(MD_CTX *ctx)
         if(line == pivot_line)
             line = (line == &line_buf[0] ? &line_buf[1] : &line_buf[0]);
 
-        md_analyze_line(ctx, off, &off, pivot_line, line);
+        MD_CHECK(md_analyze_line(ctx, off, &off, pivot_line, line));
         MD_CHECK(md_process_line(ctx, &pivot_line, line));
     }
 
     /* Process all blocks. */
     md_end_current_block(ctx);
+    MD_CHECK(md_leave_child_containers(ctx, 0));
     MD_CHECK(md_process_all_blocks(ctx));
 
     MD_LEAVE_BLOCK(MD_BLOCK_DOC, NULL);
@@ -4682,6 +4945,10 @@ abort:
         char buffer[256];
         sprintf(buffer, "Alloced %u bytes for block buffer.",
                     (unsigned)(ctx->alloc_block_bytes));
+        MD_LOG(buffer);
+
+        sprintf(buffer, "Alloced %u bytes for containers buffer.",
+                    (unsigned)(ctx->alloc_containers * sizeof(MD_CONTAINER)));
         MD_LOG(buffer);
 
         sprintf(buffer, "Alloced %u bytes for marks buffer.",
@@ -4723,9 +4990,10 @@ md_parse(const MD_CHAR* text, MD_SIZE size, const MD_RENDERER* renderer, void* u
 
     /* Clean-up. */
     md_free_link_ref_defs(&ctx);
-    free(ctx.block_bytes);
-    free(ctx.marks);
     free(ctx.buffer);
+    free(ctx.marks);
+    free(ctx.block_bytes);
+    free(ctx.containers);
 
     return ret;
 }

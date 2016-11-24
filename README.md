@@ -78,7 +78,7 @@ more or less forms our to do list.
 
 - **Blocks and Inlines:**
   - [x] 3.1 Precedence
-  - [ ] 3.2 Container blocks and leaf blocks
+  - [x] 3.2 Container blocks and leaf blocks
 
 - **Leaf Blocks:**
   - [x] 4.1 Thematic breaks
