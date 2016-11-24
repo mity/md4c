@@ -24,7 +24,6 @@
  */
 
 #include <stdio.h>
-#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -141,7 +140,7 @@ membuf_append_escaped(struct membuffer* buf, const char* data, MD_SIZE size)
 static void
 membuf_append_url_escaped(struct membuffer* buf, const char* data, MD_SIZE size)
 {
-    static const uint8_t hex_chars[] = "0123456789ABCDEF";
+    static const char hex_chars[] = "0123456789ABCDEF";
     MD_OFFSET beg = 0;
     MD_OFFSET off = 0;
 
