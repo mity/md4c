@@ -64,7 +64,6 @@ Example implementation of simple renderer is available in the `md2html`
 directory which implements a conversion utility from Markdown to HTML.
 
 
-
 ## Extensions
 
 By default, MD4C recognizes only elements defined by CommonMark specification.
@@ -81,6 +80,31 @@ Currently, these extensions are available:
    or raw HTML blocks respectively are disabled.
  * With the flag `MD_FLAG_NOINDENTEDCODEBLOCKS`, indented code blocks are
    disabled.
+
+
+## Support Encodings
+
+The CommonMark specification generally assumes UTF-8 input, but under closer
+inspection Unicode is actually used on very few occasions.
+
+MD4C uses this property of the standard and its implementation is to a large
+degree encoding-agnostic, just with the assumption the encoding of your choice
+is compatible with ASCII.
+
+By default MD4C simply only understands the ASCII characters as those making
+the marks in the document, and all the other input (the text) is provided
+as it is on the input.
+
+That said, the Unicode is supported too:
+
+ * If you predefine macro `MD4C_USE_UNICODE`, MD4C performs parsing of UTF-8
+   locally where it does matter.
+
+ * On Windows, if you predefine macro `MD4C_USE_WIN_UNICODE`, MD4C shall use
+   `WCHAR` instead of `char` and will assume UTF16-LE encoding.
+
+It should be relatively easy to add support for any other encoding, as long as
+its codepoints below 128 are compatible with ASCII.
 
 
 ## License
