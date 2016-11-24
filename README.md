@@ -65,7 +65,7 @@ directory which implements a conversion utility from Markdown to HTML.
 
 ### CommonMark Specification
 
-The goal is be compliant to the latest version of
+The goal is to become compliant to the latest version of
 [CommonMark specification](http://spec.commonmark.org/).
 
 The list below corresponds to chapters of the specification version 0.27 and
