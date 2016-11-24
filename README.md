@@ -7,12 +7,8 @@
 
 Home: http://github.com/mity/md4c
 
-MD4C stands for "MarkDown for C" and, unsurprisingly, it is a C Markdown parser
+MD4C stands for "Markdown for C" and, unsurprisingly, it is a C Markdown parser
 implementation.
-
-**Warning:** This project is very young (read "immature") and work in progress.
-Most important features are not yet implemented. See the current status below.
-And there may be bugs.
 
 
 ## What is Markdown
@@ -26,21 +22,28 @@ The following resources can explain more if you are unfamiliar with it:
 
 ## What is MD4C
 
-Main features:
+* **Compliance:** Generally MD4C aims to be compliant to the latest version of
+  [CommonMark specification](http://spec.commonmark.org/). Right now we are
+  quite close to CommonMark 0.27.
+
+* **Extensions:** If explicitly enabled, the parser supports some commonly
+  requested and accepted extensions. See below.
+
 * **Compactness:** MD4C is implemented in one source file and one header file.
-* **Flexibility:** Flags allow to tune the desired dialect of the Markdown
-    parser.
-* **Encoding agnosticism:** As much as possible, MD4C by design does not care
-    about input text encoding, relying only on the Markdown control characters
-    being ASCII compatible. (The actual text data are propagated back to the
-    caller in the same encoding unchanged.)
-* **UTF-16LE support:** On Windows, MD4C may be built to consume (and produce)
-    wide strings (`WCHAR*` instead of `char*`).
-* **Easily embeddable:** MD4C depends only on few functions of C standard
-    library.
+
+* **Embedding:** MD4C is easy to reuse in other projects, its API is very
+  straightforward.
+
 * **Portability:** MD4C builds and works on Windows and Linux, and it should
     be fairly trivial to build it also on other systems.
+
+* **Encoding:** MD4C can compiled to recognize ASCII-only control characters,
+  UTF-8 and, on Windows, also UTF-16 little endian, i.e. what is commonly called
+  Unicode on Windows.
+
 * **Permissive license:** MD4C is available under the MIT license.
+
+* **Performance:** MD4C is quite fast.
 
 
 ## Using MD4C
@@ -61,90 +64,23 @@ Example implementation of simple renderer is available in the `md2html`
 directory which implements a conversion utility from Markdown to HTML.
 
 
-## Current Status
 
-### CommonMark Specification
+## Extensions
 
-The goal is to become compliant to the latest version of
-[CommonMark specification](http://spec.commonmark.org/).
+By default, MD4C recognizes only elements defined by CommonMark specification.
 
-The list below corresponds to chapters of the specification version 0.27 and
-more or less forms our to do list.
+Currently, these extensions are available:
 
-- **Preliminaries:**
-  - [x] 2.1 Character and lines
-  - [x] 2.2 Tabs
-  - [x] 2.3 Insecure characters
-
-- **Blocks and Inlines:**
-  - [x] 3.1 Precedence
-  - [x] 3.2 Container blocks and leaf blocks
-
-- **Leaf Blocks:**
-  - [x] 4.1 Thematic breaks
-  - [x] 4.2 ATX headings
-  - [x] 4.3 Setext headings
-  - [x] 4.4 Indented code blocks
-  - [x] 4.5 Fenced code blocks
-  - [x] 4.6 HTML blocks
-  - [x] 4.7 Link reference definitions
-  - [x] 4.8 Paragraphs
-  - [x] 4.9 Blank lines
-
-- **Container Blocks:**
-  - [x] 5.1 Block quotes
-  - [x] 5.2 List items
-  - [x] 5.3 Lists
-
-- **Inlines:**
-  - [x] 6.1 Backslash escapes
-  - [x] 6.2 Entity and numeric character references
-  - [x] 6.3 Code spans
-  - [x] 6.4 Emphasis and strong emphasis
-  - [x] 6.5 Links
-  - [x] 6.6 Images
-  - [x] 6.7 Autolinks
-  - [x] 6.8 Raw HTML
-  - [x] 6.9 Hard line breaks
-  - [x] 6.10 Soft line breaks
-  - [x] 6.11 Textual content
-
-
-### Considered Extensions
-
-Aside of CommonMark features, various Markdown implementations out there support
-various extensions and/or some deviations from the CommonMark specification
-which may be found desired or useful in some situations.
-
-Therefore some extensions or deviations from the CommonMark specification may
-be considered and implemented. However, such extensions and deviations from the
-standard shall be enabled only if explicitly enabled by the application.
-
-Default behavior shall stick to the CommonMark specification.
-
-The list below is incomplete list of extensions I see as worth of
-consideration.
-
-- **Block Extensions:**
-  - [x] Tables
-  - [ ] Header anchors: `## Chapter {#anchor}`
-    (allowing fragment links pointing to it, e.g. `[link text](#anchor)`)
-
-- **Inline Extensions:**
-  - [ ] Underline: `__foo bar__`
-  - [ ] Strikethrough: `~~foo bar~~`
-  - [ ] Highlight: `==foo bar==`
-  - [ ] Quote: `"foo bar"`
-  - [ ] Superscript: `a^2^ + b^2^ = c^2^`
-  - [ ] Subscript: `matrix A~i,j~`
-
-- **Miscellaneous:**
-  - [x] Permissive ATX headers: `###Header` (without space)
-  - [x] Permissive URL autolinks: `http://google.com` (without `<`...`>`)
-  - [x] Permissive e-mail autolinks: `john.doe@example.com`
-        (without `<`...`>` and `mailto:`)
-  - [x] Disabling indented code blocks
-  - [x] Disabling raw HTML blocks/spans
+ * With the flag `MD_FLAG_COLLAPSEWHITESPACE`, non-trivial whitespace is
+   colalpsed into single space.
+ * With the flag `MD_FLAG_TABLES`, GitHub-style tables are supported.
+ * With the flag `MD_FLAG_PERMISSIVEURLAUTOLINKS` permissive URL autolinks
+   (not enclosed in '<' and '>') are supported.
+ * With the flag `MD_FLAG_PERMISSIVEAUTOLINKS`, ditto for e-mail autolinks.
+ * With the flag `MD_FLAG_NOHTMLSPANS` or `MD_FLAG_NOHTML`, raw inline HTML
+   or raw HTML blocks respectively are disabled.
+ * With the flag `MD_FLAG_NOINDENTEDCODEBLOCKS`, indented code blocks are
+   disabled.
 
 
 ## License
