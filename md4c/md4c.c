@@ -2709,7 +2709,10 @@ static int
 md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 {
     int opener_index = ctx->unresolved_link_head;
+    OFF last_link_beg = 0;
     OFF last_link_end = 0;
+    OFF last_img_beg = 0;
+    OFF last_img_end = 0;
 
     while(opener_index >= 0) {
         MD_MARK* opener = &ctx->marks[opener_index];
@@ -2728,12 +2731,17 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             next_opener = NULL;
         }
 
-        /* Links cannot be nested. If they are, the most nested one is the
-         * link and the outer one is not. Given the order of '[' ']' marks
-         * here is ordered by closer position, we enter the most inner brackets
-         * first. */
-        if(opener->beg < last_link_end) {
-            /* Cannot be a link as it is outer to some previously resolved link. */
+        /* If nested ("[ [ ] ]"), we need to make sure that:
+         *   - The outer does not end inside of (...) belonging to the inner.
+         *   - The outer cannot be link if the inner is link (i.e. not image).
+         *
+         * (Note we here analyze from inner to outer as the marks are ordered
+         * by closer->beg.)
+         */
+        if((opener->beg < last_link_beg  &&  closer->end < last_link_end)  ||
+           (opener->beg < last_img_beg  &&  closer->end < last_img_end)  ||
+           (opener->beg < last_link_end  &&  opener->ch == '['))
+        {
             opener_index = next_index;
             continue;
         }
@@ -2820,7 +2828,13 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 md_mark_chain_append(ctx, &PTR_CHAIN, opener_index+2);
             ctx->marks[opener_index+2].prev = attr.title_size;
 
-            last_link_end = closer->end;
+            if(opener->ch == '[') {
+                last_link_beg = opener->beg;
+                last_link_end = closer->end;
+            } else {
+                last_img_beg = opener->beg;
+                last_img_end = closer->end;
+            }
 
             md_analyze_link_contents(ctx, lines, n_lines, opener->end, closer->beg);
 
@@ -3184,12 +3198,19 @@ md_setup_span_a_detail(MD_CTX* ctx, const MD_MARK* mark, MD_SPAN_A_DETAIL* det)
 }
 
 static void
-md_build_img_alt(MD_CTX* ctx, const MD_MARK* mark, const MD_LINE* lines, int n_lines,
+md_build_img_alt(MD_CTX* ctx, MD_MARK* mark, const MD_LINE* lines, int n_lines,
                  OFF beg, OFF end, CHAR* buffer, SZ* p_size)
 {
+    MD_MARK* inner_mark;
     int line_index = 0;
     OFF off = beg;
     CHAR* ptr = buffer;
+
+    /* Revive the contents of anny inner image so we include its ALT. */
+    for(inner_mark = mark; inner_mark < ctx->marks + mark->next; inner_mark++) {
+        if(inner_mark->ch == '!')
+            inner_mark->end = inner_mark->beg + 2;
+    }
 
     while(lines[line_index].end <= beg)
         line_index++;
@@ -3230,7 +3251,7 @@ md_build_img_alt(MD_CTX* ctx, const MD_MARK* mark, const MD_LINE* lines, int n_l
 }
 
 static int
-md_setup_span_img_detail(MD_CTX* ctx, const MD_MARK* mark, const MD_LINE* lines, int n_lines,
+md_setup_span_img_detail(MD_CTX* ctx, MD_MARK* mark, const MD_LINE* lines, int n_lines,
                          OFF alt_beg, OFF alt_end, MD_SPAN_IMG_DETAIL* det)
 {
     const MD_MARK* dest_mark = mark+1;
@@ -3266,8 +3287,8 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
     } det;
     MD_TEXTTYPE text_type;
     const MD_LINE* line = lines;
-    const MD_MARK* prev_mark = NULL;
-    const MD_MARK* mark;
+    MD_MARK* prev_mark = NULL;
+    MD_MARK* mark;
     OFF off = lines[0].beg;
     OFF end = lines[n_lines-1].end;
     int enforce_hardbreak = 0;
