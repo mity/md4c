@@ -1224,7 +1224,7 @@ md_is_link_label(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
         OFF line_end = lines[line_index].end;
 
         while(off < line_end) {
-            if(CH(off) == _T('\\')  &&  off < ctx->size  &&  (ISPUNCT(off+1) || ISNEWLINE(off+1))) {
+            if(CH(off) == _T('\\')  &&  off+1 < ctx->size  &&  (ISPUNCT(off+1) || ISNEWLINE(off+1))) {
                 if(contents_end == 0)
                     contents_beg = off;
                 contents_end = off + 2;
@@ -1286,7 +1286,7 @@ md_is_link_destination_A(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end,
     *p_contains_escape = FALSE;
 
     while(off < max_end) {
-        if(CH(off) == _T('\\')  &&  off < max_end  &&  ISPUNCT(off+1)) {
+        if(CH(off) == _T('\\')  &&  off+1 < max_end  &&  ISPUNCT(off+1)) {
             *p_contains_escape = TRUE;
             off += 2;
             continue;
@@ -1320,7 +1320,7 @@ md_is_link_destination_B(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end,
     *p_contains_escape = FALSE;
 
     while(off < max_end) {
-        if(CH(off) == _T('\\')  &&  off < max_end  &&  ISPUNCT(off+1)) {
+        if(CH(off) == _T('\\')  &&  off+1 < max_end  &&  ISPUNCT(off+1)) {
             *p_contains_escape = TRUE;
             off += 2;
             continue;
@@ -1406,7 +1406,7 @@ md_is_link_title(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
         OFF line_end = lines[line_index].end;
 
         while(off < line_end) {
-            if(CH(off) == _T('\\')  &&  off < ctx->size  &&  (ISPUNCT(off+1) || ISNEWLINE(off+1))) {
+            if(CH(off) == _T('\\')  &&  off+1 < ctx->size  &&  (ISPUNCT(off+1) || ISNEWLINE(off+1))) {
                 off++;
             } else if(CH(off) == closer_char) {
                 /* Success. */
