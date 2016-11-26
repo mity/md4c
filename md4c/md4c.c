@@ -101,8 +101,10 @@ struct MD_CTX_tag {
     CHAR* buffer;
     unsigned alloc_buffer;
 
-    MD_LINK_REF_DEF* link_ref_head;
-    MD_LINK_REF_DEF* link_ref_tail;
+    /* Link reference definitions. */
+    MD_LINK_REF_DEF* link_ref_defs;
+    unsigned n_link_ref_defs;
+    unsigned alloc_link_ref_defs;
 
     /* Stack of inline/span markers.
      * This is only used for parsing a single block contents but by storing it
@@ -1188,8 +1190,6 @@ struct MD_LINK_REF_DEF_tag {
     SZ title_size;
     OFF dest_beg;
     OFF dest_end;
-
-    MD_LINK_REF_DEF* next;
 };
 
 typedef struct MD_LINK_ATTR_tag MD_LINK_ATTR;
@@ -1535,11 +1535,22 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
         return FALSE;
 
     /* Store the link reference definition. */
-    def = (MD_LINK_REF_DEF*) malloc(sizeof(MD_LINK_REF_DEF));
-    if(def == NULL) {
-        MD_LOG("malloc() failed.");
-        return -1;
+    if(ctx->n_link_ref_defs >= ctx->alloc_link_ref_defs) {
+        MD_LINK_REF_DEF* new_defs;
+
+        ctx->alloc_link_ref_defs = (ctx->alloc_link_ref_defs > 0 ? ctx->alloc_link_ref_defs * 2 : 16);
+        new_defs = (MD_LINK_REF_DEF*) realloc(ctx->link_ref_defs, ctx->alloc_link_ref_defs * sizeof(MD_LINK_REF_DEF));
+        if(new_defs == NULL) {
+            MD_LOG("realloc() failed.");
+            ret = -1;
+            goto abort;
+        }
+
+        ctx->link_ref_defs = new_defs;
     }
+
+    def = &ctx->link_ref_defs[ctx->n_link_ref_defs];
+    ctx->n_link_ref_defs++;
     memset(def, 0, sizeof(MD_LINK_REF_DEF));
 
     if(label_is_multiline) {
@@ -1570,13 +1581,6 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                     _T('\n'), &def->title, &def->title_size));
         def->title_needs_free = TRUE;
     }
-
-    if(ctx->link_ref_tail != NULL)
-        ctx->link_ref_tail->next = def;
-    else
-        ctx->link_ref_head = def;
-    ctx->link_ref_tail = def;
-    def->next = NULL;
 
     ret = line_index + 1;
 
@@ -1664,16 +1668,15 @@ md_link_label_eq(const CHAR* a_label, SZ a_size, const CHAR* b_label, SZ b_size)
 static int
 md_lookup_link_ref_def(MD_CTX* ctx, const CHAR* label, SZ label_size, MD_LINK_REF_DEF** p_def)
 {
-    MD_LINK_REF_DEF* def;
+    unsigned i;
 
-    def = ctx->link_ref_head;
-    while(def != NULL) {
+    for(i = 0; i < ctx->n_link_ref_defs; i++) {
+        MD_LINK_REF_DEF* def = &ctx->link_ref_defs[i];
+
         if(md_link_label_eq(def->label, def->label_size, label, label_size)) {
             *p_def = def;
             return TRUE;
         }
-
-        def = def->next;
     }
 
     *p_def = NULL;
@@ -1822,20 +1825,18 @@ abort:
 static void
 md_free_link_ref_defs(MD_CTX* ctx)
 {
-    MD_LINK_REF_DEF* def = ctx->link_ref_head;
-    MD_LINK_REF_DEF* def_next;
+    unsigned i;
 
-    while(def != NULL) {
-        def_next = def->next;
+    for(i = 0; i < ctx->n_link_ref_defs; i++) {
+        MD_LINK_REF_DEF* def = &ctx->link_ref_defs[i];
 
         if(def->label_needs_free)
             free(def->label);
         if(def->title_needs_free)
             free(def->title);
-        free(def);
-
-        def = def_next;
     }
+
+    free(ctx->link_ref_defs);
 }
 
 
