@@ -1,3 +1,10 @@
 *.ncb
 /VC9/Release
 /VC9/Debug
+*.user
+/VC9/md2html/Debug
+/VC9/md2html/Release
+/VC9/md4c/Debug
+/VC9/md4c/Release
+*.suo
+/msvc/Release
