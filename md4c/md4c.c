@@ -5015,8 +5015,6 @@ md_process_doc(MD_CTX *ctx)
     OFF off = 0;
     int ret = 0;
 
-    md_build_mark_char_map(ctx);
-
     MD_ENTER_BLOCK(MD_BLOCK_DOC, NULL);
 
     while(off < ctx->size) {
@@ -5078,9 +5076,8 @@ md_parse(const MD_CHAR* text, MD_SIZE size, const MD_RENDERER* renderer, void* u
     ctx.size = size;
     memcpy(&ctx.r, renderer, sizeof(MD_RENDERER));
     ctx.userdata = userdata;
-
-    /* Offset for indented code block. */
     ctx.code_indent_offset = (ctx.r.flags & MD_FLAG_NOINDENTEDCODEBLOCKS) ? (OFF)(-1) : 4;
+    md_build_mark_char_map(&ctx);
 
     /* All the work. */
     ret = md_process_doc(&ctx);
