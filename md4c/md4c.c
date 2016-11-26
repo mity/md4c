@@ -1609,7 +1609,7 @@ md_skip_unicode_whitespace(const CHAR* label, OFF off, SZ size)
 
     while(off < size) {
         codepoint = md_decode_unicode(label, off, size, &char_size);
-        if(!ISUNICODEWHITESPACE_(codepoint))
+        if(!ISUNICODEWHITESPACE_(codepoint)  &&  !ISNEWLINE_(label[off]))
             break;
         off += char_size;
     }
@@ -1637,7 +1637,7 @@ md_link_label_eq(const CHAR* a_label, SZ a_size, const CHAR* b_label, SZ b_size)
 
         if(a_off < a_size) {
             a_codepoint = md_decode_unicode(a_label, a_off, a_size, &a_char_size);
-            a_is_whitespace = ISUNICODEWHITESPACE_(a_codepoint);
+            a_is_whitespace = ISUNICODEWHITESPACE_(a_codepoint) || ISNEWLINE_(a_label[a_off]);
         } else {
             /* Treat end of label as a whitespace. */
             a_codepoint = -1;
@@ -1646,7 +1646,7 @@ md_link_label_eq(const CHAR* a_label, SZ a_size, const CHAR* b_label, SZ b_size)
 
         if(b_off < b_size) {
             b_codepoint = md_decode_unicode(b_label, b_off, b_size, &b_char_size);
-            b_is_whitespace = ISUNICODEWHITESPACE_(b_codepoint);
+            b_is_whitespace = ISUNICODEWHITESPACE_(b_codepoint) || ISNEWLINE_(b_label[b_off]);
         } else {
             /* Treat end of label as a whitespace. */
             b_codepoint = -1;
