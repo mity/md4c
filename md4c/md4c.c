@@ -4583,6 +4583,9 @@ md_is_container_mark(MD_CTX* ctx, unsigned indent, OFF beg, OFF* p_end, MD_CONTA
     OFF off = beg;
     OFF max_end;
 
+    if(indent >= ctx->code_indent_offset)
+        return FALSE;
+
     /* Check for block quote mark. */
     if(off < ctx->size  &&  CH(off) == _T('>')) {
         off++;
