@@ -2294,17 +2294,8 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 /* We limit code span marks to lower then 256 backticks. This
                  * solves a pathologic case of too many openers, each of
                  * different length: Their resolving is then O(n^2). */
-                if(tmp - off < 256) {
-                    unsigned flags;
-
-                    /* It may be opener only if it is not escaped. */
-                    if(ctx->n_marks > 0  &&  ctx->marks[ctx->n_marks-1].beg == off-1  &&  CH(off-1) == _T('\\'))
-                        flags = MD_MARK_POTENTIAL_CLOSER;
-                    else
-                        flags = MD_MARK_POTENTIAL_OPENER | MD_MARK_POTENTIAL_CLOSER;
-
-                    PUSH_MARK(ch, off, tmp, flags);
-                }
+                if(tmp - off < 256)
+                    PUSH_MARK(ch, off, tmp, MD_MARK_POTENTIAL_OPENER | MD_MARK_POTENTIAL_CLOSER);
 
                 off = tmp;
                 continue;
@@ -2476,7 +2467,18 @@ md_analyze_backtick(MD_CTX* ctx, int mark_index)
     }
 
     /* We didn't find any matching opener, so we ourselves may be the opener
-     * of some upcoming closer. */
+     * of some upcoming closer. We also have to handle specially if there is
+     * a backslash mark before it as that can cancel the first backtick. */
+    if(mark_index > 0  &&  (mark-1)->beg == mark->beg - 1  &&  (mark-1)->ch == '\\') {
+        if(mark->end - mark->beg == 1) {
+            /* Single escaped backtick. */
+            return;
+        }
+
+        /* Remove the escaped backtick from the opener. */
+        mark->beg++;
+    }
+
     if(mark->flags & MD_MARK_POTENTIAL_OPENER)
         md_mark_chain_append(ctx, &BACKTICK_OPENERS, mark_index);
 }
