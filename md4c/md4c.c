@@ -2219,9 +2219,10 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 if(!ISNEWLINE(off+1)  ||  i+1 < n_lines)
                     PUSH_MARK(ch, off, off+2, MD_MARK_RESOLVED);
 
-                /* If '`' follows, we need both marks as the backslash may be
-                 * inside a code span. */
-                if(CH(off+1) == _T('`'))
+                /* If '`' or '>' follows, we need both marks as the backslash
+                 * may be inside a code span or an autolink where escaping is
+                 * disabled. */
+                if(CH(off+1) == _T('`') || CH(off+1) == _T('>'))
                     off++;
                 else
                     off += 2;
