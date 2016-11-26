@@ -3206,7 +3206,7 @@ md_build_img_alt(MD_CTX* ctx, MD_MARK* mark, const MD_LINE* lines, int n_lines,
     OFF off = beg;
     CHAR* ptr = buffer;
 
-    /* Revive the contents of anny inner image so we include its ALT. */
+    /* Revive the contents of any inner image so we include its ALT. */
     for(inner_mark = mark; inner_mark < ctx->marks + mark->next; inner_mark++) {
         if(inner_mark->ch == '!')
             inner_mark->end = inner_mark->beg + 2;
