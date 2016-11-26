@@ -4585,23 +4585,21 @@ md_is_container_mark(MD_CTX* ctx, unsigned indent, OFF beg, OFF* p_end, MD_CONTA
     /* Check for block quote mark. */
     if(off < ctx->size  &&  CH(off) == _T('>')) {
         off++;
-        if(off < ctx->size  &&  CH(off) == _T(' '))
-            off++;
         p_container->ch = _T('>');
         p_container->is_loose = FALSE;
         p_container->mark_indent = indent;
-        /*p_container->contents_indent = indent+1;  Not meaningful*/
+        p_container->contents_indent = indent + 1;
         *p_end = off;
         return TRUE;
     }
 
     /* Check for list item bullet mark. */
-    if(off+1 < ctx->size  &&  ISANYOF(off, _T("-+*"))  &&  CH(off+1) == _T(' ')) {
+    if(off+1 < ctx->size  &&  ISANYOF(off, _T("-+*"))  &&  ISBLANK(off+1)) {
         p_container->ch = CH(off);
         p_container->is_loose = FALSE;
         p_container->mark_indent = indent;
-        p_container->contents_indent = indent + 2;
-        *p_end = off+2;
+        p_container->contents_indent = indent + 1;
+        *p_end = off+1;
         return TRUE;
     }
 
@@ -4614,13 +4612,12 @@ md_is_container_mark(MD_CTX* ctx, unsigned indent, OFF beg, OFF* p_end, MD_CONTA
         p_container->start = p_container->start * 10 + CH(off) - _T('0');
         off++;
     }
-    if(off+1 < ctx->size  &&  (CH(off) == _T('.') || CH(off) == _T(')'))   &&  CH(off+1) == _T(' ')) {
+    if(off+1 < ctx->size  &&  (CH(off) == _T('.') || CH(off) == _T(')'))   &&  ISBLANK(off+1)) {
         p_container->ch = CH(off);
         p_container->is_loose = FALSE;
         p_container->mark_indent = indent;
-        p_container->contents_indent = indent + off - beg;
-        off++;
-        *p_end = off;
+        p_container->contents_indent = indent + off - beg + 1;
+        *p_end = off+1;
         return TRUE;
     }
 
@@ -4628,10 +4625,10 @@ md_is_container_mark(MD_CTX* ctx, unsigned indent, OFF beg, OFF* p_end, MD_CONTA
 }
 
 static unsigned
-md_line_indentation(MD_CTX* ctx, OFF beg, OFF* p_end)
+md_line_indentation(MD_CTX* ctx, unsigned total_indent, OFF beg, OFF* p_end)
 {
     OFF off = beg;
-    unsigned indent = 0;
+    unsigned indent = total_indent;
 
     while(off < ctx->size  &&  ISBLANK(off)) {
         if(CH(off) == _T('\t'))
@@ -4642,7 +4639,7 @@ md_line_indentation(MD_CTX* ctx, OFF beg, OFF* p_end)
     }
 
     *p_end = off;
-    return indent;
+    return indent - total_indent;
 }
 
 static const MD_LINE_ANALYSIS md_dummy_blank_line = { MD_LINE_BLANK, 0 };
@@ -4653,6 +4650,7 @@ static int
 md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
                 const MD_LINE_ANALYSIS* pivot_line, MD_LINE_ANALYSIS* line)
 {
+    unsigned total_indent = 0;
     int n_parents = 0;
     int n_brothers = 0;
     int n_children = 0;
@@ -4661,7 +4659,8 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
     OFF off = beg;
     int ret = 0;
 
-    line->indent = md_line_indentation(ctx, off, &off);
+    line->indent = md_line_indentation(ctx, total_indent, off, &off);
+    total_indent += line->indent;
     line->beg = off;
 
     /* Given the indentation and block quote marks '>', determine how many of
@@ -4674,9 +4673,16 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
         {
             /* Block quote mark. */
             off++;
-            if(off < ctx->size  &&  CH(off) == _T(' '))
-                off++;
-            line->indent = md_line_indentation(ctx, off, &off);
+            total_indent++;
+            //if(off < ctx->size  &&  CH(off) == _T(' '))
+                //off++;
+            line->indent = md_line_indentation(ctx, total_indent, off, &off);
+            total_indent += line->indent;
+
+            /* The optional 1st space after '>' is part of the block quote mark. */
+            if(line->indent > 0)
+                line->indent--;
+
             line->beg = off;
         } else if(c->ch != _T('>')  &&  line->indent >= c->contents_indent) {
             /* List. */
@@ -4808,7 +4814,19 @@ redo:
 
     /* Check for start of a new container block. */
     if(md_is_container_mark(ctx, line->indent, off, &off, &container)) {
-        line->indent = md_line_indentation(ctx, off, &off);
+        total_indent += container.contents_indent - container.mark_indent;
+
+        /* One following space (if present) is part of the mark.
+         * (Note '\t' stands for spaces up to the next tab stop.) */
+        if(off < ctx->size  &&  ISBLANK(off)) {
+            container.contents_indent++;
+            total_indent++;
+            if(CH(off) != _T('\t')  ||  (total_indent & 3) == 3)
+                off++;
+        }
+
+        line->indent = md_line_indentation(ctx, total_indent, off, &off);
+        total_indent += line->indent;
         line->beg = off;
 
         if(n_brothers + n_children == 0) {
