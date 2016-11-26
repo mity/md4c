@@ -2286,18 +2286,25 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 
             /* A potential code span start/end. */
             if(ch == _T('`')) {
-                unsigned flags;
                 OFF tmp = off+1;
-
-                /* It may be opener only if it is not escaped. */
-                if(ctx->n_marks > 0  &&  ctx->marks[ctx->n_marks-1].beg == off-1  &&  CH(off-1) == _T('\\'))
-                    flags = MD_MARK_POTENTIAL_CLOSER;
-                else
-                    flags = MD_MARK_POTENTIAL_OPENER | MD_MARK_POTENTIAL_CLOSER;
 
                 while(tmp < line_end  &&  CH(tmp) == _T('`'))
                     tmp++;
-                PUSH_MARK(ch, off, tmp, flags);
+
+                /* We limit code span marks to lower then 256 backticks. This
+                 * solves a pathologic case of too many openers, each of
+                 * different length: Their resolving is then O(n^2). */
+                if(tmp - off < 256) {
+                    unsigned flags;
+
+                    /* It may be opener only if it is not escaped. */
+                    if(ctx->n_marks > 0  &&  ctx->marks[ctx->n_marks-1].beg == off-1  &&  CH(off-1) == _T('\\'))
+                        flags = MD_MARK_POTENTIAL_CLOSER;
+                    else
+                        flags = MD_MARK_POTENTIAL_OPENER | MD_MARK_POTENTIAL_CLOSER;
+
+                    PUSH_MARK(ch, off, tmp, flags);
+                }
 
                 off = tmp;
                 continue;
