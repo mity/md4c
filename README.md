@@ -26,26 +26,32 @@ MD4C is C Markdown parser with the following features:
 
 * **Compliance:** Generally MD4C aims to be compliant to the latest version of
   [CommonMark specification](http://spec.commonmark.org/). Right now we are
-  quite close to CommonMark 0.27.
+  very close to CommonMark 0.27.
 
-* **Extensions:** If explicitly enabled, the parser supports some commonly
-  requested and accepted extensions. See below.
+* **Extensions:** MD4C supports some commonly requested and accepted extensions.
+  See below.
 
 * **Compactness:** MD4C is implemented in one source file and one header file.
 
 * **Embedding:** MD4C is easy to reuse in other projects, its API is very
-  straightforward.
+  straightforward: There is actually just one function, `md_parse()`.
+
+* **Push model:** MD4C parses the complete document and calls callback
+  functions provided by the application for each start/end of block, start/end
+  of a span, and with any textual contents.
 
 * **Portability:** MD4C builds and works on Windows and Linux, and it should
-    be fairly trivial to build it also on other systems.
+  be fairly simple to make it run also on most other systems.
 
-* **Encoding:** MD4C can compiled to recognize ASCII-only control characters,
-  UTF-8 and, on Windows, also UTF-16 little endian, i.e. what is commonly called
-  Unicode on Windows.
+* **Encoding:** MD4C can be compiled to recognize ASCII-only control characters,
+  UTF-8 and, on Windows, also UTF-16 little endian, i.e. what is on Windows
+  commonly called just "Unicode". See more details below.
 
 * **Permissive license:** MD4C is available under the MIT license.
 
-* **Performance:** MD4C is quite fast.
+* **Performance:** MD4C is very fast. Preliminary tests show its quite faster
+  then [Hoedown](https://github.com/hoedown/hoedown) or
+  [Cmark](https://github.com/jgm/cmark).
 
 
 ## Using MD4C
@@ -54,8 +60,10 @@ The parser is implemented in a single C source file `md4c.c` and its
 accompanying header `md4c.h`.
 
 The main provided function is `md_parse()`. It takes a text in Markdown syntax
-as an input and a renderer structure which holds pointers to few callback
-functions. As `md_parse()` eats the input, it calls appropriate callbacks
+as an input and a pointer to renderer structure which holds pointers to few
+callback functions.
+
+As `md_parse()` processes the input, it calls the appropriate callbacks
 allowing application to convert it into another format or render it onto
 the screen.
 
@@ -68,19 +76,25 @@ directory which implements a conversion utility from Markdown to HTML.
 
 ## Markdown Extensions
 
-By default, MD4C recognizes only elements defined by CommonMark specification.
+The default behavior is to recognize only elements defined by the CommonMark
+specification.
 
-However with appropriate flags enabling it, behavior of MD4C parse can be tuned
-to enable some extensions or allowing some deviations from the specification.
+However with appropriate renderer flags, the behavior can be tuned to enable
+some extensions or allowing some deviations from the specification.
 
  * With the flag `MD_FLAG_COLLAPSEWHITESPACE`, non-trivial whitespace is
    collapsed into a single space.
+
  * With the flag `MD_FLAG_TABLES`, GitHub-style tables are supported.
+
  * With the flag `MD_FLAG_PERMISSIVEURLAUTOLINKS` permissive URL autolinks
    (not enclosed in '<' and '>') are supported.
+
  * With the flag `MD_FLAG_PERMISSIVEAUTOLINKS`, ditto for e-mail autolinks.
+
  * With the flag `MD_FLAG_NOHTMLSPANS` or `MD_FLAG_NOHTML`, raw inline HTML
    or raw HTML blocks respectively are disabled.
+
  * With the flag `MD_FLAG_NOINDENTEDCODEBLOCKS`, indented code blocks are
    disabled.
 
@@ -88,26 +102,41 @@ to enable some extensions or allowing some deviations from the specification.
 ## Input/Output Encoding
 
 The CommonMark specification generally assumes UTF-8 input, but under closer
-inspection Unicode is actually used on very few occasions.
+inspection Unicode is actually used on very few occasions:
 
-MD4C uses this property of the standard and its implementation is to a large
-degree encoding-agnostic, just with the assumption the encoding of your choice
-is compatible with ASCII.
+  * Classification of Unicode character as a Unicode whitespace or Unicode
+    punctuation. This is used for detection of word boundary when processing
+    emphasis and strong emphasis.
 
-By default MD4C simply only understands the ASCII characters as those making
-the marks in the document, and all the other input (the text) is provided
-as it is on the input.
+  * Unicode case folding. This is used to perform case-independent matching
+    of link labels when resolving reference links.
 
-That said, the Unicode is supported too:
+MD4C uses this property of the standard and its implementation is, to a large
+degree, encoding-agnostic. Most of the code only assumes that the encoding of
+your choice is compatible with ASCII, i.e. that the codepoints below 128 have
+the same numeric values as ASCII.
 
- * If you predefine macro `MD4C_USE_UNICODE`, MD4C performs parsing of UTF-8
-   locally where it does matter.
+All input MD4C does not understand is seen as a text and sent to the callbacks
+unchanged.
 
- * On Windows, if you predefine macro `MD4C_USE_WIN_UNICODE`, MD4C shall use
-   `WCHAR` instead of `char` and will assume UTF16-LE encoding.
+The behavior of MD4C in the isolated situations where the encoding really
+matters is determined by preprocessor macros:
 
-It should be relatively easy to add support for any other encoding, as long as
-its codepoints below 128 are compatible with ASCII.
+ * If preprocessor macro `MD4C_USE_UNICODE` is defined, MD4C assumes UTF-8
+   in the specific situations.
+
+ * On Windows, if preprocessor macro `MD4C_USE_WIN_UNICODE` is defined, MD4C
+   assumes little-endian UTF-16 and uses `WCHAR` instead of `char`. This allows
+   usage of MD4C directly within Unicode applications on Windows, without any
+   text conversion.
+
+ * When none of the macros is defined, ASCII-only approach is used even in
+   the listed situations. This effectively means that non-ASCII whitespace or
+   punctuation characters won't be recognized as such and that case-folding is
+   performed only on ASCII letters (i.e. `[a-zA-Z]`).
+
+(Adding support for yet another encodings should be relatively simple due
+the isolation of the respective code.)
 
 
 ## License

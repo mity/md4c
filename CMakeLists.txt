@@ -6,6 +6,10 @@ project(MD4C C)
 set(CMAKE_CONFIGURATION_TYPES Debug Release RelWithDebInfo MinSizeRel)
 if("${CMAKE_BUILD_TYPE}" STREQUAL "")
     set(CMAKE_BUILD_TYPE $ENV{CMAKE_BUILD_TYPE})
+
+    if("${CMAKE_BUILD_TYPE}" STREQUAL "")
+        set(CMAKE_BUILD_TYPE "Release")
+    endif()
 endif()
 
 
