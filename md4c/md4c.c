@@ -4803,6 +4803,7 @@ redo:
         if(line->indent < ctx->code_indent_offset) {
             if(md_is_closing_code_fence(ctx, CH(pivot_line->beg), off, &off)) {
                 line->type = MD_LINE_BLANK;
+                ctx->last_line_has_list_loosening_effect = FALSE;
                 goto done;
             }
         }
