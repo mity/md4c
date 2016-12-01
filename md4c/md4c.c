@@ -4927,6 +4927,8 @@ redo:
                 pivot_line = &md_dummy_blank_line;
 
                 if(n_parents < ctx->n_containers  &&  md_is_container_compatible(&ctx->containers[n_parents], &container)) {
+                    ctx->containers[n_parents].mark_indent = container.mark_indent;
+                    ctx->containers[n_parents].contents_indent = container.contents_indent;
                     n_brothers++;
                     goto redo;
                 }
