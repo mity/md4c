@@ -3501,6 +3501,16 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 
                 if(prev_mark->end < off  &&  off < mark->beg)
                     MD_TEXT(MD_TEXT_CODE, _T(" "), 1);
+            } else if(text_type == MD_TEXT_HTML) {
+                /* Inside raw HTML, we output the new line verbatim, including
+                 * any trailing spaces. */
+                OFF tmp = off;
+
+                while(tmp < end  &&  ISBLANK(tmp))
+                    tmp++;
+                if(tmp > off)
+                    MD_TEXT(MD_TEXT_HTML, STR(off), tmp - off);
+                MD_TEXT(MD_TEXT_HTML, _T("\n"), 1);
             } else {
                 /* Output soft or hard line break. */
                 MD_TEXTTYPE break_type = MD_TEXT_SOFTBR;
