@@ -4802,6 +4802,15 @@ redo:
             }
         }
 
+        if(off >= ctx->size  ||  ISNEWLINE(off)) {
+            /* Blank line does not need any real indentation to be nested inside
+             * a list. */
+            if(n_brothers + n_children == 0) {
+                while(n_parents < ctx->n_containers  &&  ctx->containers[n_parents].ch != _T('>'))
+                    n_parents++;
+            }
+        }
+
         /* Change indentation accordingly to the initial code fence. */
         if(n_parents == ctx->n_containers) {
             if(line->indent > pivot_line->indent)
