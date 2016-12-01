@@ -4754,8 +4754,6 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
             /* Block quote mark. */
             off++;
             total_indent++;
-            //if(off < ctx->size  &&  CH(off) == _T(' '))
-                //off++;
             line->indent = md_line_indentation(ctx, total_indent, off, &off);
             total_indent += line->indent;
 
@@ -4896,18 +4894,18 @@ redo:
     if(md_is_container_mark(ctx, line->indent, off, &off, &container)) {
         total_indent += container.contents_indent - container.mark_indent;
 
-        /* One following space (if present) is part of the mark.
-         * (Note '\t' stands for spaces up to the next tab stop.) */
-        if(off < ctx->size  &&  ISBLANK(off)) {
-            container.contents_indent++;
-            total_indent++;
-            if(CH(off) != _T('\t')  ||  (total_indent & 3) == 3)
-                off++;
-        }
-
         line->indent = md_line_indentation(ctx, total_indent, off, &off);
         total_indent += line->indent;
         line->beg = off;
+
+        /* Some of the following whitespace actually still belongs to the mark. */
+        if(line->indent <= 4) {
+            container.contents_indent += line->indent;
+            line->indent = 0;
+        } else {
+            container.contents_indent += 1;
+            line->indent--;
+        }
 
         if(n_brothers + n_children == 0) {
             pivot_line = &md_dummy_blank_line;
