@@ -4899,7 +4899,7 @@ redo:
         line->beg = off;
 
         /* Some of the following whitespace actually still belongs to the mark. */
-        if(line->indent <= 4) {
+        if(line->indent <= ctx->code_indent_offset) {
             container.contents_indent += line->indent;
             line->indent = 0;
         } else {
