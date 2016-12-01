@@ -146,7 +146,7 @@ struct MD_CTX_tag {
     unsigned n_containers;
     unsigned alloc_containers;
 
-    int last_line_is_blank;
+    int last_line_has_list_loosening_effect;
 
     /* Minimal indentation to call the block "indented code block". */
     unsigned code_indent_offset;
@@ -4684,7 +4684,7 @@ md_is_container_mark(MD_CTX* ctx, unsigned indent, OFF beg, OFF* p_end, MD_CONTA
     }
 
     /* Check for list item bullet mark. */
-    if(off+1 < ctx->size  &&  ISANYOF(off, _T("-+*"))  &&  ISBLANK(off+1)) {
+    if(off+1 < ctx->size  &&  ISANYOF(off, _T("-+*"))  &&  (ISBLANK(off+1) || ISNEWLINE(off+1))) {
         p_container->ch = CH(off);
         p_container->is_loose = FALSE;
         p_container->mark_indent = indent;
@@ -4702,7 +4702,7 @@ md_is_container_mark(MD_CTX* ctx, unsigned indent, OFF beg, OFF* p_end, MD_CONTA
         p_container->start = p_container->start * 10 + CH(off) - _T('0');
         off++;
     }
-    if(off+1 < ctx->size  &&  (CH(off) == _T('.') || CH(off) == _T(')'))   &&  ISBLANK(off+1)) {
+    if(off+1 < ctx->size  &&  (CH(off) == _T('.') || CH(off) == _T(')'))   &&  (ISBLANK(off+1) || ISNEWLINE(off+1))) {
         p_container->ch = CH(off);
         p_container->is_loose = FALSE;
         p_container->mark_indent = indent;
@@ -4745,7 +4745,7 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
     int n_brothers = 0;
     int n_children = 0;
     MD_CONTAINER container;
-    int prev_line_is_blank = ctx->last_line_is_blank;
+    int prev_line_has_list_loosening_effect = ctx->last_line_has_list_loosening_effect;
     OFF off = beg;
     int ret = 0;
 
@@ -4848,14 +4848,14 @@ redo:
                 line->indent -= ctx->code_indent_offset;
             else
                 line->indent = 0;
-            ctx->last_line_is_blank = FALSE;
+            ctx->last_line_has_list_loosening_effect = FALSE;
         } else {
             line->type = MD_LINE_BLANK;
-            ctx->last_line_is_blank = TRUE;
+            ctx->last_line_has_list_loosening_effect = (n_brothers + n_children == 0);
         }
         goto done;
     } else {
-        ctx->last_line_is_blank = FALSE;
+        ctx->last_line_has_list_loosening_effect = FALSE;
     }
 
     /* Check for indented code.
@@ -4906,32 +4906,39 @@ redo:
 
         line->indent = md_line_indentation(ctx, total_indent, off, &off);
         total_indent += line->indent;
-        line->beg = off;
 
-        /* Some of the following whitespace actually still belongs to the mark. */
-        if(line->indent <= ctx->code_indent_offset) {
-            container.contents_indent += line->indent;
-            line->indent = 0;
+        if((off >= ctx->size || ISNEWLINE(off))  &&  pivot_line->type == MD_LINE_TEXT  &&  n_parents == ctx->n_containers) {
+            /* Noop. List mark followed by a blank line cannot interrupt a paragraph. */
         } else {
-            container.contents_indent += 1;
-            line->indent--;
-        }
+            line->beg = off;
 
-        if(n_brothers + n_children == 0) {
-            pivot_line = &md_dummy_blank_line;
-
-            if(n_parents < ctx->n_containers  &&  md_is_container_compatible(&ctx->containers[n_parents], &container)) {
-                n_brothers++;
-                goto redo;
+            /* Some of the following whitespace actually still belongs to the mark. */
+            if(off >= ctx->size || ISNEWLINE(off)) {
+                container.contents_indent++;
+            } else if(line->indent <= ctx->code_indent_offset) {
+                container.contents_indent += line->indent;
+                line->indent = 0;
+            } else {
+                container.contents_indent += 1;
+                line->indent--;
             }
+
+            if(n_brothers + n_children == 0) {
+                pivot_line = &md_dummy_blank_line;
+
+                if(n_parents < ctx->n_containers  &&  md_is_container_compatible(&ctx->containers[n_parents], &container)) {
+                    n_brothers++;
+                    goto redo;
+                }
+            }
+
+            if(n_children == 0)
+                MD_CHECK(md_leave_child_containers(ctx, n_parents + n_brothers));
+
+            n_children++;
+            MD_CHECK(md_push_container(ctx, &container));
+            goto redo;
         }
-
-        if(n_children == 0)
-            MD_CHECK(md_leave_child_containers(ctx, n_parents + n_brothers));
-
-        n_children++;
-        MD_CHECK(md_push_container(ctx, &container));
-        goto redo;
     }
 
     /* Check for ATX header. */
@@ -5032,7 +5039,7 @@ done:
     *p_end = off;
 
     /* If we belong to a list after seeing a blank line, the enclosing is loose. */
-    if(prev_line_is_blank  &&  line->type != MD_LINE_BLANK  &&  n_parents + n_brothers > 0) {
+    if(prev_line_has_list_loosening_effect  &&  line->type != MD_LINE_BLANK  &&  n_parents + n_brothers > 0) {
         MD_CONTAINER* c = &ctx->containers[n_parents + n_brothers - 1];
         if(c->ch != _T('>')) {
             MD_BLOCK* block = (MD_BLOCK*) (((char*)ctx->block_bytes) + c->block_byte_off);
