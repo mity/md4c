@@ -4913,8 +4913,14 @@ redo:
         line->indent = md_line_indentation(ctx, total_indent, off, &off);
         total_indent += line->indent;
 
-        if((off >= ctx->size || ISNEWLINE(off))  &&  pivot_line->type == MD_LINE_TEXT  &&  n_parents == ctx->n_containers) {
+        if(pivot_line->type == MD_LINE_TEXT  &&  n_parents == ctx->n_containers  &&
+                    (off >= ctx->size || ISNEWLINE(off)))
+        {
             /* Noop. List mark followed by a blank line cannot interrupt a paragraph. */
+        } else if(pivot_line->type == MD_LINE_TEXT  &&  n_parents == ctx->n_containers  &&
+                    (container.ch == _T('.') || container.ch == _T(')'))  &&  container.start != 1)
+        {
+            /* Noop. Ordered list cannot interrupt a paragraph unless the start index is 1. */
         } else {
             line->beg = off;
 
