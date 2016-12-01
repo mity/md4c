@@ -33,13 +33,6 @@
 
 /* Magic to support UTF16-LE (i.e. what is called Unicode among Windows
  * developers) input/output on Windows.
- *
- * On most platforms, we handle char strings and do not care about encoding
- * as far as the controlling Markdown syntax is actually ASCII-friendly.
- * The actual text is provided into callbacks as it is.
- *
- * On Windows, when UNICODE is defined, we by default switch to WCHAR.
- * This behavior may be disabled by predefining MD4C_DISABLE_WIN_UNICODE.
  */
 #if defined MD4C_USE_WIN_UNICODE
     #include <windows.h>
@@ -132,26 +125,26 @@ enum MD_TEXTTYPE_tag {
     /* Normal text. */
     MD_TEXT_NORMAL = 0,
 
-    /* NULL character. Markdown is supposed to replace NULL character with
-     * the replacement char U+FFFD but since we are encoding agnostic, caller
-     * has to do that. */
+    /* NULL character. CommonMark requires replacing NULL character with
+     * the replacement char U+FFFD, so this allows caller to do that easily. */
     MD_TEXT_NULLCHAR,
 
     /* Line breaks.
-     * Note these are only sent within MD_BLOCK_CODE or MD_BLOCK_HTML. */
+     * Note these are not sent from blocks with verbatim output (MD_BLOCK_CODE
+     * or MD_BLOCK_HTML). In such cases, '\n' is part of the text itself. */
     MD_TEXT_BR,         /* <br> (hard break) */
     MD_TEXT_SOFTBR,     /* '\n' in source text where it is not semantically meaningful (soft break) */
 
     /* Entity.
      * (a) Named entity, e.g. &nbsp; 
-     *     (Note MD4C does not have a lsit of known entities.
+     *     (Note MD4C does not have a list of known entities.
      *     Anything matching the regexp /&[A-Za-z][A-Za-z0-9]{1,47};/ is
      *     treated as a named entity.)
      * (b) Numerical entity, e.g. &#1234;
      * (c) Hexadecimal entity, e.g. &#x12AB;
      *
-     * As MD4C is encoding agnostic, application gets the verbatim entity
-     * text into the MD_RENDERER::text_callback(). */
+     * As MD4C is mostly encoding agnostic, application gets the verbatim
+     * entity text into the MD_RENDERER::text_callback(). */
     MD_TEXT_ENTITY,
 
     /* Text in a code block (inside MD_BLOCK_CODE) or inlined code (`code`).
@@ -160,7 +153,9 @@ enum MD_TEXTTYPE_tag {
      * kind of text. */
     MD_TEXT_CODE,
 
-    /* Text is a raw HTML. */
+    /* Text is a raw HTML. If it is contents of a raw HTML block (i.e. not
+     * an inline raw HTML), then MD_TEXT_BR and MD_TEXT_SOFTBR are not used.
+     * The text contains verbatim '\n' for the new lines. */
     MD_TEXT_HTML
 };
 
@@ -175,7 +170,7 @@ enum MD_ALIGN_tag {
 };
 
 
-/* Detailed info for MD_BLOCK_H. */
+/* Detailed info for MD_BLOCK_OL_DETAIL. */
 typedef struct MD_BLOCK_OL_DETAIL_tag MD_BLOCK_OL_DETAIL;
 struct MD_BLOCK_OL_DETAIL_tag {
     unsigned start;         /* Start index of the ordered list. */
@@ -245,18 +240,24 @@ struct MD_SPAN_IMG_DETAIL_tag {
 #define MD_FLAG_NOHTML                      (MD_FLAG_NOHTMLBLOCKS | MD_FLAG_NOHTMLSPANS)
 #define MD_FLAG_TABLES                      0x0100  /* Enable tables extension. */
 
-/* Caller-provided callbacks.
- *
- * For some block/span types, more detailed information is provided in a
- * type-specific structure pointed by the argument 'detail'.
- *
- * The last argument of all callbacks, 'userdata', is just propagated from
- * md_parse() and is available for any use by the application.
- *
- * Callbacks may abort further parsing of the document by returning non-zero.
+/* Renderer structure.
  */
 typedef struct MD_RENDERER_tag MD_RENDERER;
 struct MD_RENDERER_tag {
+    /* Caller-provided rendering callbacks.
+     *
+     * For some block/span types, more detailed information is provided in a
+     * type-specific structure pointed by the argument 'detail'.
+     *
+     * The last argument of all callbacks, 'userdata', is just propagated from
+     * md_parse() and is available for any use by the application.
+     *
+     * Note any strings provided to the callbacks as their arguments or as
+     * members of any detail structure are generally not zero-terminated.
+     * Application has take the respective size information into account.
+     *
+     * Callbacks may abort further parsing of the document by returning non-zero.
+     */
     int (*enter_block)(MD_BLOCKTYPE /*type*/, void* /*detail*/, void* /*userdata*/);
     int (*leave_block)(MD_BLOCKTYPE /*type*/, void* /*detail*/, void* /*userdata*/);
 
@@ -265,14 +266,17 @@ struct MD_RENDERER_tag {
 
     int (*text)(MD_TEXTTYPE /*type*/, const MD_CHAR* /*text*/, MD_SIZE /*size*/, void* /*userdata*/);
 
-    /* If not NULL and something goes wrong, this function gets called.
+    /* Debug callback. Optional (may be NULL).
+     *
+     * If provided and something goes wrong, this function gets called.
      * This is intended for debugging and problem diagnosis for developers;
      * it is not intended to provide any errors suitable for displaying to an
      * end user.
      */
     void (*debug_log)(const char* /*msg*/, void* /*userdata*/);
 
-    /* Dialect options. */
+    /* Dialect options. Bitmask of MD_FLAG_xxxx values.
+     */
     unsigned flags;
 };
 
@@ -283,10 +287,8 @@ struct MD_RENDERER_tag {
  * to another format.
  *
  * Zero is returned on success. If a runtime error occurs (e.g. a memory
- * fails), -1 is returned. If an internal error occurs (i.e. an internal
- * assertion fails, implying there is a bug in MD4C), then -2 is returned.
- * If the processing is aborted due any callback returning non-zero,
- * md_parse() returns return value of the callback.
+ * fails), -1 is returned. If the processing is aborted due any callback
+ * returning non-zero, md_parse() the return value of the callback is returned.
  */
 int md_parse(const MD_CHAR* text, MD_SIZE size, const MD_RENDERER* renderer, void* userdata);
 
