@@ -4857,7 +4857,9 @@ redo:
             ctx->last_line_has_list_loosening_effect = FALSE;
         } else {
             line->type = MD_LINE_BLANK;
-            ctx->last_line_has_list_loosening_effect = (n_brothers + n_children == 0);
+            ctx->last_line_has_list_loosening_effect = (n_parents > 0  &&
+                    n_brothers + n_children == 0  &&
+                    ctx->containers[n_parents-1].ch != _T('>'));
         }
         goto done;
     } else {
