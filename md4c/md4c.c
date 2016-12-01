@@ -3901,6 +3901,12 @@ md_process_all_blocks(MD_CTX* ctx)
                 if(block->type == MD_BLOCK_UL || block->type == MD_BLOCK_OL) {
                     ctx->containers[ctx->n_containers].is_loose = (block->flags & MD_BLOCK_LOOSE_LIST);
                     ctx->n_containers++;
+                } else if(block->type == MD_BLOCK_QUOTE) {
+                    /* This causes that any text in a block quote, even if
+                     * nested inside a tight list item, is wrapped with
+                     * <p>...</p>. */
+                    ctx->containers[ctx->n_containers].is_loose = TRUE;
+                    ctx->n_containers++;
                 }
             }
         } else {
