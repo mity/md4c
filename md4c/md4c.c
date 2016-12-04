@@ -2074,8 +2074,9 @@ md_rollback(MD_CTX* ctx, int opener_index, int closer_index, int how)
     int i;
     int mark_index;
 
-    /* Cut all unresolved openers at the mark index. */
-    for(i = 0; i < SIZEOF_ARRAY(ctx->mark_chains); i++) {
+    /* Cut all unresolved openers at the mark index. 
+     * (start at 1 to not touch PTR_CHAIN.) */
+    for(i = 1; i < SIZEOF_ARRAY(ctx->mark_chains); i++) {
         MD_MARKCHAIN* chain = &ctx->mark_chains[i];
 
         while(chain->tail >= opener_index)
@@ -2734,8 +2735,8 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
         int closer_index = opener->next;
         MD_MARK* closer = &ctx->marks[closer_index];
         int next_index = opener->prev;
-        MD_MARK* next_opener = &ctx->marks[next_index];
-        MD_MARK* next_closer = &ctx->marks[next_opener->next];
+        MD_MARK* next_opener;
+        MD_MARK* next_closer;
         MD_LINK_ATTR attr;
         int is_link = FALSE;
 
@@ -2744,6 +2745,7 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             next_closer = &ctx->marks[next_opener->next];
         } else {
             next_opener = NULL;
+            next_closer = NULL;
         }
 
         /* If nested ("[ [ ] ]"), we need to make sure that:
@@ -3151,21 +3153,12 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF en
 static int
 md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 {
-    int i;
     int ret;
     OFF beg = lines[0].beg;
     OFF end = lines[n_lines-1].end;
 
     /* Reset the previously collected stack of marks. */
     ctx->n_marks = 0;
-
-    /* Reset all unresolved opener mark chains. */
-    for(i = 0; i < SIZEOF_ARRAY(ctx->mark_chains); i++) {
-        ctx->mark_chains[i].head = -1;
-        ctx->mark_chains[i].tail = -1;
-    }
-    ctx->unresolved_link_head = -1;
-    ctx->unresolved_link_tail = -1;
 
     /* Collect all marks. */
     if(md_collect_marks(ctx, lines, n_lines) != 0)
@@ -3174,11 +3167,23 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
     /* We analyze marks in few groups to handle their precedence. */
     /* (1) Entities; code spans; autolinks; raw HTML. */
     md_analyze_marks(ctx, lines, n_lines, beg, end, _T("&`<>"));
+    BACKTICK_OPENERS.head = -1;
+    BACKTICK_OPENERS.tail = -1;
+    LOWERTHEN_OPENERS.head = -1;
+    LOWERTHEN_OPENERS.tail = -1;
     /* (2) Links. */
     md_analyze_marks(ctx, lines, n_lines, beg, end, _T("[]!"));
     MD_CHECK(md_resolve_links(ctx, lines, n_lines));
+    BRACKET_OPENERS.head = -1;
+    BRACKET_OPENERS.tail = -1;
+    ctx->unresolved_link_head = -1;
+    ctx->unresolved_link_tail = -1;
     /* (3) Emphasis and strong emphasis; permissive autolinks. */
     md_analyze_marks(ctx, lines, n_lines, beg, end, _T("*_@:"));
+    ASTERISK_OPENERS.head = -1;
+    ASTERISK_OPENERS.tail = -1;
+    UNDERSCORE_OPENERS.head = -1;
+    UNDERSCORE_OPENERS.tail = -1;
 
 abort:
     return ret;
@@ -3188,8 +3193,6 @@ static void
 md_analyze_link_contents(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF end)
 {
     md_analyze_marks(ctx, lines, n_lines, beg, end, _T("*_@:"));
-
-    /* Reset the chains we could use. */
     ASTERISK_OPENERS.head = -1;
     ASTERISK_OPENERS.tail = -1;
     UNDERSCORE_OPENERS.head = -1;
@@ -3288,7 +3291,7 @@ md_build_img_alt(MD_CTX* ctx, MD_MARK* mark, const MD_LINE* lines, int n_lines,
                 off = mark->end;
 
                 mark++;
-                while(!(mark->flags & MD_MARK_RESOLVED))
+                while(!(mark->flags & MD_MARK_RESOLVED) || mark->beg < off)
                     mark++;
             }
         }
@@ -3703,6 +3706,8 @@ abort:
     /* Free any temporary memory blocks stored within some dummy marks. */
     for(i = PTR_CHAIN.head; i >= 0; i = ctx->marks[i].next)
         free(md_mark_get_ptr(ctx, i));
+    PTR_CHAIN.head = -1;
+    PTR_CHAIN.tail = -1;
 
     return ret;
 }
@@ -4798,6 +4803,7 @@ redo:
         if(line->indent < ctx->code_indent_offset) {
             if(md_is_closing_code_fence(ctx, CH(pivot_line->beg), off, &off)) {
                 line->type = MD_LINE_BLANK;
+                ctx->last_line_has_list_loosening_effect = FALSE;
                 goto done;
             }
         }
@@ -5216,6 +5222,7 @@ int
 md_parse(const MD_CHAR* text, MD_SIZE size, const MD_RENDERER* renderer, void* userdata)
 {
     MD_CTX ctx;
+    int i;
     int ret;
 
     /* Setup context structure. */
@@ -5226,6 +5233,14 @@ md_parse(const MD_CHAR* text, MD_SIZE size, const MD_RENDERER* renderer, void* u
     ctx.userdata = userdata;
     ctx.code_indent_offset = (ctx.r.flags & MD_FLAG_NOINDENTEDCODEBLOCKS) ? (OFF)(-1) : 4;
     md_build_mark_char_map(&ctx);
+
+    /* Reset all unresolved opener mark chains. */
+    for(i = 0; i < SIZEOF_ARRAY(ctx.mark_chains); i++) {
+        ctx.mark_chains[i].head = -1;
+        ctx.mark_chains[i].tail = -1;
+    }
+    ctx.unresolved_link_head = -1;
+    ctx.unresolved_link_tail = -1;
 
     /* All the work. */
     ret = md_process_doc(&ctx);
