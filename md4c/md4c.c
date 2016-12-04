@@ -2735,7 +2735,7 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
         int closer_index = opener->next;
         MD_MARK* closer = &ctx->marks[closer_index];
         int next_index = opener->prev;
-        MD_MARK* next_opener = &ctx->marks[next_index];
+        MD_MARK* next_opener;
         MD_MARK* next_closer;
         MD_LINK_ATTR attr;
         int is_link = FALSE;
@@ -2745,6 +2745,7 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             next_closer = &ctx->marks[next_opener->next];
         } else {
             next_opener = NULL;
+            next_closer = NULL;
         }
 
         /* If nested ("[ [ ] ]"), we need to make sure that:
