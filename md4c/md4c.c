@@ -3288,7 +3288,7 @@ md_build_img_alt(MD_CTX* ctx, MD_MARK* mark, const MD_LINE* lines, int n_lines,
                 off = mark->end;
 
                 mark++;
-                while(!(mark->flags & MD_MARK_RESOLVED))
+                while(!(mark->flags & MD_MARK_RESOLVED) || mark->beg < off)
                     mark++;
             }
         }
