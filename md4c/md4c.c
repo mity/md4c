@@ -2794,7 +2794,7 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 if(is_link) {
                     int i = closer_index + 1;
 
-                    while((unsigned)i < ctx->n_marks) {
+                    while(i < ctx->n_marks) {
                         MD_MARK* mark = &ctx->marks[i];
 
                         if(mark->beg >= inline_link_end)
@@ -2885,7 +2885,7 @@ md_analyze_entity(MD_CTX* ctx, int mark_index)
      * So we can do all the work on '&' and do not call this later for the
      * closing mark ';'.
      */
-    if((unsigned)(mark_index + 1) >= ctx->n_marks)
+    if(mark_index + 1 >= ctx->n_marks)
         return;
     closer = &ctx->marks[mark_index+1];
     if(closer->ch != ';')
@@ -3103,7 +3103,7 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, SZ n_lines, OFF beg, OFF end
 {
     int i = 0;
 
-    while((unsigned)i < ctx->n_marks) {
+    while(i < ctx->n_marks) {
         MD_MARK* mark = &ctx->marks[i];
 
         /* Do not care about marks outside the given range. */
@@ -4597,7 +4597,7 @@ md_push_container(MD_CTX* ctx, const MD_CONTAINER* container)
 static int
 md_enter_child_containers(MD_CTX* ctx, unsigned n_children)
 {
-    unsigned i;
+    int i;
     int ret = 0;
 
     for(i = ctx->n_containers - n_children; i < ctx->n_containers; i++) {
@@ -4637,7 +4637,7 @@ abort:
 }
 
 static int
-md_leave_child_containers(MD_CTX* ctx, unsigned n_keep)
+md_leave_child_containers(MD_CTX* ctx, int n_keep)
 {
     int ret = 0;
 
@@ -4754,8 +4754,8 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
                 const MD_LINE_ANALYSIS* pivot_line, MD_LINE_ANALYSIS* line)
 {
     unsigned total_indent = 0;
-    unsigned n_parents = 0;
-    unsigned n_brothers = 0;
+    int n_parents = 0;
+    int n_brothers = 0;
     int n_children = 0;
     MD_CONTAINER container;
     int prev_line_has_list_loosening_effect = ctx->last_line_has_list_loosening_effect;
