@@ -103,16 +103,16 @@ struct MD_CTX_tag {
 
     /* Link reference definitions. */
     MD_LINK_REF_DEF* link_ref_defs;
-    unsigned n_link_ref_defs;
-    unsigned alloc_link_ref_defs;
+    int n_link_ref_defs;
+    int alloc_link_ref_defs;
 
     /* Stack of inline/span markers.
      * This is only used for parsing a single block contents but by storing it
      * here we may reuse the stack for subsequent blocks; i.e. we have fewer
      * (re)allocations. */
     MD_MARK* marks;
-    unsigned n_marks;
-    unsigned alloc_marks;
+    int n_marks;
+    int alloc_marks;
 
     char mark_char_map[128];
 
@@ -138,13 +138,13 @@ struct MD_CTX_tag {
      */
     void* block_bytes;
     MD_BLOCK* current_block;
-    unsigned n_block_bytes;
-    unsigned alloc_block_bytes;
+    int n_block_bytes;
+    int alloc_block_bytes;
 
     /* For container block analysis. */
     MD_CONTAINER* containers;
-    unsigned n_containers;
-    unsigned alloc_containers;
+    int n_containers;
+    int alloc_containers;
 
     int last_line_has_list_loosening_effect;
 
@@ -1681,7 +1681,7 @@ md_link_label_eq(const CHAR* a_label, SZ a_size, const CHAR* b_label, SZ b_size)
 static int
 md_lookup_link_ref_def(MD_CTX* ctx, const CHAR* label, SZ label_size, MD_LINK_REF_DEF** p_def)
 {
-    unsigned i;
+    int i;
 
     for(i = 0; i < ctx->n_link_ref_defs; i++) {
         MD_LINK_REF_DEF* def = &ctx->link_ref_defs[i];
@@ -1839,7 +1839,7 @@ abort:
 static void
 md_free_link_ref_defs(MD_CTX* ctx)
 {
-    unsigned i;
+    int i;
 
     for(i = 0; i < ctx->n_link_ref_defs; i++) {
         MD_LINK_REF_DEF* def = &ctx->link_ref_defs[i];
@@ -3873,7 +3873,7 @@ abort:
 static int
 md_process_all_blocks(MD_CTX* ctx)
 {
-    unsigned byte_off = 0;
+    int byte_off = 0;
     int ret = 0;
 
     /* ctx->containers now is not needed for detection of lists and list items
@@ -3938,7 +3938,7 @@ abort:
  ************************************/
 
 static void*
-md_push_block_bytes(MD_CTX* ctx, unsigned n_bytes)
+md_push_block_bytes(MD_CTX* ctx, int n_bytes)
 {
     void* ptr;
 
