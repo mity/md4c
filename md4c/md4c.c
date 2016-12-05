@@ -697,7 +697,7 @@ struct MD_UNICODE_FOLD_INFO_tag {
          * little-endian UTF-16, i.e. the low surrogate precedes the high
          * surrogate. */
         if(IS_UTF16_SURROGATE_LO(str[0])) {
-            if(off+1 < str_size && IS_UTF16_SURROGATE_HI(str[1])) {
+            if(1 < str_size && IS_UTF16_SURROGATE_HI(str[1])) {
                 if(p_size != NULL)
                     *p_size = 2;
                 return UTF16_COMPUTE_SURROGATE(str[1], str[0]);
@@ -1728,7 +1728,7 @@ md_is_link_reference(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
         MD_CHECK(md_remove_line_breaks(ctx, beg, end, beg_line,
                  n_lines - (beg_line - lines), _T(' '), &label, &label_size));
     } else {
-        label = (char*) STR(beg);
+        label = (CHAR*) STR(beg);
         label_size = end - beg;
     }
 
