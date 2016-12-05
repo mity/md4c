@@ -893,7 +893,7 @@ md_is_html_tag(MD_CTX* ctx, const MD_LINE* lines, SZ n_lines, OFF beg, OFF max_e
     while(1) {
         while(off < line_end  &&  !ISNEWLINE(off)) {
             if(attr_state > 40) {
-                if(attr_state == 41 && ISANYOF(off, _T("\"'=<>`"))) {
+                if(attr_state == 41 && ISANYOF(off, _T("\"'=<>`\t\r\n "))) {
                     attr_state = 0;
                     off--;  /* Put the char back for re-inspection in the new state. */
                 } else if(attr_state == 42 && CH(off) == _T('\'')) {
