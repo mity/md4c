@@ -49,7 +49,7 @@ MD4C is C Markdown parser with the following features:
 
 * **Permissive license:** MD4C is available under the MIT license.
 
-* **Performance:** MD4C is very fast. Preliminary tests show its quite faster
+* **Performance:** MD4C is very fast. Preliminary tests show it's quite faster
   then [Hoedown](https://github.com/hoedown/hoedown) or
   [Cmark](https://github.com/jgm/cmark).
 
@@ -76,8 +76,8 @@ directory which implements a conversion utility from Markdown to HTML.
 
 ## Markdown Extensions
 
-The default behavior is to recognize only elements defined by the CommonMark
-specification.
+The default behavior is to recognize only elements defined by the [CommonMark
+specification](http://spec.commonmark.org/).
 
 However with appropriate renderer flags, the behavior can be tuned to enable
 some extensions or allowing some deviations from the specification.
