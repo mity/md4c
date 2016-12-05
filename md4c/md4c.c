@@ -432,7 +432,7 @@ struct MD_UNICODE_FOLD_INFO_tag {
 };
 
 
-#if defined MD4C_USE_WIN_UNICODE || defined MD4C_USE_UNICODE
+#if defined MD4C_USE_WIN_UNICODE || defined MD4C_USE_UTF8
     static int
     md_is_unicode_whitespace__(int codepoint)
     {
@@ -731,7 +731,7 @@ struct MD_UNICODE_FOLD_INFO_tag {
     {
         return md_decode_utf16le__(str+off, str_size-off, p_char_size);
     }
-#elif defined MD4C_USE_UNICODE
+#elif defined MD4C_USE_UTF8
     #define IS_UTF8_LEAD1(byte)     ((unsigned char)(byte) <= 0x7f)
     #define IS_UTF8_LEAD2(byte)     (((unsigned char)(byte) & 0xe0) == 0xc0)
     #define IS_UTF8_LEAD3(byte)     (((unsigned char)(byte) & 0xf0) == 0xe0)

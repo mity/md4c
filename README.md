@@ -122,7 +122,7 @@ unchanged.
 The behavior of MD4C in the isolated situations where the encoding really
 matters is determined by preprocessor macros:
 
- * If preprocessor macro `MD4C_USE_UNICODE` is defined, MD4C assumes UTF-8
+ * If preprocessor macro `MD4C_USE_UTF8` is defined, MD4C assumes UTF-8
    in the specific situations.
 
  * On Windows, if preprocessor macro `MD4C_USE_WIN_UNICODE` is defined, MD4C
