@@ -893,7 +893,7 @@ md_is_html_tag(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF max_
     while(1) {
         while(off < line_end  &&  !ISNEWLINE(off)) {
             if(attr_state > 40) {
-                if(attr_state == 41 && ISANYOF(off, _T("\"'=<>`"))) {
+                if(attr_state == 41 && (ISBLANK(off) || ISANYOF(off, _T("\"'=<>`")))) {
                     attr_state = 0;
                     off--;  /* Put the char back for re-inspection in the new state. */
                 } else if(attr_state == 42 && CH(off) == _T('\'')) {
@@ -952,7 +952,7 @@ md_is_html_tag(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF max_
         off = lines[i].beg;
         line_end = lines[i].end;
 
-        if(attr_state == 0)
+        if(attr_state == 0  ||  attr_state == 41)
             attr_state = 1;
 
         if(off >= max_end)
