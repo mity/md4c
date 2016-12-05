@@ -24,8 +24,12 @@ elif which python 2>/dev/null; then
     fi
 fi
 
-# Test CommonMark specification compliance (with default options):
+# Test CommonMark specification compliance
+# (using the vanilla specification file):
 $PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/spec.txt" -p "$PROGRAM"
+
+# More tests for better coverage ten what the spec provides:
+$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/coverage.txt" -p "$PROGRAM"
 
 # Test various extensions and deviations from the specifications:
 $PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/permissive-email-autolinks.txt" -p "$PROGRAM --fpermissive-email-autolinks"

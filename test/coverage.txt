@@ -1,0 +1,41 @@
+
+# Coverage
+
+This file is just a collection of unit tests not covered elsewhere.
+
+Most notably regression tests, tests improving code coverage and other useful
+things may drop here.
+
+(However any tests requiring any additional command line option, like enabling
+an extension, must be included in their respective files.)
+
+
+## GitHub Issues
+
+### [Issue 2](https://github.com/mity/md4c/issues/2)
+
+Raw HTML block:
+
+```````````````````````````````` example
+<gi att1=tok1 att2=tok2>
+.
+<gi att1=tok1 att2=tok2>
+````````````````````````````````
+
+Inline:
+
+```````````````````````````````` example
+foo <gi att1=tok1 att2=tok2> bar
+.
+<p>foo <gi att1=tok1 att2=tok2> bar</p>
+````````````````````````````````
+
+Inline with a line break:
+
+```````````````````````````````` example
+foo <gi att1=tok1
+att2=tok2> bar
+.
+<p>foo <gi att1=tok1
+att2=tok2> bar</p>
+````````````````````````````````

@@ -315,12 +315,12 @@ render_entity(struct membuffer* out, const MD_CHAR* text, MD_SIZE size)
 
         if(text[2] == 'x' || text[2] == 'X') {
             /* Hexadecimal entity (e.g. "&#x1234abcd;")). */
-            size_t i;
+            MD_SIZE i;
             for(i = 3; i < size-1; i++)
                 codepoint = 16 * codepoint + hex_val(text[i]);
         } else {
             /* Decimal entity (e.g. "&1234;") */
-            size_t i;
+            MD_SIZE i;
             for(i = 2; i < size-1; i++)
                 codepoint = 10 * codepoint + (text[i] - '0');
         }

@@ -103,16 +103,16 @@ struct MD_CTX_tag {
 
     /* Link reference definitions. */
     MD_LINK_REF_DEF* link_ref_defs;
-    unsigned n_link_ref_defs;
-    unsigned alloc_link_ref_defs;
+    int n_link_ref_defs;
+    int alloc_link_ref_defs;
 
     /* Stack of inline/span markers.
      * This is only used for parsing a single block contents but by storing it
      * here we may reuse the stack for subsequent blocks; i.e. we have fewer
      * (re)allocations. */
     MD_MARK* marks;
-    unsigned n_marks;
-    unsigned alloc_marks;
+    int n_marks;
+    int alloc_marks;
 
     char mark_char_map[128];
 
@@ -138,13 +138,13 @@ struct MD_CTX_tag {
      */
     void* block_bytes;
     MD_BLOCK* current_block;
-    unsigned n_block_bytes;
-    unsigned alloc_block_bytes;
+    int n_block_bytes;
+    int alloc_block_bytes;
 
     /* For container block analysis. */
     MD_CONTAINER* containers;
-    unsigned n_containers;
-    unsigned alloc_containers;
+    int n_containers;
+    int alloc_containers;
 
     int last_line_has_list_loosening_effect;
 
@@ -697,7 +697,7 @@ struct MD_UNICODE_FOLD_INFO_tag {
          * little-endian UTF-16, i.e. the low surrogate precedes the high
          * surrogate. */
         if(IS_UTF16_SURROGATE_LO(str[0])) {
-            if(/*off+*/1 < str_size && IS_UTF16_SURROGATE_HI(str[1])) {
+            if(1 < str_size && IS_UTF16_SURROGATE_HI(str[1])) {
                 if(p_size != NULL)
                     *p_size = 2;
                 return UTF16_COMPUTE_SURROGATE(str[1], str[0]);
@@ -893,7 +893,7 @@ md_is_html_tag(MD_CTX* ctx, const MD_LINE* lines, SZ n_lines, OFF beg, OFF max_e
     while(1) {
         while(off < line_end  &&  !ISNEWLINE(off)) {
             if(attr_state > 40) {
-                if(attr_state == 41 && ISANYOF(off, _T("\"'=<>`\t\r\n "))) {
+                if(attr_state == 41 && (ISBLANK(off) || ISANYOF(off, _T("\"'=<>`")))) {
                     attr_state = 0;
                     off--;  /* Put the char back for re-inspection in the new state. */
                 } else if(attr_state == 42 && CH(off) == _T('\'')) {
@@ -952,7 +952,7 @@ md_is_html_tag(MD_CTX* ctx, const MD_LINE* lines, SZ n_lines, OFF beg, OFF max_e
         off = lines[i].beg;
         line_end = lines[i].end;
 
-        if(attr_state == 0)
+        if(attr_state == 0  ||  attr_state == 41)
             attr_state = 1;
 
         if(off >= max_end)
@@ -1682,7 +1682,7 @@ md_link_label_eq(const CHAR* a_label, SZ a_size, const CHAR* b_label, SZ b_size)
 static int
 md_lookup_link_ref_def(MD_CTX* ctx, const CHAR* label, SZ label_size, MD_LINK_REF_DEF** p_def)
 {
-    unsigned i;
+    int i;
 
     for(i = 0; i < ctx->n_link_ref_defs; i++) {
         MD_LINK_REF_DEF* def = &ctx->link_ref_defs[i];
@@ -1729,7 +1729,7 @@ md_is_link_reference(MD_CTX* ctx, const MD_LINE* lines, SZ n_lines,
         MD_CHECK(md_remove_line_breaks(ctx, beg, end, beg_line,
                  n_lines - (beg_line - lines), _T(' '), &label, &label_size));
     } else {
-        label = (void*) STR(beg);
+        label = (CHAR*) STR(beg);
         label_size = end - beg;
     }
 
@@ -1840,7 +1840,7 @@ abort:
 static void
 md_free_link_ref_defs(MD_CTX* ctx)
 {
-    unsigned i;
+    int i;
 
     for(i = 0; i < ctx->n_link_ref_defs; i++) {
         MD_LINK_REF_DEF* def = &ctx->link_ref_defs[i];
@@ -3875,7 +3875,7 @@ abort:
 static int
 md_process_all_blocks(MD_CTX* ctx)
 {
-    unsigned byte_off = 0;
+    int byte_off = 0;
     int ret = 0;
 
     /* ctx->containers now is not needed for detection of lists and list items
@@ -3940,7 +3940,7 @@ abort:
  ************************************/
 
 static void*
-md_push_block_bytes(MD_CTX* ctx, unsigned n_bytes)
+md_push_block_bytes(MD_CTX* ctx, int n_bytes)
 {
     void* ptr;
 
