@@ -44,8 +44,8 @@ MD4C is C Markdown parser with the following features:
   be fairly simple to make it run also on most other systems.
 
 * **Encoding:** MD4C can be compiled to recognize ASCII-only control characters,
-  UTF-8 and, on Windows, also UTF-16 little endian, i.e. what is on Windows
-  commonly called just "Unicode". See more details below.
+  UTF-8 and, on Windows, also UTF-16, i.e. what is on Windows commonly called
+  just "Unicode". See more details below.
 
 * **Permissive license:** MD4C is available under the MIT license.
 
@@ -126,9 +126,9 @@ matters is determined by preprocessor macros:
    in the specific situations.
 
  * On Windows, if preprocessor macro `MD4C_USE_WIN_UNICODE` is defined, MD4C
-   assumes little-endian UTF-16 and uses `WCHAR` instead of `char`. This allows
-   usage of MD4C directly within Unicode applications on Windows, without any
-   text conversion.
+   assumes UTF-16 and uses `WCHAR` instead of `char`. This allows usage of
+   MD4C directly within Unicode applications on Windows, without any text
+   conversions.
 
  * When none of the macros is defined, ASCII-only approach is used even in
    the listed situations. This effectively means that non-ASCII whitespace or
