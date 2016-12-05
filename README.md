@@ -111,6 +111,10 @@ inspection Unicode is actually used on very few occasions:
   * Unicode case folding. This is used to perform case-independent matching
     of link labels when resolving reference links.
 
+  * Translating HTML entities and numeric character references (e.g. `&amp;`,
+    `&#35;`). However MD4C leaves the translation on the renderer/application;
+    as the renderer is supposed to really know output encoding.
+
 MD4C uses this property of the standard and its implementation is, to a large
 degree, encoding-agnostic. Most of the code only assumes that the encoding of
 your choice is compatible with ASCII, i.e. that the codepoints below 128 have
@@ -119,21 +123,20 @@ the same numeric values as ASCII.
 All input MD4C does not understand is seen as a text and sent to the callbacks
 unchanged.
 
-The behavior of MD4C in the isolated situations where the encoding really
-matters is determined by preprocessor macros:
+The behavior of MD4C in the isolated listed situations where the encoding
+really matters is determined by preprocessor macros:
 
  * If preprocessor macro `MD4C_USE_UTF8` is defined, MD4C assumes UTF-8
    in the specific situations.
 
- * On Windows, if preprocessor macro `MD4C_USE_WIN_UNICODE` is defined, MD4C
-   assumes UTF-16 and uses `WCHAR` instead of `char`. This allows usage of
-   MD4C directly within Unicode applications on Windows, without any text
-   conversions.
+ * On Windows, if preprocessor macro `MD4C_USE_UTF16` is defined, MD4C assumes
+   UTF-16 and uses `WCHAR` instead of `char`. (UTF-16 is what Windows
+   developers usually call just "Unicode" and what Win32API works with.)
 
- * When none of the macros is defined, ASCII-only approach is used even in
-   the listed situations. This effectively means that non-ASCII whitespace or
-   punctuation characters won't be recognized as such and that case-folding is
-   performed only on ASCII letters (i.e. `[a-zA-Z]`).
+ * By default (when none of the macros is defined), ASCII-only mode is used
+   even in the situations listed above. This effectively means that non-ASCII
+   whitespace or punctuation characters won't be recognized as such and that
+   case-folding is performed only on ASCII letters (i.e. `[a-zA-Z]`).
 
 (Adding support for yet another encodings should be relatively simple due
 the isolation of the respective code.)

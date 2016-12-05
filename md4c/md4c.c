@@ -45,7 +45,7 @@
 #ifdef _T
     #undef _T
 #endif
-#if defined MD4C_USE_WIN_UNICODE
+#if defined MD4C_USE_UTF16
     #define _T(x)           L##x
 #else
     #define _T(x)           x
@@ -432,7 +432,7 @@ struct MD_UNICODE_FOLD_INFO_tag {
 };
 
 
-#if defined MD4C_USE_WIN_UNICODE || defined MD4C_USE_UTF8
+#if defined MD4C_USE_UTF16 || defined MD4C_USE_UTF8
     static int
     md_is_unicode_whitespace__(int codepoint)
     {
@@ -441,7 +441,7 @@ struct MD_UNICODE_FOLD_INFO_tag {
             return ISWHITESPACE_(codepoint);
 
         /* Check for Unicode codepoints in Zs class above 127. */
-        if(codepoint == 0x00A0 || codepoint == 0x1680)
+        if(codepoint == 0x00a0 || codepoint == 0x1680)
             return TRUE;
         if(0x2000 <= codepoint && codepoint <= 0x200a)
             return TRUE;
@@ -685,13 +685,10 @@ struct MD_UNICODE_FOLD_INFO_tag {
 #endif
 
 
-#if defined MD4C_USE_WIN_UNICODE
-    /* The encoding known called on Windows simply as "Unicode" is actually
-     * UTF-16. */
-
-    #define IS_UTF16_SURROGATE_HI(word)     (((WORD)(word) & 0xfc) == 0xd800)
-    #define IS_UTF16_SURROGATE_LO(word)     (((WORD)(word) & 0xfc) == 0xdc00)
-    #define UTF16_DECODE_SURROGATE(hi, lo)  ((((unsigned)(hi) & 0x3ff) << 10) | (((unsigned)(lo) & 0x3ff) << 0))
+#if defined MD4C_USE_UTF16
+    #define IS_UTF16_SURROGATE_HI(word)     (((WORD)(word) & 0xfc00) == 0xd800)
+    #define IS_UTF16_SURROGATE_LO(word)     (((WORD)(word) & 0xfc00) == 0xdc00)
+    #define UTF16_DECODE_SURROGATE(hi, lo)  (0x10000 + ((((unsigned)(hi) & 0x3ff) << 10) | (((unsigned)(lo) & 0x3ff) << 0)))
 
     static int
     md_decode_utf16le__(const CHAR* str, SZ str_size, SZ* p_size)

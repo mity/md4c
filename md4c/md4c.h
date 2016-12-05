@@ -31,14 +31,16 @@
 #endif
 
 
-/* Magic to support UTF16-LE (i.e. what is called Unicode among Windows
- * developers) input/output on Windows.
- */
-#if defined MD4C_USE_WIN_UNICODE
-    #include <windows.h>
-    typedef WCHAR   MD_CHAR;
+/* Magic to support UTF16. */
+#if defined MD4C_USE_UTF16
+    #ifdef _WIN32
+        #include <wchar.h>
+        typedef WCHAR       MD_CHAR;
+    #else
+        #error MD4C_USE_UTF16 is only upported on Windows.
+    #endif
 #else
-    typedef char    MD_CHAR;
+    typedef char            MD_CHAR;
 #endif
 
 typedef unsigned MD_SIZE;
