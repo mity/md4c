@@ -223,7 +223,7 @@ struct MD_VERBATIMLINE_tag {
         #define MD_ASSERT(cond)     do { __assume(cond); } while(0)
         #define MD_UNREACHABLE()    do { __assume(0); } while(0)
     #else
-        define MD_ASSERT(cond)     do {} while(0)
+        #define MD_ASSERT(cond)     do {} while(0)
         #define MD_UNREACHABLE()    do {} while(0)
     #endif
 #endif

@@ -31,7 +31,7 @@
 #endif
 
 
-/* Magic to support UTF16. */
+/* Magic to support UTF-16. */
 #if defined MD4C_USE_UTF16
     #ifdef _WIN32
         #include <wchar.h>
