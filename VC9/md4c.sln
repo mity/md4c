@@ -1,0 +1,29 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 10.00
+# Visual Studio 2008
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "md4c", "md4c\md4c.vcproj", "{58DFA7A2-6CF2-4B3C-A170-AFC60F7B8793}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "md2html", "md2html\md2html.vcproj", "{F3E8B40A-8542-48EC-B1A2-7BCBAEF36391}"
+	ProjectSection(ProjectDependencies) = postProject
+		{58DFA7A2-6CF2-4B3C-A170-AFC60F7B8793} = {58DFA7A2-6CF2-4B3C-A170-AFC60F7B8793}
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{58DFA7A2-6CF2-4B3C-A170-AFC60F7B8793}.Debug|Win32.ActiveCfg = Debug|Win32
+		{58DFA7A2-6CF2-4B3C-A170-AFC60F7B8793}.Debug|Win32.Build.0 = Debug|Win32
+		{58DFA7A2-6CF2-4B3C-A170-AFC60F7B8793}.Release|Win32.ActiveCfg = Release|Win32
+		{58DFA7A2-6CF2-4B3C-A170-AFC60F7B8793}.Release|Win32.Build.0 = Release|Win32
+		{F3E8B40A-8542-48EC-B1A2-7BCBAEF36391}.Debug|Win32.ActiveCfg = Debug|Win32
+		{F3E8B40A-8542-48EC-B1A2-7BCBAEF36391}.Debug|Win32.Build.0 = Debug|Win32
+		{F3E8B40A-8542-48EC-B1A2-7BCBAEF36391}.Release|Win32.ActiveCfg = Release|Win32
+		{F3E8B40A-8542-48EC-B1A2-7BCBAEF36391}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

@@ -510,9 +510,10 @@ process_file(FILE* in, FILE* out)
 
     /* Write down the document in the HTML format. */
     if(want_fullhtml) {
+        fprintf(out, "<!DOCTYPE html PUBLIC 'ISO/IEC 15445:2000//DTD HTML//EN'>\n");
         fprintf(out, "<html>\n");
         fprintf(out, "<head>\n");
-        fprintf(out, "<title></title>\n");
+        fprintf(out, "<title>Untitled</title>\n");
         fprintf(out, "<meta name=\"generator\" content=\"md2html\">\n");
         fprintf(out, "</head>\n");
         fprintf(out, "<body>\n");
