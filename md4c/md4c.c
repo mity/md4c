@@ -1370,7 +1370,8 @@ md_is_link_destination(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end,
 static int
 md_is_link_title(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
                  OFF* p_end, int* p_beg_line_index, int* p_end_line_index,
-                 OFF* p_contents_beg, OFF* p_contents_end)
+                 OFF* p_contents_beg, OFF* p_contents_end,
+                 int* p_has_escape)
 {
     OFF off = beg;
     CHAR closer_char;
@@ -1398,12 +1399,14 @@ md_is_link_title(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
     off++;
 
     *p_contents_beg = off;
+    *p_has_escape = FALSE;
 
     while(line_index < n_lines) {
         OFF line_end = lines[line_index].end;
 
         while(off < line_end) {
             if(CH(off) == _T('\\')  &&  off+1 < ctx->size  &&  (ISPUNCT(off+1) || ISNEWLINE(off+1))) {
+                *p_has_escape = TRUE;
                 off++;
             } else if(CH(off) == closer_char) {
                 /* Success. */
@@ -1423,11 +1426,13 @@ md_is_link_title(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
 }
 
 /* Allocate new buffer, and fill it with copy of the string between
- * 'beg' and 'end' but replace any line breaks with single space.
+ * 'beg' and 'end' but replace any line breaks with given replacement character
+ * and also optionally resolve any escape sequences.
  */
 static int
-md_remove_line_breaks(MD_CTX* ctx, OFF beg, OFF end, const MD_LINE* lines, int n_lines,
-                      CHAR replacement_char, CHAR** p_str, SZ* p_size)
+md_normalize_string(MD_CTX* ctx, OFF beg, OFF end, const MD_LINE* lines, int n_lines,
+                    CHAR line_break_replacement_char, int resolve_escapes,
+                    CHAR** p_str, SZ* p_size)
 {
     CHAR* buffer;
     CHAR* ptr;
@@ -1452,13 +1457,18 @@ md_remove_line_breaks(MD_CTX* ctx, OFF beg, OFF end, const MD_LINE* lines, int n
                 return 0;
             }
 
-            *ptr = CH(off);
-            ptr++;
-
-            off++;
+            if(resolve_escapes  &&  CH(off) == _T('\\')  &&
+               off+1 < end  &&  (ISPUNCT(off+1) || ISNEWLINE(off+1)))
+            {
+                off++;
+            } else {
+                *ptr = CH(off);
+                ptr++;
+                off++;
+            }
         }
 
-        *ptr = replacement_char;
+        *ptr = line_break_replacement_char;
         ptr++;
 
         line_index++;
@@ -1488,6 +1498,7 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
     OFF title_contents_end;
     int title_contents_line_index;
     int title_is_multiline;
+    int title_has_escape;
     OFF off;
     int line_index = 0;
     int tmp_line_index;
@@ -1525,7 +1536,7 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
      * more follows on its last line. */
     if(md_is_link_title(ctx, lines + line_index, n_lines - line_index, off,
                 &off, &title_contents_line_index, &tmp_line_index,
-                &title_contents_beg, &title_contents_end)
+                &title_contents_beg, &title_contents_end, &title_has_escape)
         &&  off >= lines[line_index + tmp_line_index].end)
     {
         title_is_multiline = (tmp_line_index != title_contents_line_index);
@@ -1568,9 +1579,9 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
     } else {
         SZ label_size;
 
-        MD_CHECK(md_remove_line_breaks(ctx, label_contents_beg, label_contents_end,
+        MD_CHECK(md_normalize_string(ctx, label_contents_beg, label_contents_end,
                     lines + label_contents_line_index, n_lines - label_contents_line_index,
-                    _T(' '), &def->label, &label_size));
+                    _T(' '), FALSE, &def->label, &label_size));
         def->label_size = label_size;
         def->label_needs_free = TRUE;
     }
@@ -1582,13 +1593,13 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
     if(title_contents_beg >= title_contents_end) {
         def->title = NULL;
         def->title_size = 0;
-    } else if(!title_is_multiline) {
+    } else if(!title_is_multiline  &&  !title_has_escape) {
         def->title = (CHAR*) STR(title_contents_beg);
         def->title_size = title_contents_end - title_contents_beg;
     } else {
-        MD_CHECK(md_remove_line_breaks(ctx, title_contents_beg, title_contents_end,
+        MD_CHECK(md_normalize_string(ctx, title_contents_beg, title_contents_end,
                     lines + title_contents_line_index, n_lines - title_contents_line_index,
-                    _T('\n'), &def->title, &def->title_size));
+                    _T('\n'), TRUE, &def->title, &def->title_size));
         def->title_needs_free = TRUE;
     }
 
@@ -1722,8 +1733,8 @@ md_is_link_reference(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
         end_line++;
 
     if(beg_line != end_line) {
-        MD_CHECK(md_remove_line_breaks(ctx, beg, end, beg_line,
-                 n_lines - (beg_line - lines), _T(' '), &label, &label_size));
+        MD_CHECK(md_normalize_string(ctx, beg, end, beg_line,
+                 n_lines - (beg_line - lines), _T(' '), FALSE, &label, &label_size));
     } else {
         label = (CHAR*) STR(beg);
         label_size = end - beg;
@@ -1756,6 +1767,7 @@ md_is_inline_link_spec(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
     OFF title_contents_end;
     int title_contents_line_index;
     int title_is_multiline;
+    int title_has_escape;
     OFF off = beg;
     int ret = FALSE;
 
@@ -1785,7 +1797,7 @@ md_is_inline_link_spec(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
     /* (Optional) title. */
     if(md_is_link_title(ctx, lines + line_index, n_lines - line_index, off,
                 &off, &title_contents_line_index, &tmp_line_index,
-                &title_contents_beg, &title_contents_end))
+                &title_contents_beg, &title_contents_end, &title_has_escape))
     {
         title_is_multiline = (tmp_line_index != title_contents_line_index);
         title_contents_line_index += line_index;
@@ -1815,14 +1827,14 @@ md_is_inline_link_spec(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
         attr->title = NULL;
         attr->title_size = 0;
         attr->title_needs_free = FALSE;
-    } else if(!title_is_multiline) {
+    } else if(!title_is_multiline  &&  !title_has_escape) {
         attr->title = (CHAR*) STR(title_contents_beg);
         attr->title_size = title_contents_end - title_contents_beg;
         attr->title_needs_free = FALSE;
     } else {
-        MD_CHECK(md_remove_line_breaks(ctx, title_contents_beg, title_contents_end,
+        MD_CHECK(md_normalize_string(ctx, title_contents_beg, title_contents_end,
                     lines + title_contents_line_index, n_lines - title_contents_line_index,
-                    _T('\n'), &attr->title, &attr->title_size));
+                    _T('\n'), TRUE, &attr->title, &attr->title_size));
         attr->title_needs_free = TRUE;
     }
 
