@@ -859,13 +859,10 @@ md_do_normalize_string(MD_CTX* ctx, OFF beg, OFF end, const MD_LINE* lines, int 
     while(1) {
         const MD_LINE* line = &lines[line_index];
         OFF line_end = line->end;
+        if(end < line_end)
+            line_end = end;
 
         while(off < line_end) {
-            if(off >= end) {
-                *p_size = ptr - buffer;
-                return;
-            }
-
             if(resolve_escapes  &&  CH(off) == _T('\\')  &&
                off+1 < end  &&  (ISPUNCT(off+1) || ISNEWLINE(off+1))) {
                 if(ISNEWLINE(off+1))
@@ -876,6 +873,11 @@ md_do_normalize_string(MD_CTX* ctx, OFF beg, OFF end, const MD_LINE* lines, int 
             *ptr = CH(off);
             ptr++;
             off++;
+        }
+
+        if(off >= end) {
+            *p_size = ptr - buffer;
+            return;
         }
 
         *ptr = line_break_replacement_char;
