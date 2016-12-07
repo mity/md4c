@@ -4378,7 +4378,7 @@ out:
     return ret;
 }
 
-/* Returns type of the raw HTML block, or -1 if it is not HTML block.
+/* Returns type of the raw HTML block, or FALSE if it is not HTML block.
  * (Refer to CommonMark specification for details about the types.)
  */
 static int
@@ -4518,7 +4518,7 @@ md_line_contains(MD_CTX* ctx, OFF beg, const CHAR* what, SZ what_len, OFF* p_end
     return FALSE;
 }
 
-/* Returns type of HTML block end condition or -1 if not an end condition.
+/* Returns type of HTML block end condition or FALSE if not an end condition.
  *
  * Note it fills p_end even when it is not end condition as the caller
  * does not need to analyze contents of a raw HTML block.
@@ -4535,17 +4535,17 @@ md_is_html_block_end_condition(MD_CTX* ctx, OFF beg, OFF* p_end)
                 if(CH(off) == _T('<')) {
                     if(md_ascii_case_eq(STR(off), _T("</script>"), 9)) {
                         *p_end = off + 9;
-                        return 1;
+                        return TRUE;
                     }
 
                     if(md_ascii_case_eq(STR(off), _T("</style>"), 8)) {
                         *p_end = off + 8;
-                        return 1;
+                        return TRUE;
                     }
 
                     if(md_ascii_case_eq(STR(off), _T("</pre>"), 6)) {
                         *p_end = off + 6;
-                        return 1;
+                        return TRUE;
                     }
                 }
 
@@ -5004,11 +5004,6 @@ redo:
     if(line->indent < ctx->code_indent_offset  &&
        md_is_container_mark(ctx, line->indent, off, &off, &container))
     {
-        total_indent += container.contents_indent - container.mark_indent;
-
-        line->indent = md_line_indentation(ctx, total_indent, off, &off);
-        total_indent += line->indent;
-
         if(pivot_line->type == MD_LINE_TEXT  &&  n_parents == ctx->n_containers  &&
                     (off >= ctx->size || ISNEWLINE(off)))
         {
@@ -5018,6 +5013,10 @@ redo:
         {
             /* Noop. Ordered list cannot interrupt a paragraph unless the start index is 1. */
         } else {
+            total_indent += container.contents_indent - container.mark_indent;
+            line->indent = md_line_indentation(ctx, total_indent, off, &off);
+            total_indent += line->indent;
+
             line->beg = off;
 
             /* Some of the following whitespace actually still belongs to the mark. */
