@@ -4722,9 +4722,6 @@ md_is_container_mark(MD_CTX* ctx, unsigned indent, OFF beg, OFF* p_end, MD_CONTA
     OFF off = beg;
     OFF max_end;
 
-    if(indent >= ctx->code_indent_offset)
-        return FALSE;
-
     /* Check for block quote mark. */
     if(off < ctx->size  &&  CH(off) == _T('>')) {
         off++;
@@ -4923,18 +4920,6 @@ redo:
         ctx->last_line_has_list_loosening_effect = FALSE;
     }
 
-    /* Check for indented code.
-     * Note indented code block cannot interrupt paragraph. */
-    if(line->indent >= ctx->code_indent_offset  &&
-        (pivot_line->type == MD_LINE_BLANK || pivot_line->type == MD_LINE_INDENTEDCODE))
-    {
-        line->type = MD_LINE_INDENTEDCODE;
-        MD_ASSERT(line->indent >= ctx->code_indent_offset);
-        line->indent -= ctx->code_indent_offset;
-        line->data = 0;
-        goto done;
-    }
-
     /* Check whether we are Setext underline. */
     if(line->indent < ctx->code_indent_offset  &&  pivot_line->type == MD_LINE_TEXT
         &&  (CH(off) == _T('=') || CH(off) == _T('-'))
@@ -4965,8 +4950,58 @@ redo:
         }
     }
 
+    /* Check for "brother" container. I.e. whether we are another list item
+     * in already started list. */
+    if(n_parents < ctx->n_containers  &&  n_brothers + n_children == 0) {
+        OFF tmp;
+
+        if(md_is_container_mark(ctx, line->indent, off, &tmp, &container)  &&
+           md_is_container_compatible(&ctx->containers[n_parents], &container))
+        {
+            pivot_line = &md_dummy_blank_line;
+
+            off = tmp;
+
+            total_indent += container.contents_indent - container.mark_indent;
+            line->indent = md_line_indentation(ctx, total_indent, off, &off);
+            total_indent += line->indent;
+            line->beg = off;
+
+            /* Some of the following whitespace actually still belongs to the mark. */
+            if(off >= ctx->size || ISNEWLINE(off)) {
+                container.contents_indent++;
+            } else if(line->indent <= ctx->code_indent_offset) {
+                container.contents_indent += line->indent;
+                line->indent = 0;
+            } else {
+                container.contents_indent += 1;
+                line->indent--;
+            }
+
+            ctx->containers[n_parents].mark_indent = container.mark_indent;
+            ctx->containers[n_parents].contents_indent = container.contents_indent;
+
+            n_brothers++;
+            goto redo;
+        }
+    }
+
+    /* Check for indented code.
+     * Note indented code block cannot interrupt paragraph. */
+    if(line->indent >= ctx->code_indent_offset  &&
+        (pivot_line->type == MD_LINE_BLANK || pivot_line->type == MD_LINE_INDENTEDCODE))
+    {
+        line->type = MD_LINE_INDENTEDCODE;
+        MD_ASSERT(line->indent >= ctx->code_indent_offset);
+        line->indent -= ctx->code_indent_offset;
+        line->data = 0;
+        goto done;
+    }
+
     /* Check for start of a new container block. */
-    if(md_is_container_mark(ctx, line->indent, off, &off, &container)) {
+    if(line->indent < ctx->code_indent_offset  &&
+       md_is_container_mark(ctx, line->indent, off, &off, &container))
+    {
         total_indent += container.contents_indent - container.mark_indent;
 
         line->indent = md_line_indentation(ctx, total_indent, off, &off);
@@ -4994,16 +5029,8 @@ redo:
                 line->indent--;
             }
 
-            if(n_brothers + n_children == 0) {
+            if(n_brothers + n_children == 0)
                 pivot_line = &md_dummy_blank_line;
-
-                if(n_parents < ctx->n_containers  &&  md_is_container_compatible(&ctx->containers[n_parents], &container)) {
-                    ctx->containers[n_parents].mark_indent = container.mark_indent;
-                    ctx->containers[n_parents].contents_indent = container.contents_indent;
-                    n_brothers++;
-                    goto redo;
-                }
-            }
 
             if(n_children == 0)
                 MD_CHECK(md_leave_child_containers(ctx, n_parents + n_brothers));
