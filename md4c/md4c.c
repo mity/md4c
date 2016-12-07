@@ -867,14 +867,15 @@ md_do_normalize_string(MD_CTX* ctx, OFF beg, OFF end, const MD_LINE* lines, int 
             }
 
             if(resolve_escapes  &&  CH(off) == _T('\\')  &&
-               off+1 < end  &&  (ISPUNCT(off+1) || ISNEWLINE(off+1)))
-            {
-                off++;
-            } else {
-                *ptr = CH(off);
-                ptr++;
+               off+1 < end  &&  (ISPUNCT(off+1) || ISNEWLINE(off+1))) {
+                if(ISNEWLINE(off+1))
+                    break;
                 off++;
             }
+
+            *ptr = CH(off);
+            ptr++;
+            off++;
         }
 
         *ptr = line_break_replacement_char;
