@@ -5,7 +5,8 @@
 
 # MD4C Readme
 
-Home: http://github.com/mity/md4c
+* Home: http://github.com/mity/md4c
+* Wiki: http://github.com/mity/md4c/wiki
 
 MD4C stands for "Markdown for C" and, unsurprisingly, it is a C Markdown parser
 implementation.
@@ -67,8 +68,8 @@ As `md_parse()` processes the input, it calls the appropriate callbacks
 allowing application to convert it into another format or render it onto
 the screen.
 
-Refer to the header file for more details, the API is mostly self-explaining
-and there are some explanatory comments.
+More comprehensive guide can be found in the header `md4c.h` and also
+on [MD4C wiki](http://github.com/mity/md4c/wiki).
 
 Example implementation of simple renderer is available in the `md2html`
 directory which implements a conversion utility from Markdown to HTML.
