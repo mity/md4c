@@ -3825,7 +3825,7 @@ md_setup_fenced_code_detail(MD_CTX* ctx, const MD_BLOCK* block, MD_BLOCK_CODE_DE
         MD_LINE line = { beg, end };
         SZ size;
 
-        MD_TEMP_BUFFER(end - beg);
+        MD_TEMP_BUFFER((end - beg) * sizeof(CHAR));
         md_do_normalize_string(ctx, beg, end, &line, 1, _T(' '), TRUE, ctx->buffer, &size);
 
         det->info = ctx->buffer;
