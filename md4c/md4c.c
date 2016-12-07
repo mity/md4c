@@ -835,6 +835,79 @@ struct MD_UNICODE_FOLD_INFO_tag {
 #endif
 
 
+/*************************************
+ ***  Helper string manipulations  ***
+ *************************************/
+
+/* Fill buffer with copy of the string between 'beg' and 'end' but replace any
+ * line breaks with given replacement character and also optionally resolve any
+ * escape sequences.
+ *
+ * NOTE: Caller is responsible to make sure the buffer is large enough.
+ * (Given the output is always shorter then input, (end - beg) is good idea
+ * what the caller should allocate.)
+ */
+static void
+md_do_normalize_string(MD_CTX* ctx, OFF beg, OFF end, const MD_LINE* lines, int n_lines,
+                       CHAR line_break_replacement_char, int resolve_escapes,
+                       CHAR* buffer, SZ* p_size)
+{
+    CHAR* ptr = buffer;
+    int line_index = 0;
+    OFF off = beg;
+
+    while(1) {
+        const MD_LINE* line = &lines[line_index];
+        OFF line_end = line->end;
+
+        while(off < line_end) {
+            if(off >= end) {
+                *p_size = ptr - buffer;
+                return;
+            }
+
+            if(resolve_escapes  &&  CH(off) == _T('\\')  &&
+               off+1 < end  &&  (ISPUNCT(off+1) || ISNEWLINE(off+1)))
+            {
+                off++;
+            } else {
+                *ptr = CH(off);
+                ptr++;
+                off++;
+            }
+        }
+
+        *ptr = line_break_replacement_char;
+        ptr++;
+
+        line_index++;
+        off = lines[line_index].beg;
+    }
+}
+
+/* Wrapper of md_do_normalize_string() which allocates new buffer for the
+ * output string. */
+static int
+md_normalize_string(MD_CTX* ctx, OFF beg, OFF end, const MD_LINE* lines, int n_lines,
+                    CHAR line_break_replacement_char, int resolve_escapes,
+                    CHAR** p_str, SZ* p_size)
+{
+    CHAR* buffer;
+
+    buffer = (CHAR*) malloc(sizeof(CHAR) * (end - beg));
+    if(buffer == NULL) {
+        MD_LOG("malloc() failed.");
+        return -1;
+    }
+
+    md_do_normalize_string(ctx, beg, end, lines, n_lines,
+                line_break_replacement_char, resolve_escapes, buffer, p_size);
+
+    *p_str = buffer;
+    return 0;
+}
+
+
 /******************************
  ***  Recognizing raw HTML  ***
  ******************************/
@@ -1423,57 +1496,6 @@ md_is_link_title(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
     }
 
     return FALSE;
-}
-
-/* Allocate new buffer, and fill it with copy of the string between
- * 'beg' and 'end' but replace any line breaks with given replacement character
- * and also optionally resolve any escape sequences.
- */
-static int
-md_normalize_string(MD_CTX* ctx, OFF beg, OFF end, const MD_LINE* lines, int n_lines,
-                    CHAR line_break_replacement_char, int resolve_escapes,
-                    CHAR** p_str, SZ* p_size)
-{
-    CHAR* buffer;
-    CHAR* ptr;
-    int line_index = 0;
-    OFF off = beg;
-
-    buffer = (CHAR*) malloc(sizeof(CHAR) * (end - beg));
-    if(buffer == NULL) {
-        MD_LOG("malloc() failed.");
-        return -1;
-    }
-    ptr = buffer;
-
-    while(1) {
-        const MD_LINE* line = &lines[line_index];
-        OFF line_end = line->end;
-
-        while(off < line_end) {
-            if(off >= end) {
-                *p_str = buffer;
-                *p_size = ptr - buffer;
-                return 0;
-            }
-
-            if(resolve_escapes  &&  CH(off) == _T('\\')  &&
-               off+1 < end  &&  (ISPUNCT(off+1) || ISNEWLINE(off+1)))
-            {
-                off++;
-            } else {
-                *ptr = CH(off);
-                ptr++;
-                off++;
-            }
-        }
-
-        *ptr = line_break_replacement_char;
-        ptr++;
-
-        line_index++;
-        off = lines[line_index].beg;
-    }
 }
 
 /* Returns 0 if it is not a link reference definition.
@@ -3778,13 +3800,14 @@ md_process_code_block_contents(MD_CTX* ctx, int is_fenced, const MD_VERBATIMLINE
     return md_process_verbatim_block_contents(ctx, MD_TEXT_CODE, lines, n_lines);
 }
 
-static void
+static int
 md_setup_fenced_code_detail(MD_CTX* ctx, const MD_BLOCK* block, MD_BLOCK_CODE_DETAIL* det)
 {
     const MD_VERBATIMLINE* fence_line = (const MD_VERBATIMLINE*)(block + 1);
     OFF beg = fence_line->beg;
     OFF end = fence_line->end;
     CHAR fence_ch = CH(fence_line->beg);
+    int ret = 0;
 
     /* Skip the fence itself. */
     while(beg < ctx->size  &&  CH(beg) == fence_ch)
@@ -3798,13 +3821,22 @@ md_setup_fenced_code_detail(MD_CTX* ctx, const MD_BLOCK* block, MD_BLOCK_CODE_DE
         end--;
 
     if(beg < end) {
-        det->info = STR(beg);
-        det->info_size = end - beg;
+        MD_LINE line = { beg, end };
+        SZ size;
+
+        MD_TEMP_BUFFER(end - beg);
+        md_do_normalize_string(ctx, beg, end, &line, 1, _T(' '), TRUE, ctx->buffer, &size);
+
+        det->info = ctx->buffer;
+        det->info_size = size;
 
         det->lang = det->info;
         while(det->lang_size < det->info_size  &&  !ISWHITESPACE_(det->lang[det->lang_size]))
             det->lang_size++;
     }
+
+abort:
+    return ret;
 }
 
 static int
@@ -3814,8 +3846,8 @@ md_process_leaf_block(MD_CTX* ctx, const MD_BLOCK* block)
         MD_BLOCK_H_DETAIL header;
         MD_BLOCK_CODE_DETAIL code;
     } det;
-    int ret = 0;
     int is_in_tight_list;
+    int ret = 0;
 
     memset(&det, 0, sizeof(det));
 
@@ -3832,7 +3864,7 @@ md_process_leaf_block(MD_CTX* ctx, const MD_BLOCK* block)
         case MD_BLOCK_CODE:
             /* For fenced code block, we may need to set the info string. */
             if(block->data != 0)
-                md_setup_fenced_code_detail(ctx, block, &det.code);
+                MD_CHECK(md_setup_fenced_code_detail(ctx, block, &det.code));
             break;
 
         default:
