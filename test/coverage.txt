@@ -39,3 +39,12 @@ att2=tok2> bar
 <p>foo <gi att1=tok1
 att2=tok2> bar</p>
 ````````````````````````````````
+
+
+### [Issue 4](https://github.com/mity/md4c/issues/4)
+
+```````````````````````````````` example
+![alt text with *entity* &copy;](img.png 'title')
+.
+<p><img src="img.png" alt="alt text with entity ©" title="title"></p>
+````````````````````````````````

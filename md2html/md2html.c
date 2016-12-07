@@ -180,6 +180,8 @@ membuf_append_url_escaped(struct membuffer* buf, const char* data, MD_SIZE size)
  ***  HTML rendering helper functions  ***
  *****************************************/
 
+static int image_nesting_level = 0;
+
 static void
 open_ol_block(struct membuffer* out, const MD_BLOCK_OL_DETAIL* det)
 {
@@ -244,14 +246,21 @@ open_img_span(struct membuffer* out, const MD_SPAN_IMG_DETAIL* det)
     membuf_append_url_escaped(out, det->src, det->src_size);
 
     MEMBUF_APPEND_LITERAL(out, "\" alt=\"");
-    membuf_append_escaped(out, det->alt, det->alt_size);
 
+    image_nesting_level++;
+}
+
+static void
+close_img_span(struct membuffer* out, const MD_SPAN_IMG_DETAIL* det)
+{
     if(det->title != NULL) {
         MEMBUF_APPEND_LITERAL(out, "\" title=\"");
         membuf_append_escaped(out, det->title, det->title_size);
     }
 
     MEMBUF_APPEND_LITERAL(out, "\">");
+
+    image_nesting_level--;
 }
 
 static unsigned
@@ -407,6 +416,12 @@ enter_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
 {
     struct membuffer* out = (struct membuffer*) userdata;
 
+    if(image_nesting_level > 0) {
+        /* We are inside an image, i.e. rendering the ALT attribute of
+         * <IMG> tag. */
+        return 0;
+    }
+
     switch(type) {
         case MD_SPAN_EM:        MEMBUF_APPEND_LITERAL(out, "<em>"); break;
         case MD_SPAN_STRONG:    MEMBUF_APPEND_LITERAL(out, "<strong>"); break;
@@ -423,11 +438,19 @@ leave_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
 {
     struct membuffer* out = (struct membuffer*) userdata;
 
+    if(image_nesting_level > 0) {
+        /* We are inside an image, i.e. rendering the ALT attribute of
+         * <IMG> tag. */
+        if(image_nesting_level == 1  &&  type == MD_SPAN_IMG)
+            close_img_span(out, (MD_SPAN_IMG_DETAIL*) detail);
+        return 0;
+    }
+
     switch(type) {
         case MD_SPAN_EM:        MEMBUF_APPEND_LITERAL(out, "</em>"); break;
         case MD_SPAN_STRONG:    MEMBUF_APPEND_LITERAL(out, "</strong>"); break;
         case MD_SPAN_A:         MEMBUF_APPEND_LITERAL(out, "</a>"); break;
-        case MD_SPAN_IMG:       /* noop */ break;
+        case MD_SPAN_IMG:       /*noop, handled above*/ break;
         case MD_SPAN_CODE:      MEMBUF_APPEND_LITERAL(out, "</code>"); break;
     }
 
@@ -441,8 +464,8 @@ text_callback(MD_TEXTTYPE type, const MD_CHAR* text, MD_SIZE size, void* userdat
 
     switch(type) {
         case MD_TEXT_NULLCHAR:  render_utf8_codepoint(out, 0x0000); break;
-        case MD_TEXT_BR:        MEMBUF_APPEND_LITERAL(out, "<br>\n"); break;
-        case MD_TEXT_SOFTBR:    MEMBUF_APPEND_LITERAL(out, "\n"); break;
+        case MD_TEXT_BR:        MEMBUF_APPEND_LITERAL(out, (image_nesting_level == 0 ? "<br>\n" : " ")); break;
+        case MD_TEXT_SOFTBR:    MEMBUF_APPEND_LITERAL(out, (image_nesting_level == 0 ? "\n" : " ")); break;
         case MD_TEXT_HTML:      membuf_append(out, text, size); break;
         case MD_TEXT_ENTITY:    render_entity(out, text, size); break;
         default:                membuf_append_escaped(out, text, size); break;

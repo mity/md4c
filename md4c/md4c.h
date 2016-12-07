@@ -114,7 +114,11 @@ enum MD_SPANTYPE_tag {
     MD_SPAN_A,
 
     /* <img src="xxx">...</a>
-     * Detail: Structure MD_SPAN_IMG_DETAIL. */
+     * Detail: Structure MD_SPAN_IMG_DETAIL.
+     * Note: Image text can contain nested spans and even nested images.
+     * If rendered into ALT attribute of HTML <IMG> tag, it's responsibility
+     * of the renderer to deal with it.
+     */
     MD_SPAN_IMG,
 
     /* <code>...</code> */
@@ -217,9 +221,6 @@ typedef struct MD_SPAN_IMG_DETAIL_tag MD_SPAN_IMG_DETAIL;
 struct MD_SPAN_IMG_DETAIL_tag {
     const MD_CHAR* src;
     MD_SIZE src_size;
-
-    const MD_CHAR* alt;
-    MD_SIZE alt_size;
 
     const MD_CHAR* title;
     MD_SIZE title_size;

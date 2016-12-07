@@ -2890,10 +2890,6 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             }
 
             md_analyze_link_contents(ctx, lines, n_lines, opener->end, closer->beg);
-
-            /* If image, eat everything by the opener. */
-            if(opener->ch == '!')
-                opener->end = closer->end;
         }
 
         opener_index = next_index;
@@ -3289,84 +3285,11 @@ abort:
     return ret;
 }
 
-static void
-md_build_img_alt(MD_CTX* ctx, MD_MARK* mark, const MD_LINE* lines, int n_lines,
-                 OFF beg, OFF end, CHAR* buffer, SZ* p_size)
+static inline int
+md_setup_span_img_detail(MD_CTX* ctx, MD_MARK* mark, MD_SPAN_IMG_DETAIL* det)
 {
-    MD_MARK* inner_mark;
-    int line_index = 0;
-    OFF off = beg;
-    CHAR* ptr = buffer;
-
-    /* Revive the contents of any inner image so we include its ALT. */
-    for(inner_mark = mark; inner_mark < ctx->marks + mark->next; inner_mark++) {
-        if(inner_mark->ch == '!')
-            inner_mark->end = inner_mark->beg + 2;
-    }
-
-    while(lines[line_index].end <= beg)
-        line_index++;
-
-    while(!(mark->flags & MD_MARK_RESOLVED))
-        mark++;
-
-    while(line_index < n_lines) {
-        OFF line_end = lines[line_index].end;
-        if(line_end > end)
-            line_end = end;
-
-        while(off < line_end) {
-            OFF tmp = (line_end < mark->beg) ? line_end : mark->beg;
-            memcpy(ptr, STR(off), (tmp - off) * sizeof(CHAR));
-            ptr += (tmp - off);
-            off = tmp;
-
-            if(off >= mark->beg) {
-                off = mark->end;
-
-                mark++;
-                while(!(mark->flags & MD_MARK_RESOLVED) || mark->beg < off)
-                    mark++;
-            }
-        }
-
-        if(off >= end)
-            break;
-
-        line_index++;
-        off = lines[line_index].beg;
-        *ptr = _T(' ');
-        ptr++;
-   }
-
-   *p_size = ptr - buffer;
-}
-
-static int
-md_setup_span_img_detail(MD_CTX* ctx, MD_MARK* mark, const MD_LINE* lines, int n_lines,
-                         OFF alt_beg, OFF alt_end, MD_SPAN_IMG_DETAIL* det)
-{
-    const MD_MARK* dest_mark = mark+1;
-    const MD_MARK* title_mark = mark+2;
-    int ret = 0;
-
-    MD_ASSERT(dest_mark->ch == 'D');
-    if(dest_mark->beg < dest_mark->end)
-        det->src = STR(dest_mark->beg);
-    else
-        det->src = NULL;
-    det->src_size = dest_mark->end - dest_mark->beg;
-
-    MD_TEMP_BUFFER((alt_end - alt_beg) * sizeof(CHAR));
-    det->alt = ctx->buffer;
-    md_build_img_alt(ctx, mark+3, lines, n_lines, alt_beg, alt_end, ctx->buffer, &det->alt_size);
-
-    MD_ASSERT(title_mark->ch == 'D');
-    det->title = md_mark_get_ptr(ctx, title_mark - ctx->marks);
-    det->title_size = title_mark->prev;
-
-abort:
-    return ret;
+    /* MD_SPAN_A_DETAIL and MD_SPAN_IMG_DETAIL are binary-compatible. */
+    return md_setup_span_a_detail(ctx, mark, (MD_SPAN_A_DETAIL*) det);
 }
 
 /* Render the output, accordingly to the analyzed ctx->marks. */
@@ -3375,7 +3298,6 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 {
     union {
         MD_SPAN_A_DETAIL a;
-        MD_SPAN_IMG_DETAIL img;
     } det;
     MD_TEXTTYPE text_type;
     const MD_LINE* line = lines;
@@ -3449,21 +3371,16 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                     }
                     break;
 
-                case '[':       /* Link . */
+                case '[':       /* Link, image. */
+                case '!':
+                    /* Note we here rely on fact that MD_SPAN_A_DETAIL and
+                     * MD_SPAN_IMG_DETAIL are binary-compatible. */
                     MD_CHECK(md_setup_span_a_detail(ctx, mark, &det.a));
-                    MD_ENTER_SPAN(MD_SPAN_A, &det.a);
+                    MD_ENTER_SPAN((mark->ch == '!' ? MD_SPAN_IMG : MD_SPAN_A), &det.a);
                     break;
                 case ']':
                     MD_CHECK(md_setup_span_a_detail(ctx, &ctx->marks[mark->prev], &det.a));
-                    MD_LEAVE_SPAN(MD_SPAN_A, &det.a);
-                    break;
-
-                case '!':       /* Image */
-                    MD_CHECK(md_setup_span_img_detail(ctx, mark, lines, n_lines,
-                                    mark->beg+2, ctx->marks[mark->next].beg, &det.img));
-                    MD_ENTER_SPAN(MD_SPAN_IMG, &det.img);
-                    MD_LEAVE_SPAN(MD_SPAN_IMG, &det.img);
-                    mark = &ctx->marks[mark->next];
+                    MD_LEAVE_SPAN((ctx->marks[mark->prev].ch == '!' ? MD_SPAN_IMG : MD_SPAN_A), &det.a);
                     break;
 
                 case '<':
