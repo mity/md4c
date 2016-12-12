@@ -1598,7 +1598,7 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
     ctx->n_link_ref_defs++;
     memset(def, 0, sizeof(MD_LINK_REF_DEF));
 
-    if(label_is_multiline) {
+    if(!label_is_multiline) {
         def->label = (CHAR*) STR(label_contents_beg);
         def->label_size = label_contents_end - label_contents_beg;
     } else {

@@ -48,3 +48,18 @@ att2=tok2> bar</p>
 .
 <p><img src="img.png" alt="alt text with entity ©" title="title"></p>
 ````````````````````````````````
+
+
+### [Issue 9](https://github.com/mity/md4c/issues/9)
+
+```````````````````````````````` example
+> [foo
+> bar]: /url
+>
+> [foo bar]
+.
+<blockquote>
+<p><a href="/url">foo
+bar</a></p>
+</blockquote>
+````````````````````````````````
