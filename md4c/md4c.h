@@ -176,6 +176,35 @@ enum MD_ALIGN_tag {
 };
 
 
+/* String attribute.
+ *
+ * This wraps strings which are outside of a normal text flow and which are
+ * propagated within various detailed structures, but which still may contain
+ * string portions of different types like e.g. entities.
+ *
+ * So, for example, lets consider an image has a title attribute string
+ * set to "foo &quot; bar". (Note the string size is 14.)
+ *
+ * Then:
+ *  -- [0]: "foo "   (substr_types[0] == MD_TEXT_NORMAL; substr_offsets[0] == 0)
+ *  -- [1]: "&quot;" (substr_types[1] == MD_TEXT_ENTITY; substr_offsets[1] == 4)
+ *  -- [2]: " bar"   (substr_types[2] == MD_TEXT_NORMAL; substr_offsets[2] == 10)
+ *  -- [3]: (n/a)    (n/a                              ; substr_offsets[3] == 14)
+ *
+ * Note that these conditions are guaranteed:
+ *  -- substr_offsets[0] == 0
+ *  -- substr_offsets[LAST+1] == size
+ *  -- Only MD_TEXT_NORMAL and MD_TEXT_ENTITY substrings can appear.
+ */
+typedef struct MD_ATTRIBUTE_tag MD_ATTRIBUTE;
+struct MD_ATTRIBUTE_tag {
+    const MD_CHAR* text;
+    MD_SIZE size;
+    const MD_TEXTTYPE* substr_types;
+    const MD_OFFSET* substr_offsets;
+};
+
+
 /* Detailed info for MD_BLOCK_OL_DETAIL. */
 typedef struct MD_BLOCK_OL_DETAIL_tag MD_BLOCK_OL_DETAIL;
 struct MD_BLOCK_OL_DETAIL_tag {
@@ -191,13 +220,8 @@ struct MD_BLOCK_H_DETAIL_tag {
 /* Detailed info for MD_BLOCK_CODE. */
 typedef struct MD_BLOCK_CODE_DETAIL_tag MD_BLOCK_CODE_DETAIL;
 struct MD_BLOCK_CODE_DETAIL_tag {
-    /* Complete "info string" */
-    const MD_CHAR* info;
-    MD_SIZE info_size;
-
-    /* Language portion of the info string. */
-    const MD_CHAR* lang;
-    MD_SIZE lang_size;
+    MD_ATTRIBUTE info;
+    MD_ATTRIBUTE lang;
 };
 
 /* Detailed info for MD_BLOCK_TH and MD_BLOCK_TD. */
@@ -209,21 +233,15 @@ struct MD_BLOCK_TD_DETAIL_tag {
 /* Detailed info for MD_SPAN_A. */
 typedef struct MD_SPAN_A_DETAIL_tag MD_SPAN_A_DETAIL;
 struct MD_SPAN_A_DETAIL_tag {
-    const MD_CHAR* href;
-    MD_SIZE href_size;
-
-    const MD_CHAR* title;
-    MD_SIZE title_size;
+    MD_ATTRIBUTE href;
+    MD_ATTRIBUTE title;
 };
 
 /* Detailed info for MD_SPAN_IMG. */
 typedef struct MD_SPAN_IMG_DETAIL_tag MD_SPAN_IMG_DETAIL;
 struct MD_SPAN_IMG_DETAIL_tag {
-    const MD_CHAR* src;
-    MD_SIZE src_size;
-
-    const MD_CHAR* title;
-    MD_SIZE title_size;
+    MD_ATTRIBUTE src;
+    MD_ATTRIBUTE title;
 };
 
 
