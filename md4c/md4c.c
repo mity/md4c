@@ -4678,7 +4678,9 @@ md_enter_child_containers(MD_CTX* ctx, int n_children)
             case _T('*'):
                 /* Remember offset in ctx->block_bytes so we can revisit the
                  * block if we detect it is a loose list. */
+                md_end_current_block(ctx);
                 c->block_byte_off = ctx->n_block_bytes;
+
                 MD_CHECK(md_push_container_bytes(ctx,
                                 (is_ordered_list ? MD_BLOCK_OL : MD_BLOCK_UL),
                                 c->start, MD_BLOCK_CONTAINER_OPENER));
