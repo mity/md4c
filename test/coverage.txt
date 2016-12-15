@@ -78,3 +78,85 @@ x
 </li>
 </ul>
 ````````````````````````````````
+
+
+## Code coverage
+
+### `md_is_unicode_whitespace__()`
+
+Unicode whitespace (here U+2000) forms a word boundary so these cannot be
+resolved as emphasis span because there is no closer mark.
+
+```````````````````````````````` example
+*foo *bar
+.
+<p>*foo *bar</p>
+````````````````````````````````
+
+
+### `md_is_unicode_punct__()`
+
+Ditto for Unicode punctuation (here U+00A1).
+
+```````````````````````````````` example
+*foo¡*bar
+.
+<p>*foo¡*bar</p>
+````````````````````````````````
+
+
+### `md_get_unicode_fold_info()`
+
+```````````````````````````````` example
+[Příliš žluťoučký kůň úpěl ďábelské ódy.]
+
+[PŘÍLIŠ ŽLUŤOUČKÝ KŮŇ ÚPĚL ĎÁBELSKÉ ÓDY.]: /url
+.
+<p><a href="/url">Příliš žluťoučký kůň úpěl ďábelské ódy.</a></p>
+````````````````````````````````
+
+
+### `md_decode_utf8__()` and `md_decode_utf8_before__()`
+
+```````````````````````````````` example
+á*Á (U+00E1, i.e. two byte UTF-8 sequence)
+ *  (U+2000, i.e. three byte UTF-8 sequence)
+.
+<p>á*Á (U+00E1, i.e. two byte UTF-8 sequence)
+ *  (U+2000, i.e. three byte UTF-8 sequence)</p>
+````````````````````````````````
+
+
+### `md_is_link_destination_A()`
+
+
+```````````````````````````````` example
+[link](</url\.with\.escape>)
+.
+<p><a href="/url.with.escape">link</a></p>
+````````````````````````````````
+
+
+### `md_link_label_eq()`
+
+
+```````````````````````````````` example
+[foo bar]
+
+[foo bar]: /url
+.
+<p><a href="/url">foo bar</a></p>
+````````````````````````````````
+
+
+### `md_is_inline_link_spec()`
+
+```````````````````````````````` example
+> [link](/url 'foo
+> bar')
+.
+<blockquote>
+<p><a href="/url" title="foo
+bar">link</a></p>
+</blockquote>
+````````````````````````````````
