@@ -27,7 +27,7 @@ MD4C is C Markdown parser with the following features:
 
 * **Compliance:** Generally MD4C aims to be compliant to the latest version of
   [CommonMark specification](http://spec.commonmark.org/). Right now we are
-  very close to CommonMark 0.27.
+  fully compliant to CommonMark 0.27.
 
 * **Extensions:** MD4C supports some commonly requested and accepted extensions.
   See below.
