@@ -2685,8 +2685,10 @@ md_analyze_backtick(MD_CTX* ctx, int mark_index)
              * itself to swallow it. */
             while(CH(opener->end) == _T(' ')  ||  ISNEWLINE(opener->end))
                 opener->end++;
-            while(CH(mark->beg-1) == _T(' ')  ||  ISNEWLINE(mark->beg-1))
-                mark->beg--;
+            if(mark->beg > opener->end) {
+                while(CH(mark->beg-1) == _T(' ')  ||  ISNEWLINE(mark->beg-1))
+                    mark->beg--;
+            }
 
             /* Done. */
             return;
