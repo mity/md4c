@@ -1359,6 +1359,7 @@ md_build_attr_append_substr(MD_CTX* ctx, MD_ATTRIBUTE_BUILD* build,
                                     build->substr_alloc * sizeof(OFF));
         if(new_substr_offsets == NULL) {
             MD_LOG("realloc() failed.");
+            free(new_substr_types);
             return -1;
         }
 
