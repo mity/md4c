@@ -28,20 +28,16 @@
 #include <string.h>
 #include <time.h>
 
-#include "md4c.h"
+#include "render_html.h"
 #include "cmdline.h"
-#include "entity.h"
 
-#ifdef _WIN32
-    #define snprintf _snprintf
-#endif
 
 
 /* Global options. */
-static unsigned renderer_flags = 0;
+static unsigned parser_flags = 0;
+static unsigned renderer_flags = MD_RENDER_FLAG_DEBUG;
 static int want_fullhtml = 0;
 static int want_stat = 0;
-static int want_verbatim_entities = 0;
 
 
 /*********************************
@@ -99,427 +95,20 @@ membuf_append(struct membuffer* buf, const char* data, MD_SIZE size)
     buf->size += size;
 }
 
-#define MEMBUF_APPEND_LITERAL(buf, literal)    membuf_append((buf), (literal), strlen(literal))
-
-#define ISDIGIT(ch)     ('0' <= (ch) && (ch) <= '9')
-#define ISLOWER(ch)     ('a' <= (ch) && (ch) <= 'z')
-#define ISUPPER(ch)     ('A' <= (ch) && (ch) <= 'Z')
-#define ISALNUM(ch)     (ISLOWER(ch) || ISUPPER(ch) || ISDIGIT(ch))
-
-static void
-membuf_append_escaped(struct membuffer* buf, const char* data, MD_SIZE size)
-{
-    MD_OFFSET beg = 0;
-    MD_OFFSET off = 0;
-
-    /* Some characters need to be escaped in normal HTML text. */
-    #define HTML_NEED_ESCAPE(ch)                                            \
-            ((ch) == '&' || (ch) == '<' || (ch) == '>' || (ch) == '"')
-
-    while(1) {
-        while(off < size  &&  !HTML_NEED_ESCAPE(data[off]))
-            off++;
-        if(off > beg)
-            membuf_append(buf, data + beg, off - beg);
-
-        if(off < size) {
-            switch(data[off]) {
-                case '&':   MEMBUF_APPEND_LITERAL(buf, "&amp;"); break;
-                case '<':   MEMBUF_APPEND_LITERAL(buf, "&lt;"); break;
-                case '>':   MEMBUF_APPEND_LITERAL(buf, "&gt;"); break;
-                case '"':   MEMBUF_APPEND_LITERAL(buf, "&quot;"); break;
-            }
-            off++;
-        } else {
-            break;
-        }
-        beg = off;
-    }
-}
-
-static void
-membuf_append_url_escaped(struct membuffer* buf, const char* data, MD_SIZE size)
-{
-    static const char hex_chars[] = "0123456789ABCDEF";
-    MD_OFFSET beg = 0;
-    MD_OFFSET off = 0;
-
-    #define URL_NEED_ESCAPE(ch)                                             \
-            (!ISALNUM(ch)  &&  strchr("-_.+!*'(),%#@?=;:/,+&$", ch) == NULL)
-
-    while(1) {
-        while(off < size  &&  !URL_NEED_ESCAPE(data[off]))
-            off++;
-        if(off > beg)
-            membuf_append(buf, data + beg, off - beg);
-
-        if(off < size) {
-            char hex[3];
-
-            switch(data[off]) {
-                case '&':   MEMBUF_APPEND_LITERAL(buf, "&amp;"); break;
-                case '\'':  MEMBUF_APPEND_LITERAL(buf, "&#x27;"); break;
-                default:
-                    hex[0] = '%';
-                    hex[1] = hex_chars[((unsigned)data[off] >> 4) & 0xf];
-                    hex[2] = hex_chars[((unsigned)data[off] >> 0) & 0xf];
-                    membuf_append(buf, hex, 3);
-                    break;
-            }
-            off++;
-        } else {
-            break;
-        }
-
-        beg = off;
-    }
-}
-
-
-/*****************************************
- ***  HTML rendering helper functions  ***
- *****************************************/
-
-static unsigned
-hex_val(char ch)
-{
-    if('0' <= ch && ch <= '9')
-        return ch - '0';
-    if('A' <= ch && ch <= 'Z')
-        return ch - 'A' + 10;
-    else
-        return ch - 'a' + 10;
-}
-
-static void
-render_utf8_codepoint(struct membuffer* out, unsigned codepoint,
-                      void (*fn_append)(struct membuffer*,  const char*, MD_SIZE))
-{
-    static const char utf8_replacement_char[] = { 0xef, 0xbf, 0xbd };
-
-    unsigned char utf8[4];
-    size_t n;
-
-    if(codepoint <= 0x7f) {
-        n = 1;
-        utf8[0] = codepoint;
-    } else if(codepoint <= 0x7ff) {
-        n = 2;
-        utf8[0] = 0xc0 | ((codepoint >>  6) & 0x1f);
-        utf8[1] = 0x80 + ((codepoint >>  0) & 0x3f);
-    } else if(codepoint <= 0xffff) {
-        n = 3;
-        utf8[0] = 0xe0 | ((codepoint >> 12) & 0xf);
-        utf8[1] = 0x80 + ((codepoint >>  6) & 0x3f);
-        utf8[2] = 0x80 + ((codepoint >>  0) & 0x3f);
-    } else {
-        n = 4;
-        utf8[0] = 0xf0 | ((codepoint >> 18) & 0x7);
-        utf8[1] = 0x80 + ((codepoint >> 12) & 0x3f);
-        utf8[2] = 0x80 + ((codepoint >>  6) & 0x3f);
-        utf8[3] = 0x80 + ((codepoint >>  0) & 0x3f);
-    }
-
-    if(0 < codepoint  &&  codepoint <= 0x10ffff)
-        fn_append(out, (char*)utf8, n);
-    else
-        fn_append(out, utf8_replacement_char, 3);
-}
-
-/* Translate entity to its UTF-8 equivalent, or output the verbatim one
- * if such entity is unknown (or if the translation is disabled). */
-static void
-render_entity(struct membuffer* out, const MD_CHAR* text, MD_SIZE size,
-              void (*fn_append)(struct membuffer*,  const char*, MD_SIZE))
-{
-    if(want_verbatim_entities) {
-        fn_append(out, text, size);
-        return;
-    }
-
-    /* We assume UTF-8 output is what is desired. */
-    if(size > 3 && text[1] == '#') {
-        unsigned codepoint = 0;
-
-        if(text[2] == 'x' || text[2] == 'X') {
-            /* Hexadecimal entity (e.g. "&#x1234abcd;")). */
-            MD_SIZE i;
-            for(i = 3; i < size-1; i++)
-                codepoint = 16 * codepoint + hex_val(text[i]);
-        } else {
-            /* Decimal entity (e.g. "&1234;") */
-            MD_SIZE i;
-            for(i = 2; i < size-1; i++)
-                codepoint = 10 * codepoint + (text[i] - '0');
-        }
-
-        render_utf8_codepoint(out, codepoint, fn_append);
-        return;
-    } else {
-        /* Named entity (e.g. "&nbsp;"). */
-        const char* ent;
-
-        ent = entity_lookup(text, size);
-        if(ent != NULL) {
-            fn_append(out, ent, strlen(ent));
-            return;
-        }
-    }
-
-    fn_append(out, text, size);
-}
-
-static void
-render_attribute(struct membuffer* out, const MD_ATTRIBUTE* attr,
-                 void (*fn_append)(struct membuffer*,  const char*, MD_SIZE))
-{
-    int i;
-
-    for(i = 0; attr->substr_offsets[i] < attr->size; i++) {
-        MD_TEXTTYPE type = attr->substr_types[i];
-        MD_OFFSET off = attr->substr_offsets[i];
-        MD_SIZE size = attr->substr_offsets[i+1] - off;
-        const MD_CHAR* text = attr->text + off;
-
-        switch(type) {
-            case MD_TEXT_ENTITY:    render_entity(out, text, size, fn_append); break;
-            default:                fn_append(out, text, size); break;
-        }
-    }
-}
-
-
-static int image_nesting_level = 0;
-
-static void
-open_ol_block(struct membuffer* out, const MD_BLOCK_OL_DETAIL* det)
-{
-    char buf[64];
-
-    if(det->start == 1) {
-        MEMBUF_APPEND_LITERAL(out, "<ol>");
-        return;
-    }
-
-    snprintf(buf, sizeof(buf), "<ol start=\"%u\">", det->start);
-    MEMBUF_APPEND_LITERAL(out, buf);
-}
-
-static void
-open_code_block(struct membuffer* out, const MD_BLOCK_CODE_DETAIL* det)
-{
-    MEMBUF_APPEND_LITERAL(out, "<pre><code");
-
-    /* If known, output the HTML 5 attribute class="language-LANGNAME". */
-    if(det->lang.text != NULL) {
-        MEMBUF_APPEND_LITERAL(out, " class=\"language-");
-        render_attribute(out, &det->lang, membuf_append_escaped);
-        MEMBUF_APPEND_LITERAL(out, "\"");
-    }
-
-    MEMBUF_APPEND_LITERAL(out, ">");
-}
-
-static void
-open_td_block(struct membuffer* out, const char* cell_type, const MD_BLOCK_TD_DETAIL* det)
-{
-    MEMBUF_APPEND_LITERAL(out, "<");
-    MEMBUF_APPEND_LITERAL(out, cell_type);
-
-    switch(det->align) {
-        case MD_ALIGN_LEFT:     MEMBUF_APPEND_LITERAL(out, " align=\"left\">"); break;
-        case MD_ALIGN_CENTER:   MEMBUF_APPEND_LITERAL(out, " align=\"center\">"); break;
-        case MD_ALIGN_RIGHT:    MEMBUF_APPEND_LITERAL(out, " align=\"right\">"); break;
-        default:                MEMBUF_APPEND_LITERAL(out, ">"); break;
-    }
-}
-
-static void
-open_a_span(struct membuffer* out, const MD_SPAN_A_DETAIL* det)
-{
-    MEMBUF_APPEND_LITERAL(out, "<a href=\"");
-    render_attribute(out, &det->href, membuf_append_url_escaped);
-
-    if(det->title.text != NULL) {
-        MEMBUF_APPEND_LITERAL(out, "\" title=\"");
-        render_attribute(out, &det->title, membuf_append_escaped);
-    }
-
-    MEMBUF_APPEND_LITERAL(out, "\">");
-}
-
-static void
-open_img_span(struct membuffer* out, const MD_SPAN_IMG_DETAIL* det)
-{
-    MEMBUF_APPEND_LITERAL(out, "<img src=\"");
-    render_attribute(out, &det->src, membuf_append_url_escaped);
-
-    MEMBUF_APPEND_LITERAL(out, "\" alt=\"");
-
-    image_nesting_level++;
-}
-
-static void
-close_img_span(struct membuffer* out, const MD_SPAN_IMG_DETAIL* det)
-{
-    if(det->title.text != NULL) {
-        MEMBUF_APPEND_LITERAL(out, "\" title=\"");
-        render_attribute(out, &det->title, membuf_append_escaped);
-    }
-
-    MEMBUF_APPEND_LITERAL(out, "\">");
-
-    image_nesting_level--;
-}
-
-
-/**************************************
- ***  HTML renderer implementation  ***
- **************************************/
-
-static int
-enter_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
-{
-    static const char* head[6] = { "<h1>", "<h2>", "<h3>", "<h4>", "<h5>", "<h6>" };
-    struct membuffer* out = (struct membuffer*) userdata;
-
-    switch(type) {
-        case MD_BLOCK_DOC:      /* noop */ break;
-        case MD_BLOCK_QUOTE:    MEMBUF_APPEND_LITERAL(out, "<blockquote>\n"); break;
-        case MD_BLOCK_UL:       MEMBUF_APPEND_LITERAL(out, "<ul>\n"); break;
-        case MD_BLOCK_OL:       open_ol_block(out, (const MD_BLOCK_OL_DETAIL*)detail); break;
-        case MD_BLOCK_LI:       MEMBUF_APPEND_LITERAL(out, "<li>"); break;
-        case MD_BLOCK_HR:       MEMBUF_APPEND_LITERAL(out, "<hr>\n"); break;
-        case MD_BLOCK_H:        MEMBUF_APPEND_LITERAL(out, head[((MD_BLOCK_H_DETAIL*)detail)->level - 1]); break;
-        case MD_BLOCK_CODE:     open_code_block(out, (const MD_BLOCK_CODE_DETAIL*) detail); break;
-        case MD_BLOCK_HTML:     /* noop */ break;
-        case MD_BLOCK_P:        MEMBUF_APPEND_LITERAL(out, "<p>"); break;
-        case MD_BLOCK_TABLE:    MEMBUF_APPEND_LITERAL(out, "<table>\n"); break;
-        case MD_BLOCK_THEAD:    MEMBUF_APPEND_LITERAL(out, "<thead>\n"); break;
-        case MD_BLOCK_TBODY:    MEMBUF_APPEND_LITERAL(out, "<tbody>\n"); break;
-        case MD_BLOCK_TR:       MEMBUF_APPEND_LITERAL(out, "<tr>\n"); break;
-        case MD_BLOCK_TH:       open_td_block(out, "th", (MD_BLOCK_TD_DETAIL*)detail); break;
-        case MD_BLOCK_TD:       open_td_block(out, "td", (MD_BLOCK_TD_DETAIL*)detail); break;
-    }
-
-    return 0;
-}
-
-static int
-leave_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
-{
-    static const char* head[6] = { "</h1>\n", "</h2>\n", "</h3>\n", "</h4>\n", "</h5>\n", "</h6>\n" };
-    struct membuffer* out = (struct membuffer*) userdata;
-
-    switch(type) {
-        case MD_BLOCK_DOC:      /*noop*/ break;
-        case MD_BLOCK_QUOTE:    MEMBUF_APPEND_LITERAL(out, "</blockquote>\n"); break;
-        case MD_BLOCK_UL:       MEMBUF_APPEND_LITERAL(out, "</ul>\n"); break;
-        case MD_BLOCK_OL:       MEMBUF_APPEND_LITERAL(out, "</ol>\n"); break;
-        case MD_BLOCK_LI:       MEMBUF_APPEND_LITERAL(out, "</li>\n"); break;
-        case MD_BLOCK_HR:       /*noop*/ break;
-        case MD_BLOCK_H:        MEMBUF_APPEND_LITERAL(out, head[((MD_BLOCK_H_DETAIL*)detail)->level - 1]); break;
-        case MD_BLOCK_CODE:     MEMBUF_APPEND_LITERAL(out, "</code></pre>\n"); break;
-        case MD_BLOCK_HTML:     /* noop */ break;
-        case MD_BLOCK_P:        MEMBUF_APPEND_LITERAL(out, "</p>\n"); break;
-        case MD_BLOCK_TABLE:    MEMBUF_APPEND_LITERAL(out, "</table>\n"); break;
-        case MD_BLOCK_THEAD:    MEMBUF_APPEND_LITERAL(out, "</thead>\n"); break;
-        case MD_BLOCK_TBODY:    MEMBUF_APPEND_LITERAL(out, "</tbody>\n"); break;
-        case MD_BLOCK_TR:       MEMBUF_APPEND_LITERAL(out, "</tr>\n"); break;
-        case MD_BLOCK_TH:       MEMBUF_APPEND_LITERAL(out, "</th>\n"); break;
-        case MD_BLOCK_TD:       MEMBUF_APPEND_LITERAL(out, "</td>\n"); break;
-    }
-
-    return 0;
-}
-
-static int
-enter_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
-{
-    struct membuffer* out = (struct membuffer*) userdata;
-
-    if(image_nesting_level > 0) {
-        /* We are inside an image, i.e. rendering the ALT attribute of
-         * <IMG> tag. */
-        return 0;
-    }
-
-    switch(type) {
-        case MD_SPAN_EM:        MEMBUF_APPEND_LITERAL(out, "<em>"); break;
-        case MD_SPAN_STRONG:    MEMBUF_APPEND_LITERAL(out, "<strong>"); break;
-        case MD_SPAN_A:         open_a_span(out, (MD_SPAN_A_DETAIL*) detail); break;
-        case MD_SPAN_IMG:       open_img_span(out, (MD_SPAN_IMG_DETAIL*) detail); break;
-        case MD_SPAN_CODE:      MEMBUF_APPEND_LITERAL(out, "<code>"); break;
-    }
-
-    return 0;
-}
-
-static int
-leave_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
-{
-    struct membuffer* out = (struct membuffer*) userdata;
-
-    if(image_nesting_level > 0) {
-        /* We are inside an image, i.e. rendering the ALT attribute of
-         * <IMG> tag. */
-        if(image_nesting_level == 1  &&  type == MD_SPAN_IMG)
-            close_img_span(out, (MD_SPAN_IMG_DETAIL*) detail);
-        return 0;
-    }
-
-    switch(type) {
-        case MD_SPAN_EM:        MEMBUF_APPEND_LITERAL(out, "</em>"); break;
-        case MD_SPAN_STRONG:    MEMBUF_APPEND_LITERAL(out, "</strong>"); break;
-        case MD_SPAN_A:         MEMBUF_APPEND_LITERAL(out, "</a>"); break;
-        case MD_SPAN_IMG:       /*noop, handled above*/ break;
-        case MD_SPAN_CODE:      MEMBUF_APPEND_LITERAL(out, "</code>"); break;
-    }
-
-    return 0;
-}
-
-static int
-text_callback(MD_TEXTTYPE type, const MD_CHAR* text, MD_SIZE size, void* userdata)
-{
-    struct membuffer* out = (struct membuffer*) userdata;
-
-    switch(type) {
-        case MD_TEXT_NULLCHAR:  render_utf8_codepoint(out, 0x0000, membuf_append); break;
-        case MD_TEXT_BR:        MEMBUF_APPEND_LITERAL(out, (image_nesting_level == 0 ? "<br>\n" : " ")); break;
-        case MD_TEXT_SOFTBR:    MEMBUF_APPEND_LITERAL(out, (image_nesting_level == 0 ? "\n" : " ")); break;
-        case MD_TEXT_HTML:      membuf_append(out, text, size); break;
-        case MD_TEXT_ENTITY:    render_entity(out, text, size, membuf_append_escaped); break;
-        default:                membuf_append_escaped(out, text, size); break;
-    }
-
-    return 0;
-}
-
-static void
-debug_log_callback(const char* msg, void* userdata)
-{
-    fprintf(stderr, "Error: %s\n", msg);
-}
-
 
 /**********************
  ***  Main program  ***
  **********************/
 
+static void
+process_output(const MD_CHAR* text, MD_SIZE size, void* userdata)
+{
+    membuf_append((struct membuffer*) userdata, text, size);
+}
+
 static int
 process_file(FILE* in, FILE* out)
 {
-    MD_RENDERER renderer = {
-        enter_block_callback,
-        leave_block_callback,
-        enter_span_callback,
-        leave_span_callback,
-        text_callback,
-        debug_log_callback,
-        renderer_flags
-    };
-
     MD_SIZE n;
     struct membuffer buf_in = {0};
     struct membuffer buf_out = {0};
@@ -546,7 +135,10 @@ process_file(FILE* in, FILE* out)
     /* Parse the document. This shall call our callbacks provided via the
      * md_renderer_t structure. */
     t0 = clock();
-    ret = md_parse(buf_in.data, buf_in.size, &renderer, (void*) &buf_out);
+
+    ret = md_render_html(buf_in.data, buf_in.size, process_output,
+                (void*) &buf_out, parser_flags, renderer_flags);
+
     t1 = clock();
     if(ret != 0) {
         fprintf(stderr, "Parsing failed.\n");
@@ -672,17 +264,17 @@ cmdline_callback(int opt, char const* value, void* data)
         case 's':   want_stat = 1; break;
         case 'h':   usage(); exit(0); break;
 
-        case 'E':   want_verbatim_entities = 1; break;
-        case 'A':   renderer_flags |= MD_FLAG_PERMISSIVEATXHEADERS; break;
-        case 'I':   renderer_flags |= MD_FLAG_NOINDENTEDCODEBLOCKS; break;
-        case 'F':   renderer_flags |= MD_FLAG_NOHTMLBLOCKS; break;
-        case 'G':   renderer_flags |= MD_FLAG_NOHTMLSPANS; break;
-        case 'H':   renderer_flags |= MD_FLAG_NOHTML; break;
-        case 'W':   renderer_flags |= MD_FLAG_COLLAPSEWHITESPACE; break;
-        case 'U':   renderer_flags |= MD_FLAG_PERMISSIVEURLAUTOLINKS; break;
-        case '@':   renderer_flags |= MD_FLAG_PERMISSIVEEMAILAUTOLINKS; break;
-        case 'V':   renderer_flags |= MD_FLAG_PERMISSIVEAUTOLINKS; break;
-        case 'T':   renderer_flags |= MD_FLAG_TABLES; break;
+        case 'E':   renderer_flags |= MD_RENDER_FLAG_VERBATIM_ENTITIES; break;
+        case 'A':   parser_flags |= MD_FLAG_PERMISSIVEATXHEADERS; break;
+        case 'I':   parser_flags |= MD_FLAG_NOINDENTEDCODEBLOCKS; break;
+        case 'F':   parser_flags |= MD_FLAG_NOHTMLBLOCKS; break;
+        case 'G':   parser_flags |= MD_FLAG_NOHTMLSPANS; break;
+        case 'H':   parser_flags |= MD_FLAG_NOHTML; break;
+        case 'W':   parser_flags |= MD_FLAG_COLLAPSEWHITESPACE; break;
+        case 'U':   parser_flags |= MD_FLAG_PERMISSIVEURLAUTOLINKS; break;
+        case '@':   parser_flags |= MD_FLAG_PERMISSIVEEMAILAUTOLINKS; break;
+        case 'V':   parser_flags |= MD_FLAG_PERMISSIVEAUTOLINKS; break;
+        case 'T':   parser_flags |= MD_FLAG_TABLES; break;
 
         default:
             fprintf(stderr, "Illegal option: %s\n", value);
