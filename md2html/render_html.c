@@ -63,7 +63,7 @@ render_text(MD_RENDER_HTML* r, const MD_CHAR* text, MD_SIZE size)
 
 
 static void
-render_html_escaped(MD_RENDER_HTML* r, const char* data, MD_SIZE size)
+render_html_escaped(MD_RENDER_HTML* r, const MD_CHAR* data, MD_SIZE size)
 {
     MD_OFFSET beg = 0;
     MD_OFFSET off = 0;
@@ -94,9 +94,9 @@ render_html_escaped(MD_RENDER_HTML* r, const char* data, MD_SIZE size)
 }
 
 static void
-render_url_escaped(MD_RENDER_HTML* r, const char* data, MD_SIZE size)
+render_url_escaped(MD_RENDER_HTML* r, const MD_CHAR* data, MD_SIZE size)
 {
-    static const char hex_chars[] = "0123456789ABCDEF";
+    static const MD_CHAR hex_chars[] = "0123456789ABCDEF";
     MD_OFFSET beg = 0;
     MD_OFFSET off = 0;
 
@@ -144,9 +144,9 @@ hex_val(char ch)
 
 static void
 render_utf8_codepoint(MD_RENDER_HTML* r, unsigned codepoint,
-                      void (*fn_append)(MD_RENDER_HTML*,  const char*, MD_SIZE))
+                      void (*fn_append)(MD_RENDER_HTML*, const MD_CHAR*, MD_SIZE))
 {
-    static const char utf8_replacement_char[] = { 0xef, 0xbf, 0xbd };
+    static const MD_CHAR utf8_replacement_char[] = { 0xef, 0xbf, 0xbd };
 
     unsigned char utf8[4];
     size_t n;
@@ -181,7 +181,7 @@ render_utf8_codepoint(MD_RENDER_HTML* r, unsigned codepoint,
  * if such entity is unknown (or if the translation is disabled). */
 static void
 render_entity(MD_RENDER_HTML* r, const MD_CHAR* text, MD_SIZE size,
-              void (*fn_append)(MD_RENDER_HTML*,  const char*, MD_SIZE))
+              void (*fn_append)(MD_RENDER_HTML*, const MD_CHAR*, MD_SIZE))
 {
     if(r->flags & MD_RENDER_FLAG_VERBATIM_ENTITIES) {
         fn_append(r, text, size);
@@ -208,7 +208,7 @@ render_entity(MD_RENDER_HTML* r, const MD_CHAR* text, MD_SIZE size,
         return;
     } else {
         /* Named entity (e.g. "&nbsp;"). */
-        const char* ent;
+        const MD_CHAR* ent;
 
         ent = entity_lookup(text, size);
         if(ent != NULL) {
@@ -222,7 +222,7 @@ render_entity(MD_RENDER_HTML* r, const MD_CHAR* text, MD_SIZE size,
 
 static void
 render_attribute(MD_RENDER_HTML* r, const MD_ATTRIBUTE* attr,
-                 void (*fn_append)(MD_RENDER_HTML*,  const char*, MD_SIZE))
+                 void (*fn_append)(MD_RENDER_HTML*, const MD_CHAR*, MD_SIZE))
 {
     int i;
 
@@ -272,7 +272,7 @@ render_open_code_block(MD_RENDER_HTML* r, const MD_BLOCK_CODE_DETAIL* det)
 }
 
 static void
-render_open_td_block(MD_RENDER_HTML* r, const char* cell_type, const MD_BLOCK_TD_DETAIL* det)
+render_open_td_block(MD_RENDER_HTML* r, const MD_CHAR* cell_type, const MD_BLOCK_TD_DETAIL* det)
 {
     RENDER_LITERAL(r, "<");
     RENDER_LITERAL(r, cell_type);
@@ -331,7 +331,7 @@ render_close_img_span(MD_RENDER_HTML* r, const MD_SPAN_IMG_DETAIL* det)
 static int
 enter_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
 {
-    static const char* head[6] = { "<h1>", "<h2>", "<h3>", "<h4>", "<h5>", "<h6>" };
+    static const MD_CHAR* head[6] = { "<h1>", "<h2>", "<h3>", "<h4>", "<h5>", "<h6>" };
     MD_RENDER_HTML* r = (MD_RENDER_HTML*) userdata;
 
     switch(type) {
@@ -359,7 +359,7 @@ enter_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
 static int
 leave_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
 {
-    static const char* head[6] = { "</h1>\n", "</h2>\n", "</h3>\n", "</h4>\n", "</h5>\n", "</h6>\n" };
+    static const MD_CHAR* head[6] = { "</h1>\n", "</h2>\n", "</h3>\n", "</h4>\n", "</h5>\n", "</h6>\n" };
     MD_RENDER_HTML* r = (MD_RENDER_HTML*) userdata;
 
     switch(type) {
