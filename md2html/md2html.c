@@ -192,6 +192,7 @@ static const option cmdline_options[] = {
     { "full-html",                  'f', 'f', OPTION_ARG_NONE },
     { "stat",                       's', 's', OPTION_ARG_NONE },
     { "help",                       'h', 'h', OPTION_ARG_NONE },
+    { "version",                    'v', 'v', OPTION_ARG_NONE },
     { "fverbatim-entities",          0,  'E', OPTION_ARG_NONE },
     { "fpermissive-atx-headers",     0,  'A', OPTION_ARG_NONE },
     { "fpermissive-url-autolinks",   0,  'U', OPTION_ARG_NONE },
@@ -218,6 +219,7 @@ usage(void)
         "  -f, --full-html      Generate full HTML document, including header\n"
         "  -s, --stat           Measure time of input parsing\n"
         "  -h, --help           Display this help and exit\n"
+        "  -v, --version        Display version and exit\n"
         "\n"
         "Markdown extension options:\n"
         "      --fcollapse-whitespace\n"
@@ -243,6 +245,12 @@ usage(void)
     );
 }
 
+static void
+version(void)
+{
+    printf("%d.%d.%d\n", MD_VERSION_MAJOR, MD_VERSION_MINOR, MD_VERSION_RELEASE);
+}
+
 static const char* input_path = NULL;
 static const char* output_path = NULL;
 
@@ -263,6 +271,7 @@ cmdline_callback(int opt, char const* value, void* data)
         case 'f':   want_fullhtml = 1; break;
         case 's':   want_stat = 1; break;
         case 'h':   usage(); exit(0); break;
+        case 'v':   version(); exit(0); break;
 
         case 'E':   renderer_flags |= MD_RENDER_FLAG_VERBATIM_ENTITIES; break;
         case 'A':   parser_flags |= MD_FLAG_PERMISSIVEATXHEADERS; break;
