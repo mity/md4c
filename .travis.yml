@@ -18,4 +18,4 @@ after_success:
     - sudo apt-get install python3
     - pip install --user cpp-coveralls
     - ../scripts/run-tests.sh
-    - ~/.local/bin/coveralls -r .. -i md4c
+    - ~/.local/bin/coveralls -r .. --gcov-options '\-lp' -i md4c -i md2html
