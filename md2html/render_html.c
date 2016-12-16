@@ -30,9 +30,18 @@
 #include "entity.h"
 
 
+#ifdef _MSC_VER
+    /* MSVC does not understand "inline" when building as pure C (not C++).
+     * However it understands "__inline" */
+    #ifndef __cplusplus
+        #define inline __inline
+    #endif
+#endif
+
 #ifdef _WIN32
     #define snprintf _snprintf
 #endif
+
 
 
 typedef struct MD_RENDER_HTML_tag MD_RENDER_HTML;
