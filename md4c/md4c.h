@@ -62,7 +62,8 @@ enum MD_BLOCKTYPE_tag {
     /* <blockquote>...</blockquote> */
     MD_BLOCK_QUOTE,
 
-    /* <ul>...</ul> */
+    /* <ul>...</ul>
+     * Detail: Structure MD_BLOCK_UL_DETAIL. */
     MD_BLOCK_UL,
 
     /* <ol>...</ol>
@@ -210,10 +211,19 @@ struct MD_ATTRIBUTE_tag {
 };
 
 
+/* Detailed info for MD_BLOCK_UL_DETAIL. */
+typedef struct MD_BLOCK_UL_DETAIL_tag MD_BLOCK_UL_DETAIL;
+struct MD_BLOCK_UL_DETAIL_tag {
+    int is_tight;           /* Non-zero if tight list, zero of loose. */
+    MD_CHAR mark;           /* Item bullet character in MarkDown source of the list, e.g. '-', '+', '*'. */
+};
+
 /* Detailed info for MD_BLOCK_OL_DETAIL. */
 typedef struct MD_BLOCK_OL_DETAIL_tag MD_BLOCK_OL_DETAIL;
 struct MD_BLOCK_OL_DETAIL_tag {
     unsigned start;         /* Start index of the ordered list. */
+    int is_tight;           /* Non-zero if tight list, zero of loose. */
+    MD_CHAR mark_delimiter; /* Character delimiting the item marks in MarkDown source, e.g. '.' or ')' */
 };
 
 /* Detailed info for MD_BLOCK_H. */
