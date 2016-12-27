@@ -260,7 +260,7 @@ struct MD_SPAN_IMG_DETAIL_tag {
 };
 
 
-/* Flags specifying Markdown dialect.
+/* Flags specifying extensions/deviations from CommonMark specification.
  *
  * By default (when MD_RENDERER::flags == 0), we follow CommonMark specification.
  * The following flags may allow some extensions or deviations from it.
@@ -275,6 +275,14 @@ struct MD_SPAN_IMG_DETAIL_tag {
 #define MD_FLAG_NOHTMLSPANS                 0x0040  /* Disable raw HTML (inline). */
 #define MD_FLAG_NOHTML                      (MD_FLAG_NOHTMLBLOCKS | MD_FLAG_NOHTMLSPANS)
 #define MD_FLAG_TABLES                      0x0100  /* Enable tables extension. */
+
+/* Convenient sets of flags corresponding to well-known Markdown dialects.
+ * Note we may only support subset of features of the referred dialect.
+ * The constant just enables those extensions which bring us as close as
+ * possible given what features we implement.
+ */
+#define MD_DIALECT_COMMONMARK               0
+#define MD_DIALECT_GITHUB                   (MD_FLAG_PERMISSIVEATXHEADERS | MD_FLAG_PERMISSIVEAUTOLINKS | MD_FLAG_TABLES)
 
 /* Renderer structure.
  */
