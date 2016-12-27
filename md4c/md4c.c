@@ -117,13 +117,16 @@ struct MD_CTX_tag {
     char mark_char_map[128];
 
     /* For resolving of inline spans. */
-    MD_MARKCHAIN mark_chains[6];
+    MD_MARKCHAIN mark_chains[7];
 #define PTR_CHAIN               ctx->mark_chains[0]
 #define BACKTICK_OPENERS        ctx->mark_chains[1]
 #define LOWERTHEN_OPENERS       ctx->mark_chains[2]
 #define ASTERISK_OPENERS        ctx->mark_chains[3]
 #define UNDERSCORE_OPENERS      ctx->mark_chains[4]
 #define BRACKET_OPENERS         ctx->mark_chains[5]
+#define TABLECELLBOUNDARIES     ctx->mark_chains[6]
+
+    int n_table_cell_boundaries;
 
     /* For resolving links. */
     int unresolved_link_head;
@@ -2409,6 +2412,9 @@ md_build_mark_char_map(MD_CTX* ctx)
     if(ctx->r.flags & MD_FLAG_PERMISSIVEEMAILAUTOLINKS)
         ctx->mark_char_map['@'] = 1;
 
+    if(ctx->r.flags & MD_FLAG_TABLES)
+        ctx->mark_char_map['|'] = 1;
+
     if(ctx->r.flags & MD_FLAG_COLLAPSEWHITESPACE) {
         int i;
 
@@ -2420,7 +2426,7 @@ md_build_mark_char_map(MD_CTX* ctx)
 }
 
 static int
-md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
+md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
 {
     int i;
     int ret = 0;
@@ -2622,6 +2628,13 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                     PUSH_MARK('D', off, off, 0);
                 }
 
+                off++;
+                continue;
+            }
+
+            /* A potential table cell boundary. */
+            if(table_mode  &&  ch == _T('|')) {
+                PUSH_MARK(ch, off, off+1, 0);
                 off++;
                 continue;
             }
@@ -3108,6 +3121,16 @@ md_analyze_entity(MD_CTX* ctx, int mark_index)
 }
 
 static void
+md_analyze_table_cell_boundary(MD_CTX* ctx, int mark_index)
+{
+    MD_MARK* mark = &ctx->marks[mark_index];
+    mark->flags |= MD_MARK_RESOLVED;
+
+    md_mark_chain_append(ctx, &TABLECELLBOUNDARIES, mark_index);
+    ctx->n_table_cell_boundaries++;
+}
+
+static void
 md_analyze_simple_pairing_mark(MD_CTX* ctx, MD_MARKCHAIN* chain, int mark_index,
                                int apply_rule_of_three)
 {
@@ -3310,6 +3333,7 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF en
             case '!':   /* Pass through. */
             case ']':   md_analyze_bracket(ctx, i); break;
             case '&':   md_analyze_entity(ctx, i); break;
+            case '|':   md_analyze_table_cell_boundary(ctx, i); break;
             case '*':   md_analyze_asterisk(ctx, i); break;
             case '_':   md_analyze_underscore(ctx, i); break;
             case ':':   md_analyze_permissive_url_autolink(ctx, i); break;
@@ -3322,7 +3346,7 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF en
 
 /* Analyze marks (build ctx->marks). */
 static int
-md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
+md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
 {
     int ret;
     OFF beg = lines[0].beg;
@@ -3332,7 +3356,7 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
     ctx->n_marks = 0;
 
     /* Collect all marks. */
-    if(md_collect_marks(ctx, lines, n_lines) != 0)
+    if(md_collect_marks(ctx, lines, n_lines, table_mode) != 0)
         return -1;
 
     /* We analyze marks in few groups to handle their precedence. */
@@ -3349,12 +3373,23 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
     BRACKET_OPENERS.tail = -1;
     ctx->unresolved_link_head = -1;
     ctx->unresolved_link_tail = -1;
-    /* (3) Emphasis and strong emphasis; permissive autolinks. */
-    md_analyze_marks(ctx, lines, n_lines, beg, end, _T("*_@:"));
-    ASTERISK_OPENERS.head = -1;
-    ASTERISK_OPENERS.tail = -1;
-    UNDERSCORE_OPENERS.head = -1;
-    UNDERSCORE_OPENERS.tail = -1;
+    if(table_mode) {
+        /* (3a) Analyze table cell boundaries.
+         * Note we reset TABLECELLBOUNDARIES chain prior to the call md_analyze_marks(),
+         * not after, because caller may need it. */
+        MD_ASSERT(n_lines == 1);
+        TABLECELLBOUNDARIES.head = -1;
+        TABLECELLBOUNDARIES.tail = -1;
+        ctx->n_table_cell_boundaries = 0;
+        md_analyze_marks(ctx, lines, n_lines, beg, end, _T("|"));
+    } else {
+        /* (3b) Emphasis and strong emphasis; permissive autolinks. */
+        md_analyze_marks(ctx, lines, n_lines, beg, end, _T("*_@:"));
+        ASTERISK_OPENERS.head = -1;
+        ASTERISK_OPENERS.tail = -1;
+        UNDERSCORE_OPENERS.head = -1;
+        UNDERSCORE_OPENERS.tail = -1;
+    }
 
 abort:
     return ret;
@@ -3627,52 +3662,85 @@ md_analyze_table_alignment(MD_CTX* ctx, OFF beg, OFF end, MD_ALIGN* align, int n
 static int md_process_normal_block_contents(MD_CTX* ctx, const MD_LINE* lines, int n_lines);
 
 static int
+md_process_table_cell(MD_CTX* ctx, MD_BLOCKTYPE cell_type, MD_ALIGN align, OFF beg, OFF end)
+{
+    MD_LINE line;
+    MD_BLOCK_TD_DETAIL det;
+    int ret = 0;
+
+    while(beg < end  &&  ISWHITESPACE(beg))
+        beg++;
+    while(end > beg  &&  ISWHITESPACE(end-1))
+        end--;
+
+    det.align = align;
+    line.beg = beg;
+    line.end = end;
+
+    MD_ENTER_BLOCK(cell_type, &det);
+    MD_CHECK(md_process_normal_block_contents(ctx, &line, 1));
+    MD_LEAVE_BLOCK(cell_type, &det);
+
+abort:
+    return ret;
+}
+
+static int
 md_process_table_row(MD_CTX* ctx, MD_BLOCKTYPE cell_type, OFF beg, OFF end,
                      const MD_ALIGN* align, int n_align)
 {
-    OFF off = beg;
-    OFF cell_beg, cell_end;
-    int cell_index = 0;
+    MD_LINE line = { beg, end };
+    OFF* pipe_offs;
+    int i, j, n;
     int ret = 0;
 
-    MD_ENTER_BLOCK(MD_BLOCK_TR, NULL);
+    /* Break the line into table cells by identifying pipe characters who
+     * form the cell boundary. */
+    MD_CHECK(md_analyze_inlines(ctx, &line, 1, TRUE));
 
-    if(CH(off) == _T('|'))
-        off++;
-
-    while(off < end) {
-        cell_beg = off;
-        while(off < end  &&  CH(off) != _T('|')) {
-            if(CH(off) == _T('\\')  &&  off+1 < end  &&  ISPUNCT(off+1))
-                off += 2;
-            else
-                off++;
-        }
-        cell_end = off;
-
-        while(cell_beg < end  &&  ISWHITESPACE(cell_beg))
-            cell_beg++;
-        while(cell_end > cell_beg  &&  ISWHITESPACE(cell_end-1))
-            cell_end--;
-
-        if(cell_end > cell_beg  ||  off < end) {
-            MD_LINE cell_line = { cell_beg, cell_end };
-            MD_BLOCK_TD_DETAIL det;
-
-            det.align = (cell_index < n_align ? align[cell_index] : MD_ALIGN_DEFAULT);
-
-            MD_ENTER_BLOCK(cell_type, &det);
-            MD_CHECK(md_process_normal_block_contents(ctx, &cell_line, 1));
-            MD_LEAVE_BLOCK(cell_type, &det);
-            cell_index++;
-        }
-
-        off++;
+    /* We have to remember the cell boundaries in local buffer because
+     * ctx->marks[] shall be reused during cell contents processing. */
+    n = ctx->n_table_cell_boundaries;
+    pipe_offs = (OFF*) malloc(n * sizeof(OFF));
+    if(pipe_offs == NULL) {
+        MD_LOG("malloc() failed.");
+        ret = -1;
+        goto abort;
+    }
+    for(i = TABLECELLBOUNDARIES.head, j = 0; i >= 0; i = ctx->marks[i].next) {
+        MD_MARK* mark = &ctx->marks[i];
+        pipe_offs[j++] = mark->beg;
     }
 
+    /* Process cells. */
+    MD_ENTER_BLOCK(MD_BLOCK_TR, NULL);
+    j = 0;
+    if(beg < pipe_offs[0]) {
+        MD_CHECK(md_process_table_cell(ctx, cell_type,
+                    (j < n_align ? align[j++] : MD_ALIGN_DEFAULT),
+                    beg, pipe_offs[0]));
+    }
+    for(i = 0; i < n-1; i++) {
+        MD_CHECK(md_process_table_cell(ctx, cell_type,
+                    (j < n_align ? align[j++] : MD_ALIGN_DEFAULT),
+                    pipe_offs[i]+1, pipe_offs[i+1]));
+    }
+    if(pipe_offs[n-1] < end-1) {
+        MD_CHECK(md_process_table_cell(ctx, cell_type,
+                    (j < n_align ? align[j++] : MD_ALIGN_DEFAULT),
+                    pipe_offs[n-1]+1, end));
+    }
     MD_LEAVE_BLOCK(MD_BLOCK_TR, NULL);
 
 abort:
+    free(pipe_offs);
+
+    /* Free any temporary memory blocks stored within some dummy marks. */
+    for(i = PTR_CHAIN.head; i >= 0; i = ctx->marks[i].next)
+        free(md_mark_get_ptr(ctx, i));
+    PTR_CHAIN.head = -1;
+    PTR_CHAIN.tail = -1;
+
     return ret;
 }
 
@@ -3710,6 +3778,35 @@ md_process_table_block_contents(MD_CTX* ctx, int col_count, const MD_LINE* lines
 
 abort:
     free(align);
+    return ret;
+}
+
+static int
+md_is_table_row(MD_CTX* ctx, OFF beg, OFF* p_end)
+{
+    MD_LINE line = { beg, beg };
+    int i;
+    int ret = FALSE;
+
+    /* Find end of line. */
+    while(line.end < ctx->size  &&  !ISNEWLINE(line.end))
+        line.end++;
+
+    MD_CHECK(md_analyze_inlines(ctx, &line, 1, TRUE));
+
+    if(TABLECELLBOUNDARIES.head >= 0) {
+        if(p_end != NULL)
+            *p_end = line.end;
+        ret = TRUE;
+    }
+
+abort:
+    /* Free any temporary memory blocks stored within some dummy marks. */
+    for(i = PTR_CHAIN.head; i >= 0; i = ctx->marks[i].next)
+        free(md_mark_get_ptr(ctx, i));
+    PTR_CHAIN.head = -1;
+    PTR_CHAIN.tail = -1;
+
     return ret;
 }
 
@@ -3755,7 +3852,7 @@ md_process_normal_block_contents(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
     int i;
     int ret;
 
-    MD_CHECK(md_analyze_inlines(ctx, lines, n_lines));
+    MD_CHECK(md_analyze_inlines(ctx, lines, n_lines, FALSE));
     MD_CHECK(md_process_inlines(ctx, lines, n_lines));
 
 abort:
@@ -4620,29 +4717,6 @@ md_is_html_block_end_condition(MD_CTX* ctx, OFF beg, OFF* p_end)
     }
 }
 
-/* Check whether there is a given unescaped char 'ch' between 'beg' and end of line. */
-static int
-md_line_contains_char(MD_CTX* ctx, OFF beg, CHAR ch, OFF* p_pos)
-{
-    OFF off = beg;
-
-    while(off < ctx->size) {
-        if(ISNEWLINE(off)) {
-            return FALSE;
-        } else if(CH(off) == _T('\\')  &&  off+1 < ctx->size  &&  ISPUNCT(off+1)) {
-            off += 2;
-        } else if(CH(off) == ch) {
-            if(p_pos != NULL)
-                *p_pos = off;
-            return TRUE;
-        } else {
-            off++;
-        }
-    }
-
-    return FALSE;
-}
-
 
 static int
 md_is_container_compatible(const MD_CONTAINER* pivot, const MD_CONTAINER* container)
@@ -5029,11 +5103,9 @@ redo:
     }
 
     /* Check whether we are table continuation. */
-    if(pivot_line->type == MD_LINE_TABLE) {
-        if(md_line_contains_char(ctx, off, _T('|'), &off)) {
-            line->type = MD_LINE_TABLE;
-            goto done;
-        }
+    if(pivot_line->type == MD_LINE_TABLE  &&  md_is_table_row(ctx, off, &off)) {
+        line->type = MD_LINE_TABLE;
+        goto done;
     }
 
     /* Check for "brother" container. I.e. whether we are another list item
@@ -5175,8 +5247,8 @@ redo:
         unsigned col_count;
 
         if(ctx->current_block != NULL  &&  ctx->current_block->n_lines == 1  &&
-            md_line_contains_char(ctx, pivot_line->beg, _T('|'), NULL)  &&
-            md_is_table_underline(ctx, off, &off, &col_count))
+            md_is_table_underline(ctx, off, &off, &col_count)  &&
+            md_is_table_row(ctx, pivot_line->beg, NULL))
         {
             line->data = col_count;
             line->type = MD_LINE_TABLEUNDERLINE;

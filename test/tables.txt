@@ -247,3 +247,26 @@ quux     | [quuz](/url2)
 </tbody>
 </table>
 ````````````````````````````````
+
+However pipes which are inside a link, an image or a code span are not
+recognized as cell boundaries.
+
+```````````````````````````````` example
+Column 1 | [|](/url)
+---------|---------
+`foo     | bar`
+baz      | qux
+quux     | quuz
+.
+<table>
+<thead>
+<tr><th>Column 1</th><th><a href="/url">|</a></th></tr>
+</thead>
+<tbody>
+</tbody>
+</table>
+<p><code>foo     | bar</code>
+baz      | qux
+quux     | quuz</p>
+
+````````````````````````````````
