@@ -3690,7 +3690,7 @@ md_process_table_row(MD_CTX* ctx, MD_BLOCKTYPE cell_type, OFF beg, OFF end,
                      const MD_ALIGN* align, int n_align)
 {
     MD_LINE line = { beg, end };
-    OFF* pipe_offs;
+    OFF* pipe_offs = NULL;
     int i, j, n;
     int ret = 0;
 
