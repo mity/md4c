@@ -2440,13 +2440,23 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
         OFF line_end = line->end;
 
         while(off < line_end) {
-            CHAR ch = CH(off);
+            CHAR ch;
 
-            /* Optimization: Fast path. */
-            if(ch >= sizeof(ctx->mark_char_map)  ||  !ctx->mark_char_map[(int) ch]) {
+            /* Optimization: Fast path (with some loop unrolling). */
+            if(off + 4 < line_end  &&
+               ((unsigned)CH(off+0) >= sizeof(ctx->mark_char_map) || !ctx->mark_char_map[(unsigned) CH(off+0)])  &&
+               ((unsigned)CH(off+1) >= sizeof(ctx->mark_char_map) || !ctx->mark_char_map[(unsigned) CH(off+1)])  &&
+               ((unsigned)CH(off+2) >= sizeof(ctx->mark_char_map) || !ctx->mark_char_map[(unsigned) CH(off+2)])  &&
+               ((unsigned)CH(off+3) >= sizeof(ctx->mark_char_map) || !ctx->mark_char_map[(unsigned) CH(off+3)])) {
+                off += 4;
+                continue;
+            }
+            if((unsigned)CH(off+0) >= sizeof(ctx->mark_char_map) || !ctx->mark_char_map[(unsigned) CH(off+0)]) {
                 off++;
                 continue;
             }
+
+            ch = CH(off);
 
             /* A backslash escape.
              * It can go beyond line->end as it may involve escaped new
