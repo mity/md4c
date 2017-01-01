@@ -1847,10 +1847,6 @@ md_link_label_eq(const CHAR* a_label, SZ a_size, const CHAR* b_label, SZ b_size)
     OFF a_off;
     OFF b_off;
 
-    /* Fast path: Most real-life reference labels are using exact match. */
-    if(a_size == b_size  &&  memcmp(a_label, b_label, a_size * sizeof(CHAR)) == 0)
-        return TRUE;
-
     /* The slow path, with Unicode case folding and Unicode whitespace collapsing. */
     a_off = md_skip_unicode_whitespace(a_label, 0, a_size);
     b_off = md_skip_unicode_whitespace(b_label, 0, b_size);
