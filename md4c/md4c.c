@@ -114,7 +114,11 @@ struct MD_CTX_tag {
     int n_marks;
     int alloc_marks;
 
+#if defined MD4C_USE_UTF16
     char mark_char_map[128];
+#else
+    char mark_char_map[256];
+#endif
 
     /* For resolving of inline spans. */
     MD_MARKCHAIN mark_chains[7];
@@ -2442,15 +2446,20 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
         while(TRUE) {
             CHAR ch;
 
+#ifdef MD4C_USE_UTF16
+    /* For UTF-16, mark_char_map[] covers only ASCII. */
+    #define IS_MARK_CHAR(off)   ((CH(off) < SIZEOF_ARRAY(ctx->mark_char_map))  &&  \
+                                (ctx->mark_char_map[(unsigned char) CH(off)]))
+#else
+    /* For 8-bit encodings, mark_char_map[] covers all 256 elements. */
+    #define IS_MARK_CHAR(off)   (ctx->mark_char_map[(unsigned char) CH(off)])
+#endif
+
             /* Optimization: Fast path (with some loop unrolling). */
-            while(off + 4 < line_end  &&
-               ((unsigned)CH(off+0) >= sizeof(ctx->mark_char_map) || !ctx->mark_char_map[(unsigned) CH(off+0)])  &&
-               ((unsigned)CH(off+1) >= sizeof(ctx->mark_char_map) || !ctx->mark_char_map[(unsigned) CH(off+1)])  &&
-               ((unsigned)CH(off+2) >= sizeof(ctx->mark_char_map) || !ctx->mark_char_map[(unsigned) CH(off+2)])  &&
-               ((unsigned)CH(off+3) >= sizeof(ctx->mark_char_map) || !ctx->mark_char_map[(unsigned) CH(off+3)]))
+            while(off + 4 < line_end  &&  !IS_MARK_CHAR(off+0)  &&  !IS_MARK_CHAR(off+1)
+                                      &&  !IS_MARK_CHAR(off+2)  &&  !IS_MARK_CHAR(off+3))
                 off += 4;
-            while(off < line_end  &&
-                ((unsigned)CH(off+0) >= sizeof(ctx->mark_char_map) || !ctx->mark_char_map[(unsigned) CH(off+0)]))
+            while(off < line_end  &&  !IS_MARK_CHAR(off+0))
                 off++;
 
             if(off >= line_end)
