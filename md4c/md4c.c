@@ -5058,7 +5058,7 @@ redo:
             }
 #endif
         }
-        goto done;
+        goto done_on_eol;
     } else {
 #if 1
         /* This is 2nd half of the hack. If the flag is set (that is there
@@ -5145,7 +5145,7 @@ redo:
     }
 
     /* Check for indented code.
-     * Note indented code block cannot interrupt paragraph. */
+     * Note indented code block cannot interrupt a paragraph. */
     if(line->indent >= ctx->code_indent_offset  &&
         (pivot_line->type == MD_LINE_BLANK || pivot_line->type == MD_LINE_INDENTEDCODE))
     {
@@ -5264,10 +5264,22 @@ redo:
     }
 
 done:
-    /* Eat rest of the line contents */
+    /* Scan for end of the line.
+     *
+     * Note this is bottleneck of this function as we itereate over (almost)
+     * all line contents after some initial line indentation. To optimize, we
+     * try to eat multiple chars in every loop iteration.
+     *
+     * (Measured ~6% performance boost of md2html with this optimization for
+     * normal kind of input.)
+     */
+    while(off + 4 < ctx->size  &&  !ISNEWLINE(off+0)  &&  !ISNEWLINE(off+1)
+                               &&  !ISNEWLINE(off+2)  &&  !ISNEWLINE(off+3))
+        off += 4;
     while(off < ctx->size  &&  !ISNEWLINE(off))
         off++;
 
+done_on_eol:
     /* Set end of the line. */
     line->end = off;
 
