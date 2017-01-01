@@ -2439,22 +2439,22 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
         OFF off = line->beg;
         OFF line_end = line->end;
 
-        while(off < line_end) {
+        while(TRUE) {
             CHAR ch;
 
             /* Optimization: Fast path (with some loop unrolling). */
-            if(off + 4 < line_end  &&
+            while(off + 4 < line_end  &&
                ((unsigned)CH(off+0) >= sizeof(ctx->mark_char_map) || !ctx->mark_char_map[(unsigned) CH(off+0)])  &&
                ((unsigned)CH(off+1) >= sizeof(ctx->mark_char_map) || !ctx->mark_char_map[(unsigned) CH(off+1)])  &&
                ((unsigned)CH(off+2) >= sizeof(ctx->mark_char_map) || !ctx->mark_char_map[(unsigned) CH(off+2)])  &&
-               ((unsigned)CH(off+3) >= sizeof(ctx->mark_char_map) || !ctx->mark_char_map[(unsigned) CH(off+3)])) {
+               ((unsigned)CH(off+3) >= sizeof(ctx->mark_char_map) || !ctx->mark_char_map[(unsigned) CH(off+3)]))
                 off += 4;
-                continue;
-            }
-            if((unsigned)CH(off+0) >= sizeof(ctx->mark_char_map) || !ctx->mark_char_map[(unsigned) CH(off+0)]) {
+            while(off < line_end  &&
+                ((unsigned)CH(off+0) >= sizeof(ctx->mark_char_map) || !ctx->mark_char_map[(unsigned) CH(off+0)]))
                 off++;
-                continue;
-            }
+
+            if(off >= line_end)
+                break;
 
             ch = CH(off);
 
