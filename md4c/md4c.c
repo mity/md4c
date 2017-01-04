@@ -2158,7 +2158,6 @@ struct MD_MARK_tag {
 #define MD_MARK_OPENER                      0x04  /* Definitely opener. */
 #define MD_MARK_CLOSER                      0x08  /* Definitely closer. */
 #define MD_MARK_RESOLVED                    0x10  /* Resolved in any definite way. */
-#define MD_MARK_LEAF                        0x20  /* Pair does not contain any nested spans. */
 
 /* Mark flags specific for various mark types (so they can share bits). */
 #define MD_MARK_INTRAWORD                   0x40  /* Helper for emphasis '*', '_' ("the rule of 3"). */
@@ -2322,7 +2321,7 @@ md_rollback(MD_CTX* ctx, int opener_index, int closer_index, int how)
                 MD_MARK* mark_opener = &ctx->marks[mark_opener_index];
                 MD_MARKCHAIN* chain;
 
-                mark_opener->flags &= ~(MD_MARK_OPENER | MD_MARK_CLOSER | MD_MARK_RESOLVED | MD_MARK_LEAF);
+                mark_opener->flags &= ~(MD_MARK_OPENER | MD_MARK_CLOSER | MD_MARK_RESOLVED);
 
                 switch(mark_opener->ch) {
                     case '*':   chain = &ASTERISK_OPENERS; break;
@@ -2339,7 +2338,7 @@ md_rollback(MD_CTX* ctx, int opener_index, int closer_index, int how)
 
         /* And reset our flags. */
         if(discard_flag)
-            mark->flags &= ~(MD_MARK_OPENER | MD_MARK_CLOSER | MD_MARK_RESOLVED | MD_MARK_LEAF);
+            mark->flags &= ~(MD_MARK_OPENER | MD_MARK_CLOSER | MD_MARK_RESOLVED);
 
         /* Jump as far as we can over unresolved or non-interesting marks. */
         switch(how) {
@@ -2351,23 +2350,10 @@ md_rollback(MD_CTX* ctx, int opener_index, int closer_index, int how)
                     break;
                 }
                 /* Pass through. */
-            case MD_ROLLBACK_ALL:
-                if((mark_flags & (MD_MARK_CLOSER | MD_MARK_LEAF)) == (MD_MARK_CLOSER | MD_MARK_LEAF)) {
-                    /* If we are closer and now there is no nested resolved mark
-                     * we can also jump right to our opener. */
-                    mark_index = mark->prev;
-                    break;
-                }
-                /* Pass through. */
             default:
                 mark_index--;
                 break;
         }
-    }
-
-    if(how == MD_ROLLBACK_ALL) {
-        ctx->marks[opener_index].flags |= MD_MARK_LEAF;
-        ctx->marks[closer_index].flags |= MD_MARK_LEAF;
     }
 }
 
