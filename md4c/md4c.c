@@ -2160,8 +2160,12 @@ struct MD_MARK_tag {
 #define MD_MARK_RESOLVED                    0x10  /* Resolved in any definite way. */
 
 /* Mark flags specific for various mark types (so they can share bits). */
-#define MD_MARK_INTRAWORD                   0x40  /* Helper for emphasis '*', '_' ("the rule of 3"). */
-#define MD_MARK_AUTOLINK                    0x40  /* Distinguisher for '<', '>'. */
+#define MD_MARK_EMPH_INTRAWORD              0x20  /* Helper for the "rule of 3". */
+#define MD_MARK_EMPH_MODULO3_0              0x40
+#define MD_MARK_EMPH_MODULO3_1              0x80
+#define MD_MARK_EMPH_MODULO3_2              (0x40 | 0x80)
+#define MD_MARK_EMPH_MODULO3_MASK           (0x40 | 0x80)
+#define MD_MARK_AUTOLINK                    0x20  /* Distinguisher for '<', '>'. */
 
 
 static MD_MARK*
@@ -2483,7 +2487,17 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                 if(right_level > 0  &&  right_level >= left_level)
                     flags |= MD_MARK_POTENTIAL_OPENER;
                 if(left_level == 2  &&  right_level == 2)
-                    flags |= MD_MARK_INTRAWORD;
+                    flags |= MD_MARK_EMPH_INTRAWORD;
+
+                /* For "the rule of three" we need to remember the original
+                 * size of the mark (modulo three), before we potentially
+                 * split the mark when being later resolved partially by some
+                 * shorter closer. */
+                switch((tmp - off) % 3) {
+                    case 0: flags |= MD_MARK_EMPH_MODULO3_0; break;
+                    case 1: flags |= MD_MARK_EMPH_MODULO3_1; break;
+                    case 2: flags |= MD_MARK_EMPH_MODULO3_2; break;
+                }
 
                 if(flags != 0) {
                     PUSH_MARK(ch, off, tmp, flags);
@@ -3148,8 +3162,18 @@ md_analyze_simple_pairing_mark(MD_CTX* ctx, MD_MARKCHAIN* chain, int mark_index,
         SZ opener_size = opener->end - opener->beg;
         SZ closer_size = mark->end - mark->beg;
 
-        if(apply_rule_of_three  &&  ((mark->flags & MD_MARK_INTRAWORD) || (opener->flags & MD_MARK_INTRAWORD))) {
-            while((opener_size + closer_size) % 3 == 0) {
+        if(apply_rule_of_three  &&
+                ((mark->flags & MD_MARK_EMPH_INTRAWORD) || (opener->flags & MD_MARK_EMPH_INTRAWORD)))
+        {
+            SZ opener_orig_size_modulo3;
+
+            switch(opener->flags & MD_MARK_EMPH_MODULO3_MASK) {
+                case MD_MARK_EMPH_MODULO3_0:   opener_orig_size_modulo3 = 0; break;
+                case MD_MARK_EMPH_MODULO3_1:   opener_orig_size_modulo3 = 1; break;
+                case MD_MARK_EMPH_MODULO3_2:   opener_orig_size_modulo3 = 2; break;
+            }
+
+            while((opener_orig_size_modulo3 + closer_size) % 3 == 0) {
                 if(opener->prev < 0)
                     goto cannot_resolve;
 
