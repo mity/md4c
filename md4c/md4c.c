@@ -3168,9 +3168,10 @@ md_analyze_simple_pairing_mark(MD_CTX* ctx, MD_MARKCHAIN* chain, int mark_index,
             SZ opener_orig_size_modulo3;
 
             switch(opener->flags & MD_MARK_EMPH_MODULO3_MASK) {
-                case MD_MARK_EMPH_MODULO3_0:   opener_orig_size_modulo3 = 0; break;
-                case MD_MARK_EMPH_MODULO3_1:   opener_orig_size_modulo3 = 1; break;
-                case MD_MARK_EMPH_MODULO3_2:   opener_orig_size_modulo3 = 2; break;
+                case MD_MARK_EMPH_MODULO3_0:    opener_orig_size_modulo3 = 0; break;
+                case MD_MARK_EMPH_MODULO3_1:    opener_orig_size_modulo3 = 1; break;
+                case MD_MARK_EMPH_MODULO3_2:    opener_orig_size_modulo3 = 2; break;
+                default:                        MD_UNREACHABLE(); break;
             }
 
             while((opener_orig_size_modulo3 + closer_size) % 3 == 0) {
