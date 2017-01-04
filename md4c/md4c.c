@@ -2357,25 +2357,6 @@ md_rollback(MD_CTX* ctx, int opener_index, int closer_index, int how)
     }
 }
 
-/* Split a longer mark into two. The new mark takes the given count of characters.
- * May only be called if a dummy 'D' mark follows.
- */
-static int
-md_split_mark(MD_CTX* ctx, int mark_index, SZ n)
-{
-    MD_MARK* mark = &ctx->marks[mark_index];
-    MD_MARK* dummy = &ctx->marks[mark_index + 1];
-
-    MD_ASSERT(mark->end - mark->beg > n);
-    MD_ASSERT(dummy->ch == 'D');
-
-    memcpy(dummy, mark, sizeof(MD_MARK));
-    mark->end -= n;
-    dummy->beg = mark->end;
-
-    return mark_index + 1;
-}
-
 static void
 md_build_mark_char_map(MD_CTX* ctx)
 {
@@ -3133,6 +3114,27 @@ md_analyze_table_cell_boundary(MD_CTX* ctx, int mark_index)
     ctx->n_table_cell_boundaries++;
 }
 
+/* Split a longer mark into two. The new mark takes the given count of
+ * characters. May only be called if an adequate number of dummy 'D' marks
+ * follows.
+ */
+static int
+md_split_simple_pairing_mark(MD_CTX* ctx, int mark_index, SZ n)
+{
+    MD_MARK* mark = &ctx->marks[mark_index];
+    int new_mark_index = mark_index + (mark->end - mark->beg - 1);
+    MD_MARK* dummy = &ctx->marks[new_mark_index];
+
+    MD_ASSERT(mark->end - mark->beg > n);
+    MD_ASSERT(dummy->ch == 'D');
+
+    memcpy(dummy, mark, sizeof(MD_MARK));
+    mark->end -= n;
+    dummy->beg = mark->end;
+
+    return new_mark_index;
+}
+
 static void
 md_analyze_simple_pairing_mark(MD_CTX* ctx, MD_MARKCHAIN* chain, int mark_index,
                                int apply_rule_of_three)
@@ -3159,10 +3161,10 @@ md_analyze_simple_pairing_mark(MD_CTX* ctx, MD_MARKCHAIN* chain, int mark_index,
         }
 
         if(opener_size > closer_size) {
-            opener_index = md_split_mark(ctx, opener_index, closer_size);
+            opener_index = md_split_simple_pairing_mark(ctx, opener_index, closer_size);
             md_mark_chain_append(ctx, chain, opener_index);
         } else if(opener_size < closer_size) {
-            md_split_mark(ctx, mark_index, closer_size - opener_size);
+            md_split_simple_pairing_mark(ctx, mark_index, closer_size - opener_size);
         }
 
         md_rollback(ctx, opener_index, mark_index, MD_ROLLBACK_CROSSING);
@@ -3221,10 +3223,12 @@ md_analyze_permissive_url_autolink(MD_CTX* ctx, int mark_index)
 
     /* Ok. Lets call it auto-link. Adapt opener and create closer to zero
      * length so all the contents becomes the link text. */
-    closer_index = md_split_mark(ctx, mark_index, 0);
+    closer_index = mark_index + 1;
     closer = &ctx->marks[closer_index];
+    MD_ASSERT(closer->ch == 'D');
 
     opener->end = opener->beg;
+    closer->ch = opener->ch;
     closer->beg = off;
     closer->end = off;
     md_resolve_range(ctx, NULL, mark_index, closer_index);
@@ -3284,11 +3288,13 @@ md_analyze_permissive_email_autolink(MD_CTX* ctx, int mark_index)
 
     /* Ok. Lets call it auto-link. Adapt opener and create closer to zero
      * length so all the contents becomes the link text. */
-    closer_index = md_split_mark(ctx, mark_index, 0);
+    closer_index = mark_index + 1;
     closer = &ctx->marks[closer_index];
+    MD_ASSERT(closer->ch == 'D');
 
     opener->beg = beg;
     opener->end = beg;
+    closer->ch = opener->ch;
     closer->beg = end;
     closer->end = end;
     md_resolve_range(ctx, NULL, mark_index, closer_index);

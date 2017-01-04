@@ -86,6 +86,13 @@ x [link](/url "foo &ndash; bar") x
 <p>x <a href="/url" title="foo – bar">link</a> x</p>
 ````````````````````````````````
 
+### [Issue 15](https://github.com/mity/md4c/issues/15)
+```````````````````````````````` example
+***b* c*
+.
+<p>*<em><em>b</em> c</em></p>
+````````````````````````````````
+
 
 ## Code coverage
 
