@@ -3878,20 +3878,22 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 case '_':
                 case '*':       /* Emphasis, strong emphasis. */
                     if(mark->flags & MD_MARK_OPENER) {
+                        if((mark->end - off) % 2) {
+                            MD_ENTER_SPAN(MD_SPAN_EM, NULL);
+                            off++;
+                        }
                         while(off + 1 < mark->end) {
                             MD_ENTER_SPAN(MD_SPAN_STRONG, NULL);
                             off += 2;
                         }
-                        if(off < mark->end)
-                            MD_ENTER_SPAN(MD_SPAN_EM, NULL);
                     } else {
-                        if((mark->end - off) & 0x01) {
-                            MD_LEAVE_SPAN(MD_SPAN_EM, NULL);
-                            off++;
-                        }
-                        while(off < mark->end) {
+                        while(off + 1 < mark->end) {
                             MD_LEAVE_SPAN(MD_SPAN_STRONG, NULL);
                             off += 2;
+                        }
+                        if((mark->end - off) % 2) {
+                            MD_LEAVE_SPAN(MD_SPAN_EM, NULL);
+                            off++;
                         }
                     }
                     break;
