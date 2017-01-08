@@ -1960,7 +1960,7 @@ md_is_link_destination_B(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end,
                          OFF* p_contents_beg, OFF* p_contents_end)
 {
     OFF off = beg;
-    int in_parentheses = 0;
+    int parenthesis_level = 0;
 
     while(off < max_end) {
         if(CH(off) == _T('\\')  &&  off+1 < max_end  &&  ISPUNCT(off+1)) {
@@ -1971,24 +1971,23 @@ md_is_link_destination_B(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end,
         if(ISWHITESPACE(off) || ISCNTRL(off))
             break;
 
-        /* Link destination may include balanced pair of unescaped '(' ')'
-         * but only if they are not nested. */
+        /* Link destination may include balanced pairs of unescaped '(' ')'.
+         * Note we limit the maximal nesting level by 32 to protect us from
+         * https://github.com/jgm/cmark/issues/214 */
         if(CH(off) == _T('(')) {
-            if(in_parentheses)
+            parenthesis_level++;
+            if(parenthesis_level > 32)
                 return FALSE;
-            else
-                in_parentheses = 1;
         } else if(CH(off) == _T(')')) {
-            if(in_parentheses)
-                in_parentheses = 0;
-            else
+            if(parenthesis_level == 0)
                 break;
+            parenthesis_level--;
         }
 
         off++;
     }
 
-    if(in_parentheses  ||  off == beg)
+    if(parenthesis_level != 0  ||  off == beg)
         return FALSE;
 
     /* Success. */
