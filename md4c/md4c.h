@@ -54,8 +54,7 @@ typedef unsigned MD_OFFSET;
 
 /* Block represents a part of document hierarchy structure like a paragraph
  * or list item. */
-typedef enum MD_BLOCKTYPE_tag MD_BLOCKTYPE;
-enum MD_BLOCKTYPE_tag {
+typedef enum MD_BLOCKTYPE {
     /* <body>...</body> */
     MD_BLOCK_DOC = 0,
 
@@ -102,13 +101,12 @@ enum MD_BLOCKTYPE_tag {
     MD_BLOCK_TR,
     MD_BLOCK_TH,
     MD_BLOCK_TD
-};
+} MD_BLOCKTYPE;
 
 /* Span represents an in-line piece of a document which should be rendered with
  * the same font, color and other attributes. A sequence of spans forms a block
  * like paragraph or list item. */
-typedef enum MD_SPANTYPE_tag MD_SPANTYPE;
-enum MD_SPANTYPE_tag {
+typedef enum MD_SPANTYPE {
     /* <em>...</em> */
     MD_SPAN_EM,
 
@@ -129,11 +127,10 @@ enum MD_SPANTYPE_tag {
 
     /* <code>...</code> */
     MD_SPAN_CODE
-};
+} MD_SPANTYPE;
 
 /* Text is the actual textual contents of span. */
-typedef enum MD_TEXTTYPE_tag MD_TEXTTYPE;
-enum MD_TEXTTYPE_tag {
+typedef enum MD_TEXTTYPE {
     /* Normal text. */
     MD_TEXT_NORMAL = 0,
 
@@ -169,17 +166,16 @@ enum MD_TEXTTYPE_tag {
      * an inline raw HTML), then MD_TEXT_BR and MD_TEXT_SOFTBR are not used.
      * The text contains verbatim '\n' for the new lines. */
     MD_TEXT_HTML
-};
+} MD_TEXTTYPE;
 
 
 /* Alignment enumeration. */
-typedef enum MD_ALIGN_tag MD_ALIGN;
-enum MD_ALIGN_tag {
+typedef enum MD_ALIGN {
     MD_ALIGN_DEFAULT = 0,   /* When unspecified. */
     MD_ALIGN_LEFT,
     MD_ALIGN_CENTER,
     MD_ALIGN_RIGHT
-};
+} MD_ALIGN;
 
 
 /* String attribute.
@@ -202,62 +198,54 @@ enum MD_ALIGN_tag {
  *  -- substr_offsets[LAST+1] == size
  *  -- Only MD_TEXT_NORMAL and MD_TEXT_ENTITY substrings can appear.
  */
-typedef struct MD_ATTRIBUTE_tag MD_ATTRIBUTE;
-struct MD_ATTRIBUTE_tag {
+typedef struct MD_ATTRIBUTE {
     const MD_CHAR* text;
     MD_SIZE size;
     const MD_TEXTTYPE* substr_types;
     const MD_OFFSET* substr_offsets;
-};
+} MD_ATTRIBUTE;
 
 
 /* Detailed info for MD_BLOCK_UL_DETAIL. */
-typedef struct MD_BLOCK_UL_DETAIL_tag MD_BLOCK_UL_DETAIL;
-struct MD_BLOCK_UL_DETAIL_tag {
+typedef struct MD_BLOCK_UL_DETAIL {
     int is_tight;           /* Non-zero if tight list, zero of loose. */
     MD_CHAR mark;           /* Item bullet character in MarkDown source of the list, e.g. '-', '+', '*'. */
-};
+} MD_BLOCK_UL_DETAIL;
 
 /* Detailed info for MD_BLOCK_OL_DETAIL. */
-typedef struct MD_BLOCK_OL_DETAIL_tag MD_BLOCK_OL_DETAIL;
-struct MD_BLOCK_OL_DETAIL_tag {
+typedef struct MD_BLOCK_OL_DETAIL {
     unsigned start;         /* Start index of the ordered list. */
     int is_tight;           /* Non-zero if tight list, zero of loose. */
     MD_CHAR mark_delimiter; /* Character delimiting the item marks in MarkDown source, e.g. '.' or ')' */
-};
+} MD_BLOCK_OL_DETAIL;
 
 /* Detailed info for MD_BLOCK_H. */
-typedef struct MD_BLOCK_H_DETAIL_tag MD_BLOCK_H_DETAIL;
-struct MD_BLOCK_H_DETAIL_tag {
+typedef struct MD_BLOCK_H_DETAIL {
     unsigned level;         /* Header level (1 - 6) */
-};
+} MD_BLOCK_H_DETAIL;
 
 /* Detailed info for MD_BLOCK_CODE. */
-typedef struct MD_BLOCK_CODE_DETAIL_tag MD_BLOCK_CODE_DETAIL;
-struct MD_BLOCK_CODE_DETAIL_tag {
+typedef struct MD_BLOCK_CODE_DETAIL {
     MD_ATTRIBUTE info;
     MD_ATTRIBUTE lang;
-};
+} MD_BLOCK_CODE_DETAIL;
 
 /* Detailed info for MD_BLOCK_TH and MD_BLOCK_TD. */
-typedef struct MD_BLOCK_TD_DETAIL_tag MD_BLOCK_TD_DETAIL;
-struct MD_BLOCK_TD_DETAIL_tag {
+typedef struct MD_BLOCK_TD_DETAIL {
     MD_ALIGN align;
-};
+} MD_BLOCK_TD_DETAIL;
 
 /* Detailed info for MD_SPAN_A. */
-typedef struct MD_SPAN_A_DETAIL_tag MD_SPAN_A_DETAIL;
-struct MD_SPAN_A_DETAIL_tag {
+typedef struct MD_SPAN_A_DETAIL {
     MD_ATTRIBUTE href;
     MD_ATTRIBUTE title;
-};
+} MD_SPAN_A_DETAIL;
 
 /* Detailed info for MD_SPAN_IMG. */
-typedef struct MD_SPAN_IMG_DETAIL_tag MD_SPAN_IMG_DETAIL;
-struct MD_SPAN_IMG_DETAIL_tag {
+typedef struct MD_SPAN_IMG_DETAIL {
     MD_ATTRIBUTE src;
     MD_ATTRIBUTE title;
-};
+} MD_SPAN_IMG_DETAIL;
 
 
 /* Flags specifying extensions/deviations from CommonMark specification.
@@ -286,8 +274,7 @@ struct MD_SPAN_IMG_DETAIL_tag {
 
 /* Renderer structure.
  */
-typedef struct MD_RENDERER_tag MD_RENDERER;
-struct MD_RENDERER_tag {
+typedef struct MD_RENDERER {
     /* Caller-provided rendering callbacks.
      *
      * For some block/span types, more detailed information is provided in a
@@ -322,7 +309,7 @@ struct MD_RENDERER_tag {
     /* Dialect options. Bitmask of MD_FLAG_xxxx values.
      */
     unsigned flags;
-};
+} MD_RENDERER;
 
 
 /* Parse the Markdown document stored in the string 'text' of size 'size'.
