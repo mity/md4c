@@ -1695,6 +1695,8 @@ md_is_link_title(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
     return FALSE;
 }
 
+static int md_lookup_link_ref_def(MD_CTX* ctx, const CHAR* label, SZ label_size, MD_LINK_REF_DEF** p_def);
+
 /* Returns 0 if it is not a link reference definition.
  *
  * Returns N > 0 if it is not a link reference definition (then N corresponds
@@ -1710,6 +1712,9 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
     OFF label_contents_end;
     int label_contents_line_index = -1;
     int label_is_multiline;
+    CHAR* label;
+    SZ label_size;
+    int label_needs_free = FALSE;
     OFF dest_contents_beg;
     OFF dest_contents_end;
     OFF title_contents_beg;
@@ -1720,7 +1725,7 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
     int line_index = 0;
     int tmp_line_index;
     MD_LINK_REF_DEF* def;
-    int ret = 0;
+    int ret;
 
     /* Link label. */
     if(!md_is_link_label(ctx, lines, n_lines, lines[0].beg,
@@ -1771,6 +1776,22 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
     if(off < lines[line_index].end)
         return FALSE;
 
+    /* Construct label. */
+    if(!label_is_multiline) {
+        label = (CHAR*) STR(label_contents_beg);
+        label_size = label_contents_end - label_contents_beg;
+        label_needs_free = FALSE;
+    } else {
+        MD_CHECK(md_merge_lines_alloc(ctx, label_contents_beg, label_contents_end,
+                    lines + label_contents_line_index, n_lines - label_contents_line_index,
+                    _T(' '), &label, &label_size));
+        label_needs_free = TRUE;
+    }
+
+    /* If such definition is already present, we do not store it. */
+    if(md_lookup_link_ref_def(ctx, label, label_size, &def))
+        return line_index + 1;
+
     /* Store the link reference definition. */
     if(ctx->n_link_ref_defs >= ctx->alloc_link_ref_defs) {
         MD_LINK_REF_DEF* new_defs;
@@ -1787,21 +1808,11 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
     }
 
     def = &ctx->link_ref_defs[ctx->n_link_ref_defs];
-    ctx->n_link_ref_defs++;
     memset(def, 0, sizeof(MD_LINK_REF_DEF));
 
-    if(!label_is_multiline) {
-        def->label = (CHAR*) STR(label_contents_beg);
-        def->label_size = label_contents_end - label_contents_beg;
-    } else {
-        SZ label_size;
-
-        MD_CHECK(md_merge_lines_alloc(ctx, label_contents_beg, label_contents_end,
-                    lines + label_contents_line_index, n_lines - label_contents_line_index,
-                    _T(' '), &def->label, &label_size));
-        def->label_size = label_size;
-        def->label_needs_free = TRUE;
-    }
+    def->label = label;
+    def->label_size = label_size;
+    def->label_needs_free = label_needs_free;
 
     def->dest_beg = dest_contents_beg;
     def->dest_end = dest_contents_end;
@@ -1819,10 +1830,15 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
         def->title_needs_free = TRUE;
     }
 
-    ret = line_index + 1;
+    /* Success. */
+    ctx->n_link_ref_defs++;
+    return line_index + 1;
 
 abort:
-    return ret;
+    /* Failure. */
+    if(label_needs_free)
+        free(label);
+    return -1;
 }
 
 static OFF
