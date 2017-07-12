@@ -270,7 +270,7 @@ typedef struct MD_SPAN_IMG_DETAIL {
  * possible given what features we implement.
  */
 #define MD_DIALECT_COMMONMARK               0
-#define MD_DIALECT_GITHUB                   (MD_FLAG_PERMISSIVEATXHEADERS | MD_FLAG_PERMISSIVEAUTOLINKS | MD_FLAG_TABLES)
+#define MD_DIALECT_GITHUB                   (MD_FLAG_PERMISSIVEAUTOLINKS | MD_FLAG_TABLES)
 
 /* Renderer structure.
  */
