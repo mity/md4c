@@ -193,6 +193,8 @@ static const option cmdline_options[] = {
     { "stat",                       's', 's', OPTION_ARG_NONE },
     { "help",                       'h', 'h', OPTION_ARG_NONE },
     { "version",                    'v', 'v', OPTION_ARG_NONE },
+    { "commonmark",                  0,  'c', OPTION_ARG_NONE },
+    { "github",                      0,  'g', OPTION_ARG_NONE },
     { "fverbatim-entities",          0,  'E', OPTION_ARG_NONE },
     { "fpermissive-atx-headers",     0,  'A', OPTION_ARG_NONE },
     { "fpermissive-url-autolinks",   0,  'U', OPTION_ARG_NONE },
@@ -220,6 +222,11 @@ usage(void)
         "  -s, --stat           Measure time of input parsing\n"
         "  -h, --help           Display this help and exit\n"
         "  -v, --version        Display version and exit\n"
+        "\n"
+        "Markdown dialect options:\n"
+        "(note these are equivalent to some combinations of flags below)\n"
+        "      --commonmark     CommonMark (this is default)\n"
+        "      --github         Github Flavored Markdown\n"
         "\n"
         "Markdown extension options:\n"
         "      --fcollapse-whitespace\n"
@@ -272,6 +279,9 @@ cmdline_callback(int opt, char const* value, void* data)
         case 's':   want_stat = 1; break;
         case 'h':   usage(); exit(0); break;
         case 'v':   version(); exit(0); break;
+
+        case 'c':   parser_flags = MD_DIALECT_COMMONMARK; break;
+        case 'g':   parser_flags = MD_DIALECT_GITHUB; break;
 
         case 'E':   renderer_flags |= MD_RENDER_FLAG_VERBATIM_ENTITIES; break;
         case 'A':   parser_flags |= MD_FLAG_PERMISSIVEATXHEADERS; break;
