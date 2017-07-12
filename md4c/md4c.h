@@ -126,7 +126,12 @@ typedef enum MD_SPANTYPE {
     MD_SPAN_IMG,
 
     /* <code>...</code> */
-    MD_SPAN_CODE
+    MD_SPAN_CODE,
+
+    /* <del>...</del>
+     * Note: Recognized only when MD_FLAG_STRIKETHROUGH is enabled.
+     */
+    MD_SPAN_DEL
 } MD_SPANTYPE;
 
 /* Text is the actual textual contents of span. */
@@ -263,6 +268,7 @@ typedef struct MD_SPAN_IMG_DETAIL {
 #define MD_FLAG_NOHTMLSPANS                 0x0040  /* Disable raw HTML (inline). */
 #define MD_FLAG_NOHTML                      (MD_FLAG_NOHTMLBLOCKS | MD_FLAG_NOHTMLSPANS)
 #define MD_FLAG_TABLES                      0x0100  /* Enable tables extension. */
+#define MD_FLAG_STRIKETHROUGH               0x0200  /* Enable strikethrough extension. */
 
 /* Convenient sets of flags corresponding to well-known Markdown dialects.
  * Note we may only support subset of features of the referred dialect.
@@ -270,7 +276,7 @@ typedef struct MD_SPAN_IMG_DETAIL {
  * possible given what features we implement.
  */
 #define MD_DIALECT_COMMONMARK               0
-#define MD_DIALECT_GITHUB                   (MD_FLAG_PERMISSIVEAUTOLINKS | MD_FLAG_TABLES)
+#define MD_DIALECT_GITHUB                   (MD_FLAG_PERMISSIVEAUTOLINKS | MD_FLAG_TABLES | MD_FLAG_STRIKETHROUGH)
 
 /* Renderer structure.
  */

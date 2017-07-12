@@ -121,14 +121,15 @@ struct MD_CTX_tag {
 #endif
 
     /* For resolving of inline spans. */
-    MD_MARKCHAIN mark_chains[7];
+    MD_MARKCHAIN mark_chains[8];
 #define PTR_CHAIN               ctx->mark_chains[0]
 #define BACKTICK_OPENERS        ctx->mark_chains[1]
 #define LOWERTHEN_OPENERS       ctx->mark_chains[2]
 #define ASTERISK_OPENERS        ctx->mark_chains[3]
 #define UNDERSCORE_OPENERS      ctx->mark_chains[4]
-#define BRACKET_OPENERS         ctx->mark_chains[5]
-#define TABLECELLBOUNDARIES     ctx->mark_chains[6]
+#define TILDE_OPENERS           ctx->mark_chains[5]
+#define BRACKET_OPENERS         ctx->mark_chains[6]
+#define TABLECELLBOUNDARIES     ctx->mark_chains[7]
 
     int n_table_cell_boundaries;
 
@@ -2131,6 +2132,8 @@ md_free_link_ref_defs(MD_CTX* ctx)
  * '\\': Maybe escape sequence.
  * '\0': NULL char.
  *  '*': Maybe (strong) emphasis start/end.
+ *  '_': Maybe (strong) emphasis start/end.
+ *  '~': Maybe strikethrough start/end (needs MD_FLAG_STRIKETHROUGH).
  *  '`': Maybe code span start/end.
  *  '&': Maybe start of entity.
  *  ';': Maybe end of entity.
@@ -2348,6 +2351,7 @@ md_rollback(MD_CTX* ctx, int opener_index, int closer_index, int how)
                     case '_':   chain = &UNDERSCORE_OPENERS; break;
                     case '`':   chain = &BACKTICK_OPENERS; break;
                     case '<':   chain = &LOWERTHEN_OPENERS; break;
+                    case '~':   chain = &TILDE_OPENERS; break;
                     default:    MD_UNREACHABLE(); break;
                 }
                 md_mark_chain_append(ctx, chain, mark_opener_index);
@@ -2394,6 +2398,9 @@ md_build_mark_char_map(MD_CTX* ctx)
     ctx->mark_char_map['!'] = 1;
     ctx->mark_char_map[']'] = 1;
     ctx->mark_char_map['\0'] = 1;
+
+    if(ctx->r.flags & MD_FLAG_STRIKETHROUGH)
+        ctx->mark_char_map['~'] = 1;
 
     if(ctx->r.flags & MD_FLAG_PERMISSIVEURLAUTOLINKS)
         ctx->mark_char_map[':'] = 1;
@@ -2651,6 +2658,17 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                 PUSH_MARK(ch, off, off+1, 0);
                 off++;
                 continue;
+            }
+
+            /* A potential strikethrough start/end. */
+            if(ch == _T('~')) {
+                OFF tmp = off+1;
+
+                while(tmp < line_end  &&  CH(tmp) == _T('~'))
+                    tmp++;
+
+                PUSH_MARK(ch, off, tmp, MD_MARK_POTENTIAL_OPENER | MD_MARK_POTENTIAL_CLOSER);
+                off = tmp;
             }
 
             /* Turn non-trivial whitespace into single space. */
@@ -3233,6 +3251,25 @@ md_analyze_underscore(MD_CTX* ctx, int mark_index)
 }
 
 static void
+md_analyze_tilde(MD_CTX* ctx, int mark_index)
+{
+    /* We attempt to be Github Flavored Markdown compatible here. GFM says
+     * that length of the tilde sequence is not important at all. Note that
+     * implies the TILDE_OPENERS chain can have at most one item. */
+
+    if(TILDE_OPENERS.head >= 0) {
+        /* The chain already contains an opener, so we may resolve the span. */
+        int opener_index = TILDE_OPENERS.head;
+
+        md_rollback(ctx, opener_index, mark_index, MD_ROLLBACK_CROSSING);
+        md_resolve_range(ctx, &TILDE_OPENERS, opener_index, mark_index);
+    } else {
+        /* We can only be opener. */
+        md_mark_chain_append(ctx, &TILDE_OPENERS, mark_index);
+    }
+}
+
+static void
 md_analyze_permissive_url_autolink(MD_CTX* ctx, int mark_index)
 {
     MD_MARK* opener = &ctx->marks[mark_index];
@@ -3386,6 +3423,7 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF en
             case '|':   md_analyze_table_cell_boundary(ctx, i); break;
             case '*':   md_analyze_asterisk(ctx, i); break;
             case '_':   md_analyze_underscore(ctx, i); break;
+            case '~':   md_analyze_tilde(ctx, i); break;
             case ':':   md_analyze_permissive_url_autolink(ctx, i); break;
             case '@':   md_analyze_permissive_email_autolink(ctx, i); break;
         }
@@ -3434,11 +3472,7 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mod
         md_analyze_marks(ctx, lines, n_lines, beg, end, _T("|"));
     } else {
         /* (3b) Emphasis and strong emphasis; permissive autolinks. */
-        md_analyze_marks(ctx, lines, n_lines, beg, end, _T("*_@:"));
-        ASTERISK_OPENERS.head = -1;
-        ASTERISK_OPENERS.tail = -1;
-        UNDERSCORE_OPENERS.head = -1;
-        UNDERSCORE_OPENERS.tail = -1;
+        md_analyze_link_contents(ctx, lines, n_lines, beg, end);
     }
 
 abort:
@@ -3448,11 +3482,13 @@ abort:
 static void
 md_analyze_link_contents(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF end)
 {
-    md_analyze_marks(ctx, lines, n_lines, beg, end, _T("*_@:"));
+    md_analyze_marks(ctx, lines, n_lines, beg, end, _T("*_~@:"));
     ASTERISK_OPENERS.head = -1;
     ASTERISK_OPENERS.tail = -1;
     UNDERSCORE_OPENERS.head = -1;
     UNDERSCORE_OPENERS.tail = -1;
+    TILDE_OPENERS.head = -1;
+    TILDE_OPENERS.tail = -1;
 }
 
 static int
@@ -3556,6 +3592,13 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                             off += 2;
                         }
                     }
+                    break;
+
+                case '~':
+                    if(mark->flags & MD_MARK_OPENER)
+                        MD_ENTER_SPAN(MD_SPAN_DEL, NULL);
+                    else
+                        MD_LEAVE_SPAN(MD_SPAN_DEL, NULL);
                     break;
 
                 case '[':       /* Link, image. */

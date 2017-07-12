@@ -206,6 +206,7 @@ static const option cmdline_options[] = {
     { "fno-html",                    0,  'H', OPTION_ARG_NONE },
     { "fcollapse-whitespace",        0,  'W', OPTION_ARG_NONE },
     { "ftables",                     0,  'T', OPTION_ARG_NONE },
+    { "fstrikethrough",              0,  'S', OPTION_ARG_NONE },
     { 0 }
 };
 
@@ -249,6 +250,7 @@ usage(void)
         "                       Disable raw HTML spans\n"
         "      --fno-html       Same as --fno-html-blocks --fno-html-spans\n"
         "      --ftables        Enable tables\n"
+        "      --fstrikethrough Enable strikethrough spans\n"
     );
 }
 
@@ -294,6 +296,7 @@ cmdline_callback(int opt, char const* value, void* data)
         case '@':   parser_flags |= MD_FLAG_PERMISSIVEEMAILAUTOLINKS; break;
         case 'V':   parser_flags |= MD_FLAG_PERMISSIVEAUTOLINKS; break;
         case 'T':   parser_flags |= MD_FLAG_TABLES; break;
+        case 'S':   parser_flags |= MD_FLAG_STRIKETHROUGH; break;
 
         default:
             fprintf(stderr, "Illegal option: %s\n", value);

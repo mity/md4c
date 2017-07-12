@@ -1,0 +1,34 @@
+
+# Strikethrough
+
+With the flag `MD_FLAG_STRIKETHROUGH`, MD4C enables extension for recognition
+of strike-through spans.
+
+Strikethrough text is any text wrapped in tildes (~).
+
+```````````````````````````````` example
+~Hi~ Hello, world!
+.
+<p><del>Hi</del> Hello, world!</p>
+````````````````````````````````
+
+Any number of tildes may be used on either side of the text; they do not need
+to match, and they cannot be nested.
+
+```````````````````````````````` example
+This ~text~~~~ is ~~~~curious~.
+.
+<p>This <del>text</del> is <del>curious</del>.</p>
+````````````````````````````````
+
+As with regular emphasis delimiters, a new paragraph will cause the cessation
+of parsing a strikethrough:
+
+```````````````````````````````` example
+This ~~has a
+
+new paragraph~~.
+.
+<p>This ~~has a</p>
+<p>new paragraph~~.</p>
+````````````````````````````````

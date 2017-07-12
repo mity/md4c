@@ -99,6 +99,9 @@ some extensions or allowing some deviations from the specification.
  * With the flag `MD_FLAG_NOINDENTEDCODEBLOCKS`, indented code blocks are
    disabled.
 
+ * With the flag `MD_FLAG_STRIKETHROUGH`, strikethrough spans are enabled
+   (text enclosed in tilde marks, e.g. '~foo bar~').
+
 
 ## Input/Output Encoding
 
