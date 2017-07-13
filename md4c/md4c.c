@@ -1474,7 +1474,6 @@ struct MD_LINK_REF_DEF_tag {
     SZ label_size                   : 24;
     unsigned label_needs_free       :  1;
     unsigned title_needs_free       :  1;
-    int index;
     SZ title_size;
     OFF dest_beg;
     OFF dest_end;
@@ -1806,7 +1805,6 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
     def = &ctx->link_ref_defs[ctx->n_link_ref_defs];
     memset(def, 0, sizeof(MD_LINK_REF_DEF));
 
-    def->index = ctx->n_link_ref_defs;
     def->label = label;
     def->label_size = label_size;
     def->label_needs_free = label_needs_free;
@@ -1928,8 +1926,9 @@ md_link_label_cmp_for_qsort(const void* a, const void* b)
         return cmp;
 
     /* The specification requests that only first link reference definition
-     * with the same label is valid. */
-    return (((MD_LINK_REF_DEF*)a)->index - ((MD_LINK_REF_DEF*)b)->index);
+     * with the same label is valid. So make sure we make a stable sort
+     * from the qsort(). */
+    return ((MD_LINK_REF_DEF*) a - (MD_LINK_REF_DEF*) b);
 }
 
 static inline const MD_LINK_REF_DEF*
