@@ -217,11 +217,13 @@ render_entity(MD_RENDER_HTML* r, const MD_CHAR* text, MD_SIZE size,
         return;
     } else {
         /* Named entity (e.g. "&nbsp;"). */
-        const MD_CHAR* ent;
+        const struct entity* ent;
 
         ent = entity_lookup(text, size);
         if(ent != NULL) {
-            fn_append(r, ent, strlen(ent));
+            render_utf8_codepoint(r, ent->codepoints[0], fn_append);
+            if(ent->codepoints[1])
+                render_utf8_codepoint(r, ent->codepoints[1], fn_append);
             return;
         }
     }

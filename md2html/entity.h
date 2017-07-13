@@ -29,7 +29,14 @@
 #include <stdlib.h>
 
 
-const char* entity_lookup(const char* verbatim, size_t verbatim_size);
+/* Most entities are formed by single Unicode codepoint, few by two codepoints.
+ * Single-codepoint entities have codepoints[1] set to zero. */
+struct entity {
+    const char* name;
+    unsigned codepoints[2];
+};
+
+const struct entity* entity_lookup(const char* name, size_t name_size);
 
 
 #endif  /* MD2HTML_ENTITY_H */
