@@ -1474,6 +1474,7 @@ struct MD_LINK_REF_DEF_tag {
     SZ label_size                   : 24;
     unsigned label_needs_free       :  1;
     unsigned title_needs_free       :  1;
+    int index;
     SZ title_size;
     OFF dest_beg;
     OFF dest_end;
@@ -1696,8 +1697,6 @@ md_is_link_title(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
     return FALSE;
 }
 
-static int md_lookup_link_ref_def(MD_CTX* ctx, const CHAR* label, SZ label_size, MD_LINK_REF_DEF** p_def);
-
 /* Returns 0 if it is not a link reference definition.
  *
  * Returns N > 0 if it is not a link reference definition (then N corresponds
@@ -1789,10 +1788,6 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
         label_needs_free = TRUE;
     }
 
-    /* If such definition is already present, we do not store it. */
-    if(md_lookup_link_ref_def(ctx, label, label_size, &def))
-        return line_index + 1;
-
     /* Store the link reference definition. */
     if(ctx->n_link_ref_defs >= ctx->alloc_link_ref_defs) {
         MD_LINK_REF_DEF* new_defs;
@@ -1811,6 +1806,7 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
     def = &ctx->link_ref_defs[ctx->n_link_ref_defs];
     memset(def, 0, sizeof(MD_LINK_REF_DEF));
 
+    def->index = ctx->n_link_ref_defs;
     def->label = label;
     def->label_size = label_size;
     def->label_needs_free = label_needs_free;
@@ -1842,6 +1838,7 @@ abort:
     return -1;
 }
 
+
 static OFF
 md_skip_unicode_whitespace(const CHAR* label, OFF off, SZ size)
 {
@@ -1859,8 +1856,12 @@ md_skip_unicode_whitespace(const CHAR* label, OFF off, SZ size)
 }
 
 static int
-md_link_label_eq(const CHAR* a_label, SZ a_size, const CHAR* b_label, SZ b_size)
+md_link_label_cmp(const void* a, const void* b)
 {
+    const CHAR* a_label = ((const MD_LINK_REF_DEF*)a)->label;
+    const CHAR* b_label = ((const MD_LINK_REF_DEF*)b)->label;
+    SZ a_size = ((const MD_LINK_REF_DEF*)a)->label_size;
+    SZ b_size = ((const MD_LINK_REF_DEF*)b)->label_size;
     OFF a_off;
     OFF b_off;
 
@@ -1892,52 +1893,62 @@ md_link_label_eq(const CHAR* a_label, SZ a_size, const CHAR* b_label, SZ b_size)
 
         if(a_is_whitespace || b_is_whitespace) {
             if(!a_is_whitespace || !b_is_whitespace)
-                return FALSE;
+                return (a_is_whitespace ? -1 : +1);
 
             a_off = md_skip_unicode_whitespace(a_label, a_off, a_size);
             b_off = md_skip_unicode_whitespace(b_label, b_off, b_size);
         } else {
             MD_UNICODE_FOLD_INFO a_fold_info, b_fold_info;
+            int cmp;
 
             md_get_unicode_fold_info(a_codepoint, &a_fold_info);
             md_get_unicode_fold_info(b_codepoint, &b_fold_info);
 
             if(a_fold_info.n_codepoints != b_fold_info.n_codepoints)
-                return FALSE;
-            if(memcmp(a_fold_info.codepoints, b_fold_info.codepoints, a_fold_info.n_codepoints * sizeof(int)) != 0)
-                return FALSE;
+                return (a_fold_info.n_codepoints - b_fold_info.n_codepoints);
+            cmp = memcmp(a_fold_info.codepoints, b_fold_info.codepoints, a_fold_info.n_codepoints * sizeof(int));
+            if(cmp != 0)
+                return cmp;
 
             a_off += a_char_size;
             b_off += b_char_size;
         }
     }
 
-    return TRUE;
+    return 0;
 }
 
 static int
-md_lookup_link_ref_def(MD_CTX* ctx, const CHAR* label, SZ label_size, MD_LINK_REF_DEF** p_def)
+md_link_label_cmp_for_qsort(const void* a, const void* b)
 {
-    int i;
+    int cmp;
 
-    for(i = 0; i < ctx->n_link_ref_defs; i++) {
-        MD_LINK_REF_DEF* def = &ctx->link_ref_defs[i];
+    cmp = md_link_label_cmp(a, b);
+    if(cmp != 0)
+        return cmp;
 
-        if(md_link_label_eq(def->label, def->label_size, label, label_size)) {
-            *p_def = def;
-            return TRUE;
-        }
-    }
+    /* The specification requests that only first link reference definition
+     * with the same label is valid. */
+    return (((MD_LINK_REF_DEF*)a)->index - ((MD_LINK_REF_DEF*)b)->index);
+}
 
-    *p_def = NULL;
-    return FALSE;
+static inline const MD_LINK_REF_DEF*
+md_lookup_link_ref_def(MD_CTX* ctx, const CHAR* label, SZ label_size)
+{
+    MD_LINK_REF_DEF key;
+
+    key.label = (CHAR*) label;
+    key.label_size = label_size;
+
+    return bsearch(&key, ctx->link_ref_defs, ctx->n_link_ref_defs,
+                   sizeof(MD_LINK_REF_DEF), md_link_label_cmp);
 }
 
 static int
 md_is_link_reference(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
                      OFF beg, OFF end, MD_LINK_ATTR* attr)
 {
-    MD_LINK_REF_DEF* def;
+    const MD_LINK_REF_DEF* def;
     const MD_LINE* beg_line;
     const MD_LINE* end_line;
     CHAR* label;
@@ -1969,8 +1980,8 @@ md_is_link_reference(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
         label_size = end - beg;
     }
 
-    ret = md_lookup_link_ref_def(ctx, label, label_size, &def);
-    if(ret == TRUE) {
+    def = md_lookup_link_ref_def(ctx, label, label_size);
+    if(def != NULL) {
         attr->dest_beg = def->dest_beg;
         attr->dest_end = def->dest_end;
         attr->title = def->title;
@@ -1980,6 +1991,8 @@ md_is_link_reference(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
 
     if(beg_line != end_line)
         free(label);
+
+    ret = (def != NULL);
 
 abort:
     return ret;
@@ -5511,8 +5524,13 @@ md_process_doc(MD_CTX *ctx)
         MD_CHECK(md_process_line(ctx, &pivot_line, line));
     }
 
-    /* Process all blocks. */
     md_end_current_block(ctx);
+
+    /* Sort link reference definitions so we can use bsearch() for their lookup. */
+    qsort(ctx->link_ref_defs, ctx->n_link_ref_defs, sizeof(MD_LINK_REF_DEF),
+          md_link_label_cmp_for_qsort);
+
+    /* Process all blocks. */
     MD_CHECK(md_leave_child_containers(ctx, 0));
     MD_CHECK(md_process_all_blocks(ctx));
 
