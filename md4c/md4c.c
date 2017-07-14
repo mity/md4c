@@ -3601,6 +3601,9 @@ md_analyze_permissive_url_autolink(MD_CTX* ctx, int mark_index)
     OFF off = opener->end;
     int seen_dot = FALSE;
     int seen_underscore_or_hyphen[2] = { FALSE, FALSE };
+    if (opener->end == opener->beg) {
+        opener->ch = '/';
+    }
 
     /* Check for domain. */
     while(off < ctx->size) {
@@ -3748,6 +3751,7 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
             case '_':   md_analyze_underscore(ctx, i); break;
             case '~':   md_analyze_tilde(ctx, i); break;
             case '.':   /* Pass through. */
+            case '/':   /* Pass through */
             case ':':   md_analyze_permissive_url_autolink(ctx, i); break;
             case '@':   md_analyze_permissive_email_autolink(ctx, i); break;
         }
@@ -3961,6 +3965,7 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 case '@':       /* Permissive e-mail autolink. */
                 case ':':       /* Permissive URL autolink. */
                 case '.':       /* Permissive WWW autolink. */
+                case '/':       /* Permissive Reddit autolinks */
                 {
                     const MD_MARK* opener = ((mark->flags & MD_MARK_OPENER) ? mark : &ctx->marks[mark->prev]);
                     const MD_MARK* closer = &ctx->marks[opener->next];
@@ -3974,6 +3979,14 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                                 (opener->ch == '@' ? _T("mailto:") : _T("http://")),
                                 7 * sizeof(CHAR));
                         memcpy(ctx->buffer + 7, dest, (dest_size-7) * sizeof(CHAR));
+                        dest = ctx->buffer;
+                    }
+
+                    if(opener->ch == '/') {
+                        dest_size += 1;
+                        MD_TEMP_BUFFER(dest_size * sizeof(CHAR));
+                        memcpy(ctx->buffer, _T("/"), 1 * sizeof(CHAR));
+                        memcpy(ctx->buffer + 1, dest, (dest_size-1) * sizeof(CHAR));
                         dest = ctx->buffer;
                     }
 
