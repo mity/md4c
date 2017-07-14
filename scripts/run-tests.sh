@@ -34,5 +34,6 @@ $PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/coverage.txt" -p "$PROGRAM"
 # Test various extensions and deviations from the specifications:
 $PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/permissive-email-autolinks.txt" -p "$PROGRAM --fpermissive-email-autolinks"
 $PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/permissive-url-autolinks.txt" -p "$PROGRAM --fpermissive-url-autolinks"
+$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/permissive-www-autolinks.txt" -p "$PROGRAM --fpermissive-www-autolinks"
 $PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/tables.txt" -p "$PROGRAM --ftables"
 $PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/strikethrough.txt" -p "$PROGRAM --fstrikethrough"

@@ -22,8 +22,7 @@ Homepage: https://github.com/mity/md4c
 ````````````````````````````````
 
 But this permissive autolink feature can work only for very widely used URL
-schemes, in alphabetical order `ftp:`, `http:`, `https:` and `mailto:`,
-so this is not an permissive autolink.
+schemes, in alphabetical order `ftp:`, `http:`, `https:`.
 
 That's why this is not a permissive autolink:
 
@@ -33,12 +32,8 @@ ssh://root@example.com
 <p>ssh://root@example.com</p>
 ````````````````````````````````
 
-As certain characters (`.`, `?`, `=`, `&`, `%`, `+`, `-`, `_`, `#`, `@`) can collide
-with a normal text flow, they are not recognized as part of the URL unless another
-alphanumeric character immediately follows.
-
-Therefore the question mark in this question is not part of the autolink's
-contents:
+The same rules for path validation as for permissivve WWW autolinks apply.
+Therefore the final question mark here is not part of the autolink:
 
 ```````````````````````````````` example
 Have you ever visited http://www.zombo.com?
@@ -54,19 +49,16 @@ http://www.bing.com/search?q=md4c
 <p><a href="http://www.bing.com/search?q=md4c">http://www.bing.com/search?q=md4c</a></p>
 ````````````````````````````````
 
-Please note that e-mail addresses without the `mailto:` scheme are not permissive URL
-autolinks, but MD4C implements another extension `MD_FLAG_PERMISSIVEEMAILAUTOLINKS`
-which can be used to enable that too.
+And finally one complex example:
 
 ```````````````````````````````` example
-mailto:john.doe@example.com
-.
-<p><a href="mailto:john.doe@example.com">mailto:john.doe@example.com</a></p>
-````````````````````````````````
+http://commonmark.org
 
-```````````````````````````````` example
-john.doe@example.com
-.
-<p>john.doe@example.com</p>
-````````````````````````````````
+(Visit https://encrypted.google.com/search?q=Markup+(business))
 
+Anonymous FTP is available at ftp://foo.bar.baz.
+.
+<p><a href="http://commonmark.org">http://commonmark.org</a></p>
+<p>(Visit <a href="https://encrypted.google.com/search?q=Markup+(business)">https://encrypted.google.com/search?q=Markup+(business)</a>)</p>
+<p>Anonymous FTP is available at <a href="ftp://foo.bar.baz">ftp://foo.bar.baz</a>.</p>
+````````````````````````````````

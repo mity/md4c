@@ -2154,8 +2154,9 @@ md_free_link_ref_defs(MD_CTX* ctx)
  *  '[': Maybe start of link label or link text.
  *  '!': Equivalent of '[' for image.
  *  ']': Maybe end of link label or link text.
- *  ':': Maybe permissive URL auto-link (needs MD_FLAG_PERMISSIVEURLAUTOLINKS).
  *  '@': Maybe permissive e-mail auto-link (needs MD_FLAG_PERMISSIVEEMAILAUTOLINKS).
+ *  ':': Maybe permissive URL auto-link (needs MD_FLAG_PERMISSIVEURLAUTOLINKS).
+ *  '.': Maybe permissive WWW auto-link (needs MD_FLAG_PERMISSIVEWWWAUTOLINKS).
  *  'D': Dummy mark, it reserves a space for splitting a previous mark
  *       (e.g. emphasis) or to make more space for storing some special data
  *       related to the preceding mark (e.g. link).
@@ -2414,11 +2415,14 @@ md_build_mark_char_map(MD_CTX* ctx)
     if(ctx->r.flags & MD_FLAG_STRIKETHROUGH)
         ctx->mark_char_map['~'] = 1;
 
+    if(ctx->r.flags & MD_FLAG_PERMISSIVEEMAILAUTOLINKS)
+        ctx->mark_char_map['@'] = 1;
+
     if(ctx->r.flags & MD_FLAG_PERMISSIVEURLAUTOLINKS)
         ctx->mark_char_map[':'] = 1;
 
-    if(ctx->r.flags & MD_FLAG_PERMISSIVEEMAILAUTOLINKS)
-        ctx->mark_char_map['@'] = 1;
+    if(ctx->r.flags & MD_FLAG_PERMISSIVEWWWAUTOLINKS)
+        ctx->mark_char_map['.'] = 1;
 
     if(ctx->r.flags & MD_FLAG_TABLES)
         ctx->mark_char_map['|'] = 1;
@@ -2613,6 +2617,20 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                 continue;
             }
 
+            /* A potential permissive e-mail autolink. */
+            if(ch == _T('@')) {
+                if(line->beg + 1 <= off  &&  ISALNUM(off-1)  &&
+                    off + 3 < line->end  &&  ISALNUM(off+1))
+                {
+                    PUSH_MARK(ch, off, off+1, MD_MARK_POTENTIAL_OPENER);
+                    /* Push a dummy as a reserve for a closer. */
+                    PUSH_MARK('D', off, off, 0);
+                }
+
+                off++;
+                continue;
+            }
+
             /* A potential permissive URL autolink. */
             if(ch == _T(':')) {
                 static struct {
@@ -2624,8 +2642,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                     /* In the order from the most frequently used, arguably. */
                     { _T("http"), 4,    _T("//"), 2 },
                     { _T("https"), 5,   _T("//"), 2 },
-                    { _T("mailto"), 6,  NULL, 0 },
-                    { _T("ftp"), 3,     _T("//"), 2 },
+                    { _T("ftp"), 3,     _T("//"), 2 }
                 };
                 int scheme_index;
 
@@ -2636,7 +2653,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                     const SZ suffix_size = scheme_map[scheme_index].suffix_size;
 
                     if(line->beg + scheme_size <= off  &&  md_ascii_eq(STR(off-scheme_size), scheme, scheme_size)  &&
-                        (line->beg + scheme_size == off || ISWHITESPACE(off-scheme_size-1))  &&
+                        (line->beg + scheme_size == off || ISWHITESPACE(off-scheme_size-1) || ISANYOF(off-scheme_size-1, _T("*_~([")))  &&
                         off + 1 + suffix_size < line->end  &&  md_ascii_eq(STR(off+1), suffix, suffix_size))
                     {
                         PUSH_MARK(ch, off-scheme_size, off+1+suffix_size, MD_MARK_POTENTIAL_OPENER);
@@ -2651,14 +2668,17 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                 continue;
             }
 
-            /* A potential permissive e-mail autolink. */
-            if(ch == _T('@')) {
-                if(line->beg + 1 <= off  &&  ISALNUM(off-1)  &&
-                    off + 3 < line->end  &&  ISALNUM(off+1))
+            /* A potential permissive WWW autolink. */
+            if(ch == _T('.')) {
+                if(line->beg + 3 <= off  &&  md_ascii_eq(STR(off-3), _T("www"), 3)  &&
+                    (line->beg + 3 == off || ISWHITESPACE(off-4) || ISANYOF(off-4, _T("*_~([")))  &&
+                    off + 1 < line_end)
                 {
-                    PUSH_MARK(ch, off, off+1, MD_MARK_POTENTIAL_OPENER);
+                    PUSH_MARK(ch, off-3, off+1, MD_MARK_POTENTIAL_OPENER);
                     /* Push a dummy as a reserve for a closer. */
                     PUSH_MARK('D', off, off, 0);
+                    off++;
+                    continue;
                 }
 
                 off++;
@@ -3285,38 +3305,63 @@ static void
 md_analyze_permissive_url_autolink(MD_CTX* ctx, int mark_index)
 {
     MD_MARK* opener = &ctx->marks[mark_index];
-    int closer_index;
-    MD_MARK* closer;
+    int closer_index = mark_index + 1;
+    MD_MARK* closer = &ctx->marks[mark_index + 1];
+    MD_MARK* next_resolved_mark;
     OFF off = opener->end;
+    int seen_dot = FALSE;
+    int seen_underscore_or_hyphen[2] = { FALSE, FALSE };
 
-    if(off < ctx->size && ISALNUM(off))
-        off++;
-    else
+    /* Check for domain. */
+    while(off < ctx->size) {
+        if(ISALNUM(off)) {
+            off++;
+        } else if(CH(off) == _T('.')) {
+            seen_dot = TRUE;
+            seen_underscore_or_hyphen[0] = seen_underscore_or_hyphen[1];
+            seen_underscore_or_hyphen[1] = FALSE;
+            off++;
+        } else if(ISANYOF2(off, _T('-'), _T('_'))) {
+            seen_underscore_or_hyphen[1] = TRUE;
+            off++;
+        } else {
+            break;
+        }
+    }
+
+    if(off <= opener->end || !seen_dot || seen_underscore_or_hyphen[0] || seen_underscore_or_hyphen[1])
         return;
 
-    while(1) {
-        while(off < ctx->size && (ISALNUM(off) || CH(off) == _T('/')))
-            off++;
+    /* Check for path. */
+    next_resolved_mark = closer + 1;
+    while(next_resolved_mark->ch == 'D' || !(next_resolved_mark->flags & MD_MARK_RESOLVED))
+        next_resolved_mark++;
+    while(off < next_resolved_mark->beg  &&  CH(off) != _T('<')  &&  !ISWHITESPACE(off)  &&  !ISNEWLINE(off))
+        off++;
 
-        /* We need to be relatively careful to not include too much into the URL.
-         * Consider e.g. a dot or question mark:
-         *   "Go to http://example.com." versus "http://example.com.uk"
-         *   "Do you know http://zombo.com?" versus "http://example.com/?page=2"
-         * Therefore we include some named punctuation characters only if they
-         * are immediately followed by alnum char.
-         */
-        if(off + 1 < ctx->size && ISANYOF(off, _T("@.?=&%+-_#")) && ISALNUM(off+1))
-            off += 2;
-        else
-            break;
+    /* Path validation. */
+    if(ISANYOF(off-1, _T("?!.,:*_~)"))) {
+        if(CH(off-1) != _T(')')) {
+            off--;
+        } else {
+            int parenthesis_balance = 0;
+            OFF tmp;
+
+            for(tmp = opener->end; tmp < off; tmp++) {
+                if(CH(tmp) == _T('('))
+                    parenthesis_balance++;
+                else if(CH(tmp) == _T(')'))
+                    parenthesis_balance--;
+            }
+
+            if(parenthesis_balance < 0)
+                off--;
+        }
     }
 
     /* Ok. Lets call it auto-link. Adapt opener and create closer to zero
      * length so all the contents becomes the link text. */
-    closer_index = mark_index + 1;
-    closer = &ctx->marks[closer_index];
     MD_ASSERT(closer->ch == 'D');
-
     opener->end = opener->beg;
     closer->ch = opener->ch;
     closer->beg = off;
@@ -3436,6 +3481,7 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF en
             case '*':   md_analyze_asterisk(ctx, i); break;
             case '_':   md_analyze_underscore(ctx, i); break;
             case '~':   md_analyze_tilde(ctx, i); break;
+            case '.':   /* Pass through. */
             case ':':   md_analyze_permissive_url_autolink(ctx, i); break;
             case '@':   md_analyze_permissive_email_autolink(ctx, i); break;
         }
@@ -3494,7 +3540,7 @@ abort:
 static void
 md_analyze_link_contents(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF end)
 {
-    md_analyze_marks(ctx, lines, n_lines, beg, end, _T("*_~@:"));
+    md_analyze_marks(ctx, lines, n_lines, beg, end, _T("*_~@:."));
     ASTERISK_OPENERS.head = -1;
     ASTERISK_OPENERS.tail = -1;
     UNDERSCORE_OPENERS.head = -1;
@@ -3645,16 +3691,19 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 
                 case '@':       /* Permissive e-mail autolink. */
                 case ':':       /* Permissive URL autolink. */
+                case '.':       /* Permissive WWW autolink. */
                 {
                     const MD_MARK* opener = ((mark->flags & MD_MARK_OPENER) ? mark : &ctx->marks[mark->prev]);
                     const MD_MARK* closer = &ctx->marks[opener->next];
                     const CHAR* dest = STR(opener->end);
                     SZ dest_size = closer->beg - opener->end;
 
-                    if(opener->ch == '@') {
+                    if(opener->ch == '@' || opener->ch == '.') {
                         dest_size += 7;
                         MD_TEMP_BUFFER(dest_size * sizeof(CHAR));
-                        memcpy(ctx->buffer, _T("mailto:"), 7 * sizeof(CHAR));
+                        memcpy(ctx->buffer,
+                                (opener->ch == '@' ? _T("mailto:") : _T("http://")),
+                                7 * sizeof(CHAR));
                         memcpy(ctx->buffer + 7, dest, (dest_size-7) * sizeof(CHAR));
                         dest = ctx->buffer;
                     }

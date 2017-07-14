@@ -198,6 +198,7 @@ static const option cmdline_options[] = {
     { "fverbatim-entities",          0,  'E', OPTION_ARG_NONE },
     { "fpermissive-atx-headers",     0,  'A', OPTION_ARG_NONE },
     { "fpermissive-url-autolinks",   0,  'U', OPTION_ARG_NONE },
+    { "fpermissive-www-autolinks",   0,  '.', OPTION_ARG_NONE },
     { "fpermissive-email-autolinks", 0,  '@', OPTION_ARG_NONE },
     { "fpermissive-autolinks",       0,  'V', OPTION_ARG_NONE },
     { "fno-indented-code",           0,  'I', OPTION_ARG_NONE },
@@ -238,10 +239,13 @@ usage(void)
         "                       Allow ATX headers without delimiting space\n"
         "      --fpermissive-url-autolinks\n"
         "                       Allow URL autolinks without '<', '>'\n"
+        "      --fpermissive-www-autolinks\n"
+        "                       Allow WWW autolinks without any scheme (e.g. 'www.example.com')\n"
         "      --fpermissive-email-autolinks  \n"
         "                       Allow e-mail autolinks without '<', '>' and 'mailto:'\n"
         "      --fpermissive-autolinks\n"
-        "                       Same as --fpermissive-url-autolinks --fpermissive-email-autolinks\n"
+        "                       Same as --fpermissive-url-autolinks --fpermissive-www-autolinks\n"
+        "                       --fpermissive-email-autolinks\n"
         "      --fno-indented-code\n"
         "                       Disable indented code blocks\n"
         "      --fno-html-blocks\n"
@@ -293,6 +297,7 @@ cmdline_callback(int opt, char const* value, void* data)
         case 'H':   parser_flags |= MD_FLAG_NOHTML; break;
         case 'W':   parser_flags |= MD_FLAG_COLLAPSEWHITESPACE; break;
         case 'U':   parser_flags |= MD_FLAG_PERMISSIVEURLAUTOLINKS; break;
+        case '.':   parser_flags |= MD_FLAG_PERMISSIVEWWWAUTOLINKS; break;
         case '@':   parser_flags |= MD_FLAG_PERMISSIVEEMAILAUTOLINKS; break;
         case 'V':   parser_flags |= MD_FLAG_PERMISSIVEAUTOLINKS; break;
         case 'T':   parser_flags |= MD_FLAG_TABLES; break;
