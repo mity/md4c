@@ -3381,45 +3381,28 @@ md_analyze_permissive_email_autolink(MD_CTX* ctx, int mark_index)
     MD_MARK* closer;
     OFF beg = opener->beg;
     OFF end = opener->end;
-    int right_dot_count = 0;
+    int dot_count = 0;
 
     MD_ASSERT(CH(beg) == _T('@'));
 
-    /* Accept any alphanumeric sequences delimited with dot before the '@'.
-     * There must be a whitespace or start of line before it. */
-    while(1) {
-        while(beg > 0  &&  ISALNUM(beg-1))
-            beg--;
+    /* Scan for name before '@'. */
+    while(beg > 0  &&  (ISALNUM(beg-1) || ISANYOF(beg-1, _T(".-_+"))))
+        beg--;
 
-        if(beg > 1 && CH(beg-1) == _T('.') && ISALNUM(beg-2))
-            beg -= 2;
-        else if(beg == 0 || ISWHITESPACE(beg-1) || ISNEWLINE(beg-1))
-            break;
-        else
-            return;
+    /* Scan for domain after '@'. */
+    while(end < ctx->size  &&  (ISALNUM(end) || ISANYOF(end, _T(".-_")))) {
+        if(CH(end) == _T('.'))
+            dot_count++;
+        end++;
     }
-
-    /* Accept any alphanumeric sequences delimited with dot after the '@',
-     * limiting the sequences length by 64 characters. */
-    while(1) {
-        OFF label_start = end;
-        while(end + 1 < ctx->size  &&  ISALNUM(end))
-            end++;
-        if(end - label_start > 63)
-            return;
-
-        if(end + 1 < ctx->size && CH(end) == _T('.') && ISALNUM(end+1)) {
-            right_dot_count++;
-            end += 2;
-        } else if(right_dot_count > 0) {
-            /* Although "user@machine" is technically correct e-mail address,
-             * we request at least one dot, as in e.g. "user@machine.com" to
-             * prevent some false positives with this very loose format. */
-            break;
-        } else {
-            return;
-        }
+    if(CH(end-1) == _T('.')) {  /* Final '.' not part of it. */
+        dot_count--;
+        end--;
     }
+    else if(ISANYOF2(end-1, _T('-'), _T('_'))) /* These are forbidden at the end. */
+        return;
+    if(CH(end-1) == _T('@')  ||  dot_count == 0)
+        return;
 
     /* Ok. Lets call it auto-link. Adapt opener and create closer to zero
      * length so all the contents becomes the link text. */
