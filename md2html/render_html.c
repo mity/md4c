@@ -110,7 +110,7 @@ render_url_escaped(MD_RENDER_HTML* r, const MD_CHAR* data, MD_SIZE size)
     MD_OFFSET off = 0;
 
     #define URL_NEED_ESCAPE(ch)                                             \
-            (!ISALNUM(ch)  &&  strchr("-_.+!*'(),%#@?=;:/,+&$", ch) == NULL)
+            (!ISALNUM(ch)  &&  strchr("-_.+!*'(),%#@?=;:/,+$", ch) == NULL)
 
     while(1) {
         while(off < size  &&  !URL_NEED_ESCAPE(data[off]))
