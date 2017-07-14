@@ -2668,6 +2668,8 @@ md_build_mark_char_map(MD_CTX* ctx)
     ctx->mark_char_map['!'] = 1;
     ctx->mark_char_map[']'] = 1;
     ctx->mark_char_map['\0'] = 1;
+    if(ctx->r.flags & MD_FLAG_REDDITAUTOLINKS)
+        ctx->mark_char_map['/'] = 1;
 
     if(ctx->r.flags & MD_FLAG_STRIKETHROUGH)
         ctx->mark_char_map['~'] = 1;
@@ -2884,7 +2886,29 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                     /* Push a dummy as a reserve for a closer. */
                     PUSH_MARK('D', off, off, 0);
                 }
+                off++;
+                continue;
+            }
 
+            /* A potential permissive Reddit autolink */
+            if(ch == _T('/')) {
+                if(line->beg + 1 <= off && (CH(off - 1) == 'u' || CH(off - 1) == 'r') &&
+                      (line->beg + 1 == off ||
+                         (CH(off - 2) != '/' && (ISUNICODEPUNCTBEFORE(off - 1) || ISUNICODEWHITESPACE(off - 2)))) &&
+                      line->end > off + 1 && ISALNUM(off + 1)) {
+                    /* u/something or r/something */
+                    PUSH_MARK(':', off - 1, off - 1, MD_MARK_POTENTIAL_OPENER);
+                    /* Push a dummy as a reserve for a closer. */
+                    PUSH_MARK('D', off, off, 0);
+                } else if (line->end > off + 3) {
+                    const char *buf = STR(off + 1);
+                    if (buf[1] == '/' && (buf[0] == 'u' || buf[0] == 'r') &&
+                        ISALNUM(off + 3)) {
+                        PUSH_MARK(':', off, off+1, MD_MARK_POTENTIAL_OPENER);
+                        /* Push a dummy as a reserve for a closer. */
+                        PUSH_MARK('D', off, off, 0);
+                    }
+                }
                 off++;
                 continue;
             }
