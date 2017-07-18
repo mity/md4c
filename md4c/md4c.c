@@ -1660,7 +1660,7 @@ md_ref_def_cmp_stable(const void* a, const void* b)
 static int
 md_build_ref_def_hashtable(MD_CTX* ctx)
 {
-    int i;
+    int i, j;
 
     if(ctx->n_ref_defs == 0)
         return 0;
@@ -1749,9 +1749,9 @@ md_build_ref_def_hashtable(MD_CTX* ctx)
         qsort(list->ref_defs, list->n_ref_defs, sizeof(MD_REF_DEF*), md_ref_def_cmp_stable);
 
         /* Disable duplicates. */
-        for(i = 1; i < list->n_ref_defs; i++) {
-            if(md_ref_def_cmp(&list->ref_defs[i-1], &list->ref_defs[i]) == 0)
-                list->ref_defs[i] = list->ref_defs[i-1];
+        for(j = 1; j < list->n_ref_defs; j++) {
+            if(md_ref_def_cmp(&list->ref_defs[j-1], &list->ref_defs[j]) == 0)
+                list->ref_defs[j] = list->ref_defs[j-1];
         }
     }
 
