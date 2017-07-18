@@ -183,3 +183,121 @@ Ditto for Unicode punctuation (here U+00A1).
 bar">link</a></p>
 </blockquote>
 ````````````````````````````````
+
+
+### `md_build_ref_def_hashtable()`
+
+All link labels in the following example all have the same FNV1a hash (after
+normalization of the label, which means after converting to a vector of Unicode
+codepoints and lowercase folding).
+
+So the example triggers quite complex code paths which are not otherwise easily
+tested.
+
+```````````````````````````````` example
+[foo]: /foo
+[qnptgbh]: /qnptgbh
+[abgbrwcv]: /abgbrwcv
+[abgbrwcv]: /abgbrwcv2
+[abgbrwcv]: /abgbrwcv3
+[abgbrwcv]: /abgbrwcv4
+[alqadfgn]: /alqadfgn
+
+[foo]
+[qnptgbh]
+[abgbrwcv]
+[alqadfgn]
+[axgydtdu]
+.
+<p><a href="/foo">foo</a>
+<a href="/qnptgbh">qnptgbh</a>
+<a href="/abgbrwcv">abgbrwcv</a>
+<a href="/alqadfgn">alqadfgn</a>
+[axgydtdu]</p>
+````````````````````````````````
+
+For the sake of completeness, the following C program was used to find the hash
+collisions by brute force:
+
+~~~
+
+#include <stdio.h>
+#include <string.h>
+
+
+static unsigned etalon;
+
+
+
+#define MD_FNV1A_BASE       2166136261
+#define MD_FNV1A_PRIME      16777619
+
+static inline unsigned
+fnv1a(unsigned base, const void* data, size_t n)
+{
+    const unsigned char* buf = (const unsigned char*) data;
+    unsigned hash = base;
+    size_t i;
+
+    for(i = 0; i < n; i++) {
+        hash ^= buf[i];
+        hash *= MD_FNV1A_PRIME;
+    }
+
+    return hash;
+}
+
+
+static unsigned
+unicode_hash(const char* data, size_t n)
+{
+    unsigned value;
+    unsigned hash = MD_FNV1A_BASE;
+    int i;
+
+    for(i = 0; i < n; i++) {
+        value = data[i];
+        hash = fnv1a(hash, &value, sizeof(unsigned));
+    }
+
+    return hash;
+}
+
+
+static void
+recurse(char* buffer, size_t off, size_t len)
+{
+    int ch;
+
+    if(off < len - 1) {
+        for(ch = 'a'; ch <= 'z'; ch++) {
+            buffer[off] = ch;
+            recurse(buffer, off+1, len);
+        }
+    } else {
+        for(ch = 'a'; ch <= 'z'; ch++) {
+            buffer[off] = ch;
+            if(unicode_hash(buffer, len) == etalon) {
+                printf("Dup: %.*s\n", (int)len, buffer);
+            }
+        }
+    }
+}
+
+int
+main(int argc, char** argv)
+{
+    char buffer[32];
+    int len;
+
+    if(argc < 2)
+        etalon = unicode_hash("foo", 3);
+    else
+        etalon = unicode_hash(argv[1], strlen(argv[1]));
+
+    for(len = 1; len <= sizeof(buffer); len++)
+        recurse(buffer, 0, len);
+
+    return 0;
+}
+~~~

@@ -105,6 +105,8 @@ struct MD_CTX_tag {
     MD_REF_DEF* ref_defs;
     int n_ref_defs;
     int alloc_ref_defs;
+    void** ref_def_hashtable;
+    int ref_def_hashtable_size;
 
     /* Stack of inline/span markers.
      * This is only used for parsing a single block contents but by storing it
@@ -1479,9 +1481,29 @@ md_free_attribute(MD_CTX* ctx, MD_ATTRIBUTE* attr)
  ***  Dictionary of Reference Definitions  ***
  *********************************************/
 
+#define MD_FNV1A_BASE       2166136261
+#define MD_FNV1A_PRIME      16777619
+
+static inline unsigned
+md_fnv1a(unsigned base, const void* data, size_t n)
+{
+    const unsigned char* buf = (const unsigned char*) data;
+    unsigned hash = base;
+    size_t i;
+
+    for(i = 0; i < n; i++) {
+        hash ^= buf[i];
+        hash *= MD_FNV1A_PRIME;
+    }
+
+    return hash;
+}
+
+
 struct MD_REF_DEF_tag {
     CHAR* label;
     CHAR* title;
+    unsigned hash;
     SZ label_size                   : 24;
     unsigned label_needs_free       :  1;
     unsigned title_needs_free       :  1;
@@ -1490,13 +1512,51 @@ struct MD_REF_DEF_tag {
     OFF dest_end;
 };
 
-static int
-md_link_label_cmp(const void* a, const void* b)
+/* Label equivalence is quite complicated with regards to whitespace and case
+ * folding. This complicates computing a hash of it as well as direct comparison
+ * of two labels. */
+
+static unsigned
+md_link_label_hash(const CHAR* label, SZ size)
 {
-    const CHAR* a_label = ((const MD_REF_DEF*)a)->label;
-    const CHAR* b_label = ((const MD_REF_DEF*)b)->label;
-    SZ a_size = ((const MD_REF_DEF*)a)->label_size;
-    SZ b_size = ((const MD_REF_DEF*)b)->label_size;
+    unsigned hash = MD_FNV1A_BASE;
+    OFF off;
+    int codepoint;
+    int is_whitespace = FALSE;
+
+    off = md_skip_unicode_whitespace(label, 0, size);
+    while(off < size) {
+        SZ char_size;
+
+        codepoint = md_decode_unicode(label, off, size, &char_size);
+        is_whitespace = ISUNICODEWHITESPACE_(codepoint) || ISNEWLINE_(label[off]);
+
+        if(is_whitespace) {
+            codepoint = ' ';
+            hash = md_fnv1a(hash, &codepoint, 1 * sizeof(int));
+
+            off = md_skip_unicode_whitespace(label, off, size);
+        } else {
+            MD_UNICODE_FOLD_INFO fold_info;
+
+            md_get_unicode_fold_info(codepoint, &fold_info);
+            hash = md_fnv1a(hash, fold_info.codepoints, fold_info.n_codepoints * sizeof(int));
+
+            off += char_size;
+        }
+    }
+
+    if(!is_whitespace) {
+        codepoint = ' ';
+        hash = md_fnv1a(hash, &codepoint, 1 * sizeof(int));
+    }
+
+    return hash;
+}
+
+static int
+md_link_label_cmp(const CHAR* a_label, SZ a_size, const CHAR* b_label, SZ b_size)
+{
     OFF a_off;
     OFF b_off;
 
@@ -1553,39 +1613,211 @@ md_link_label_cmp(const void* a, const void* b)
     return 0;
 }
 
+typedef struct MD_REF_DEF_LIST_tag MD_REF_DEF_LIST;
+struct MD_REF_DEF_LIST_tag {
+    int n_ref_defs;
+    int alloc_ref_defs;
+    MD_REF_DEF* ref_defs[];  /* Valid items always  point into ctx->ref_defs[] */
+};
+
 static int
-md_link_label_cmp_for_qsort(const void* a, const void* b)
+md_ref_def_cmp(const void* a, const void* b)
+{
+    const MD_REF_DEF* a_ref = *(const MD_REF_DEF**)a;
+    const MD_REF_DEF* b_ref = *(const MD_REF_DEF**)b;
+
+    if(a_ref->hash < b_ref->hash)
+        return -1;
+    else if(a_ref->hash > b_ref->hash)
+        return +1;
+    else
+        return md_link_label_cmp(a_ref->label, a_ref->label_size, b_ref->label, b_ref->label_size);
+}
+
+static int
+md_ref_def_cmp_stable(const void* a, const void* b)
 {
     int cmp;
 
-    cmp = md_link_label_cmp(a, b);
-    if(cmp != 0)
-        return cmp;
+    cmp = md_ref_def_cmp(a, b);
 
-    /* The specification requests that only first reference definition
-     * with the same label is valid. So make sure we make a stable sort
-     * from the qsort(). */
-    return ((MD_REF_DEF*) a - (MD_REF_DEF*) b);
+    /* Ensure stability of the sorting. */
+    if(cmp == 0) {
+        const MD_REF_DEF* a_ref = *(const MD_REF_DEF**)a;
+        const MD_REF_DEF* b_ref = *(const MD_REF_DEF**)b;
+
+        if(a_ref < b_ref)
+            cmp = -1;
+        else if(a_ref > b_ref)
+            cmp = +1;
+        else
+            cmp = 0;
+    }
+
+    return cmp;
 }
 
-static inline const MD_REF_DEF*
-md_lookup_ref_def(MD_CTX* ctx, const CHAR* label, SZ label_size)
+static int
+md_build_ref_def_hashtable(MD_CTX* ctx)
 {
-    MD_REF_DEF key;
+    int i;
 
-    key.label = (CHAR*) label;
-    key.label_size = label_size;
+    if(ctx->n_ref_defs == 0)
+        return 0;
 
-    return bsearch(&key, ctx->ref_defs, ctx->n_ref_defs,
-                   sizeof(MD_REF_DEF), md_link_label_cmp);
+    ctx->ref_def_hashtable_size = (ctx->n_ref_defs * 5) / 4;
+    ctx->ref_def_hashtable = malloc(ctx->ref_def_hashtable_size * sizeof(void*));
+    if(ctx->ref_def_hashtable == NULL) {
+        MD_LOG("malloc() failed.");
+        goto abort;
+    }
+    memset(ctx->ref_def_hashtable, 0, ctx->ref_def_hashtable_size * sizeof(void*));
+
+    /* Each member of ctx->ref_def_hashtable[] can be:
+     *  -- NULL,
+     *  -- pointer to the MD_REF_DEF in ctx->ref_defs[], or
+     *  -- pointer to a MD_REF_DEF_LIST, which holds multiple pointers to
+     *     such MD_REF_DEFs.
+     */
+    for(i = 0; i < ctx->n_ref_defs; i++) {
+        MD_REF_DEF* def = &ctx->ref_defs[i];
+        void* bucket;
+        MD_REF_DEF_LIST* list;
+
+        def->hash = md_link_label_hash(def->label, def->label_size);
+        bucket = ctx->ref_def_hashtable[def->hash % ctx->ref_def_hashtable_size];
+
+        if(bucket == NULL) {
+            ctx->ref_def_hashtable[def->hash % ctx->ref_def_hashtable_size] = def;
+            continue;
+        }
+
+        if(ctx->ref_defs <= (MD_REF_DEF*) bucket  &&  (MD_REF_DEF*) bucket < ctx->ref_defs + ctx->n_ref_defs) {
+            /* The bucket already contains one ref. def. Lets see whether it
+             * is the same label (ref. def. duplicate) or different one
+             * (hash conflict). */
+            MD_REF_DEF* old_def = (MD_REF_DEF*) bucket;
+
+            if(md_link_label_cmp(def->label, def->label_size, old_def->label, old_def->label_size) == 0) {
+                /* Ignore this ref. def. */
+                continue;
+            }
+
+            /* Make the bucket capable of holding more ref. defs. */
+            list = (MD_REF_DEF_LIST*) malloc(sizeof(MD_REF_DEF_LIST) + 4 * sizeof(MD_REF_DEF));
+            if(list == NULL) {
+                MD_LOG("malloc() failed.");
+                goto abort;
+            }
+            list->ref_defs[0] = old_def;
+            list->ref_defs[1] = def;
+            list->n_ref_defs = 2;
+            list->alloc_ref_defs = 4;
+            ctx->ref_def_hashtable[def->hash % ctx->ref_def_hashtable_size] = list;
+            continue;
+        }
+
+        /* Append the def to the bucket list. */
+        list = (MD_REF_DEF_LIST*) bucket;
+        if(list->n_ref_defs >= list->alloc_ref_defs) {
+            MD_REF_DEF_LIST* list_tmp = (MD_REF_DEF_LIST*) realloc(list,
+                        sizeof(MD_REF_DEF_LIST) + 2 * list->alloc_ref_defs * sizeof(MD_REF_DEF));
+            if(list_tmp == NULL) {
+                MD_LOG("realloc() failed.");
+                goto abort;
+            }
+            list = list_tmp;
+            list->alloc_ref_defs *= 2;
+            ctx->ref_def_hashtable[def->hash % ctx->ref_def_hashtable_size] = list;
+        }
+
+        list->ref_defs[list->n_ref_defs] = def;
+        list->n_ref_defs++;
+    }
+
+    /* Sort the complex buckets so we can use bsearch() with them. */
+    for(i = 0; i < ctx->ref_def_hashtable_size; i++) {
+        void* bucket = ctx->ref_def_hashtable[i];
+        MD_REF_DEF_LIST* list;
+
+        if(bucket == NULL)
+            continue;
+        if(ctx->ref_defs <= (MD_REF_DEF*) bucket  &&  (MD_REF_DEF*) bucket < ctx->ref_defs + ctx->n_ref_defs)
+            continue;
+
+        list = (MD_REF_DEF_LIST*) bucket;
+        qsort(list->ref_defs, list->n_ref_defs, sizeof(MD_REF_DEF*), md_ref_def_cmp_stable);
+
+        /* Disable duplicates. */
+        for(i = 1; i < list->n_ref_defs; i++) {
+            if(md_ref_def_cmp(&list->ref_defs[i-1], &list->ref_defs[i]) == 0)
+                list->ref_defs[i] = list->ref_defs[i-1];
+        }
+    }
+
+    return 0;
+
+abort:
+    return -1;
 }
 
 static void
-md_build_ref_def_dict(MD_CTX* ctx)
+md_free_ref_def_hashtable(MD_CTX* ctx)
 {
-    /* Sort reference definitions so we can use bsearch() for their lookup. */
-    qsort(ctx->ref_defs, ctx->n_ref_defs, sizeof(MD_REF_DEF),
-          md_link_label_cmp_for_qsort);
+    if(ctx->ref_def_hashtable != NULL) {
+        int i;
+
+        for(i = 0; i < ctx->ref_def_hashtable_size; i++) {
+            void* bucket = ctx->ref_def_hashtable[i];
+            if(bucket == NULL)
+                continue;
+            if(ctx->ref_defs <= (MD_REF_DEF*) bucket  &&  (MD_REF_DEF*) bucket < ctx->ref_defs + ctx->n_ref_defs)
+                continue;
+            free(bucket);
+        }
+
+        free(ctx->ref_def_hashtable);
+    }
+}
+
+static const MD_REF_DEF*
+md_lookup_ref_def(MD_CTX* ctx, const CHAR* label, SZ label_size)
+{
+    unsigned hash;
+    void* bucket;
+
+    if(ctx->ref_def_hashtable_size == 0)
+        return NULL;
+
+    hash = md_link_label_hash(label, label_size);
+    bucket = ctx->ref_def_hashtable[hash % ctx->ref_def_hashtable_size];
+
+    if(bucket == NULL) {
+        return NULL;
+    } else if(ctx->ref_defs <= (MD_REF_DEF*) bucket  &&  (MD_REF_DEF*) bucket < ctx->ref_defs + ctx->n_ref_defs) {
+        const MD_REF_DEF* def = (MD_REF_DEF*) bucket;
+
+        if(md_link_label_cmp(def->label, def->label_size, label, label_size) == 0)
+            return def;
+        else
+            return NULL;
+    } else {
+        MD_REF_DEF_LIST* list = (MD_REF_DEF_LIST*) bucket;
+        MD_REF_DEF key_buf;
+        const MD_REF_DEF* key = &key_buf;
+        const MD_REF_DEF** ret;
+
+        key_buf.label = (CHAR*) label;
+        key_buf.label_size = label_size;
+        key_buf.hash = md_link_label_hash(key_buf.label, key_buf.label_size);
+
+        ret = (const MD_REF_DEF**) bsearch(&key, list->ref_defs,
+                    list->n_ref_defs, sizeof(MD_REF_DEF*), md_ref_def_cmp);
+        if(ret != NULL)
+            return *ret;
+        else
+            return NULL;
+    }
 }
 
 
@@ -5568,7 +5800,7 @@ md_process_doc(MD_CTX *ctx)
 
     md_end_current_block(ctx);
 
-    md_build_ref_def_dict(ctx);
+    MD_CHECK(md_build_ref_def_hashtable(ctx));
 
     /* Process all blocks. */
     MD_CHECK(md_leave_child_containers(ctx, 0));
@@ -5637,6 +5869,7 @@ md_parse(const MD_CHAR* text, MD_SIZE size, const MD_RENDERER* renderer, void* u
 
     /* Clean-up. */
     md_free_ref_defs(&ctx);
+    md_free_ref_def_hashtable(&ctx);
     free(ctx.buffer);
     free(ctx.marks);
     free(ctx.block_bytes);
