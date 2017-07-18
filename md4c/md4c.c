@@ -75,7 +75,7 @@
 typedef struct MD_MARK_tag MD_MARK;
 typedef struct MD_BLOCK_tag MD_BLOCK;
 typedef struct MD_CONTAINER_tag MD_CONTAINER;
-typedef struct MD_LINK_REF_DEF_tag MD_LINK_REF_DEF;
+typedef struct MD_REF_DEF_tag MD_REF_DEF;
 
 
 /* During analyzes of inline marks, we need to manage some "mark chains",
@@ -101,10 +101,12 @@ struct MD_CTX_tag {
     CHAR* buffer;
     unsigned alloc_buffer;
 
-    /* Link reference definitions. */
-    MD_LINK_REF_DEF* link_ref_defs;
-    int n_link_ref_defs;
-    int alloc_link_ref_defs;
+    /* Reference definitions. */
+    MD_REF_DEF* ref_defs;
+    int n_ref_defs;
+    int alloc_ref_defs;
+    void** ref_def_hashtable;
+    int ref_def_hashtable_size;
 
     /* Stack of inline/span markers.
      * This is only used for parsing a single block contents but by storing it
@@ -910,6 +912,22 @@ md_merge_lines_alloc(MD_CTX* ctx, OFF beg, OFF end, const MD_LINE* lines, int n_
     return 0;
 }
 
+static OFF
+md_skip_unicode_whitespace(const CHAR* label, OFF off, SZ size)
+{
+    SZ char_size;
+    int codepoint;
+
+    while(off < size) {
+        codepoint = md_decode_unicode(label, off, size, &char_size);
+        if(!ISUNICODEWHITESPACE_(codepoint)  &&  !ISNEWLINE_(label[off]))
+            break;
+        off += char_size;
+    }
+
+    return off;
+}
+
 
 /******************************
  ***  Recognizing raw HTML  ***
@@ -1459,17 +1477,33 @@ md_free_attribute(MD_CTX* ctx, MD_ATTRIBUTE* attr)
 }
 
 
-/***************************
- ***  Recognizing Links  ***
- ***************************/
+/*********************************************
+ ***  Dictionary of Reference Definitions  ***
+ *********************************************/
 
-/* Note this code is partially shared between processing inlines and blocks
- * as link reference definitions and links share some helper parser functions.
- */
+#define MD_FNV1A_BASE       2166136261
+#define MD_FNV1A_PRIME      16777619
 
-struct MD_LINK_REF_DEF_tag {
+static inline unsigned
+md_fnv1a(unsigned base, const void* data, size_t n)
+{
+    const unsigned char* buf = (const unsigned char*) data;
+    unsigned hash = base;
+    size_t i;
+
+    for(i = 0; i < n; i++) {
+        hash ^= buf[i];
+        hash *= MD_FNV1A_PRIME;
+    }
+
+    return hash;
+}
+
+
+struct MD_REF_DEF_tag {
     CHAR* label;
     CHAR* title;
+    unsigned hash;
     SZ label_size                   : 24;
     unsigned label_needs_free       :  1;
     unsigned title_needs_free       :  1;
@@ -1477,6 +1511,323 @@ struct MD_LINK_REF_DEF_tag {
     OFF dest_beg;
     OFF dest_end;
 };
+
+/* Label equivalence is quite complicated with regards to whitespace and case
+ * folding. This complicates computing a hash of it as well as direct comparison
+ * of two labels. */
+
+static unsigned
+md_link_label_hash(const CHAR* label, SZ size)
+{
+    unsigned hash = MD_FNV1A_BASE;
+    OFF off;
+    int codepoint;
+    int is_whitespace = FALSE;
+
+    off = md_skip_unicode_whitespace(label, 0, size);
+    while(off < size) {
+        SZ char_size;
+
+        codepoint = md_decode_unicode(label, off, size, &char_size);
+        is_whitespace = ISUNICODEWHITESPACE_(codepoint) || ISNEWLINE_(label[off]);
+
+        if(is_whitespace) {
+            codepoint = ' ';
+            hash = md_fnv1a(hash, &codepoint, 1 * sizeof(int));
+
+            off = md_skip_unicode_whitespace(label, off, size);
+        } else {
+            MD_UNICODE_FOLD_INFO fold_info;
+
+            md_get_unicode_fold_info(codepoint, &fold_info);
+            hash = md_fnv1a(hash, fold_info.codepoints, fold_info.n_codepoints * sizeof(int));
+
+            off += char_size;
+        }
+    }
+
+    if(!is_whitespace) {
+        codepoint = ' ';
+        hash = md_fnv1a(hash, &codepoint, 1 * sizeof(int));
+    }
+
+    return hash;
+}
+
+static int
+md_link_label_cmp(const CHAR* a_label, SZ a_size, const CHAR* b_label, SZ b_size)
+{
+    OFF a_off;
+    OFF b_off;
+
+    /* The slow path, with Unicode case folding and Unicode whitespace collapsing. */
+    a_off = md_skip_unicode_whitespace(a_label, 0, a_size);
+    b_off = md_skip_unicode_whitespace(b_label, 0, b_size);
+    while(a_off < a_size  ||  b_off < b_size) {
+        int a_codepoint, b_codepoint;
+        SZ a_char_size, b_char_size;
+        int a_is_whitespace, b_is_whitespace;
+
+        if(a_off < a_size) {
+            a_codepoint = md_decode_unicode(a_label, a_off, a_size, &a_char_size);
+            a_is_whitespace = ISUNICODEWHITESPACE_(a_codepoint) || ISNEWLINE_(a_label[a_off]);
+        } else {
+            /* Treat end of label as a whitespace. */
+            a_codepoint = -1;
+            a_is_whitespace = TRUE;
+        }
+
+        if(b_off < b_size) {
+            b_codepoint = md_decode_unicode(b_label, b_off, b_size, &b_char_size);
+            b_is_whitespace = ISUNICODEWHITESPACE_(b_codepoint) || ISNEWLINE_(b_label[b_off]);
+        } else {
+            /* Treat end of label as a whitespace. */
+            b_codepoint = -1;
+            b_is_whitespace = TRUE;
+        }
+
+        if(a_is_whitespace || b_is_whitespace) {
+            if(!a_is_whitespace || !b_is_whitespace)
+                return (a_is_whitespace ? -1 : +1);
+
+            a_off = md_skip_unicode_whitespace(a_label, a_off, a_size);
+            b_off = md_skip_unicode_whitespace(b_label, b_off, b_size);
+        } else {
+            MD_UNICODE_FOLD_INFO a_fold_info, b_fold_info;
+            int cmp;
+
+            md_get_unicode_fold_info(a_codepoint, &a_fold_info);
+            md_get_unicode_fold_info(b_codepoint, &b_fold_info);
+
+            if(a_fold_info.n_codepoints != b_fold_info.n_codepoints)
+                return (a_fold_info.n_codepoints - b_fold_info.n_codepoints);
+            cmp = memcmp(a_fold_info.codepoints, b_fold_info.codepoints, a_fold_info.n_codepoints * sizeof(int));
+            if(cmp != 0)
+                return cmp;
+
+            a_off += a_char_size;
+            b_off += b_char_size;
+        }
+    }
+
+    return 0;
+}
+
+typedef struct MD_REF_DEF_LIST_tag MD_REF_DEF_LIST;
+struct MD_REF_DEF_LIST_tag {
+    int n_ref_defs;
+    int alloc_ref_defs;
+    MD_REF_DEF* ref_defs[];  /* Valid items always  point into ctx->ref_defs[] */
+};
+
+static int
+md_ref_def_cmp(const void* a, const void* b)
+{
+    const MD_REF_DEF* a_ref = *(const MD_REF_DEF**)a;
+    const MD_REF_DEF* b_ref = *(const MD_REF_DEF**)b;
+
+    if(a_ref->hash < b_ref->hash)
+        return -1;
+    else if(a_ref->hash > b_ref->hash)
+        return +1;
+    else
+        return md_link_label_cmp(a_ref->label, a_ref->label_size, b_ref->label, b_ref->label_size);
+}
+
+static int
+md_ref_def_cmp_stable(const void* a, const void* b)
+{
+    int cmp;
+
+    cmp = md_ref_def_cmp(a, b);
+
+    /* Ensure stability of the sorting. */
+    if(cmp == 0) {
+        const MD_REF_DEF* a_ref = *(const MD_REF_DEF**)a;
+        const MD_REF_DEF* b_ref = *(const MD_REF_DEF**)b;
+
+        if(a_ref < b_ref)
+            cmp = -1;
+        else if(a_ref > b_ref)
+            cmp = +1;
+        else
+            cmp = 0;
+    }
+
+    return cmp;
+}
+
+static int
+md_build_ref_def_hashtable(MD_CTX* ctx)
+{
+    int i;
+
+    if(ctx->n_ref_defs == 0)
+        return 0;
+
+    ctx->ref_def_hashtable_size = (ctx->n_ref_defs * 5) / 4;
+    ctx->ref_def_hashtable = malloc(ctx->ref_def_hashtable_size * sizeof(void*));
+    if(ctx->ref_def_hashtable == NULL) {
+        MD_LOG("malloc() failed.");
+        goto abort;
+    }
+    memset(ctx->ref_def_hashtable, 0, ctx->ref_def_hashtable_size * sizeof(void*));
+
+    /* Each member of ctx->ref_def_hashtable[] can be:
+     *  -- NULL,
+     *  -- pointer to the MD_REF_DEF in ctx->ref_defs[], or
+     *  -- pointer to a MD_REF_DEF_LIST, which holds multiple pointers to
+     *     such MD_REF_DEFs.
+     */
+    for(i = 0; i < ctx->n_ref_defs; i++) {
+        MD_REF_DEF* def = &ctx->ref_defs[i];
+        void* bucket;
+        MD_REF_DEF_LIST* list;
+
+        def->hash = md_link_label_hash(def->label, def->label_size);
+        bucket = ctx->ref_def_hashtable[def->hash % ctx->ref_def_hashtable_size];
+
+        if(bucket == NULL) {
+            ctx->ref_def_hashtable[def->hash % ctx->ref_def_hashtable_size] = def;
+            continue;
+        }
+
+        if(ctx->ref_defs <= (MD_REF_DEF*) bucket  &&  (MD_REF_DEF*) bucket < ctx->ref_defs + ctx->n_ref_defs) {
+            /* The bucket already contains one ref. def. Lets see whether it
+             * is the same label (ref. def. duplicate) or different one
+             * (hash conflict). */
+            MD_REF_DEF* old_def = (MD_REF_DEF*) bucket;
+
+            if(md_link_label_cmp(def->label, def->label_size, old_def->label, old_def->label_size) == 0) {
+                /* Ignore this ref. def. */
+                continue;
+            }
+
+            /* Make the bucket capable of holding more ref. defs. */
+            list = (MD_REF_DEF_LIST*) malloc(sizeof(MD_REF_DEF_LIST) + 4 * sizeof(MD_REF_DEF));
+            if(list == NULL) {
+                MD_LOG("malloc() failed.");
+                goto abort;
+            }
+            list->ref_defs[0] = old_def;
+            list->ref_defs[1] = def;
+            list->n_ref_defs = 2;
+            list->alloc_ref_defs = 4;
+            ctx->ref_def_hashtable[def->hash % ctx->ref_def_hashtable_size] = list;
+            continue;
+        }
+
+        /* Append the def to the bucket list. */
+        list = (MD_REF_DEF_LIST*) bucket;
+        if(list->n_ref_defs >= list->alloc_ref_defs) {
+            MD_REF_DEF_LIST* list_tmp = (MD_REF_DEF_LIST*) realloc(list,
+                        sizeof(MD_REF_DEF_LIST) + 2 * list->alloc_ref_defs * sizeof(MD_REF_DEF));
+            if(list_tmp == NULL) {
+                MD_LOG("realloc() failed.");
+                goto abort;
+            }
+            list = list_tmp;
+            list->alloc_ref_defs *= 2;
+            ctx->ref_def_hashtable[def->hash % ctx->ref_def_hashtable_size] = list;
+        }
+
+        list->ref_defs[list->n_ref_defs] = def;
+        list->n_ref_defs++;
+    }
+
+    /* Sort the complex buckets so we can use bsearch() with them. */
+    for(i = 0; i < ctx->ref_def_hashtable_size; i++) {
+        void* bucket = ctx->ref_def_hashtable[i];
+        MD_REF_DEF_LIST* list;
+
+        if(bucket == NULL)
+            continue;
+        if(ctx->ref_defs <= (MD_REF_DEF*) bucket  &&  (MD_REF_DEF*) bucket < ctx->ref_defs + ctx->n_ref_defs)
+            continue;
+
+        list = (MD_REF_DEF_LIST*) bucket;
+        qsort(list->ref_defs, list->n_ref_defs, sizeof(MD_REF_DEF*), md_ref_def_cmp_stable);
+
+        /* Disable duplicates. */
+        for(i = 1; i < list->n_ref_defs; i++) {
+            if(md_ref_def_cmp(&list->ref_defs[i-1], &list->ref_defs[i]) == 0)
+                list->ref_defs[i] = list->ref_defs[i-1];
+        }
+    }
+
+    return 0;
+
+abort:
+    return -1;
+}
+
+static void
+md_free_ref_def_hashtable(MD_CTX* ctx)
+{
+    if(ctx->ref_def_hashtable != NULL) {
+        int i;
+
+        for(i = 0; i < ctx->ref_def_hashtable_size; i++) {
+            void* bucket = ctx->ref_def_hashtable[i];
+            if(bucket == NULL)
+                continue;
+            if(ctx->ref_defs <= (MD_REF_DEF*) bucket  &&  (MD_REF_DEF*) bucket < ctx->ref_defs + ctx->n_ref_defs)
+                continue;
+            free(bucket);
+        }
+
+        free(ctx->ref_def_hashtable);
+    }
+}
+
+static const MD_REF_DEF*
+md_lookup_ref_def(MD_CTX* ctx, const CHAR* label, SZ label_size)
+{
+    unsigned hash;
+    void* bucket;
+
+    if(ctx->ref_def_hashtable_size == 0)
+        return NULL;
+
+    hash = md_link_label_hash(label, label_size);
+    bucket = ctx->ref_def_hashtable[hash % ctx->ref_def_hashtable_size];
+
+    if(bucket == NULL) {
+        return NULL;
+    } else if(ctx->ref_defs <= (MD_REF_DEF*) bucket  &&  (MD_REF_DEF*) bucket < ctx->ref_defs + ctx->n_ref_defs) {
+        const MD_REF_DEF* def = (MD_REF_DEF*) bucket;
+
+        if(md_link_label_cmp(def->label, def->label_size, label, label_size) == 0)
+            return def;
+        else
+            return NULL;
+    } else {
+        MD_REF_DEF_LIST* list = (MD_REF_DEF_LIST*) bucket;
+        MD_REF_DEF key_buf;
+        const MD_REF_DEF* key = &key_buf;
+        const MD_REF_DEF** ret;
+
+        key_buf.label = (CHAR*) label;
+        key_buf.label_size = label_size;
+        key_buf.hash = md_link_label_hash(key_buf.label, key_buf.label_size);
+
+        ret = (const MD_REF_DEF**) bsearch(&key, list->ref_defs,
+                    list->n_ref_defs, sizeof(MD_REF_DEF*), md_ref_def_cmp);
+        if(ret != NULL)
+            return *ret;
+        else
+            return NULL;
+    }
+}
+
+
+/***************************
+ ***  Recognizing Links  ***
+ ***************************/
+
+/* Note this code is partially shared between processing inlines and blocks
+ * as reference definitions and links share some helper parser functions.
+ */
 
 typedef struct MD_LINK_ATTR_tag MD_LINK_ATTR;
 struct MD_LINK_ATTR_tag {
@@ -1695,9 +2046,9 @@ md_is_link_title(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
     return FALSE;
 }
 
-/* Returns 0 if it is not a link reference definition.
+/* Returns 0 if it is not a reference definition.
  *
- * Returns N > 0 if it is not a link reference definition (then N corresponds
+ * Returns N > 0 if it is not a reference definition (then N corresponds
  * to the number of lines forming it). In this case the definition is stored
  * for resolving any links referring to it.
  *
@@ -1722,7 +2073,7 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
     OFF off;
     int line_index = 0;
     int tmp_line_index;
-    MD_LINK_REF_DEF* def;
+    MD_REF_DEF* def;
     int ret;
 
     /* Link label. */
@@ -1786,23 +2137,23 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
         label_needs_free = TRUE;
     }
 
-    /* Store the link reference definition. */
-    if(ctx->n_link_ref_defs >= ctx->alloc_link_ref_defs) {
-        MD_LINK_REF_DEF* new_defs;
+    /* Store the reference definition. */
+    if(ctx->n_ref_defs >= ctx->alloc_ref_defs) {
+        MD_REF_DEF* new_defs;
 
-        ctx->alloc_link_ref_defs = (ctx->alloc_link_ref_defs > 0 ? ctx->alloc_link_ref_defs * 2 : 16);
-        new_defs = (MD_LINK_REF_DEF*) realloc(ctx->link_ref_defs, ctx->alloc_link_ref_defs * sizeof(MD_LINK_REF_DEF));
+        ctx->alloc_ref_defs = (ctx->alloc_ref_defs > 0 ? ctx->alloc_ref_defs * 2 : 16);
+        new_defs = (MD_REF_DEF*) realloc(ctx->ref_defs, ctx->alloc_ref_defs * sizeof(MD_REF_DEF));
         if(new_defs == NULL) {
             MD_LOG("realloc() failed.");
             ret = -1;
             goto abort;
         }
 
-        ctx->link_ref_defs = new_defs;
+        ctx->ref_defs = new_defs;
     }
 
-    def = &ctx->link_ref_defs[ctx->n_link_ref_defs];
-    memset(def, 0, sizeof(MD_LINK_REF_DEF));
+    def = &ctx->ref_defs[ctx->n_ref_defs];
+    memset(def, 0, sizeof(MD_REF_DEF));
 
     def->label = label;
     def->label_size = label_size;
@@ -1825,7 +2176,7 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
     }
 
     /* Success. */
-    ctx->n_link_ref_defs++;
+    ctx->n_ref_defs++;
     return line_index + 1;
 
 abort:
@@ -1835,118 +2186,11 @@ abort:
     return -1;
 }
 
-
-static OFF
-md_skip_unicode_whitespace(const CHAR* label, OFF off, SZ size)
-{
-    SZ char_size;
-    int codepoint;
-
-    while(off < size) {
-        codepoint = md_decode_unicode(label, off, size, &char_size);
-        if(!ISUNICODEWHITESPACE_(codepoint)  &&  !ISNEWLINE_(label[off]))
-            break;
-        off += char_size;
-    }
-
-    return off;
-}
-
-static int
-md_link_label_cmp(const void* a, const void* b)
-{
-    const CHAR* a_label = ((const MD_LINK_REF_DEF*)a)->label;
-    const CHAR* b_label = ((const MD_LINK_REF_DEF*)b)->label;
-    SZ a_size = ((const MD_LINK_REF_DEF*)a)->label_size;
-    SZ b_size = ((const MD_LINK_REF_DEF*)b)->label_size;
-    OFF a_off;
-    OFF b_off;
-
-    /* The slow path, with Unicode case folding and Unicode whitespace collapsing. */
-    a_off = md_skip_unicode_whitespace(a_label, 0, a_size);
-    b_off = md_skip_unicode_whitespace(b_label, 0, b_size);
-    while(a_off < a_size  ||  b_off < b_size) {
-        int a_codepoint, b_codepoint;
-        SZ a_char_size, b_char_size;
-        int a_is_whitespace, b_is_whitespace;
-
-        if(a_off < a_size) {
-            a_codepoint = md_decode_unicode(a_label, a_off, a_size, &a_char_size);
-            a_is_whitespace = ISUNICODEWHITESPACE_(a_codepoint) || ISNEWLINE_(a_label[a_off]);
-        } else {
-            /* Treat end of label as a whitespace. */
-            a_codepoint = -1;
-            a_is_whitespace = TRUE;
-        }
-
-        if(b_off < b_size) {
-            b_codepoint = md_decode_unicode(b_label, b_off, b_size, &b_char_size);
-            b_is_whitespace = ISUNICODEWHITESPACE_(b_codepoint) || ISNEWLINE_(b_label[b_off]);
-        } else {
-            /* Treat end of label as a whitespace. */
-            b_codepoint = -1;
-            b_is_whitespace = TRUE;
-        }
-
-        if(a_is_whitespace || b_is_whitespace) {
-            if(!a_is_whitespace || !b_is_whitespace)
-                return (a_is_whitespace ? -1 : +1);
-
-            a_off = md_skip_unicode_whitespace(a_label, a_off, a_size);
-            b_off = md_skip_unicode_whitespace(b_label, b_off, b_size);
-        } else {
-            MD_UNICODE_FOLD_INFO a_fold_info, b_fold_info;
-            int cmp;
-
-            md_get_unicode_fold_info(a_codepoint, &a_fold_info);
-            md_get_unicode_fold_info(b_codepoint, &b_fold_info);
-
-            if(a_fold_info.n_codepoints != b_fold_info.n_codepoints)
-                return (a_fold_info.n_codepoints - b_fold_info.n_codepoints);
-            cmp = memcmp(a_fold_info.codepoints, b_fold_info.codepoints, a_fold_info.n_codepoints * sizeof(int));
-            if(cmp != 0)
-                return cmp;
-
-            a_off += a_char_size;
-            b_off += b_char_size;
-        }
-    }
-
-    return 0;
-}
-
-static int
-md_link_label_cmp_for_qsort(const void* a, const void* b)
-{
-    int cmp;
-
-    cmp = md_link_label_cmp(a, b);
-    if(cmp != 0)
-        return cmp;
-
-    /* The specification requests that only first link reference definition
-     * with the same label is valid. So make sure we make a stable sort
-     * from the qsort(). */
-    return ((MD_LINK_REF_DEF*) a - (MD_LINK_REF_DEF*) b);
-}
-
-static inline const MD_LINK_REF_DEF*
-md_lookup_link_ref_def(MD_CTX* ctx, const CHAR* label, SZ label_size)
-{
-    MD_LINK_REF_DEF key;
-
-    key.label = (CHAR*) label;
-    key.label_size = label_size;
-
-    return bsearch(&key, ctx->link_ref_defs, ctx->n_link_ref_defs,
-                   sizeof(MD_LINK_REF_DEF), md_link_label_cmp);
-}
-
 static int
 md_is_link_reference(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
                      OFF beg, OFF end, MD_LINK_ATTR* attr)
 {
-    const MD_LINK_REF_DEF* def;
+    const MD_REF_DEF* def;
     const MD_LINE* beg_line;
     const MD_LINE* end_line;
     CHAR* label;
@@ -1978,7 +2222,7 @@ md_is_link_reference(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
         label_size = end - beg;
     }
 
-    def = md_lookup_link_ref_def(ctx, label, label_size);
+    def = md_lookup_ref_def(ctx, label, label_size);
     if(def != NULL) {
         attr->dest_beg = def->dest_beg;
         attr->dest_end = def->dest_end;
@@ -2084,12 +2328,12 @@ abort:
 }
 
 static void
-md_free_link_ref_defs(MD_CTX* ctx)
+md_free_ref_defs(MD_CTX* ctx)
 {
     int i;
 
-    for(i = 0; i < ctx->n_link_ref_defs; i++) {
-        MD_LINK_REF_DEF* def = &ctx->link_ref_defs[i];
+    for(i = 0; i < ctx->n_ref_defs; i++) {
+        MD_REF_DEF* def = &ctx->ref_defs[i];
 
         if(def->label_needs_free)
             free(def->label);
@@ -2097,7 +2341,7 @@ md_free_link_ref_defs(MD_CTX* ctx)
             free(def->title);
     }
 
-    free(ctx->link_ref_defs);
+    free(ctx->ref_defs);
 }
 
 
@@ -4335,10 +4579,10 @@ md_start_new_block(MD_CTX* ctx, const MD_LINE_ANALYSIS* line)
     return 0;
 }
 
-/* Eat from start of current (textual) block any link reference definitions
- * and remember them so we can resolve any links referring to them.
+/* Eat from start of current (textual) block any reference definitions and
+ * remember them so we can resolve any links referring to them.
  *
- * (Link reference definitions can only be at start of it as they cannot break
+ * (Reference definitions can only be at start of it as they cannot break
  * a paragraph.)
  */
 static int
@@ -4349,17 +4593,17 @@ md_consume_link_reference_definitions(MD_CTX* ctx)
     int n = 0;
 
     /* Compute how many lines at the start of the block form one or more
-     * link reference definitions. */
+     * reference definitions. */
     while(n < n_lines) {
         int n_link_ref_lines;
 
         n_link_ref_lines = md_is_link_reference_definition(ctx,
                                     lines + n, n_lines - n);
-        /* Not a link reference definition? */
+        /* Not a reference definition? */
         if(n_link_ref_lines == 0)
             break;
 
-        /* We fail if it is the link ref. def. but it could not be stored due
+        /* We fail if it is the ref. def. but it could not be stored due
          * a memory allocation error. */
         if(n_link_ref_lines < 0)
             return -1;
@@ -4367,7 +4611,7 @@ md_consume_link_reference_definitions(MD_CTX* ctx)
         n += n_link_ref_lines;
     }
 
-    /* If there was at least one link reference definition, we need to remove
+    /* If there was at least one reference definition, we need to remove
      * its lines from the block, or perhaps even the whole block. */
     if(n > 0) {
         if(n == n_lines) {
@@ -4393,9 +4637,9 @@ md_end_current_block(MD_CTX* ctx)
     if(ctx->current_block == NULL)
         return ret;
 
-    /* Check whether there is a link reference definition. (We do this here
-     * instead of in md_analyze_line() because link reference definition can
-     * take multiple lines.) */
+    /* Check whether there is a reference definition. (We do this here instead
+     * of in md_analyze_line() because reference definition can take multiple
+     * lines.) */
     if(ctx->current_block->type == MD_BLOCK_P) {
         MD_LINE* lines = (MD_LINE*) (ctx->current_block + 1);
         if(CH(lines[0].beg) == _T('['))
@@ -5556,9 +5800,7 @@ md_process_doc(MD_CTX *ctx)
 
     md_end_current_block(ctx);
 
-    /* Sort link reference definitions so we can use bsearch() for their lookup. */
-    qsort(ctx->link_ref_defs, ctx->n_link_ref_defs, sizeof(MD_LINK_REF_DEF),
-          md_link_label_cmp_for_qsort);
+    MD_CHECK(md_build_ref_def_hashtable(ctx));
 
     /* Process all blocks. */
     MD_CHECK(md_leave_child_containers(ctx, 0));
@@ -5626,7 +5868,8 @@ md_parse(const MD_CHAR* text, MD_SIZE size, const MD_RENDERER* renderer, void* u
     ret = md_process_doc(&ctx);
 
     /* Clean-up. */
-    md_free_link_ref_defs(&ctx);
+    md_free_ref_defs(&ctx);
+    md_free_ref_def_hashtable(&ctx);
     free(ctx.buffer);
     free(ctx.marks);
     free(ctx.block_bytes);
