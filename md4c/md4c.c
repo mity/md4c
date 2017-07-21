@@ -1435,7 +1435,7 @@ md_build_attribute(MD_CTX* ctx, const CHAR* raw_text, SZ raw_size,
     }
 
     if(is_trivial) {
-        build->text = (CHAR*) raw_text;
+        build->text = (CHAR*) (raw_size ? raw_text : NULL);
         build->substr_types = build->trivial_types;
         build->substr_offsets = build->trivial_offsets;
         build->substr_count = 1;
