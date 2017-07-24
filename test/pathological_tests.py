@@ -72,7 +72,7 @@ passed = 0
 errored = 0
 failed = 0
 
-print("Testing pathological cases:")
+#print("Testing pathological cases:")
 for description in pathological:
     (inp, regex) = pathological[description]
     [rc, actual, err] = cmark.to_html(inp)
@@ -81,7 +81,7 @@ for description in pathological:
         print(description, '[ERRORED (return code %d)]' %rc)
         print(err)
     elif regex.search(actual):
-        print(description, '[PASSED]')
+        #print(description, '[PASSED]')
         passed += 1
     else:
         print(description, '[FAILED]')

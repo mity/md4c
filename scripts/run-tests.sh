@@ -16,27 +16,42 @@ if [ ! -x "$PROGRAM" ]; then
     exit 1
 fi
 
-if which python3 2>/dev/null; then
+if which python3 >>/dev/null 2>&1; then
     PYTHON=python3
-elif which python 2>/dev/null; then
+elif which python >>/dev/null 2>&1; then
     if [ `python --version | awk '{print $2}' | cut -d. -f1` -ge 3 ]; then
         PYTHON=python
     fi
 fi
 
-# Test CommonMark specification compliance
-# (using the vanilla specification file):
+echo
+echo "CommonMark specification:"
 $PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/spec.txt" -p "$PROGRAM"
 
-# More tests for better coverage ten what the spec provides:
+echo
+echo "Code coverage & regressions:"
 $PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/coverage.txt" -p "$PROGRAM"
 
-# Test various extensions and deviations from the specifications:
+echo
+echo "Permissive e-mail autolinks extension:"
 $PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/permissive-email-autolinks.txt" -p "$PROGRAM --fpermissive-email-autolinks"
+
+echo
+echo "Permissive URL autolinks extension:"
 $PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/permissive-url-autolinks.txt" -p "$PROGRAM --fpermissive-url-autolinks"
+
+echo
+echo "WWW autolinks extension:"
 $PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/permissive-www-autolinks.txt" -p "$PROGRAM --fpermissive-www-autolinks"
+
+echo
+echo "Tables extension:"
 $PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/tables.txt" -p "$PROGRAM --ftables"
+
+echo
+echo "Strikethrough extension:"
 $PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/strikethrough.txt" -p "$PROGRAM --fstrikethrough"
 
-# Run pathological tests:
+echo
+echo "Pathological input:"
 $PYTHON "$TEST_DIR/pathological_tests.py" -p "$PROGRAM"
