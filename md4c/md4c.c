@@ -3271,7 +3271,7 @@ md_analyze_bracket(MD_CTX* ctx, int mark_index)
 
 /* Forward declaration. */
 static void md_analyze_link_contents(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
-                                     OFF beg, OFF end, int mark_beg, int mark_end);
+                                     int mark_beg, int mark_end);
 
 static int
 md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
@@ -3405,7 +3405,7 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 last_img_end = closer->end;
             }
 
-            md_analyze_link_contents(ctx, lines, n_lines, opener->end, closer->beg, opener_index+1, closer_index);
+            md_analyze_link_contents(ctx, lines, n_lines, opener_index+1, closer_index);
         }
 
         opener_index = next_index;
@@ -3687,21 +3687,12 @@ md_analyze_permissive_email_autolink(MD_CTX* ctx, int mark_index)
 
 static void
 md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
-                 OFF beg, OFF end, int mark_beg, int mark_end,
-                 const CHAR* mark_chars)
+                 int mark_beg, int mark_end, const CHAR* mark_chars)
 {
     int i = mark_beg;
 
     while(i < mark_end) {
         MD_MARK* mark = &ctx->marks[i];
-
-        /* Do not care about marks outside the given range. */
-        if(mark->end > end  &&  mark->ch != 'D')
-            break;
-        if(mark->beg < beg  &&  mark->ch != 'D') {
-            i++;
-            continue;
-        }
 
         /* Skip resolved spans. */
         if(mark->flags & MD_MARK_RESOLVED) {
@@ -3747,8 +3738,6 @@ static int
 md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
 {
     int ret;
-    OFF beg = lines[0].beg;
-    OFF end = lines[n_lines-1].end;
 
     /* Reset the previously collected stack of marks. */
     ctx->n_marks = 0;
@@ -3759,13 +3748,13 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mod
 
     /* We analyze marks in few groups to handle their precedence. */
     /* (1) Entities; code spans; autolinks; raw HTML. */
-    md_analyze_marks(ctx, lines, n_lines, beg, end, 0, ctx->n_marks, _T("&`<>"));
+    md_analyze_marks(ctx, lines, n_lines, 0, ctx->n_marks, _T("&`<>"));
     BACKTICK_OPENERS.head = -1;
     BACKTICK_OPENERS.tail = -1;
     LOWERTHEN_OPENERS.head = -1;
     LOWERTHEN_OPENERS.tail = -1;
     /* (2) Links. */
-    md_analyze_marks(ctx, lines, n_lines, beg, end, 0, ctx->n_marks, _T("[]!"));
+    md_analyze_marks(ctx, lines, n_lines, 0, ctx->n_marks, _T("[]!"));
     MD_CHECK(md_resolve_links(ctx, lines, n_lines));
     BRACKET_OPENERS.head = -1;
     BRACKET_OPENERS.tail = -1;
@@ -3779,10 +3768,10 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mod
         TABLECELLBOUNDARIES.head = -1;
         TABLECELLBOUNDARIES.tail = -1;
         ctx->n_table_cell_boundaries = 0;
-        md_analyze_marks(ctx, lines, n_lines, beg, end, 0, ctx->n_marks, _T("|"));
+        md_analyze_marks(ctx, lines, n_lines, 0, ctx->n_marks, _T("|"));
     } else {
         /* (3b) Emphasis and strong emphasis; permissive autolinks. */
-        md_analyze_link_contents(ctx, lines, n_lines, beg, end, 0, ctx->n_marks);
+        md_analyze_link_contents(ctx, lines, n_lines, 0, ctx->n_marks);
     }
 
 abort:
@@ -3791,9 +3780,9 @@ abort:
 
 static void
 md_analyze_link_contents(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
-                         OFF beg, OFF end, int mark_beg, int mark_end)
+                         int mark_beg, int mark_end)
 {
-    md_analyze_marks(ctx, lines, n_lines, beg, end, mark_beg, mark_end, _T("*_~@:."));
+    md_analyze_marks(ctx, lines, n_lines, mark_beg, mark_end, _T("*_~@:."));
     ASTERISK_OPENERS.head = -1;
     ASTERISK_OPENERS.tail = -1;
     UNDERSCORE_OPENERS.head = -1;
