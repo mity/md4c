@@ -2754,7 +2754,6 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                 OFF tmp = off+1;
                 int left_level;     /* What precedes: 0 = whitespace; 1 = punctuation; 2 = other char. */
                 int right_level;    /* What follows: 0 = whitespace; 1 = punctuation; 2 = other char. */
-                unsigned flags = 0;
 
                 while(tmp < line_end  &&  CH(tmp) == ch)
                     tmp++;
@@ -2779,24 +2778,26 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                     right_level = 0;
                 }
 
-                if(left_level > 0  &&  left_level >= right_level)
-                    flags |= MD_MARK_POTENTIAL_CLOSER;
-                if(right_level > 0  &&  right_level >= left_level)
-                    flags |= MD_MARK_POTENTIAL_OPENER;
-                if(left_level == 2  &&  right_level == 2)
-                    flags |= MD_MARK_EMPH_INTRAWORD;
+                if(left_level != 0  ||  right_level != 0) {
+                    unsigned flags = 0;
 
-                /* For "the rule of three" we need to remember the original
-                 * size of the mark (modulo three), before we potentially
-                 * split the mark when being later resolved partially by some
-                 * shorter closer. */
-                switch((tmp - off) % 3) {
-                    case 0: flags |= MD_MARK_EMPH_MODULO3_0; break;
-                    case 1: flags |= MD_MARK_EMPH_MODULO3_1; break;
-                    case 2: flags |= MD_MARK_EMPH_MODULO3_2; break;
-                }
+                    if(left_level > 0  &&  left_level >= right_level)
+                        flags |= MD_MARK_POTENTIAL_CLOSER;
+                    if(right_level > 0  &&  right_level >= left_level)
+                        flags |= MD_MARK_POTENTIAL_OPENER;
+                    if(left_level == 2  &&  right_level == 2)
+                        flags |= MD_MARK_EMPH_INTRAWORD;
 
-                if(flags != 0) {
+                    /* For "the rule of three" we need to remember the original
+                     * size of the mark (modulo three), before we potentially
+                     * split the mark when being later resolved partially by some
+                     * shorter closer. */
+                    switch((tmp - off) % 3) {
+                        case 0: flags |= MD_MARK_EMPH_MODULO3_0; break;
+                        case 1: flags |= MD_MARK_EMPH_MODULO3_1; break;
+                        case 2: flags |= MD_MARK_EMPH_MODULO3_2; break;
+                    }
+
                     PUSH_MARK(ch, off, tmp, flags);
 
                     /* During resolving, multiple asterisks may have to be
