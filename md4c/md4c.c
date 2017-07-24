@@ -2436,10 +2436,10 @@ struct MD_MARK_tag {
      * During resolving, we disconnect from the chain and point to the
      * corresponding counterpart so opener points to its closer and vice versa.
      */
-    int prev    : 24;
-    int ch      : 8;    /* Only ASCII chars can form a mark. */
-    int next    : 24;
-    int flags   : 8;
+    int prev;
+    int next;
+    CHAR ch;
+    unsigned char flags;
 };
 
 /* Mark flags (these apply to ALL mark types). */
