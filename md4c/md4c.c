@@ -3487,26 +3487,33 @@ md_analyze_simple_pairing_mark(MD_CTX* ctx, MD_MARKCHAIN* chain, int mark_index,
         SZ opener_size = opener->end - opener->beg;
         SZ closer_size = mark->end - mark->beg;
 
-        if(apply_rule_of_three  &&
-                ((mark->flags & MD_MARK_EMPH_INTRAWORD) || (opener->flags & MD_MARK_EMPH_INTRAWORD)))
-        {
-            SZ opener_orig_size_modulo3;
+        /* Apply the "rule of three". */
+        if(apply_rule_of_three) {
+            while((mark->flags & MD_MARK_EMPH_INTRAWORD) || (opener->flags & MD_MARK_EMPH_INTRAWORD)) {
+                SZ opener_orig_size_modulo3;
 
-            switch(opener->flags & MD_MARK_EMPH_MODULO3_MASK) {
-                case MD_MARK_EMPH_MODULO3_0:    opener_orig_size_modulo3 = 0; break;
-                case MD_MARK_EMPH_MODULO3_1:    opener_orig_size_modulo3 = 1; break;
-                case MD_MARK_EMPH_MODULO3_2:    opener_orig_size_modulo3 = 2; break;
-                default:                        MD_UNREACHABLE(); break;
-            }
+                switch(opener->flags & MD_MARK_EMPH_MODULO3_MASK) {
+                    case MD_MARK_EMPH_MODULO3_0:    opener_orig_size_modulo3 = 0; break;
+                    case MD_MARK_EMPH_MODULO3_1:    opener_orig_size_modulo3 = 1; break;
+                    case MD_MARK_EMPH_MODULO3_2:    opener_orig_size_modulo3 = 2; break;
+                    default:                        MD_UNREACHABLE(); break;
+                }
 
-            while((opener_orig_size_modulo3 + closer_size) % 3 == 0) {
-                if(opener->prev < 0)
+                if((opener_orig_size_modulo3 + closer_size) % 3 != 0) {
+                    /* This opener is suitable. */
+                    break;
+                }
+
+                if(opener->prev >= 0) {
+                    /* Try previous opener. */
+                    opener_index = opener->prev;
+                    opener = &ctx->marks[opener_index];
+                    opener_size = opener->end - opener->beg;
+                    closer_size = mark->end - mark->beg;
+                } else {
+                    /* No suitable opener found. */
                     goto cannot_resolve;
-
-                opener_index = opener->prev;
-                opener = &ctx->marks[opener_index];
-                opener_size = opener->end - opener->beg;
-                closer_size = mark->end - mark->beg;
+                }
             }
         }
 
