@@ -3685,7 +3685,7 @@ md_analyze_permissive_email_autolink(MD_CTX* ctx, int mark_index)
     md_resolve_range(ctx, NULL, mark_index, closer_index);
 }
 
-static void
+static inline void
 md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
                  int mark_beg, int mark_end, const CHAR* mark_chars)
 {
