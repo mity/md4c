@@ -52,13 +52,13 @@ pathological = {
                   re.compile("\[{50000}a\]{50000}")),
     "nested block quotes":
                  ((("> " * 50000) + "a"),
-                  re.compile("(<blockquote>\n){50000}")),
+                  re.compile("(<blockquote>\r?\n){50000}")),
     "U+0000 in input":
                  ("abc\u0000de\u0000",
                   re.compile("abc\ufffd?de\ufffd?")),
     "backticks":
                  ("".join(map(lambda x: ("e" + "`" * x), range(1,10000))),
-                  re.compile("^<p>[e`]*</p>\n$"))
+                  re.compile("^<p>[e`]*</p>\r?\n$"))
     }
 
 whitespace_re = re.compile('/s+/')
