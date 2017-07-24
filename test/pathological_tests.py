@@ -9,7 +9,7 @@ from cmark import CMark
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Run cmark tests.')
-    parser.add_argument('--program', dest='program', nargs='?', default=None,
+    parser.add_argument('-p', '--program', dest='program', nargs='?', default=None,
             help='program to test')
     parser.add_argument('--library-dir', dest='library_dir', nargs='?',
             default=None, help='directory containing dynamic library')
