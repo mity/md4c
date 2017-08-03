@@ -15,10 +15,6 @@ endif()
 
 if(CMAKE_COMPILER_IS_GNUCC)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
-
-    # By default, CMake uses -O3 for Release builds. Lets stick with safer -O2:
-    string(REGEX REPLACE "(^| )-O[0-9a-z]+" "" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
-    set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O2")
 elseif(MSVC)
     # Disable warnings about the so-called unsecured functions:
     add_definitions(/D_CRT_SECURE_NO_WARNINGS)
