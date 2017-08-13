@@ -15,10 +15,10 @@ addons:
 before_script:
     - mkdir build
     - cd build
-    - CFLAGS='-g -O0 --coverage' cmake -G 'Unix Makefiles' ..
+    - CFLAGS='--coverage -g -O0' cmake -DCMAKE_BUILD_TYPE=Debug -G 'Unix Makefiles' ..
 
 script:
-    - make
+    - make VERBOSE=1
 
 after_success:
     - ../scripts/run-tests.sh
