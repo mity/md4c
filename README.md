@@ -1,7 +1,7 @@
 [![Build status (travis-ci.com)](https://img.shields.io/travis/mity/md4c/master.svg?label=linux%20build)](https://travis-ci.org/mity/md4c)
 [![Build status (appveyor.com)](https://img.shields.io/appveyor/ci/mity/md4c/master.svg?label=windows%20build)](https://ci.appveyor.com/project/mity/md4c/branch/master)
-[![Coverity Scan Build Status](https://img.shields.io/coverity/scan/mity-md4c.svg)](https://scan.coverity.com/projects/mity-md4c)
-[![Codecov](https://img.shields.io/codecov/c/github/mity/md4c/master.svg)](https://codecov.io/github/mity/md4c)
+[![Coverity Scan Build Status](https://img.shields.io/coverity/scan/mity-md4c.svg?label=coverity%20scan)](https://scan.coverity.com/projects/mity-md4c)
+[![Codecov](https://img.shields.io/codecov/c/github/mity/md4c/master.svg?label=code%20coverage)](https://codecov.io/github/mity/md4c)
 
 # MD4C Readme
 
