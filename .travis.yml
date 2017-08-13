@@ -9,7 +9,8 @@ compiler:
 addons:
     apt:
         packages:
-            - lcov
+            - python3   # for running tests
+            - lcov      # for generating code coverage report
 
 before_script:
     - mkdir build
@@ -22,7 +23,6 @@ script:
 after_success:
     - ../scripts/run-tests.sh
     # Creating report
-    - cd ${TRAVIS_BUILD_DIR}
     - lcov --directory . --capture --output-file coverage.info # capture coverage info
     - lcov --remove coverage.info '/usr/*' --output-file coverage.info # filter out system
     - lcov --list coverage.info # debug info
