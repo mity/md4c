@@ -259,11 +259,11 @@ render_open_ol_block(MD_RENDER_HTML* r, const MD_BLOCK_OL_DETAIL* det)
     char buf[64];
 
     if(det->start == 1) {
-        RENDER_LITERAL(r, "<ol>");
+        RENDER_LITERAL(r, "<ol>\n");
         return;
     }
 
-    snprintf(buf, sizeof(buf), "<ol start=\"%u\">", det->start);
+    snprintf(buf, sizeof(buf), "<ol start=\"%u\">\n", det->start);
     RENDER_LITERAL(r, buf);
 }
 
