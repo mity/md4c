@@ -49,6 +49,7 @@ struct MD_RENDER_HTML_tag {
     void (*process_output)(const MD_CHAR*, MD_SIZE, void*);
     void* userdata;
     unsigned flags;
+    int image_nesting_level;
 };
 
 
@@ -251,19 +252,17 @@ render_attribute(MD_RENDER_HTML* r, const MD_ATTRIBUTE* attr,
 }
 
 
-static int image_nesting_level = 0;
-
 static void
 render_open_ol_block(MD_RENDER_HTML* r, const MD_BLOCK_OL_DETAIL* det)
 {
     char buf[64];
 
     if(det->start == 1) {
-        RENDER_LITERAL(r, "<ol>");
+        RENDER_LITERAL(r, "<ol>\n");
         return;
     }
 
-    snprintf(buf, sizeof(buf), "<ol start=\"%u\">", det->start);
+    snprintf(buf, sizeof(buf), "<ol start=\"%u\">\n", det->start);
     RENDER_LITERAL(r, buf);
 }
 
@@ -318,7 +317,7 @@ render_open_img_span(MD_RENDER_HTML* r, const MD_SPAN_IMG_DETAIL* det)
 
     RENDER_LITERAL(r, "\" alt=\"");
 
-    image_nesting_level++;
+    r->image_nesting_level++;
 }
 
 static void
@@ -331,7 +330,7 @@ render_close_img_span(MD_RENDER_HTML* r, const MD_SPAN_IMG_DETAIL* det)
 
     RENDER_LITERAL(r, "\">");
 
-    image_nesting_level--;
+    r->image_nesting_level--;
 }
 
 
@@ -400,7 +399,7 @@ enter_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
 {
     MD_RENDER_HTML* r = (MD_RENDER_HTML*) userdata;
 
-    if(image_nesting_level > 0) {
+    if(r->image_nesting_level > 0) {
         /* We are inside an image, i.e. rendering the ALT attribute of
          * <IMG> tag. */
         return 0;
@@ -423,10 +422,10 @@ leave_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
 {
     MD_RENDER_HTML* r = (MD_RENDER_HTML*) userdata;
 
-    if(image_nesting_level > 0) {
+    if(r->image_nesting_level > 0) {
         /* We are inside an image, i.e. rendering the ALT attribute of
          * <IMG> tag. */
-        if(image_nesting_level == 1  &&  type == MD_SPAN_IMG)
+        if(r->image_nesting_level == 1  &&  type == MD_SPAN_IMG)
             render_close_img_span(r, (MD_SPAN_IMG_DETAIL*) detail);
         return 0;
     }
@@ -450,8 +449,8 @@ text_callback(MD_TEXTTYPE type, const MD_CHAR* text, MD_SIZE size, void* userdat
 
     switch(type) {
         case MD_TEXT_NULLCHAR:  render_utf8_codepoint(r, 0x0000, render_text); break;
-        case MD_TEXT_BR:        RENDER_LITERAL(r, (image_nesting_level == 0 ? "<br>\n" : " ")); break;
-        case MD_TEXT_SOFTBR:    RENDER_LITERAL(r, (image_nesting_level == 0 ? "\n" : " ")); break;
+        case MD_TEXT_BR:        RENDER_LITERAL(r, (r->image_nesting_level == 0 ? "<br>\n" : " ")); break;
+        case MD_TEXT_SOFTBR:    RENDER_LITERAL(r, (r->image_nesting_level == 0 ? "\n" : " ")); break;
         case MD_TEXT_HTML:      render_text(r, text, size); break;
         case MD_TEXT_ENTITY:    render_entity(r, text, size, render_html_escaped); break;
         default:                render_html_escaped(r, text, size); break;
@@ -473,7 +472,7 @@ md_render_html(const MD_CHAR* input, MD_SIZE input_size,
                void (*process_output)(const MD_CHAR*, MD_SIZE, void*),
                void* userdata, unsigned parser_flags, unsigned renderer_flags)
 {
-    MD_RENDER_HTML render = { process_output, userdata, renderer_flags };
+    MD_RENDER_HTML render = { process_output, userdata, renderer_flags, 0 };
 
     MD_RENDERER renderer = {
         enter_block_callback,

@@ -63,8 +63,8 @@ pathological = {
                  ("[t](/u) " * 50000,
                   re.compile("(<a href=\"/u\">t</a> ?){50000}")),
     "many references":
-                 ("".join(map(lambda x: ("[" + str(x) + "]: /url\n\n[0]\n\n"), range(1,65000))),
-                  re.compile("^(<p>\\[0\\]</p>\r?\n)*$")),
+                 ("".join(map(lambda x: ("[" + str(x) + "]: u\n"), range(1,50000 * 16))) + "[0] " * 50000,
+                  re.compile("(\[0\] ){49999}"))
     }
 
 whitespace_re = re.compile('/s+/')

@@ -6,16 +6,25 @@ language: c
 compiler:
     - gcc
 
+addons:
+    apt:
+        packages:
+            - python3   # for running tests
+            - lcov      # for generating code coverage report
+
 before_script:
     - mkdir build
     - cd build
-    - CFLAGS='-g -O0 --coverage' cmake -G 'Unix Makefiles' ..
+    - CFLAGS='--coverage -g -O0' cmake -DCMAKE_BUILD_TYPE=Debug -G 'Unix Makefiles' ..
 
 script:
-    - make
+    - make VERBOSE=1
 
 after_success:
-    - sudo apt-get install python3
-    - pip install --user cpp-coveralls
     - ../scripts/run-tests.sh
-    - ~/.local/bin/coveralls -r .. --gcov-options '\-lp' -i md4c -i md2html
+    # Creating report
+    - lcov --directory . --capture --output-file coverage.info # capture coverage info
+    - lcov --remove coverage.info '/usr/*' --output-file coverage.info # filter out system
+    - lcov --list coverage.info # debug info
+    # Uploading report to CodeCov
+    - bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
