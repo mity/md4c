@@ -1,4 +1,4 @@
 # YAML definition for codecov.io code coverage reports.
 
 ignore:
-    - "test"
+    - "md2html"
