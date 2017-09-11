@@ -1209,16 +1209,17 @@ done:
 static int
 md_is_html_cdata(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF max_end, OFF* p_end)
 {
-    static const CHAR open_str[9] = _T("<![CDATA[");
+    static const CHAR open_str[] = _T("<![CDATA[");
+    static const SZ open_size = SIZEOF_ARRAY(open_str) - 1;
 
     OFF off = beg;
     int i = 0;
 
-    if(off + SIZEOF_ARRAY(open_str) >= lines[0].end)
+    if(off + open_size >= lines[0].end)
         return FALSE;
-    if(memcmp(STR(off), open_str, sizeof(open_str)) != 0)
+    if(memcmp(STR(off), open_str, open_size) != 0)
         return FALSE;
-    off += SIZEOF_ARRAY(open_str);
+    off += open_size;
 
     while(1) {
         while(off + 2 < lines[i].end) {
@@ -4294,7 +4295,9 @@ abort:
 static int
 md_process_verbatim_block_contents(MD_CTX* ctx, MD_TEXTTYPE text_type, const MD_VERBATIMLINE* lines, int n_lines)
 {
-    static const CHAR indent_str[16] = _T("                ");
+    static const CHAR indent_chunk_str[] = _T("                ");
+    static const SZ indent_chunk_size = SIZEOF_ARRAY(indent_chunk_str) - 1;
+
     int i;
     int ret = 0;
 
@@ -4305,12 +4308,12 @@ md_process_verbatim_block_contents(MD_CTX* ctx, MD_TEXTTYPE text_type, const MD_
         MD_ASSERT(indent >= 0);
 
         /* Output code indentation. */
-        while(indent > SIZEOF_ARRAY(indent_str)) {
-            MD_TEXT(text_type, indent_str, SIZEOF_ARRAY(indent_str));
-            indent -= SIZEOF_ARRAY(indent_str);
+        while(indent > SIZEOF_ARRAY(indent_chunk_str)) {
+            MD_TEXT(text_type, indent_chunk_str, indent_chunk_size);
+            indent -= SIZEOF_ARRAY(indent_chunk_str);
         }
         if(indent > 0)
-            MD_TEXT(text_type, indent_str, indent);
+            MD_TEXT(text_type, indent_chunk_str, indent);
 
         /* Output the code line itself. */
         MD_TEXT_INSECURE(text_type, STR(line->beg), line->end - line->beg);
