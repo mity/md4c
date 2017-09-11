@@ -245,6 +245,7 @@ render_attribute(MD_RENDER_HTML* r, const MD_ATTRIBUTE* attr,
         const MD_CHAR* text = attr->text + off;
 
         switch(type) {
+            case MD_TEXT_NULLCHAR:  render_utf8_codepoint(r, 0x0000, render_text); break;
             case MD_TEXT_ENTITY:    render_entity(r, text, size, fn_append); break;
             default:                fn_append(r, text, size); break;
         }

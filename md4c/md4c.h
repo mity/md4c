@@ -201,7 +201,7 @@ typedef enum MD_ALIGN {
  * Note that these conditions are guaranteed:
  *  -- substr_offsets[0] == 0
  *  -- substr_offsets[LAST+1] == size
- *  -- Only MD_TEXT_NORMAL and MD_TEXT_ENTITY substrings can appear.
+ *  -- Only MD_TEXT_NORMAL, MD_TEXT_ENTITY, MD_TEXT_NULLCHAR substrings can appear.
  */
 typedef struct MD_ATTRIBUTE {
     const MD_CHAR* text;
