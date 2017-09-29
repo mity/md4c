@@ -99,8 +99,8 @@ some extensions or allowing some deviations from the specification.
  * With the flag `MD_FLAG_PERMISSIVEWWWAUTOLINKS` permissive WWW autolinks
    (without any scheme specified; `http:` is assumed) are supported.
 
- * With the flag `MD_FLAG_NOHTMLSPANS` or `MD_FLAG_NOHTML`, raw inline HTML
-   or raw HTML blocks respectively are disabled.
+ * With the flag `MD_FLAG_NOHTMLSPANS` or `MD_FLAG_NOHTMLBLOCKS`, raw inline
+   HTML or raw HTML blocks respectively are disabled.
 
  * With the flag `MD_FLAG_NOINDENTEDCODEBLOCKS`, indented code blocks are
    disabled.
