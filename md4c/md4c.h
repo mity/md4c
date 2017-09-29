@@ -42,7 +42,7 @@
         #include <wchar.h>
         typedef WCHAR       MD_CHAR;
     #else
-        #error MD4C_USE_UTF16 is only upported on Windows.
+        #error MD4C_USE_UTF16 is only supported on Windows.
     #endif
 #else
     typedef char            MD_CHAR;
