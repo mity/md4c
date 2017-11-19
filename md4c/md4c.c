@@ -46,6 +46,7 @@
     #undef _T
 #endif
 #if defined MD4C_USE_UTF16
+	#include <Windows.h>
     #define _T(x)           L##x
 #else
     #define _T(x)           x

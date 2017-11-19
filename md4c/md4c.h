@@ -39,8 +39,8 @@
 /* Magic to support UTF-16. */
 #if defined MD4C_USE_UTF16
     #ifdef _WIN32
-        #include <wchar.h>
-        typedef WCHAR       MD_CHAR;
+		#include <wchar.h>
+        typedef wchar_t       MD_CHAR;
     #else
         #error MD4C_USE_UTF16 is only supported on Windows.
     #endif
