@@ -211,13 +211,13 @@ typedef struct MD_ATTRIBUTE {
 } MD_ATTRIBUTE;
 
 
-/* Detailed info for MD_BLOCK_UL_DETAIL. */
+/* Detailed info for MD_BLOCK_UL. */
 typedef struct MD_BLOCK_UL_DETAIL {
     int is_tight;           /* Non-zero if tight list, zero of loose. */
     MD_CHAR mark;           /* Item bullet character in MarkDown source of the list, e.g. '-', '+', '*'. */
 } MD_BLOCK_UL_DETAIL;
 
-/* Detailed info for MD_BLOCK_OL_DETAIL. */
+/* Detailed info for MD_BLOCK_OL. */
 typedef struct MD_BLOCK_OL_DETAIL {
     unsigned start;         /* Start index of the ordered list. */
     int is_tight;           /* Non-zero if tight list, zero of loose. */
