@@ -271,6 +271,7 @@ typedef struct MD_SPAN_IMG_DETAIL {
 
 #define MD_FLAG_PERMISSIVEAUTOLINKS         (MD_FLAG_PERMISSIVEEMAILAUTOLINKS | MD_FLAG_PERMISSIVEURLAUTOLINKS | MD_FLAG_PERMISSIVEWWWAUTOLINKS)
 #define MD_FLAG_NOHTML                      (MD_FLAG_NOHTMLBLOCKS | MD_FLAG_NOHTMLSPANS)
+#define MD_FLAG_REDDITAUTOLINKS             0x8000  /* Enable Reddit autolinks */
 
 /* Convenient sets of flags corresponding to well-known Markdown dialects.
  * Note we may only support subset of features of the referred dialect.
@@ -279,6 +280,7 @@ typedef struct MD_SPAN_IMG_DETAIL {
  */
 #define MD_DIALECT_COMMONMARK               0
 #define MD_DIALECT_GITHUB                   (MD_FLAG_PERMISSIVEAUTOLINKS | MD_FLAG_TABLES | MD_FLAG_STRIKETHROUGH)
+#define MD_DIALECT_REDDITPOST               (MD_FLAG_PERMISSIVEATXHEADERS | MD_FLAG_PERMISSIVEAUTOLINKS | MD_FLAG_NOHTML | MD_FLAG_REDDITAUTOLINKS)
 
 /* Renderer structure.
  */
