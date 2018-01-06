@@ -16,7 +16,9 @@ if [ ! -x "$PROGRAM" ]; then
     exit 1
 fi
 
-if which python3 >>/dev/null 2>&1; then
+if which py >>/dev/null 2>&1; then
+    PYTHON=py
+elif which python3 >>/dev/null 2>&1; then
     PYTHON=python3
 elif which python >>/dev/null 2>&1; then
     if [ `python --version | awk '{print $2}' | cut -d. -f1` -ge 3 ]; then
