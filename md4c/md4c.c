@@ -4045,7 +4045,7 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 					break;
 
 				}
-                case '/':       /* Permissive Reddit autolinks */
+				case '/':       /* Permissive Reddit autolinks */
 				{
 					MD_REDDIT_SLASH_DETAIL det;
 					if (CH(mark->beg) == '/')
@@ -4074,37 +4074,9 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 							det.type = MD_REDDIT_USER;
 						}
 					}
-					if (ctx->r.flags & MD_FLAG_REDDIT_SLASHES_AS_LINKS)
-					{
-						MD_SPAN_A_DETAIL linkDet;
-						linkDet.href.size = (24 + (det.size));
-						linkDet.href.substr_offsets = NULL;
-						linkDet.href.substr_types = NULL;
-						MD_CHAR* link = (MD_CHAR*)malloc(sizeof(MD_CHAR) * linkDet.href.size);
-						linkDet.href.text = link;
-						linkDet.title.size = 0;
-						linkDet.title.substr_offsets = NULL;
-						linkDet.title.substr_types = NULL;
-						linkDet.title.text = NULL;
-						memcpy(link, _T("https://www.reddit.com/"), sizeof(MD_CHAR) * 23);
-						if (det.type == MD_REDDIT_SUBREDDIT)
-							link[23] = _T('r');
-						else
-							link[23] = _T('u');
-						link[24] = _T('/');
-						memcpy(link + 25, det.name, sizeof(MD_CHAR) * det.size);
-						MD_ENTER_SPAN(MD_SPAN_A, &linkDet);
-						MD_TEXT(text_type, STR(mark->beg), mark->end - mark->beg);
-						MD_LEAVE_SPAN(MD_SPAN_A, &linkDet);
-						free(link);
-					}
-					else 
-					{
-						MD_ENTER_SPAN(MD_REDDIT_SLASH_LINK, &det);
-						MD_TEXT(text_type, STR(mark->beg), mark->end - mark->beg);
-						MD_LEAVE_SPAN(MD_REDDIT_SLASH_LINK, &det);
-					}
-					
+					MD_ENTER_SPAN(MD_REDDIT_SLASH_LINK, &det);
+					MD_TEXT(text_type, STR(mark->beg), mark->end - mark->beg);
+					MD_LEAVE_SPAN(MD_REDDIT_SLASH_LINK, &det);
 				}break;
                 case '&':       /* Entity. */
                     MD_TEXT(MD_TEXT_ENTITY, STR(mark->beg), mark->end - mark->beg);
