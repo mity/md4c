@@ -279,7 +279,7 @@ typedef struct MD_SPAN_IMG_DETAIL {
 
 #define MD_FLAG_PERMISSIVEAUTOLINKS         (MD_FLAG_PERMISSIVEEMAILAUTOLINKS | MD_FLAG_PERMISSIVEURLAUTOLINKS | MD_FLAG_PERMISSIVEWWWAUTOLINKS)
 #define MD_FLAG_NOHTML                      (MD_FLAG_NOHTMLBLOCKS | MD_FLAG_NOHTMLSPANS)
-#define MD_FLAG_REDDITSLASHDETECTION             0x8000  /* Enable Reddit autolinks */
+#define MD_FLAG_REDDITAUTOLINKS             0x8000  /* Enable Reddit autolinks */
 #define MD_FLAG_REDDIT_SLASHES_AS_LINKS        0x4000 //Instead of making Reddit links into special spans, make them into web links
 
 /* Convenient sets of flags corresponding to well-known Markdown dialects.
@@ -289,7 +289,7 @@ typedef struct MD_SPAN_IMG_DETAIL {
  */
 #define MD_DIALECT_COMMONMARK               0
 #define MD_DIALECT_GITHUB                   (MD_FLAG_PERMISSIVEAUTOLINKS | MD_FLAG_TABLES | MD_FLAG_STRIKETHROUGH)
-#define MD_DIALECT_REDDITPOST               (MD_FLAG_PERMISSIVEATXHEADERS | MD_FLAG_PERMISSIVEAUTOLINKS | MD_FLAG_NOHTML | MD_FLAG_REDDITSLASHDETECTION | MD_FLAG_STRIKETHROUGH)
+#define MD_DIALECT_REDDITPOST               (MD_FLAG_PERMISSIVEATXHEADERS | MD_FLAG_PERMISSIVEAUTOLINKS | MD_FLAG_NOHTML | MD_FLAG_REDDITAUTOLINKS | MD_FLAG_STRIKETHROUGH)
 
 /* Renderer structure.
  */

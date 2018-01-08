@@ -2696,7 +2696,7 @@ md_build_mark_char_map(MD_CTX* ctx)
     ctx->mark_char_map['!'] = 1;
     ctx->mark_char_map[']'] = 1;
     ctx->mark_char_map['\0'] = 1;
-	if (ctx->r.flags & MD_FLAG_REDDITSLASHDETECTION)
+	if (ctx->r.flags & MD_FLAG_REDDITAUTOLINKS)
 		ctx->mark_char_map['/'] = 1;
     if(ctx->r.flags & MD_FLAG_STRIKETHROUGH)
         ctx->mark_char_map['~'] = 1;
