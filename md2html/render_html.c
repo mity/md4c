@@ -307,7 +307,7 @@ render_open_a_span(MD_RENDER_HTML* r, const MD_SPAN_A_DETAIL* det)
         render_attribute(r, &det->title, render_html_escaped);
     }
 
-    RENDER_LITERAL(r, "\" rel=\"nofollow noopener noreferrer\">");
+    RENDER_LITERAL(r, "\">");
 }
 
 static void
