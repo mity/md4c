@@ -2697,9 +2697,8 @@ md_build_mark_char_map(MD_CTX* ctx)
     ctx->mark_char_map['!'] = 1;
     ctx->mark_char_map[']'] = 1;
     ctx->mark_char_map['\0'] = 1;
-    if(ctx->r.flags & MD_FLAG_REDDITAUTOLINKS)
-        ctx->mark_char_map['/'] = 1;
-
+	if (ctx->r.flags & MD_FLAG_REDDITSLASHDETECTION)
+		ctx->mark_char_map['/'] = 1;
     if(ctx->r.flags & MD_FLAG_STRIKETHROUGH)
         ctx->mark_char_map['~'] = 1;
 
@@ -2924,24 +2923,39 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                 if(line->beg + 1 <= off && (CH(off - 1) == 'u' || CH(off - 1) == 'r') &&
                       (line->beg + 1 == off ||
                          (CH(off - 2) != '/' && (ISUNICODEPUNCTBEFORE(off - 1) || ISUNICODEWHITESPACE(off - 2)))) &&
-                      line->end > off + 1 && ISALNUM(off + 1)) {
+                      line->end > off + 1 && ISALNUM(off + 1)) 
+				{
+					OFF index = off + 2;
+					while (index <= line->end)
+					{
+						if (!(ISALNUM(index) || (CH(index) == '_')))
+							break;
+						index++;
+					}
                     /* u/something or r/something */
-                    PUSH_MARK(':', off - 1, off - 1, MD_MARK_POTENTIAL_OPENER);
-                    /* Push a dummy as a reserve for a closer. */
-                    PUSH_MARK('D', off, off, 0);
-                } else if (line->end > off + 3) {
-                    const char *buf = STR(off + 1);
-                    if (buf[1] == '/' && (buf[0] == 'u' || buf[0] == 'r') &&
-                        ISALNUM(off + 3)) {
-                        PUSH_MARK(':', off, off+1, MD_MARK_POTENTIAL_OPENER);
-                        /* Push a dummy as a reserve for a closer. */
-                        PUSH_MARK('D', off, off, 0);
-                    }
+                    PUSH_MARK('/', off - 1, index, MD_MARK_RESOLVED);
+					off = index;
+                } 
+				else if (line->end > off + 3 && ((CH(off + 2) == '/') && (CH(off + 1) == 'u' || CH(off + 1) == 'r') &&
+					ISALNUM(off + 3)))
+				{
+					OFF index = off + 4;
+					while (index <= line->end)
+					{
+						if (!(ISALNUM(index) || (CH(index) == '_')))
+							break;
+							index++;
+					}
+                    PUSH_MARK('/', off, index, MD_MARK_RESOLVED);
+					off = index;
                 }
-                off++;
+				else
+				{
+					off++;
+				}
                 continue;
             }
-
+			
             /* A potential permissive URL autolink. */
             if(ch == _T(':')) {
                 static struct {
@@ -3739,7 +3753,6 @@ md_analyze_permissive_email_autolink(MD_CTX* ctx, int mark_index)
     closer->end = end;
     md_resolve_range(ctx, NULL, mark_index, closer_index);
 }
-
 static inline void
 md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
                  int mark_beg, int mark_end, const CHAR* mark_chars)
@@ -3994,36 +4007,106 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 case '@':       /* Permissive e-mail autolink. */
                 case ':':       /* Permissive URL autolink. */
                 case '.':       /* Permissive WWW autolink. */
+				{
+
+					const MD_MARK* opener = ((mark->flags & MD_MARK_OPENER) ? mark : &ctx->marks[mark->prev]);
+
+					const MD_MARK* closer = &ctx->marks[opener->next];
+
+					const CHAR* dest = STR(opener->end);
+
+					SZ dest_size = closer->beg - opener->end;
+
+
+
+					if (opener->ch == '@' || opener->ch == '.') {
+
+						dest_size += 7;
+
+						MD_TEMP_BUFFER(dest_size * sizeof(CHAR));
+
+						memcpy(ctx->buffer,
+
+							(opener->ch == '@' ? _T("mailto:") : _T("http://")),
+
+							7 * sizeof(CHAR));
+
+						memcpy(ctx->buffer + 7, dest, (dest_size - 7) * sizeof(CHAR));
+
+						dest = ctx->buffer;
+
+					}
+
+
+
+					MD_CHECK(md_enter_leave_span_a(ctx, (mark->flags & MD_MARK_OPENER),
+
+						MD_SPAN_A, dest, dest_size, TRUE, NULL, 0));
+
+					break;
+
+				}
                 case '/':       /* Permissive Reddit autolinks */
-                {
-                    const MD_MARK* opener = ((mark->flags & MD_MARK_OPENER) ? mark : &ctx->marks[mark->prev]);
-                    const MD_MARK* closer = &ctx->marks[opener->next];
-                    const CHAR* dest = STR(opener->end);
-                    SZ dest_size = closer->beg - opener->end;
-
-                    if(opener->ch == '@' || opener->ch == '.') {
-                        dest_size += 7;
-                        MD_TEMP_BUFFER(dest_size * sizeof(CHAR));
-                        memcpy(ctx->buffer,
-                                (opener->ch == '@' ? _T("mailto:") : _T("http://")),
-                                7 * sizeof(CHAR));
-                        memcpy(ctx->buffer + 7, dest, (dest_size-7) * sizeof(CHAR));
-                        dest = ctx->buffer;
-                    }
-
-                    if(opener->ch == '/') {
-                        dest_size += 1;
-                        MD_TEMP_BUFFER(dest_size * sizeof(CHAR));
-                        memcpy(ctx->buffer, _T("/"), 1 * sizeof(CHAR));
-                        memcpy(ctx->buffer + 1, dest, (dest_size-1) * sizeof(CHAR));
-                        dest = ctx->buffer;
-                    }
-
-                    MD_CHECK(md_enter_leave_span_a(ctx, (mark->flags & MD_MARK_OPENER),
-                                MD_SPAN_A, dest, dest_size, TRUE, NULL, 0));
-                    break;
-                }
-
+				{
+					MD_REDDIT_SLASH_DETAIL det;
+					if (CH(mark->beg) == '/')
+					{
+						det.name = ctx->text + mark->beg + 3;
+						det.size = mark->end - mark->beg - 3;
+						if (CH(mark->beg + 1) == 'r')
+						{
+							det.type = MD_REDDIT_SUBREDDIT;
+						}
+						else
+						{
+							det.type = MD_REDDIT_USER;
+						}
+					}
+					else // u/something or r/something instead of /r/something
+					{
+						det.name = ctx->text + mark->beg + 2;
+						det.size = mark->end - mark->beg - 2;
+						if (CH(mark->beg) == 'r')
+						{
+							det.type = MD_REDDIT_SUBREDDIT;
+						}
+						else
+						{
+							det.type = MD_REDDIT_USER;
+						}
+					}
+					if (ctx->r.flags & MD_FLAG_REDDIT_SLASHES_AS_LINKS)
+					{
+						MD_SPAN_A_DETAIL linkDet;
+						linkDet.href.size = (24 + (det.size));
+						linkDet.href.substr_offsets = NULL;
+						linkDet.href.substr_types = NULL;
+						MD_CHAR* link = (MD_CHAR*)malloc(sizeof(MD_CHAR) * linkDet.href.size);
+						linkDet.href.text = link;
+						linkDet.title.size = 0;
+						linkDet.title.substr_offsets = NULL;
+						linkDet.title.substr_types = NULL;
+						linkDet.title.text = NULL;
+						memcpy(link, _T("https://www.reddit.com/"), sizeof(MD_CHAR) * 23);
+						if (det.type == MD_REDDIT_SUBREDDIT)
+							link[23] = _T('r');
+						else
+							link[23] = _T('u');
+						link[24] = _T('/');
+						memcpy(link + 25, det.name, sizeof(MD_CHAR) * det.size);
+						MD_ENTER_SPAN(MD_SPAN_A, &linkDet);
+						MD_TEXT(text_type, STR(mark->beg), mark->end - mark->beg);
+						MD_LEAVE_SPAN(MD_SPAN_A, &linkDet);
+						free(link);
+					}
+					else 
+					{
+						MD_ENTER_SPAN(MD_REDDIT_SLASH_LINK, &det);
+						MD_TEXT(text_type, STR(mark->beg), mark->end - mark->beg);
+						MD_LEAVE_SPAN(MD_REDDIT_SLASH_LINK, &det);
+					}
+					
+				}break;
                 case '&':       /* Entity. */
                     MD_TEXT(MD_TEXT_ENTITY, STR(mark->beg), mark->end - mark->beg);
                     break;
