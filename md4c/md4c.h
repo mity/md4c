@@ -251,8 +251,7 @@ typedef struct MD_SPAN_A_DETAIL {
 typedef struct MD_REDDIT_SLASH_DETAIL
 {
 	MD_REDDIT_SLASH_TYPE type; //whether it's a user or subreddit
-	/*whether the name of the user or subreddit starts two or three characters away from the beginning. To get a pointer to the name text + offset*/
-	unsigned char size; //length of the whole thing, including the /r/ part.
+	unsigned char size; 
 	MD_CHAR * name;
 }MD_REDDIT_SLASH_DETAIL;
 /* Detailed info for MD_SPAN_IMG. */
