@@ -308,7 +308,7 @@ cmdline_callback(int opt, char const* value, void* data)
         case 'V':   parser_flags |= MD_FLAG_PERMISSIVEAUTOLINKS; break;
         case 'T':   parser_flags |= MD_FLAG_TABLES; break;
         case 'S':   parser_flags |= MD_FLAG_STRIKETHROUGH; break;
-        case 'r':   parser_flags |= MD_FLAG_REDDITAUTOLINKS;
+        case 'r':   parser_flags |= MD_FLAG_REDDITSLASHDETECTION;
 
         default:
             fprintf(stderr, "Illegal option: %s\n", value);
