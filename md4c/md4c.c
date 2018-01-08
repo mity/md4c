@@ -2696,6 +2696,8 @@ md_build_mark_char_map(MD_CTX* ctx)
     ctx->mark_char_map['!'] = 1;
     ctx->mark_char_map[']'] = 1;
     ctx->mark_char_map['\0'] = 1;
+    if(ctx->r.flags & MD_FLAG_REDDITAUTOLINKS)
+        ctx->mark_char_map['/'] = 1;
 
     if(ctx->r.flags & MD_FLAG_STRIKETHROUGH)
         ctx->mark_char_map['~'] = 1;
@@ -2912,7 +2914,29 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                     /* Push a dummy as a reserve for a closer. */
                     PUSH_MARK('D', off, off, 0);
                 }
+                off++;
+                continue;
+            }
 
+            /* A potential permissive Reddit autolink */
+            if(ch == _T('/')) {
+                if(line->beg + 1 <= off && (CH(off - 1) == 'u' || CH(off - 1) == 'r') &&
+                      (line->beg + 1 == off ||
+                         (CH(off - 2) != '/' && (ISUNICODEPUNCTBEFORE(off - 1) || ISUNICODEWHITESPACE(off - 2)))) &&
+                      line->end > off + 1 && ISALNUM(off + 1)) {
+                    /* u/something or r/something */
+                    PUSH_MARK(':', off - 1, off - 1, MD_MARK_POTENTIAL_OPENER);
+                    /* Push a dummy as a reserve for a closer. */
+                    PUSH_MARK('D', off, off, 0);
+                } else if (line->end > off + 3) {
+                    const char *buf = STR(off + 1);
+                    if (buf[1] == '/' && (buf[0] == 'u' || buf[0] == 'r') &&
+                        ISALNUM(off + 3)) {
+                        PUSH_MARK(':', off, off+1, MD_MARK_POTENTIAL_OPENER);
+                        /* Push a dummy as a reserve for a closer. */
+                        PUSH_MARK('D', off, off, 0);
+                    }
+                }
                 off++;
                 continue;
             }
@@ -3605,6 +3629,9 @@ md_analyze_permissive_url_autolink(MD_CTX* ctx, int mark_index)
     OFF off = opener->end;
     int seen_dot = FALSE;
     int seen_underscore_or_hyphen[2] = { FALSE, FALSE };
+    if (opener->end == opener->beg) {
+        opener->ch = '/';
+    }
 
     /* Check for domain. */
     while(off < ctx->size) {
@@ -3752,6 +3779,7 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
             case '_':   md_analyze_underscore(ctx, i); break;
             case '~':   md_analyze_tilde(ctx, i); break;
             case '.':   /* Pass through. */
+            case '/':   /* Pass through */
             case ':':   md_analyze_permissive_url_autolink(ctx, i); break;
             case '@':   md_analyze_permissive_email_autolink(ctx, i); break;
         }
@@ -3965,6 +3993,7 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 case '@':       /* Permissive e-mail autolink. */
                 case ':':       /* Permissive URL autolink. */
                 case '.':       /* Permissive WWW autolink. */
+                case '/':       /* Permissive Reddit autolinks */
                 {
                     const MD_MARK* opener = ((mark->flags & MD_MARK_OPENER) ? mark : &ctx->marks[mark->prev]);
                     const MD_MARK* closer = &ctx->marks[opener->next];
@@ -3978,6 +4007,14 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                                 (opener->ch == '@' ? _T("mailto:") : _T("http://")),
                                 7 * sizeof(CHAR));
                         memcpy(ctx->buffer + 7, dest, (dest_size-7) * sizeof(CHAR));
+                        dest = ctx->buffer;
+                    }
+
+                    if(opener->ch == '/') {
+                        dest_size += 1;
+                        MD_TEMP_BUFFER(dest_size * sizeof(CHAR));
+                        memcpy(ctx->buffer, _T("/"), 1 * sizeof(CHAR));
+                        memcpy(ctx->buffer + 1, dest, (dest_size-1) * sizeof(CHAR));
                         dest = ctx->buffer;
                     }
 
