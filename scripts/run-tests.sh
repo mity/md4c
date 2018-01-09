@@ -55,5 +55,10 @@ echo "Strikethrough extension:"
 $PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/strikethrough.txt" -p "$PROGRAM --fstrikethrough"
 
 echo
+echo "Reddit autolinks extension:"
+$PYTHON "$TEST_DIR/spec_tests.py" -s
+"$TEST_DIR/reddit-autolinks.txt" -p "$PROGRAM --freddit-autolinks"
+
+echo
 echo "Pathological input:"
 $PYTHON "$TEST_DIR/pathological_tests.py" -p "$PROGRAM"
