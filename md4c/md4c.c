@@ -4007,43 +4007,21 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 case ':':       /* Permissive URL autolink. */
                 case '.':       /* Permissive WWW autolink. */
                 {
-
                     const MD_MARK* opener = ((mark->flags & MD_MARK_OPENER) ? mark : &ctx->marks[mark->prev]);
-
                     const MD_MARK* closer = &ctx->marks[opener->next];
-
                     const CHAR* dest = STR(opener->end);
-
                     SZ dest_size = closer->beg - opener->end;
-
-
-
                     if (opener->ch == '@' || opener->ch == '.') {
-
                         dest_size += 7;
-
                         MD_TEMP_BUFFER(dest_size * sizeof(CHAR));
-
                         memcpy(ctx->buffer,
-
                             (opener->ch == '@' ? _T("mailto:") : _T("http://")),
-
                             7 * sizeof(CHAR));
-
                         memcpy(ctx->buffer + 7, dest, (dest_size - 7) * sizeof(CHAR));
-
                         dest = ctx->buffer;
-
                     }
-
-
-
-                    MD_CHECK(md_enter_leave_span_a(ctx, (mark->flags & MD_MARK_OPENER),
-
-                        MD_SPAN_A, dest, dest_size, TRUE, NULL, 0));
-
+                    MD_CHECK(md_enter_leave_span_a(ctx, (mark->flags & MD_MARK_OPENER), MD_SPAN_A, dest, dest_size, TRUE, NULL, 0));
                     break;
-
                 }
                 case '/':       /* Permissive Reddit autolinks */
                 {
