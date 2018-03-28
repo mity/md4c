@@ -1384,13 +1384,14 @@ md_build_attr_append_substr(MD_CTX* ctx, MD_ATTRIBUTE_BUILD* build,
         build->substr_alloc = (build->substr_alloc == 0 ? 8 : build->substr_alloc * 2);
 
         new_substr_types = (MD_TEXTTYPE*) realloc(build->substr_types,
-                                    (build->substr_alloc+1) * sizeof(MD_TEXTTYPE));
+                                    build->substr_alloc * sizeof(MD_TEXTTYPE));
         if(new_substr_types == NULL) {
             MD_LOG("realloc() failed.");
             return -1;
         }
+        /* Note +1 to reserve space for final offset (== raw_size). */
         new_substr_offsets = (OFF*) realloc(build->substr_offsets,
-                                    build->substr_alloc * sizeof(OFF));
+                                    (build->substr_alloc+1) * sizeof(OFF));
         if(new_substr_offsets == NULL) {
             MD_LOG("realloc() failed.");
             free(new_substr_types);

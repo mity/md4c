@@ -118,6 +118,16 @@ a*b**c*
 ````````````````````````````````
 
 
+### [Issue 33](https://github.com/mity/md4c/issues/33)
+```````````````````````````````` example
+```&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;
+.
+<pre><code class="language-&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;"></code></pre>
+
+````````````````````````````````
+
+
+
 ## Code coverage
 
 ### `md_is_unicode_whitespace__()`
