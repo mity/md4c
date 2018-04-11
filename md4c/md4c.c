@@ -868,6 +868,8 @@ md_merge_lines(MD_CTX* ctx, OFF beg, OFF end, const MD_LINE* lines, int n_lines,
     int line_index = 0;
     OFF off = beg;
 
+    (void) n_lines;    /* Prevent warning "unused parameter" */
+
     while(1) {
         const MD_LINE* line = &lines[line_index];
         OFF line_end = line->end;
