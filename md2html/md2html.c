@@ -270,6 +270,8 @@ static const char* output_path = NULL;
 static int
 cmdline_callback(int opt, char const* value, void* data)
 {
+    (void) data;    /* Prevent warning "unused parameter" */
+
     switch(opt) {
         case 0:
             if(input_path) {
