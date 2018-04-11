@@ -2678,7 +2678,7 @@ md_rollback(MD_CTX* ctx, int opener_index, int closer_index, int how)
                     mark_index = mark->prev;
                     break;
                 }
-                /* Pass through. */
+                /* Falls through. */
             default:
                 mark_index--;
                 break;
@@ -3748,17 +3748,17 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
         /* Analyze the mark. */
         switch(mark->ch) {
             case '`':   md_analyze_backtick(ctx, i); break;
-            case '<':   /* Pass through. */
+            case '<':   /* Falls through. */
             case '>':   md_analyze_lt_gt(ctx, i, lines, n_lines); break;
-            case '[':   /* Pass through. */
-            case '!':   /* Pass through. */
+            case '[':   /* Falls through. */
+            case '!':   /* Falls through. */
             case ']':   md_analyze_bracket(ctx, i); break;
             case '&':   md_analyze_entity(ctx, i); break;
             case '|':   md_analyze_table_cell_boundary(ctx, i); break;
             case '*':   md_analyze_asterisk(ctx, i); break;
             case '_':   md_analyze_underscore(ctx, i); break;
             case '~':   md_analyze_tilde(ctx, i); break;
-            case '.':   /* Pass through. */
+            case '.':   /* Falls through. */
             case ':':   md_analyze_permissive_url_autolink(ctx, i); break;
             case '@':   md_analyze_permissive_email_autolink(ctx, i); break;
         }
@@ -3967,7 +3967,7 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                             text_type = MD_TEXT_NORMAL;
                         break;
                     }
-                    /* Pass through, if auto-link. */
+                    /* Falls through. */
 
                 case '@':       /* Permissive e-mail autolink. */
                 case ':':       /* Permissive URL autolink. */
@@ -5142,7 +5142,7 @@ md_is_html_block_end_condition(MD_CTX* ctx, OFF beg, OFF* p_end)
         case 5:
             return (md_line_contains(ctx, beg, _T("]]>"), 3, p_end) ? 5 : FALSE);
 
-        case 6:     /* Pass through */
+        case 6:     /* Falls through */
         case 7:
             *p_end = beg;
             return (ISNEWLINE(beg) ? ctx->html_block_type : FALSE);
@@ -5202,7 +5202,7 @@ md_enter_child_containers(MD_CTX* ctx, int n_children, unsigned data)
             case _T(')'):
             case _T('.'):
                 is_ordered_list = TRUE;
-                /* Pass through */
+                /* Falls through */
 
             case _T('-'):
             case _T('+'):
@@ -5245,7 +5245,7 @@ md_leave_child_containers(MD_CTX* ctx, int n_keep)
             case _T(')'):
             case _T('.'):
                 is_ordered_list = TRUE;
-                /* Pass through */
+                /* Falls through */
 
             case _T('-'):
             case _T('+'):
