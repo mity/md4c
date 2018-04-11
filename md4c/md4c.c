@@ -2621,7 +2621,7 @@ md_rollback(MD_CTX* ctx, int opener_index, int closer_index, int how)
 
     /* Cut all unresolved openers at the mark index. 
      * (start at 1 to not touch PTR_CHAIN.) */
-    for(i = 1; i < SIZEOF_ARRAY(ctx->mark_chains); i++) {
+    for(i = 1; i < (int) SIZEOF_ARRAY(ctx->mark_chains); i++) {
         MD_MARKCHAIN* chain = &ctx->mark_chains[i];
 
         while(chain->tail >= opener_index)
@@ -2722,7 +2722,7 @@ md_build_mark_char_map(MD_CTX* ctx)
     if(ctx->r.flags & MD_FLAG_COLLAPSEWHITESPACE) {
         int i;
 
-        for(i = 0; i < sizeof(ctx->mark_char_map); i++) {
+        for(i = 0; i < (int) sizeof(ctx->mark_char_map); i++) {
             if(ISWHITESPACE_(i))
                 ctx->mark_char_map[i] = 1;
         }
@@ -2939,7 +2939,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                 };
                 int scheme_index;
 
-                for(scheme_index = 0; scheme_index < SIZEOF_ARRAY(scheme_map); scheme_index++) {
+                for(scheme_index = 0; scheme_index < (int) SIZEOF_ARRAY(scheme_map); scheme_index++) {
                     const CHAR* scheme = scheme_map[scheme_index].scheme;
                     const SZ scheme_size = scheme_map[scheme_index].scheme_size;
                     const CHAR* suffix = scheme_map[scheme_index].suffix;
@@ -4315,7 +4315,7 @@ md_process_verbatim_block_contents(MD_CTX* ctx, MD_TEXTTYPE text_type, const MD_
         MD_ASSERT(indent >= 0);
 
         /* Output code indentation. */
-        while(indent > SIZEOF_ARRAY(indent_chunk_str)) {
+        while(indent > (int) SIZEOF_ARRAY(indent_chunk_str)) {
             MD_TEXT(text_type, indent_chunk_str, indent_chunk_size);
             indent -= SIZEOF_ARRAY(indent_chunk_str);
         }
@@ -5484,7 +5484,7 @@ redo:
              */
             if(n_parents > 0  &&  ctx->containers[n_parents-1].ch != _T('>')  &&
                n_brothers + n_children == 0  &&  ctx->current_block == NULL  &&
-               ctx->n_block_bytes > sizeof(MD_BLOCK))
+               ctx->n_block_bytes > (int) sizeof(MD_BLOCK))
             {
                 MD_BLOCK* top_block = (MD_BLOCK*) ((char*)ctx->block_bytes + ctx->n_block_bytes - sizeof(MD_BLOCK));
                 if(top_block->type == MD_BLOCK_LI)
@@ -5502,7 +5502,7 @@ redo:
         if(ctx->last_list_item_starts_with_two_blank_lines) {
             if(n_parents > 0  &&  ctx->containers[n_parents-1].ch != _T('>')  &&
                n_brothers + n_children == 0  &&  ctx->current_block == NULL  &&
-               ctx->n_block_bytes > sizeof(MD_BLOCK))
+               ctx->n_block_bytes > (int) sizeof(MD_BLOCK))
             {
                 MD_BLOCK* top_block = (MD_BLOCK*) ((char*)ctx->block_bytes + ctx->n_block_bytes - sizeof(MD_BLOCK));
                 if(top_block->type == MD_BLOCK_LI)
@@ -5911,7 +5911,7 @@ md_parse(const MD_CHAR* text, MD_SIZE size, const MD_RENDERER* renderer, void* u
     md_build_mark_char_map(&ctx);
 
     /* Reset all unresolved opener mark chains. */
-    for(i = 0; i < SIZEOF_ARRAY(ctx.mark_chains); i++) {
+    for(i = 0; i < (int) SIZEOF_ARRAY(ctx.mark_chains); i++) {
         ctx.mark_chains[i].head = -1;
         ctx.mark_chains[i].tail = -1;
     }
