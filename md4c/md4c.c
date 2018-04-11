@@ -4803,6 +4803,7 @@ md_is_atxheader_line(MD_CTX* ctx, OFF beg, OFF* p_beg, OFF* p_end, unsigned* p_l
     while(off < ctx->size  &&  CH(off) == _T(' '))
         off++;
     *p_beg = off;
+    *p_end = off;
     return TRUE;
 }
 
