@@ -1415,6 +1415,8 @@ md_build_attr_append_substr(MD_CTX* ctx, MD_ATTRIBUTE_BUILD* build,
 static void
 md_free_attribute(MD_CTX* ctx, MD_ATTRIBUTE_BUILD* build)
 {
+    (void) ctx;     /* Prevent warning "unused parameter" */
+
     if(build->substr_alloc > 0) {
         free(build->text);
         free(build->substr_types);
