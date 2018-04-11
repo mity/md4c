@@ -658,7 +658,7 @@ struct MD_UNICODE_FOLD_INFO_tag {
             return;
         }
 
-        for(i = 0; i < SIZEOF_ARRAY(range_map); i++) {
+        for(i = 0; i < (int) SIZEOF_ARRAY(range_map); i++) {
             if(range_map[i].min_codepoint <= codepoint && codepoint <= range_map[i].max_codepoint) {
                 info->codepoints[0] = codepoint + range_map[i].offset;
                 info->n_codepoints = 1;
@@ -666,7 +666,7 @@ struct MD_UNICODE_FOLD_INFO_tag {
             }
         }
 
-        for(i = 0; i < SIZEOF_ARRAY(single_map); i++) {
+        for(i = 0; i < (int) SIZEOF_ARRAY(single_map); i++) {
             if(codepoint == single_map[i].src_codepoint) {
                 info->codepoints[0] = single_map[i].dest_codepoint;
                 info->n_codepoints = 1;
@@ -674,7 +674,7 @@ struct MD_UNICODE_FOLD_INFO_tag {
             }
         }
 
-        for(i = 0; i < SIZEOF_ARRAY(double_map); i++) {
+        for(i = 0; i < (int) SIZEOF_ARRAY(double_map); i++) {
             if(codepoint == double_map[i].src_codepoint) {
                 info->codepoints[0] = double_map[i].dest_codepoint0;
                 info->codepoints[1] = double_map[i].dest_codepoint1;
@@ -683,7 +683,7 @@ struct MD_UNICODE_FOLD_INFO_tag {
             }
         }
 
-        for(i = 0; i < SIZEOF_ARRAY(triple_map); i++) {
+        for(i = 0; i < (int) SIZEOF_ARRAY(triple_map); i++) {
             if(codepoint == triple_map[i].src_codepoint) {
                 info->codepoints[0] = triple_map[i].dest_codepoint0;
                 info->codepoints[1] = triple_map[i].dest_codepoint1;
