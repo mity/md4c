@@ -63,7 +63,7 @@ membuf_init(struct membuffer* buf, MD_SIZE new_asize)
     buf->asize = new_asize;
     buf->data = malloc(buf->asize);
     if(buf->data == NULL) {
-        fprintf(stderr, "membuf_init: malloc() failed.");
+        fprintf(stderr, "membuf_init: malloc() failed.\n");
         exit(1);
     }
 }
@@ -80,7 +80,7 @@ membuf_grow(struct membuffer* buf, MD_SIZE new_asize)
 {
     buf->data = realloc(buf->data, new_asize);
     if(buf->data == NULL) {
-        fprintf(stderr, "membuf_grow: realloc() failed.");
+        fprintf(stderr, "membuf_grow: realloc() failed.\n");
         exit(1);
     }
     buf->asize = new_asize;
