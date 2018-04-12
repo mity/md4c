@@ -52,8 +52,8 @@ static int want_stat = 0;
 
 struct membuffer {
     char* data;
-    MD_SIZE asize;
-    MD_SIZE size;
+    size_t asize;
+    size_t size;
 };
 
 static void
@@ -76,7 +76,7 @@ membuf_fini(struct membuffer* buf)
 }
 
 static void
-membuf_grow(struct membuffer* buf, MD_SIZE new_asize)
+membuf_grow(struct membuffer* buf, size_t new_asize)
 {
     buf->data = realloc(buf->data, new_asize);
     if(buf->data == NULL) {
