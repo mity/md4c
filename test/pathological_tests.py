@@ -64,7 +64,10 @@ pathological = {
                   re.compile("(<a href=\"/u\">t</a> ?){50000}")),
     "many references":
                  ("".join(map(lambda x: ("[" + str(x) + "]: u\n"), range(1,50000 * 16))) + "[0] " * 50000,
-                  re.compile("(\[0\] ){49999}"))
+                  re.compile("(\[0\] ){49999}")),
+    "deeply nested lists":
+                 ("".join(map(lambda x: ("  " * x + "* a\n"), range(0,1000))),
+                  re.compile("<ul>\n(<li>a<ul>\n){999}<li>a</li>\n</ul>\n(</li>\n</ul>\n){999}"))
     }
 
 whitespace_re = re.compile('/s+/')
