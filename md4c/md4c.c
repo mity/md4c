@@ -3490,7 +3490,7 @@ static int
 md_split_simple_pairing_mark(MD_CTX* ctx, int mark_index, SZ n)
 {
     MD_MARK* mark = &ctx->marks[mark_index];
-    int new_mark_index = mark_index + (mark->end - mark->beg - 1);
+    int new_mark_index = mark_index + (mark->end - mark->beg - n);
     MD_MARK* dummy = &ctx->marks[new_mark_index];
 
     MD_ASSERT(mark->end - mark->beg > n);

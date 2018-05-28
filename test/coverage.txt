@@ -123,7 +123,14 @@ a*b**c*
 ```&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;
 .
 <pre><code class="language-&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;"></code></pre>
+````````````````````````````````
 
+
+### [Issue 36](https://github.com/mity/md4c/issues/36)
+```````````````````````````````` example
+__x_ _x___
+.
+<p><em><em>x</em> <em>x</em></em>_</p>
 ````````````````````````````````
 
 
