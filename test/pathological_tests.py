@@ -67,7 +67,7 @@ pathological = {
                   re.compile("(\[0\] ){49999}")),
     "deeply nested lists":
                  ("".join(map(lambda x: ("  " * x + "* a\n"), range(0,1000))),
-                  re.compile("<ul>\n(<li>a<ul>\n){999}<li>a</li>\n</ul>\n(</li>\n</ul>\n){999}"))
+                  re.compile("<ul>\r?\n(<li>a<ul>\r?\n){999}<li>a</li>\r?\n</ul>\r?\n(</li>\r?\n</ul>\r?\n){999}"))
     }
 
 whitespace_re = re.compile('/s+/')
