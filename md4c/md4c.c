@@ -2066,11 +2066,11 @@ md_is_link_title(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
 
 /* Returns 0 if it is not a reference definition.
  *
- * Returns N > 0 if it is not a reference definition (then N corresponds
- * to the number of lines forming it). In this case the definition is stored
- * for resolving any links referring to it.
+ * Returns N > 0 if it is a reference definition. N then corresponds to the
+ * number of lines forming it). In this case the definition is stored for
+ * resolving any links referring to it.
  *
- * If there is an error (cannot alloc memory for storing it), we return -1.
+ * Returns -1 in case of an error (out of memory).
  */
 static int
 md_is_link_reference_definition_helper(
