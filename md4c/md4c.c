@@ -1882,7 +1882,7 @@ md_is_link_label(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
         return FALSE;
     off++;
 
-    while(line_index < n_lines) {
+    while(1) {
         OFF line_end = lines[line_index].end;
 
         while(off < line_end) {
@@ -1930,7 +1930,10 @@ md_is_link_label(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
 
         line_index++;
         len++;
-        off = lines[line_index].beg;
+        if(line_index < n_lines)
+            off = lines[line_index].beg;
+        else
+            break;
     }
 
     return FALSE;
