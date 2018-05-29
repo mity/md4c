@@ -1308,7 +1308,7 @@ md_is_named_entity_contents(MD_CTX* ctx, const CHAR* text, OFF beg, OFF max_end,
 {
     OFF off = beg;
 
-    if(off <= max_end  &&  ISALPHA_(text[off]))
+    if(off < max_end  &&  ISALPHA_(text[off]))
         off++;
     else
         return FALSE;
