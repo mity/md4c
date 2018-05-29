@@ -33,7 +33,7 @@
 
 #define MD_VERSION_MAJOR        0
 #define MD_VERSION_MINOR        2
-#define MD_VERSION_RELEASE      5
+#define MD_VERSION_RELEASE      6
 
 
 /* Magic to support UTF-16. */
