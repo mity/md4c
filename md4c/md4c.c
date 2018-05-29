@@ -2305,16 +2305,22 @@ md_is_inline_link_spec_helper(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
         off = lines[line_index].beg;
     }
 
-    /* (Optional) link destination. */
-    if(!is_link_dest_fn(ctx, off, lines[line_index].end,
-                        &off, &attr->dest_beg, &attr->dest_end)) {
-        if(is_link_dest_fn == md_is_link_destination_B) {
-            attr->dest_beg = off;
-            attr->dest_end = off;
-        } else {
-            return FALSE;
-        }
+    /* Link destination may be omitted, but only when not also having a title. */
+    if(off < ctx->size  &&  CH(off) == _T(')')) {
+        attr->dest_beg = off;
+        attr->dest_end = off;
+        attr->title = NULL;
+        attr->title_size = 0;
+        attr->title_needs_free = FALSE;
+        off++;
+        *p_end = off;
+        return TRUE;
     }
+
+    /* Link destination. */
+    if(!is_link_dest_fn(ctx, off, lines[line_index].end,
+                        &off, &attr->dest_beg, &attr->dest_end))
+        return FALSE;
 
     /* (Optional) title. */
     if(md_is_link_title(ctx, lines + line_index, n_lines - line_index, off,
