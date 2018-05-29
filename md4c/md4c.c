@@ -3959,6 +3959,13 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                                 (opener->ch == '!' ? MD_SPAN_IMG : MD_SPAN_A),
                                 STR(dest_mark->beg), dest_mark->end - dest_mark->beg, FALSE,
                                 md_mark_get_ptr(ctx, title_mark - ctx->marks), title_mark->prev));
+
+                    /* link/image closer may span multiple lines. */
+                    if(mark->ch == ']') {
+                        while(mark->end > line->end)
+                            line++;
+                    }
+
                     break;
                 }
 
@@ -4055,7 +4062,7 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 MD_TEXT(break_type, _T("\n"), 1);
             }
 
-            /* Switch to the following line. */
+            /* Move to the next line. */
             line++;
             off = line->beg;
 
