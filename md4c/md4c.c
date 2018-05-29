@@ -1887,8 +1887,10 @@ md_is_link_label(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
 
         while(off < line_end) {
             if(CH(off) == _T('\\')  &&  off+1 < ctx->size  &&  (ISPUNCT(off+1) || ISNEWLINE(off+1))) {
-                if(contents_end == 0)
+                if(contents_end == 0) {
                     contents_beg = off;
+                    *p_beg_line_index = line_index;
+                }
                 contents_end = off + 2;
                 off += 2;
             } else if(CH(off) == _T('[')) {
