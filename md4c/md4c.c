@@ -3026,9 +3026,9 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
         }
     }
 
-    /* Add a dummy mark after the end of processed block to simplify
-     * md_process_inlines(). */
-    PUSH_MARK(127, ctx->size+1, ctx->size+1, MD_MARK_RESOLVED);
+    /* Add a dummy mark at the end of the mark vector to simplify
+     * process_inlines(). */
+    PUSH_MARK(127, ctx->size, ctx->size, MD_MARK_RESOLVED);
 
 abort:
     return ret;
@@ -4012,6 +4012,9 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 case '\0':
                     MD_TEXT(MD_TEXT_NULLCHAR, _T(""), 1);
                     break;
+
+                case 127:
+                    goto abort;
             }
 
             off = mark->end;
