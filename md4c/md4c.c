@@ -5549,12 +5549,6 @@ redo:
         }
     }
 
-    /* Check whether we are table continuation. */
-    if(pivot_line->type == MD_LINE_TABLE  &&  md_is_table_row(ctx, off, &off)) {
-        line->type = MD_LINE_TABLE;
-        goto done;
-    }
-
     /* Check for "brother" container. I.e. whether we are another list item
      * in already started list. */
     if(n_parents < ctx->n_containers  &&  n_brothers + n_children == 0) {
@@ -5646,6 +5640,14 @@ redo:
         }
     }
 
+    /* Check whether we are table continuation. */
+    if(pivot_line->type == MD_LINE_TABLE  &&  md_is_table_row(ctx, off, &off)  &&
+       n_parents == ctx->n_containers)
+    {
+        line->type = MD_LINE_TABLE;
+        goto done;
+    }
+
     /* Check for ATX header. */
     if(line->indent < ctx->code_indent_offset  &&  CH(off) == _T('#')) {
         unsigned level;
@@ -5689,7 +5691,8 @@ redo:
 
     /* Check for table underline. */
     if((ctx->r.flags & MD_FLAG_TABLES)  &&  pivot_line->type == MD_LINE_TEXT  &&
-       (CH(off) == _T('|') || CH(off) == _T('-') || CH(off) == _T(':')))
+       (CH(off) == _T('|') || CH(off) == _T('-') || CH(off) == _T(':'))  &&
+       n_parents == ctx->n_containers)
     {
         unsigned col_count;
 
