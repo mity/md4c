@@ -309,3 +309,28 @@ x|x
 ````````````````````````````````
 (Here the underline has the right indentation so the table is detected.
 But the last line is not part of it due its indentation.)
+
+
+### [Issue 42](https://github.com/mity/md4c/issues/42)
+```
+] http://x.x *x*
+
+|x|x|
+|---|---|
+|x|
+.
+<p>] <a href="http://x.x">http://x.x</a> <em>x</em></p>
+<table>
+<thead>
+<tr>
+<th>x</th>
+<th>x</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>x</td>
+</tr>
+</tbody>
+</table>
+```

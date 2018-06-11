@@ -125,13 +125,15 @@ struct MD_CTX_tag {
     /* For resolving of inline spans. */
     MD_MARKCHAIN mark_chains[8];
 #define PTR_CHAIN               ctx->mark_chains[0]
-#define BACKTICK_OPENERS        ctx->mark_chains[1]
-#define LOWERTHEN_OPENERS       ctx->mark_chains[2]
-#define ASTERISK_OPENERS        ctx->mark_chains[3]
-#define UNDERSCORE_OPENERS      ctx->mark_chains[4]
-#define TILDE_OPENERS           ctx->mark_chains[5]
-#define BRACKET_OPENERS         ctx->mark_chains[6]
-#define TABLECELLBOUNDARIES     ctx->mark_chains[7]
+#define TABLECELLBOUNDARIES     ctx->mark_chains[1]
+#define BACKTICK_OPENERS        ctx->mark_chains[2]
+#define LOWERTHEN_OPENERS       ctx->mark_chains[3]
+#define ASTERISK_OPENERS        ctx->mark_chains[4]
+#define UNDERSCORE_OPENERS      ctx->mark_chains[5]
+#define TILDE_OPENERS           ctx->mark_chains[6]
+#define BRACKET_OPENERS         ctx->mark_chains[7]
+#define OPENERS_CHAIN_FIRST     2
+#define OPENERS_CHAIN_LAST      7
 
     int n_table_cell_boundaries;
 
@@ -2624,9 +2626,8 @@ md_rollback(MD_CTX* ctx, int opener_index, int closer_index, int how)
     int i;
     int mark_index;
 
-    /* Cut all unresolved openers at the mark index. 
-     * (start at 1 to not touch PTR_CHAIN.) */
-    for(i = 1; i < SIZEOF_ARRAY(ctx->mark_chains); i++) {
+    /* Cut all unresolved openers at the mark index. */
+    for(i = OPENERS_CHAIN_FIRST; i < OPENERS_CHAIN_LAST+1; i++) {
         MD_MARKCHAIN* chain = &ctx->mark_chains[i];
 
         while(chain->tail >= opener_index)
