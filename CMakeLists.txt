@@ -13,7 +13,7 @@ if("${CMAKE_BUILD_TYPE}" STREQUAL "")
 endif()
 
 
-if(CMAKE_COMPILER_IS_GNUCC)
+if(${CMAKE_C_COMPILER_ID} MATCHES GNU|Clang)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 elseif(MSVC)
     # Disable warnings about the so-called unsecured functions:
