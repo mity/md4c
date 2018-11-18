@@ -3836,8 +3836,8 @@ md_enter_leave_span_a(MD_CTX* ctx, int enter, MD_SPANTYPE type,
                       const CHAR* dest, SZ dest_size, int prohibit_escapes_in_dest,
                       const CHAR* title, SZ title_size)
 {
-    MD_ATTRIBUTE_BUILD href_build;
-    MD_ATTRIBUTE_BUILD title_build;
+    MD_ATTRIBUTE_BUILD href_build = { 0 };
+    MD_ATTRIBUTE_BUILD title_build = { 0 };
     MD_SPAN_A_DETAIL det;
     int ret = 0;
 
