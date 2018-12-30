@@ -195,6 +195,7 @@ static const option cmdline_options[] = {
     { "version",                    'v', 'v', OPTION_ARG_NONE },
     { "commonmark",                  0,  'c', OPTION_ARG_NONE },
     { "github",                      0,  'g', OPTION_ARG_NONE },
+    { "reddit",                      0,  'r', OPTION_ARG_NONE },
     { "fverbatim-entities",          0,  'E', OPTION_ARG_NONE },
     { "fpermissive-atx-headers",     0,  'A', OPTION_ARG_NONE },
     { "fpermissive-url-autolinks",   0,  'U', OPTION_ARG_NONE },
@@ -208,6 +209,7 @@ static const option cmdline_options[] = {
     { "fcollapse-whitespace",        0,  'W', OPTION_ARG_NONE },
     { "ftables",                     0,  'T', OPTION_ARG_NONE },
     { "fstrikethrough",              0,  'S', OPTION_ARG_NONE },
+    { "freddit-autolinks",           0,  'R', OPTION_ARG_NONE },
     { 0 }
 };
 
@@ -229,6 +231,7 @@ usage(void)
         "(note these are equivalent to some combinations of flags below)\n"
         "      --commonmark     CommonMark (this is default)\n"
         "      --github         Github Flavored Markdown\n"
+        "      --reddit         Reddit's dialect of Markdown\n"
         "\n"
         "Markdown extension options:\n"
         "      --fcollapse-whitespace\n"
@@ -253,6 +256,8 @@ usage(void)
         "      --fno-html-spans\n"
         "                       Disable raw HTML spans\n"
         "      --fno-html       Same as --fno-html-blocks --fno-html-spans\n"
+        "      --freddit-autolinks\n"
+        "                       Enable Reddit autolinks of the form /u/x, /r/x, u/x, r/x\n"
         "      --ftables        Enable tables\n"
         "      --fstrikethrough Enable strikethrough spans\n"
     );
@@ -288,6 +293,7 @@ cmdline_callback(int opt, char const* value, void* data)
 
         case 'c':   parser_flags = MD_DIALECT_COMMONMARK; break;
         case 'g':   parser_flags = MD_DIALECT_GITHUB; break;
+        case 'r':   parser_flags = MD_DIALECT_REDDIT; break;
 
         case 'E':   renderer_flags |= MD_RENDER_FLAG_VERBATIM_ENTITIES; break;
         case 'A':   parser_flags |= MD_FLAG_PERMISSIVEATXHEADERS; break;
@@ -302,6 +308,7 @@ cmdline_callback(int opt, char const* value, void* data)
         case 'V':   parser_flags |= MD_FLAG_PERMISSIVEAUTOLINKS; break;
         case 'T':   parser_flags |= MD_FLAG_TABLES; break;
         case 'S':   parser_flags |= MD_FLAG_STRIKETHROUGH; break;
+        case 'R':   parser_flags |= MD_FLAG_REDDITAUTOLINKS; break;
 
         default:
             fprintf(stderr, "Illegal option: %s\n", value);

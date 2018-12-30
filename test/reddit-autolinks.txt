@@ -1,0 +1,22 @@
+
+# Reddit Autolinks
+
+With the flag `MD_FLAG_REDDITAUTOLINKS`, MD4C enables extension for recognition Reddit usernames and subreddits.
+
+For reference, here is snudown's (Reddit's markdown parser) implementation [link](https://github.com/reddit/snudown/blob/master/src/autolink.c).
+
+Reddit autolinks can be prefixed by a a forward slash or not: r/test and /r/test both work. A link ends when a non-alphanumeric character is hit. The only such character allowed it an underscore.
+
+```````````````````````````````` example
+Here is a link to /r/askreddit by u/me.
+.
+<p>Here is a link to <a href="https://www.reddit.com/r/askreddit">/r/askreddit</a> by <a href="https://www.reddit.com/u/me">u/me</a>.</p>
+````````````````````````````````
+
+A link can show up in the middle of the word if prefixed by a forward slash (you don't need a whitespace before).
+
+```````````````````````````````` example
+World/r/news vs /r/worldnew;s
+.
+<p>World<a href="https://www.reddit.com/r/news">/r/news</a> vs <a href="https://www.reddit.com/r/worldnew">/r/worldnew</a>;s</p>
+````````````````````````````````
