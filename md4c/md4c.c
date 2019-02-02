@@ -1337,7 +1337,7 @@ md_is_entity_str(MD_CTX* ctx, const CHAR* text, OFF beg, OFF max_end, OFF* p_end
 
     if(off+1 < max_end  &&  text[off] == _T('#')  &&  (text[off+1] == _T('x') || text[off+1] == _T('X')))
         is_contents = md_is_hex_entity_contents(ctx, text, off+2, max_end, &off);
-    else if(off < max_end  &&  CH(off) == _T('#'))
+    else if(off < max_end  &&  off < ctx->size  &&  CH(off) == _T('#'))
         is_contents = md_is_dec_entity_contents(ctx, text, off+1, max_end, &off);
     else
         is_contents = md_is_named_entity_contents(ctx, text, off, max_end, &off);
