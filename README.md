@@ -80,16 +80,16 @@ directory which implements a conversion utility from Markdown to HTML.
 The default behavior is to recognize only elements defined by the [CommonMark
 specification](http://spec.commonmark.org/).
 
-However with appropriate renderer flags, the behavior can be tuned to enable
-some extensions or allowing some deviations from the specification.
+However with appropriate flags, the behavior can be tuned to enable some
+extensions and/or deviations from the specification.
 
  * With the flag `MD_FLAG_COLLAPSEWHITESPACE`, non-trivial whitespace is
    collapsed into a single space.
 
  * With the flag `MD_FLAG_TABLES`, GitHub-style tables are supported.
 
- * With the flag `MD_FLAG_STRIKETHROUGH`, strikethrough spans are enabled
-   (text enclosed in tilde marks, e.g. '~foo bar~').
+ * With the flag `MD_FLAG_STRIKETHROUGH`, strike-through spans are enabled
+   (text enclosed in tilde marks, e.g. `~foo bar~`).
 
  * With the flag `MD_FLAG_PERMISSIVEURLAUTOLINKS` permissive URL autolinks
    (not enclosed in `<` and `>`) are supported.
