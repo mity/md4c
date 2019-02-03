@@ -20,3 +20,7 @@ install(
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
+
+# Create a pkg-config file
+configure_file(md4c.pc.in md4c.pc @ONLY)
+install(FILES ${CMAKE_BINARY_DIR}/md4c/md4c.pc DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/pkgconfig)
