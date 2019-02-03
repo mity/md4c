@@ -36,6 +36,7 @@ elseif(MSVC)
     set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_RELEASE} /MT")
 endif()
 
+include(GNUInstallDirs)
 
 add_subdirectory(md4c)
 add_subdirectory(md2html)
