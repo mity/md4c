@@ -4137,7 +4137,7 @@ abort:
 
 static int
 md_process_table_row(MD_CTX* ctx, MD_BLOCKTYPE cell_type, OFF beg, OFF end,
-                     const MD_ALIGN* align, int n_align)
+                     const MD_ALIGN* align, int col_count)
 {
     MD_LINE line = { beg, end };
     OFF* pipe_offs = NULL;
@@ -4165,21 +4165,17 @@ md_process_table_row(MD_CTX* ctx, MD_BLOCKTYPE cell_type, OFF beg, OFF end,
     /* Process cells. */
     MD_ENTER_BLOCK(MD_BLOCK_TR, NULL);
     j = 0;
-    if(beg < pipe_offs[0]) {
-        MD_CHECK(md_process_table_cell(ctx, cell_type,
-                    (j < n_align ? align[j++] : MD_ALIGN_DEFAULT),
-                    beg, pipe_offs[0]));
-    }
-    for(i = 0; i < n-1; i++) {
-        MD_CHECK(md_process_table_cell(ctx, cell_type,
-                    (j < n_align ? align[j++] : MD_ALIGN_DEFAULT),
-                    pipe_offs[i]+1, pipe_offs[i+1]));
-    }
-    if(pipe_offs[n-1] < end-1) {
-        MD_CHECK(md_process_table_cell(ctx, cell_type,
-                    (j < n_align ? align[j++] : MD_ALIGN_DEFAULT),
-                    pipe_offs[n-1]+1, end));
-    }
+    if(beg < pipe_offs[0]  &&  j < col_count)
+        MD_CHECK(md_process_table_cell(ctx, cell_type, align[j++], beg, pipe_offs[0]));
+    for(i = 0; i < n-1  &&  j < col_count; i++)
+        MD_CHECK(md_process_table_cell(ctx, cell_type, align[j++], pipe_offs[i]+1, pipe_offs[i+1]));
+    if(pipe_offs[n-1] < end-1  &&  j < col_count)
+        MD_CHECK(md_process_table_cell(ctx, cell_type, align[j++], pipe_offs[n-1]+1, end));
+    /* Make sure we call enough table cells even if the current table contains
+     * too few of them. */
+    while(j < col_count)
+        MD_CHECK(md_process_table_cell(ctx, cell_type, align[j++], 0, 0));
+
     MD_LEAVE_BLOCK(MD_BLOCK_TR, NULL);
 
 abort:
@@ -4201,8 +4197,8 @@ md_process_table_block_contents(MD_CTX* ctx, int col_count, const MD_LINE* lines
     int i;
     int ret = 0;
 
-    /* At least the line with column names and the table underline have to
-     * be present. */
+    /* At least two lines have to be present: The column headers and the line
+     * with the underlines. */
     MD_ASSERT(n_lines >= 2);
 
     align = malloc(col_count * sizeof(MD_ALIGN));
