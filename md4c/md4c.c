@@ -5315,6 +5315,7 @@ md_eat_task_mark(MD_CTX* ctx, OFF beg, MD_CONTAINER* p_container)
     if(off + 2 < ctx->size  &&  CH(off) == _T('[')  &&  ISANYOF(off+1, _T("xX "))  &&  CH(off+2) == _T(']')) {
         p_container->is_task = TRUE;
         p_container->task_mark_off = off + 1;
+        p_container->contents_indent += off - beg;
         off += 3;
         return off;
     }
