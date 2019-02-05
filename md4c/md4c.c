@@ -4272,11 +4272,13 @@ struct MD_BLOCK_tag {
 
     /* MD_BLOCK_H:      Header level (1 - 6)
      * MD_BLOCK_CODE:   Non-zero if fenced, zero if indented.
-     * MD_BLOCK_TABLE:  Column count (as determined by the table underline)
+     * MD_BLOCK_LI:     Task mark character (0 if not task list item, 'x', 'X' or ' ').
+     * MD_BLOCK_TABLE:  Column count (as determined by the table underline).
      */
     unsigned data      : 16;
 
     /* Leaf blocks:     Count of lines (MD_LINE or MD_VERBATIMLINE) on the block.
+     * MD_BLOCK_LI:     Task mark offset in the input doc.
      * MD_BLOCK_OL:     Start item number.
      */
     unsigned n_lines;
@@ -4285,10 +4287,12 @@ struct MD_BLOCK_tag {
 struct MD_CONTAINER_tag {
     CHAR ch;
     unsigned is_loose    : 8;
+    unsigned is_task     : 8;
     unsigned start;
     unsigned mark_indent;
     unsigned contents_indent;
     OFF block_byte_off;
+    OFF task_mark_off;
 };
 
 
@@ -4502,6 +4506,7 @@ md_process_all_blocks(MD_CTX* ctx)
         union {
             MD_BLOCK_UL_DETAIL ul;
             MD_BLOCK_OL_DETAIL ol;
+            MD_BLOCK_LI_DETAIL li;
         } det;
 
         switch(block->type) {
@@ -4514,6 +4519,12 @@ md_process_all_blocks(MD_CTX* ctx)
                 det.ol.start = block->n_lines;
                 det.ol.is_tight =  (block->flags & MD_BLOCK_LOOSE_LIST) ? FALSE : TRUE;
                 det.ol.mark_delimiter = (CHAR) block->data;
+                break;
+
+            case MD_BLOCK_LI:
+                det.li.is_task = (block->data != 0);
+                det.li.task_mark = (CHAR) block->data;
+                det.li.task_mark_offset = (OFF) block->n_lines;
                 break;
 
             default:
@@ -5227,11 +5238,13 @@ md_enter_child_containers(MD_CTX* ctx, int n_children, unsigned data)
                 MD_CHECK(md_push_container_bytes(ctx,
                                 (is_ordered_list ? MD_BLOCK_OL : MD_BLOCK_UL),
                                 c->start, data, MD_BLOCK_CONTAINER_OPENER));
-                MD_CHECK(md_push_container_bytes(ctx, MD_BLOCK_LI, 0, data, MD_BLOCK_CONTAINER_OPENER));
+                MD_CHECK(md_push_container_bytes(ctx, MD_BLOCK_LI,
+                                c->task_mark_off, (c->is_task ? CH(c->task_mark_off) : 0),
+                                MD_BLOCK_CONTAINER_OPENER));
                 break;
 
             case _T('>'):
-                MD_CHECK(md_push_container_bytes(ctx, MD_BLOCK_QUOTE, 0, data, MD_BLOCK_CONTAINER_OPENER));
+                MD_CHECK(md_push_container_bytes(ctx, MD_BLOCK_QUOTE, 0, 0, MD_BLOCK_CONTAINER_OPENER));
                 break;
 
             default:
@@ -5262,8 +5275,9 @@ md_leave_child_containers(MD_CTX* ctx, int n_keep)
             case _T('-'):
             case _T('+'):
             case _T('*'):
-                MD_CHECK(md_push_container_bytes(ctx, MD_BLOCK_LI, 0,
-                                0, MD_BLOCK_CONTAINER_CLOSER));
+                MD_CHECK(md_push_container_bytes(ctx, MD_BLOCK_LI,
+                                c->task_mark_off, (c->is_task ? CH(c->task_mark_off) : 0),
+                                MD_BLOCK_CONTAINER_CLOSER));
                 MD_CHECK(md_push_container_bytes(ctx,
                                 (is_ordered_list ? MD_BLOCK_OL : MD_BLOCK_UL), 0,
                                 c->ch, MD_BLOCK_CONTAINER_CLOSER));
@@ -5286,6 +5300,28 @@ abort:
     return ret;
 }
 
+static OFF
+md_eat_task_mark(MD_CTX* ctx, OFF beg, MD_CONTAINER* p_container)
+{
+    OFF off;
+
+    if(!(ctx->parser.flags & MD_FLAG_TASKLISTS))
+        return beg;
+
+    off = beg;
+    while(off < ctx->size  &&  off < beg + 3  &&  ISBLANK(off))
+        off++;
+
+    if(off + 2 < ctx->size  &&  CH(off) == _T('[')  &&  ISANYOF(off+1, _T("xX "))  &&  CH(off+2) == _T(']')) {
+        p_container->is_task = TRUE;
+        p_container->task_mark_off = off + 1;
+        off += 3;
+        return off;
+    }
+
+    return beg;
+}
+
 static int
 md_is_container_mark(MD_CTX* ctx, unsigned indent, OFF beg, OFF* p_end, MD_CONTAINER* p_container)
 {
@@ -5297,6 +5333,7 @@ md_is_container_mark(MD_CTX* ctx, unsigned indent, OFF beg, OFF* p_end, MD_CONTA
         off++;
         p_container->ch = _T('>');
         p_container->is_loose = FALSE;
+        p_container->is_task = FALSE;
         p_container->mark_indent = indent;
         p_container->contents_indent = indent + 1;
         *p_end = off;
@@ -5307,9 +5344,10 @@ md_is_container_mark(MD_CTX* ctx, unsigned indent, OFF beg, OFF* p_end, MD_CONTA
     if(off+1 < ctx->size  &&  ISANYOF(off, _T("-+*"))  &&  (ISBLANK(off+1) || ISNEWLINE(off+1))) {
         p_container->ch = CH(off);
         p_container->is_loose = FALSE;
+        p_container->is_task = FALSE;
         p_container->mark_indent = indent;
         p_container->contents_indent = indent + 1;
-        *p_end = off+1;
+        *p_end = md_eat_task_mark(ctx, off+1, p_container);
         return TRUE;
     }
 
@@ -5325,9 +5363,10 @@ md_is_container_mark(MD_CTX* ctx, unsigned indent, OFF beg, OFF* p_end, MD_CONTA
     if(off+1 < ctx->size  &&  (CH(off) == _T('.') || CH(off) == _T(')'))   &&  (ISBLANK(off+1) || ISNEWLINE(off+1))) {
         p_container->ch = CH(off);
         p_container->is_loose = FALSE;
+        p_container->is_task = FALSE;
         p_container->mark_indent = indent;
         p_container->contents_indent = indent + off - beg + 1;
-        *p_end = off+1;
+        *p_end = md_eat_task_mark(ctx, off+1, p_container);
         return TRUE;
     }
 
@@ -5774,8 +5813,16 @@ done_on_eol:
     /* Enter any container we found a mark for. */
     if(n_brothers > 0) {
         MD_ASSERT(n_brothers == 1);
-        MD_CHECK(md_push_container_bytes(ctx, MD_BLOCK_LI, 0, 0,
-                MD_BLOCK_CONTAINER_CLOSER | MD_BLOCK_CONTAINER_OPENER));
+        MD_CHECK(md_push_container_bytes(ctx, MD_BLOCK_LI,
+                    ctx->containers[n_parents].task_mark_off,
+                    (ctx->containers[n_parents].is_task ? CH(ctx->containers[n_parents].task_mark_off) : 0),
+                    MD_BLOCK_CONTAINER_CLOSER));
+        MD_CHECK(md_push_container_bytes(ctx, MD_BLOCK_LI,
+                    container.task_mark_off,
+                    (container.is_task ? CH(container.task_mark_off) : 0),
+                    MD_BLOCK_CONTAINER_OPENER));
+        ctx->containers[n_parents].is_task = container.is_task;
+        ctx->containers[n_parents].task_mark_off = container.task_mark_off;
     }
 
     if(n_children > 0)

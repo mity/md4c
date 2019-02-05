@@ -55,5 +55,9 @@ echo "Strikethrough extension:"
 $PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/strikethrough.txt" -p "$PROGRAM --fstrikethrough"
 
 echo
+echo "Task lists extension:"
+$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/tasklists.txt" -p "$PROGRAM --ftasklists"
+
+echo
 echo "Pathological input:"
 $PYTHON "$TEST_DIR/pathological_tests.py" -p "$PROGRAM"

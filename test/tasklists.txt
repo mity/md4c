@@ -1,0 +1,19 @@
+
+# Tasklists
+
+With the flag `MD_FLAG_TASKLISTS`, MD4C enables extension for recognition of
+task lists.
+
+Basic task list may look as follows:
+
+```````````````````````````````` example
+ * [x] foo
+ * [X] bar
+ * [ ] baz
+.
+<ul>
+<li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled checked>foo</li>
+<li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled checked>bar</li>
+<li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled>baz</li>
+</ul>
+````````````````````````````````
