@@ -88,6 +88,8 @@ extensions and/or deviations from the specification.
 
  * With the flag `MD_FLAG_TABLES`, GitHub-style tables are supported.
 
+ * With the flag `MD_FLAG_TASKLISTS`, GitHub-style task lists are supported.
+
  * With the flag `MD_FLAG_STRIKETHROUGH`, strike-through spans are enabled
    (text enclosed in tilde marks, e.g. `~foo bar~`).
 
