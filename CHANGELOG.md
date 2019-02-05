@@ -6,6 +6,13 @@
 
 New features:
 
+ * Renamed structure `MD_RENDERER` to `MD_PARSER` and refactorize its contents
+   a little bit. Note this is source-level incompatible and initialization code
+   in apps may need to be updated.
+
+   The aim of the change is to be more friendly for long-term ABI compatibility
+   we shall maintain, starting with this release.
+
  * Added `CHANGELOG.md` (this file).
 
  * Make sure `md_process_table_row()` reports the same count of table cells for

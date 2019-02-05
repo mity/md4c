@@ -94,7 +94,7 @@ struct MD_CTX_tag {
     /* Immutable stuff (parameters of md_parse()). */
     const CHAR* text;
     SZ size;
-    MD_RENDERER r;
+    MD_PARSER parser;
     void* userdata;
 
     /* Helper temporary growing buffer. */
@@ -213,8 +213,8 @@ struct MD_VERBATIMLINE_tag {
 
 #define MD_LOG(msg)                                                     \
     do {                                                                \
-        if(ctx->r.debug_log != NULL)                                    \
-            ctx->r.debug_log((msg), ctx->userdata);                     \
+        if(ctx->parser.debug_log != NULL)                               \
+            ctx->parser.debug_log((msg), ctx->userdata);                \
     } while(0)
 
 #ifdef DEBUG
@@ -331,7 +331,7 @@ md_text_with_null_replacement(MD_CTX* ctx, MD_TEXTTYPE type, const CHAR* str, SZ
             off++;
 
         if(off > 0) {
-            ret = ctx->r.text(type, str, off, ctx->userdata);
+            ret = ctx->parser.text(type, str, off, ctx->userdata);
             if(ret != 0)
                 return ret;
 
@@ -343,7 +343,7 @@ md_text_with_null_replacement(MD_CTX* ctx, MD_TEXTTYPE type, const CHAR* str, SZ
         if(off >= size)
             return 0;
 
-        ret = ctx->r.text(MD_TEXT_NULLCHAR, _T(""), 1, ctx->userdata);
+        ret = ctx->parser.text(MD_TEXT_NULLCHAR, _T(""), 1, ctx->userdata);
         if(ret != 0)
             return ret;
         off++;
@@ -380,7 +380,7 @@ md_text_with_null_replacement(MD_CTX* ctx, MD_TEXTTYPE type, const CHAR* str, SZ
 
 #define MD_ENTER_BLOCK(type, arg)                                       \
     do {                                                                \
-        ret = ctx->r.enter_block((type), (arg), ctx->userdata);         \
+        ret = ctx->parser.enter_block((type), (arg), ctx->userdata);         \
         if(ret != 0) {                                                  \
             MD_LOG("Aborted from enter_block() callback.");             \
             goto abort;                                                 \
@@ -389,7 +389,7 @@ md_text_with_null_replacement(MD_CTX* ctx, MD_TEXTTYPE type, const CHAR* str, SZ
 
 #define MD_LEAVE_BLOCK(type, arg)                                       \
     do {                                                                \
-        ret = ctx->r.leave_block((type), (arg), ctx->userdata);         \
+        ret = ctx->parser.leave_block((type), (arg), ctx->userdata);         \
         if(ret != 0) {                                                  \
             MD_LOG("Aborted from leave_block() callback.");             \
             goto abort;                                                 \
@@ -398,7 +398,7 @@ md_text_with_null_replacement(MD_CTX* ctx, MD_TEXTTYPE type, const CHAR* str, SZ
 
 #define MD_ENTER_SPAN(type, arg)                                        \
     do {                                                                \
-        ret = ctx->r.enter_span((type), (arg), ctx->userdata);          \
+        ret = ctx->parser.enter_span((type), (arg), ctx->userdata);          \
         if(ret != 0) {                                                  \
             MD_LOG("Aborted from enter_span() callback.");              \
             goto abort;                                                 \
@@ -407,7 +407,7 @@ md_text_with_null_replacement(MD_CTX* ctx, MD_TEXTTYPE type, const CHAR* str, SZ
 
 #define MD_LEAVE_SPAN(type, arg)                                        \
     do {                                                                \
-        ret = ctx->r.leave_span((type), (arg), ctx->userdata);          \
+        ret = ctx->parser.leave_span((type), (arg), ctx->userdata);          \
         if(ret != 0) {                                                  \
             MD_LOG("Aborted from leave_span() callback.");              \
             goto abort;                                                 \
@@ -417,7 +417,7 @@ md_text_with_null_replacement(MD_CTX* ctx, MD_TEXTTYPE type, const CHAR* str, SZ
 #define MD_TEXT(type, str, size)                                        \
     do {                                                                \
         if(size > 0) {                                                  \
-            ret = ctx->r.text((type), (str), (size), ctx->userdata);    \
+            ret = ctx->parser.text((type), (str), (size), ctx->userdata);    \
             if(ret != 0) {                                              \
                 MD_LOG("Aborted from text() callback.");                \
                 goto abort;                                             \
@@ -2710,22 +2710,22 @@ md_build_mark_char_map(MD_CTX* ctx)
     ctx->mark_char_map[']'] = 1;
     ctx->mark_char_map['\0'] = 1;
 
-    if(ctx->r.flags & MD_FLAG_STRIKETHROUGH)
+    if(ctx->parser.flags & MD_FLAG_STRIKETHROUGH)
         ctx->mark_char_map['~'] = 1;
 
-    if(ctx->r.flags & MD_FLAG_PERMISSIVEEMAILAUTOLINKS)
+    if(ctx->parser.flags & MD_FLAG_PERMISSIVEEMAILAUTOLINKS)
         ctx->mark_char_map['@'] = 1;
 
-    if(ctx->r.flags & MD_FLAG_PERMISSIVEURLAUTOLINKS)
+    if(ctx->parser.flags & MD_FLAG_PERMISSIVEURLAUTOLINKS)
         ctx->mark_char_map[':'] = 1;
 
-    if(ctx->r.flags & MD_FLAG_PERMISSIVEWWWAUTOLINKS)
+    if(ctx->parser.flags & MD_FLAG_PERMISSIVEWWWAUTOLINKS)
         ctx->mark_char_map['.'] = 1;
 
-    if(ctx->r.flags & MD_FLAG_TABLES)
+    if(ctx->parser.flags & MD_FLAG_TABLES)
         ctx->mark_char_map['|'] = 1;
 
-    if(ctx->r.flags & MD_FLAG_COLLAPSEWHITESPACE) {
+    if(ctx->parser.flags & MD_FLAG_COLLAPSEWHITESPACE) {
         int i;
 
         for(i = 0; i < sizeof(ctx->mark_char_map); i++) {
@@ -2892,7 +2892,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
 
             /* A potential autolink or raw HTML start/end. */
             if(ch == _T('<') || ch == _T('>')) {
-                if(!(ctx->r.flags & MD_FLAG_NOHTMLSPANS))
+                if(!(ctx->parser.flags & MD_FLAG_NOHTMLSPANS))
                     PUSH_MARK(ch, off, off+1, (ch == _T('<') ? MD_MARK_POTENTIAL_OPENER : MD_MARK_POTENTIAL_CLOSER));
 
                 off++;
@@ -4814,7 +4814,7 @@ md_is_atxheader_line(MD_CTX* ctx, OFF beg, OFF* p_beg, OFF* p_end, unsigned* p_l
         return FALSE;
     *p_level = n;
 
-    if(!(ctx->r.flags & MD_FLAG_PERMISSIVEATXHEADERS)  &&  off < ctx->size  &&
+    if(!(ctx->parser.flags & MD_FLAG_PERMISSIVEATXHEADERS)  &&  off < ctx->size  &&
        CH(off) != _T(' ')  &&  CH(off) != _T('\t')  &&  !ISNEWLINE(off))
         return FALSE;
 
@@ -5669,7 +5669,7 @@ redo:
     }
 
     /* Check for start of raw HTML block. */
-    if(CH(off) == _T('<')  &&  !(ctx->r.flags & MD_FLAG_NOHTMLBLOCKS))
+    if(CH(off) == _T('<')  &&  !(ctx->parser.flags & MD_FLAG_NOHTMLBLOCKS))
     {
         ctx->html_block_type = md_is_html_block_start_condition(ctx, off);
 
@@ -5690,7 +5690,7 @@ redo:
     }
 
     /* Check for table underline. */
-    if((ctx->r.flags & MD_FLAG_TABLES)  &&  pivot_line->type == MD_LINE_TEXT  &&
+    if((ctx->parser.flags & MD_FLAG_TABLES)  &&  pivot_line->type == MD_LINE_TEXT  &&
        (CH(off) == _T('|') || CH(off) == _T('-') || CH(off) == _T(':'))  &&
        n_parents == ctx->n_containers)
     {
@@ -5740,7 +5740,7 @@ done_on_eol:
             tmp--;
         while(tmp > line->beg && CH(tmp-1) == _T('#'))
             tmp--;
-        if(tmp == line->beg || CH(tmp-1) == _T(' ') || (ctx->r.flags & MD_FLAG_PERMISSIVEATXHEADERS))
+        if(tmp == line->beg || CH(tmp-1) == _T(' ') || (ctx->parser.flags & MD_FLAG_PERMISSIVEATXHEADERS))
             line->end = tmp;
     }
 
@@ -5911,19 +5911,25 @@ abort:
  ********************/
 
 int
-md_parse(const MD_CHAR* text, MD_SIZE size, const MD_RENDERER* renderer, void* userdata)
+md_parse(const MD_CHAR* text, MD_SIZE size, const MD_PARSER* parser, void* userdata)
 {
     MD_CTX ctx;
     int i;
     int ret;
 
+    if(parser->abi_version != 0) {
+        if(parser->debug_log != NULL)
+            parser->debug_log("Unsupported abi_version.", userdata);
+        return -1;
+    }
+
     /* Setup context structure. */
     memset(&ctx, 0, sizeof(MD_CTX));
     ctx.text = text;
     ctx.size = size;
-    memcpy(&ctx.r, renderer, sizeof(MD_RENDERER));
+    memcpy(&ctx.parser, parser, sizeof(MD_PARSER));
     ctx.userdata = userdata;
-    ctx.code_indent_offset = (ctx.r.flags & MD_FLAG_NOINDENTEDCODEBLOCKS) ? (OFF)(-1) : 4;
+    ctx.code_indent_offset = (ctx.parser.flags & MD_FLAG_NOINDENTEDCODEBLOCKS) ? (OFF)(-1) : 4;
     md_build_mark_char_map(&ctx);
 
     /* Reset all unresolved opener mark chains. */

@@ -475,16 +475,18 @@ md_render_html(const MD_CHAR* input, MD_SIZE input_size,
 {
     MD_RENDER_HTML render = { process_output, userdata, renderer_flags, 0 };
 
-    MD_RENDERER renderer = {
+    MD_PARSER parser = {
+        0,
+        parser_flags,
         enter_block_callback,
         leave_block_callback,
         enter_span_callback,
         leave_span_callback,
         text_callback,
         debug_log_callback,
-        parser_flags
+        NULL
     };
 
-    return md_parse(input, input_size, &renderer, (void*) &render);
+    return md_parse(input, input_size, &parser, (void*) &render);
 }
 
