@@ -3793,15 +3793,9 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mod
     BACKTICK_OPENERS.tail = -1;
     LOWERTHEN_OPENERS.head = -1;
     LOWERTHEN_OPENERS.tail = -1;
-    /* (2) Links. */
-    md_analyze_marks(ctx, lines, n_lines, 0, ctx->n_marks, _T("[]!"));
-    MD_CHECK(md_resolve_links(ctx, lines, n_lines));
-    BRACKET_OPENERS.head = -1;
-    BRACKET_OPENERS.tail = -1;
-    ctx->unresolved_link_head = -1;
-    ctx->unresolved_link_tail = -1;
+
     if(table_mode) {
-        /* (3a) Analyze table cell boundaries.
+        /* (2) Analyze table cell boundaries.
          * Note we reset TABLECELLBOUNDARIES chain prior to the call md_analyze_marks(),
          * not after, because caller may need it. */
         MD_ASSERT(n_lines == 1);
@@ -3809,8 +3803,18 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mod
         TABLECELLBOUNDARIES.tail = -1;
         ctx->n_table_cell_boundaries = 0;
         md_analyze_marks(ctx, lines, n_lines, 0, ctx->n_marks, _T("|"));
-    } else {
-        /* (3b) Emphasis and strong emphasis; permissive autolinks. */
+    }
+
+    /* (3) Links. */
+    md_analyze_marks(ctx, lines, n_lines, 0, ctx->n_marks, _T("[]!"));
+    MD_CHECK(md_resolve_links(ctx, lines, n_lines));
+    BRACKET_OPENERS.head = -1;
+    BRACKET_OPENERS.tail = -1;
+    ctx->unresolved_link_head = -1;
+    ctx->unresolved_link_tail = -1;
+
+    if(!table_mode) {
+        /* (4) Emphasis and strong emphasis; permissive autolinks. */
         md_analyze_link_contents(ctx, lines, n_lines, 0, ctx->n_marks);
     }
 
