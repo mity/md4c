@@ -3783,8 +3783,7 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mod
     ctx->n_marks = 0;
 
     /* Collect all marks. */
-    if(md_collect_marks(ctx, lines, n_lines, table_mode) != 0)
-        return -1;
+    MD_CHECK(md_collect_marks(ctx, lines, n_lines, table_mode));
 
     /* We analyze marks in few groups to handle their precedence. */
     /* (1) Entities; code spans; autolinks; raw HTML. */
@@ -3803,6 +3802,7 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mod
         TABLECELLBOUNDARIES.tail = -1;
         ctx->n_table_cell_boundaries = 0;
         md_analyze_marks(ctx, lines, n_lines, 0, ctx->n_marks, _T("|"));
+        return ret;
     }
 
     /* (3) Links. */
@@ -3813,10 +3813,8 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mod
     ctx->unresolved_link_head = -1;
     ctx->unresolved_link_tail = -1;
 
-    if(!table_mode) {
-        /* (4) Emphasis and strong emphasis; permissive autolinks. */
-        md_analyze_link_contents(ctx, lines, n_lines, 0, ctx->n_marks);
-    }
+    /* (4) Emphasis and strong emphasis; permissive autolinks. */
+    md_analyze_link_contents(ctx, lines, n_lines, 0, ctx->n_marks);
 
 abort:
     return ret;
