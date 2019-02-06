@@ -24,7 +24,10 @@ Fixes:
 
  * CID 1475544: Fix calling `md_free_attribute()` on uninitialized data.
 
- * #47: Fix using bad offsets in `md_is_entity_str()`.
+ * #47: Fix using bad offsets in `md_is_entity_str()`, in some cases leading to
+   buffer overflow.
+
+ * #51: Fix segfault in `md_process_table_cell()`.
 
 
 ## Version 0.2.7
