@@ -5312,7 +5312,9 @@ md_eat_task_mark(MD_CTX* ctx, OFF beg, MD_CONTAINER* p_container)
     while(off < ctx->size  &&  off < beg + 3  &&  ISBLANK(off))
         off++;
 
-    if(off + 2 < ctx->size  &&  CH(off) == _T('[')  &&  ISANYOF(off+1, _T("xX "))  &&  CH(off+2) == _T(']')) {
+    if(off + 2 < ctx->size  &&  CH(off) == _T('[')  &&  ISANYOF(off+1, _T("xX "))  &&  CH(off+2) == _T(']')  &&
+       (off + 3 == ctx->size  ||  ISBLANK(off+3)  ||  ISNEWLINE(off+3)))
+    {
         p_container->is_task = TRUE;
         p_container->task_mark_off = off + 1;
         off += 3;
