@@ -5300,30 +5300,6 @@ abort:
     return ret;
 }
 
-static OFF
-md_eat_task_mark(MD_CTX* ctx, OFF beg, MD_CONTAINER* p_container)
-{
-    OFF off;
-
-    if(!(ctx->parser.flags & MD_FLAG_TASKLISTS))
-        return beg;
-
-    off = beg;
-    while(off < ctx->size  &&  off < beg + 3  &&  ISBLANK(off))
-        off++;
-
-    if(off + 2 < ctx->size  &&  CH(off) == _T('[')  &&  ISANYOF(off+1, _T("xX "))  &&  CH(off+2) == _T(']')  &&
-       (off + 3 == ctx->size  ||  ISBLANK(off+3)  ||  ISNEWLINE(off+3)))
-    {
-        p_container->is_task = TRUE;
-        p_container->task_mark_off = off + 1;
-        off += 3;
-        return off;
-    }
-
-    return beg;
-}
-
 static int
 md_is_container_mark(MD_CTX* ctx, unsigned indent, OFF beg, OFF* p_end, MD_CONTAINER* p_container)
 {
@@ -5349,7 +5325,7 @@ md_is_container_mark(MD_CTX* ctx, unsigned indent, OFF beg, OFF* p_end, MD_CONTA
         p_container->is_task = FALSE;
         p_container->mark_indent = indent;
         p_container->contents_indent = indent + 1;
-        *p_end = md_eat_task_mark(ctx, off+1, p_container);
+        *p_end = off + 1;
         return TRUE;
     }
 
@@ -5368,7 +5344,7 @@ md_is_container_mark(MD_CTX* ctx, unsigned indent, OFF beg, OFF* p_end, MD_CONTA
         p_container->is_task = FALSE;
         p_container->mark_indent = indent;
         p_container->contents_indent = indent + off - beg + 1;
-        *p_end = md_eat_task_mark(ctx, off+1, p_container);
+        *p_end = off + 1;
         return TRUE;
     }
 
@@ -5752,6 +5728,28 @@ redo:
     if(pivot_line->type == MD_LINE_TEXT  &&  n_brothers + n_children == 0) {
         /* Lazy continuation. */
         n_parents = ctx->n_containers;
+    }
+
+    /* Check for task mark. */
+    if((ctx->parser.flags & MD_FLAG_TASKLISTS)  &&  n_brothers + n_children > 0  &&
+       ISANYOF_(ctx->containers[ctx->n_containers-1].ch, _T("-+*.)")))
+    {
+        OFF tmp = off;
+
+        while(tmp < ctx->size  &&  tmp < off + 3  &&  ISBLANK(tmp))
+            tmp++;
+        if(tmp + 2 < ctx->size  &&  CH(tmp) == _T('[')  &&
+           ISANYOF(tmp+1, _T("xX "))  &&  CH(tmp+2) == _T(']')  &&
+           (tmp + 3 == ctx->size  ||  ISBLANK(tmp+3)  ||  ISNEWLINE(tmp+3)))
+        {
+            MD_CONTAINER* task_container = (n_children > 0 ? &ctx->containers[ctx->n_containers-1] : &container);
+            task_container->is_task = TRUE;
+            task_container->task_mark_off = tmp + 1;
+            off = tmp + 3;
+            while(ISWHITESPACE(off))
+                off++;
+            line->beg = off;
+        }
     }
 
 done:
