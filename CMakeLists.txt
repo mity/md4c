@@ -1,7 +1,17 @@
 
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.4)
 project(MD4C C)
 
+set(MD_VERSION_MAJOR 0)
+set(MD_VERSION_MINOR 2)
+set(MD_VERSION_RELEASE 7)
+set(MD_VERSION "${MD_VERSION_MAJOR}.${MD_VERSION_MINOR}.${MD_VERSION_RELEASE}")
+
+add_definitions(
+    -DMD_VERSION_MAJOR=${MD_VERSION_MAJOR}
+    -DMD_VERSION_MINOR=${MD_VERSION_MINOR}
+    -DMD_VERSION_RELEASE=${MD_VERSION_RELEASE}
+)
 
 set(CMAKE_CONFIGURATION_TYPES Debug Release RelWithDebInfo MinSizeRel)
 if("${CMAKE_BUILD_TYPE}" STREQUAL "")
@@ -26,6 +36,7 @@ elseif(MSVC)
     set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_RELEASE} /MT")
 endif()
 
+include(GNUInstallDirs)
 
 add_subdirectory(md4c)
 add_subdirectory(md2html)

@@ -10,7 +10,7 @@ before_build:
 
 build:
   project: md4c.sln
-  verbosity: minimal
+  verbosity: detailed
 
 skip_tags: true
 
