@@ -2,7 +2,7 @@
  * MD4C: Markdown parser for C
  * (http://github.com/mity/md4c)
  *
- * Copyright (c) 2016-2017 Martin Mitas
+ * Copyright (c) 2016-2019 Martin Mitas
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -267,16 +267,28 @@ typedef struct MD_SPAN_IMG_DETAIL {
 #define MD_FLAG_NOHTML                      (MD_FLAG_NOHTMLBLOCKS | MD_FLAG_NOHTMLSPANS)
 
 /* Convenient sets of flags corresponding to well-known Markdown dialects.
+ *
  * Note we may only support subset of features of the referred dialect.
  * The constant just enables those extensions which bring us as close as
  * possible given what features we implement.
+ *
+ * ABI compatibility note: Meaning of these can change in time as new
+ * extensions, bringing the dialect closer to the original, are implemented.
  */
 #define MD_DIALECT_COMMONMARK               0
 #define MD_DIALECT_GITHUB                   (MD_FLAG_PERMISSIVEAUTOLINKS | MD_FLAG_TABLES | MD_FLAG_STRIKETHROUGH)
 
 /* Renderer structure.
  */
-typedef struct MD_RENDERER {
+typedef struct MD_PARSER {
+    /* Reserved. Set to zero.
+     */
+    unsigned abi_version;
+
+    /* Dialect options. Bitmask of MD_FLAG_xxxx values.
+     */
+    unsigned flags;
+
     /* Caller-provided rendering callbacks.
      *
      * For some block/span types, more detailed information is provided in a
@@ -308,10 +320,14 @@ typedef struct MD_RENDERER {
      */
     void (*debug_log)(const char* /*msg*/, void* /*userdata*/);
 
-    /* Dialect options. Bitmask of MD_FLAG_xxxx values.
+    /* Reserved. Set to NULL.
      */
-    unsigned flags;
-} MD_RENDERER;
+    void (*syntax)(void);
+} MD_PARSER;
+
+
+/* For backward compatibility. Do not use in new code. */
+typedef MD_PARSER MD_RENDERER;
 
 
 /* Parse the Markdown document stored in the string 'text' of size 'size'.
@@ -323,7 +339,7 @@ typedef struct MD_RENDERER {
  * fails), -1 is returned. If the processing is aborted due any callback
  * returning non-zero, md_parse() the return value of the callback is returned.
  */
-int md_parse(const MD_CHAR* text, MD_SIZE size, const MD_RENDERER* renderer, void* userdata);
+int md_parse(const MD_CHAR* text, MD_SIZE size, const MD_PARSER* parser, void* userdata);
 
 
 #ifdef __cplusplus
