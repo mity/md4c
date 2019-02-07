@@ -1,3 +1,5 @@
+# Be sure to export all symbols in Windows.
+set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS 1)
 
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -DDEBUG")
 
