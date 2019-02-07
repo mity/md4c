@@ -55,10 +55,6 @@ MD4C is C Markdown parser with the following features:
   [Cmark](https://github.com/jgm/cmark).
 
 
-## Building MD4C as a shared library
-
-Be sure to define BUILD_SHARED_LIBS when building.
-
 ## Using MD4C
 
 The parser is implemented in a single C source file `md4c.c` and its

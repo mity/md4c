@@ -7,7 +7,7 @@ set(md4c_src
     md4c.c
 )
 
-add_library(md4c ${md4c_src})
+add_library(md4c SHARED ${md4c_src})
 
 set_target_properties(md4c PROPERTIES
     VERSION ${MD_VERSION}
