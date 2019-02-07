@@ -15,8 +15,6 @@ set_target_properties(md4c PROPERTIES
     PUBLIC_HEADER md4c.h
 )
 
-target_include_directories(md4c PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-
 install(
     TARGETS md4c
     EXPORT md4cConfig
