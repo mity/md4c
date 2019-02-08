@@ -9,7 +9,7 @@ set(md4c_src
     md4c.c
 )
 
-add_library(md4c SHARED ${md4c_src})
+add_library(md4c ${md4c_src})
 
 set_target_properties(md4c PROPERTIES
     VERSION ${MD_VERSION}
@@ -20,6 +20,7 @@ set_target_properties(md4c PROPERTIES
 install(
     TARGETS md4c
     EXPORT md4cConfig
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}

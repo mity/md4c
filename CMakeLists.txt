@@ -7,6 +7,16 @@ set(MD_VERSION_MINOR 2)
 set(MD_VERSION_RELEASE 7)
 set(MD_VERSION "${MD_VERSION_MAJOR}.${MD_VERSION_MINOR}.${MD_VERSION_RELEASE}")
 
+if(WIN32)
+    # On Windows, given there is no standard lib install dir etc., we rather
+    # by default build static lib.
+    option(BUILD_SHARED_LIBS "help string describing option" OFF)
+else()
+    # On Linux, MD4C is slowly being adding into some distros which prefer
+    # shared lib.
+    option(BUILD_SHARED_LIBS "help string describing option" ON)
+endif()
+
 add_definitions(
     -DMD_VERSION_MAJOR=${MD_VERSION_MAJOR}
     -DMD_VERSION_MINOR=${MD_VERSION_MINOR}
