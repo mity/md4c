@@ -2497,6 +2497,7 @@ struct MD_MARK_tag {
 #define MD_MARK_EMPH_MODULO3_2              (0x40 | 0x80)
 #define MD_MARK_EMPH_MODULO3_MASK           (0x40 | 0x80)
 #define MD_MARK_AUTOLINK                    0x20  /* Distinguisher for '<', '>'. */
+#define MD_MARK_VALIDPERMISSIVEAUTOLINK     0x20  /* For permissive autolinks. */
 
 
 static MD_MARK*
@@ -3988,10 +3989,19 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 case ':':       /* Permissive URL autolink. */
                 case '.':       /* Permissive WWW autolink. */
                 {
-                    const MD_MARK* opener = ((mark->flags & MD_MARK_OPENER) ? mark : &ctx->marks[mark->prev]);
-                    const MD_MARK* closer = &ctx->marks[opener->next];
+                    MD_MARK* opener = ((mark->flags & MD_MARK_OPENER) ? mark : &ctx->marks[mark->prev]);
+                    MD_MARK* closer = &ctx->marks[opener->next];
                     const CHAR* dest = STR(opener->end);
                     SZ dest_size = closer->beg - opener->end;
+
+                    /* For permissive auto-links we do not know closer mark
+                     * position at the time of md_collect_marks(), therefore
+                     * it can be out-of-order in ctx->marks[].
+                     *
+                     * With this flag, we make sure that we output the closer
+                     * only if we processed the opener. */
+                    if(mark->flags & MD_MARK_OPENER)
+                        closer->flags |= MD_MARK_VALIDPERMISSIVEAUTOLINK;
 
                     if(opener->ch == '@' || opener->ch == '.') {
                         dest_size += 7;
@@ -4003,8 +4013,9 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                         dest = ctx->buffer;
                     }
 
-                    MD_CHECK(md_enter_leave_span_a(ctx, (mark->flags & MD_MARK_OPENER),
-                                MD_SPAN_A, dest, dest_size, TRUE, NULL, 0));
+                    if(closer->flags & MD_MARK_VALIDPERMISSIVEAUTOLINK)
+                        MD_CHECK(md_enter_leave_span_a(ctx, (mark->flags & MD_MARK_OPENER),
+                                    MD_SPAN_A, dest, dest_size, TRUE, NULL, 0));
                     break;
                 }
 

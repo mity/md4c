@@ -62,3 +62,18 @@ Anonymous FTP is available at ftp://foo.bar.baz.
 <p>(Visit <a href="https://encrypted.google.com/search?q=Markup+(business)">https://encrypted.google.com/search?q=Markup+(business)</a>)</p>
 <p>Anonymous FTP is available at <a href="ftp://foo.bar.baz">ftp://foo.bar.baz</a>.</p>
 ````````````````````````````````
+
+
+## GitHub Issues
+
+### [Issue 53](https://github.com/mity/md4c/issues/53)
+```````````````````````````````` example
+This is [link](http://github.com/).
+.
+<p>This is <a href="http://github.com/">link</a>.</p>
+````````````````````````````````
+```````````````````````````````` example
+This is [link](http://github.com/)X
+.
+<p>This is <a href="http://github.com/">link</a>X</p>
+````````````````````````````````

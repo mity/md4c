@@ -90,3 +90,18 @@ www.commonmark.org/he<lp
 .
 <p><a href="http://www.commonmark.org/he">www.commonmark.org/he</a>&lt;lp</p>
 ````````````````````````````````
+
+
+## GitHub Issues
+
+### [Issue 53](https://github.com/mity/md4c/issues/53)
+```````````````````````````````` example
+This is [link](www.github.com/).
+.
+<p>This is <a href="www.github.com/">link</a>.</p>
+````````````````````````````````
+```````````````````````````````` example
+This is [link](www.github.com/)X
+.
+<p>This is <a href="www.github.com/">link</a>X</p>
+````````````````````````````````
