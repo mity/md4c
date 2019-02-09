@@ -3613,7 +3613,7 @@ md_analyze_permissive_url_autolink(MD_CTX* ctx, int mark_index)
 {
     MD_MARK* opener = &ctx->marks[mark_index];
     int closer_index = mark_index + 1;
-    MD_MARK* closer = &ctx->marks[mark_index + 1];
+    MD_MARK* closer = &ctx->marks[closer_index];
     MD_MARK* next_resolved_mark;
     OFF off = opener->end;
     int seen_dot = FALSE;
