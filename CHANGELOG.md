@@ -22,12 +22,16 @@ New features:
 
 Fixes:
 
- * CID 1475544: Fix calling `md_free_attribute()` on uninitialized data.
+ * CID 1475544: Calling `md_free_attribute()` on uninitialized data.
 
- * #47: Fix using bad offsets in `md_is_entity_str()`, in some cases leading to
+ * #47: Using bad offsets in `md_is_entity_str()`, in some cases leading to
    buffer overflow.
 
- * #51: Fix segfault in `md_process_table_cell()`.
+ * #51: Segfault in `md_process_table_cell()`.
+
+ * #53: With `MD_FLAG_PERMISSIVEURLAUTOLINKS` or `MD_FLAG_PERMISSIVEWWWAUTOLINKS`
+   we could generate bad output for ordinary Markdown links, if a non-space
+   character immediately follows like e.g. in `[link](http://github.com)X`.
 
 
 ## Version 0.2.7
