@@ -47,7 +47,8 @@ typedef unsigned MD_OFFSET;
 
 
 /* Block represents a part of document hierarchy structure like a paragraph
- * or list item. */
+ * or list item.
+ */
 typedef enum MD_BLOCKTYPE {
     /* <body>...</body> */
     MD_BLOCK_DOC = 0,
@@ -63,7 +64,8 @@ typedef enum MD_BLOCKTYPE {
      * Detail: Structure MD_BLOCK_OL_DETAIL. */
     MD_BLOCK_OL,
 
-    /* <li>...</li> */
+    /* <li>...</li>
+     * Detail: Structure MD_BLOCK_LI_DETAIL. */
     MD_BLOCK_LI,
 
     /* <hr> */
@@ -186,7 +188,7 @@ typedef enum MD_ALIGN {
  * So, for example, lets consider an image has a title attribute string
  * set to "foo &quot; bar". (Note the string size is 14.)
  *
- * Then:
+ * Then the attribute MD_SPAN_IMG_DETAIL::title shall provide the following:
  *  -- [0]: "foo "   (substr_types[0] == MD_TEXT_NORMAL; substr_offsets[0] == 0)
  *  -- [1]: "&quot;" (substr_types[1] == MD_TEXT_ENTITY; substr_offsets[1] == 4)
  *  -- [2]: " bar"   (substr_types[2] == MD_TEXT_NORMAL; substr_offsets[2] == 10)
@@ -207,16 +209,23 @@ typedef struct MD_ATTRIBUTE {
 
 /* Detailed info for MD_BLOCK_UL. */
 typedef struct MD_BLOCK_UL_DETAIL {
-    int is_tight;           /* Non-zero if tight list, zero of loose. */
+    int is_tight;           /* Non-zero if tight list, zero if loose. */
     MD_CHAR mark;           /* Item bullet character in MarkDown source of the list, e.g. '-', '+', '*'. */
 } MD_BLOCK_UL_DETAIL;
 
 /* Detailed info for MD_BLOCK_OL. */
 typedef struct MD_BLOCK_OL_DETAIL {
     unsigned start;         /* Start index of the ordered list. */
-    int is_tight;           /* Non-zero if tight list, zero of loose. */
+    int is_tight;           /* Non-zero if tight list, zero if loose. */
     MD_CHAR mark_delimiter; /* Character delimiting the item marks in MarkDown source, e.g. '.' or ')' */
 } MD_BLOCK_OL_DETAIL;
+
+/* Detailed info for MD_BLOCK_LI. */
+typedef struct MD_BLOCK_LI_DETAIL {
+    int is_task;            /* Can be non-zero only with MD_FLAG_TASKLISTS */
+    MD_CHAR task_mark;      /* If is_task, then one of 'x', 'X' or ' '. Undefined otherwise. */
+    MD_OFFSET task_mark_offset;  /* If is_task, then offset in the input of the char between '[' and ']'. */
+} MD_BLOCK_LI_DETAIL;
 
 /* Detailed info for MD_BLOCK_H. */
 typedef struct MD_BLOCK_H_DETAIL {
@@ -262,6 +271,7 @@ typedef struct MD_SPAN_IMG_DETAIL {
 #define MD_FLAG_TABLES                      0x0100  /* Enable tables extension. */
 #define MD_FLAG_STRIKETHROUGH               0x0200  /* Enable strikethrough extension. */
 #define MD_FLAG_PERMISSIVEWWWAUTOLINKS      0x0400  /* Enable WWW autolinks (even without any scheme prefix, if they begin with 'www.') */
+#define MD_FLAG_TASKLISTS                   0x0800  /* Enable task list extension. */
 
 #define MD_FLAG_PERMISSIVEAUTOLINKS         (MD_FLAG_PERMISSIVEEMAILAUTOLINKS | MD_FLAG_PERMISSIVEURLAUTOLINKS | MD_FLAG_PERMISSIVEWWWAUTOLINKS)
 #define MD_FLAG_NOHTML                      (MD_FLAG_NOHTMLBLOCKS | MD_FLAG_NOHTMLSPANS)
@@ -276,7 +286,7 @@ typedef struct MD_SPAN_IMG_DETAIL {
  * extensions, bringing the dialect closer to the original, are implemented.
  */
 #define MD_DIALECT_COMMONMARK               0
-#define MD_DIALECT_GITHUB                   (MD_FLAG_PERMISSIVEAUTOLINKS | MD_FLAG_TABLES | MD_FLAG_STRIKETHROUGH)
+#define MD_DIALECT_GITHUB                   (MD_FLAG_PERMISSIVEAUTOLINKS | MD_FLAG_TABLES | MD_FLAG_STRIKETHROUGH | MD_FLAG_TASKLISTS)
 
 /* Renderer structure.
  */

@@ -268,6 +268,20 @@ render_open_ol_block(MD_RENDER_HTML* r, const MD_BLOCK_OL_DETAIL* det)
 }
 
 static void
+render_open_li_block(MD_RENDER_HTML* r, const MD_BLOCK_LI_DETAIL* det)
+{
+    if(det->is_task) {
+        RENDER_LITERAL(r, "<li class=\"task-list-item\">"
+                          "<input type=\"checkbox\" class=\"task-list-item-checkbox\" disabled");
+        if(det->task_mark == 'x' || det->task_mark == 'X')
+            RENDER_LITERAL(r, " checked");
+        RENDER_LITERAL(r, ">");
+    } else {
+        RENDER_LITERAL(r, "<li>");
+    }
+}
+
+static void
 render_open_code_block(MD_RENDER_HTML* r, const MD_BLOCK_CODE_DETAIL* det)
 {
     RENDER_LITERAL(r, "<pre><code");
@@ -350,7 +364,7 @@ enter_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
         case MD_BLOCK_QUOTE:    RENDER_LITERAL(r, "<blockquote>\n"); break;
         case MD_BLOCK_UL:       RENDER_LITERAL(r, "<ul>\n"); break;
         case MD_BLOCK_OL:       render_open_ol_block(r, (const MD_BLOCK_OL_DETAIL*)detail); break;
-        case MD_BLOCK_LI:       RENDER_LITERAL(r, "<li>"); break;
+        case MD_BLOCK_LI:       render_open_li_block(r, (const MD_BLOCK_LI_DETAIL*)detail); break;
         case MD_BLOCK_HR:       RENDER_LITERAL(r, "<hr>\n"); break;
         case MD_BLOCK_H:        RENDER_LITERAL(r, head[((MD_BLOCK_H_DETAIL*)detail)->level - 1]); break;
         case MD_BLOCK_CODE:     render_open_code_block(r, (const MD_BLOCK_CODE_DETAIL*) detail); break;

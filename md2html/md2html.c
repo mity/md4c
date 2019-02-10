@@ -208,6 +208,7 @@ static const option cmdline_options[] = {
     { "fcollapse-whitespace",        0,  'W', OPTION_ARG_NONE },
     { "ftables",                     0,  'T', OPTION_ARG_NONE },
     { "fstrikethrough",              0,  'S', OPTION_ARG_NONE },
+    { "ftasklists",                  0,  'X', OPTION_ARG_NONE },
     { 0 }
 };
 
@@ -255,6 +256,7 @@ usage(void)
         "      --fno-html       Same as --fno-html-blocks --fno-html-spans\n"
         "      --ftables        Enable tables\n"
         "      --fstrikethrough Enable strikethrough spans\n"
+        "      --ftasklists     Enable task lists\n"
     );
 }
 
@@ -302,6 +304,7 @@ cmdline_callback(int opt, char const* value, void* data)
         case 'V':   parser_flags |= MD_FLAG_PERMISSIVEAUTOLINKS; break;
         case 'T':   parser_flags |= MD_FLAG_TABLES; break;
         case 'S':   parser_flags |= MD_FLAG_STRIKETHROUGH; break;
+        case 'X':   parser_flags |= MD_FLAG_TASKLISTS; break;
 
         default:
             fprintf(stderr, "Illegal option: %s\n", value);
