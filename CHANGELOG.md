@@ -2,7 +2,7 @@
 # MD4C Change Log
 
 
-## Next Release (work in progress)
+## Version 0.3.0
 
 New features:
 
