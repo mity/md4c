@@ -50,9 +50,7 @@ MD4C is C Markdown parser with the following features:
 
 * **Permissive license:** MD4C is available under the MIT license.
 
-* **Performance:** MD4C is very fast. Preliminary tests show it's quite faster
-  then [Hoedown](https://github.com/hoedown/hoedown) or
-  [Cmark](https://github.com/jgm/cmark).
+* **Performance:** MD4C is [very fast](https://talk.commonmark.org/t/why-is-md4c-so-fast-c/2520).
 
 
 ## Using MD4C
@@ -81,7 +79,7 @@ The default behavior is to recognize only elements defined by the [CommonMark
 specification](http://spec.commonmark.org/).
 
 However with appropriate flags, the behavior can be tuned to enable some
-extensions and/or deviations from the specification.
+extensions:
 
  * With the flag `MD_FLAG_COLLAPSEWHITESPACE`, non-trivial whitespace is
    collapsed into a single space.
@@ -100,6 +98,9 @@ extensions and/or deviations from the specification.
 
  * With the flag `MD_FLAG_PERMISSIVEWWWAUTOLINKS` permissive WWW autolinks
    (without any scheme specified; `http:` is assumed) are supported.
+
+Few features (those some people see as mis-features) of CommonMark
+specification may be disabled:
 
  * With the flag `MD_FLAG_NOHTMLSPANS` or `MD_FLAG_NOHTMLBLOCKS`, raw inline
    HTML or raw HTML blocks respectively are disabled.
