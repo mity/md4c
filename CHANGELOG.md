@@ -16,6 +16,13 @@ New features:
 
    (It has to be explicitly enabled with `MD_FLAG_TASKLISTS`.)
 
+ * Added support for building as a shared library. On non-Windows platforms,
+   this is now default behavior; on Windows static library is still the default.
+   The CMake option `BUILD_SHARED_LIBS` can be used to request one or the other
+   explicitly.
+
+   Contributed by Lisandro Damián Nicanor Pérez Meyer.
+
  * Renamed structure `MD_RENDERER` to `MD_PARSER` and refactorize its contents
    a little bit. Note this is source-level incompatible and initialization code
    in apps may need to be updated.
