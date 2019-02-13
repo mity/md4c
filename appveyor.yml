@@ -5,8 +5,8 @@ version: '{branch}-{build}'
 
 before_build:
   - 'cmake --version'
-  - 'if "%PLATFORM%"=="x64" cmake -G "Visual Studio 12 Win64"' .
-  - 'if not "%PLATFORM%"=="x64" cmake -G "Visual Studio 12"' .
+  - 'if "%PLATFORM%"=="x64" cmake -G "Visual Studio 12 Win64" .'
+  - 'if not "%PLATFORM%"=="x64" cmake -G "Visual Studio 12" .'
 
 build:
   project: md4c.sln
