@@ -5252,7 +5252,8 @@ md_enter_child_containers(MD_CTX* ctx, int n_children, unsigned data)
                                 (is_ordered_list ? MD_BLOCK_OL : MD_BLOCK_UL),
                                 c->start, data, MD_BLOCK_CONTAINER_OPENER));
                 MD_CHECK(md_push_container_bytes(ctx, MD_BLOCK_LI,
-                                c->task_mark_off, (c->is_task ? CH(c->task_mark_off) : 0),
+                                c->task_mark_off,
+                                (c->is_task ? CH(c->task_mark_off) : 0),
                                 MD_BLOCK_CONTAINER_OPENER));
                 break;
 
@@ -5394,7 +5395,7 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
     int n_parents = 0;
     int n_brothers = 0;
     int n_children = 0;
-    MD_CONTAINER container;
+    MD_CONTAINER container = { 0 };
     int prev_line_has_list_loosening_effect = ctx->last_line_has_list_loosening_effect;
     OFF off = beg;
     int ret = 0;
