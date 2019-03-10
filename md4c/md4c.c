@@ -123,17 +123,16 @@ struct MD_CTX_tag {
 #endif
 
     /* For resolving of inline spans. */
-    MD_MARKCHAIN mark_chains[8];
+    MD_MARKCHAIN mark_chains[7];
 #define PTR_CHAIN               ctx->mark_chains[0]
 #define TABLECELLBOUNDARIES     ctx->mark_chains[1]
-#define BACKTICK_OPENERS        ctx->mark_chains[2]
-#define LOWERTHEN_OPENERS       ctx->mark_chains[3]
-#define ASTERISK_OPENERS        ctx->mark_chains[4]
-#define UNDERSCORE_OPENERS      ctx->mark_chains[5]
-#define TILDE_OPENERS           ctx->mark_chains[6]
-#define BRACKET_OPENERS         ctx->mark_chains[7]
+#define LOWERTHEN_OPENERS       ctx->mark_chains[2]
+#define ASTERISK_OPENERS        ctx->mark_chains[3]
+#define UNDERSCORE_OPENERS      ctx->mark_chains[4]
+#define TILDE_OPENERS           ctx->mark_chains[5]
+#define BRACKET_OPENERS         ctx->mark_chains[6]
 #define OPENERS_CHAIN_FIRST     2
-#define OPENERS_CHAIN_LAST      7
+#define OPENERS_CHAIN_LAST      6
 
     int n_table_cell_boundaries;
 
@@ -2661,7 +2660,6 @@ md_rollback(MD_CTX* ctx, int opener_index, int closer_index, int how)
                 switch(mark_opener->ch) {
                     case '*':   chain = &ASTERISK_OPENERS; break;
                     case '_':   chain = &UNDERSCORE_OPENERS; break;
-                    case '`':   chain = &BACKTICK_OPENERS; break;
                     case '<':   chain = &LOWERTHEN_OPENERS; break;
                     case '~':   chain = &TILDE_OPENERS; break;
                     default:    MD_UNREACHABLE(); break;
@@ -2736,12 +2734,90 @@ md_build_mark_char_map(MD_CTX* ctx)
     }
 }
 
+/* We limit code span marks to lower then 32 backticks. This solves the
+ * pathologic case of too many openers, each of different length: Their
+ * resolving would be then O(n^2). */
+#define CODESPAN_MARK_MAXLEN    32
+
+static int
+md_is_code_span(MD_CTX* ctx, OFF beg, OFF max_end,
+                OFF* p_opener_beg, OFF* p_opener_end,
+                OFF* p_closer_beg, OFF* p_closer_end,
+                OFF last_potential_closers[CODESPAN_MARK_MAXLEN],
+                int* p_reached_max_end)
+{
+    OFF opener_beg = beg;
+    OFF opener_end;
+    OFF closer_beg;
+    OFF closer_end;
+    SZ mark_len;
+
+    opener_end = opener_beg;
+    while(opener_end < max_end  &&  CH(opener_end) == _T('`'))
+        opener_end++;
+
+    /* The caller needs to know end of the opening mark even if we fail. */
+    *p_opener_end = opener_end;
+
+    mark_len = opener_end - opener_beg;
+    if(mark_len > CODESPAN_MARK_MAXLEN)
+        return FALSE;
+
+    /* Check whether we already know there is no closer of this length.
+     * If so, re-scan does no sense. This fixes issue #59. */
+    if(last_potential_closers[mark_len-1] >= max_end  ||
+       (*p_reached_max_end  &&  last_potential_closers[mark_len-1] < opener_end))
+        return FALSE;
+
+    closer_beg = opener_end;
+    closer_end = opener_end;
+
+    /* Find closer mark. Note we rely on the fact that '`' cannot be in the
+     * "gaps" between lines here so we scan as in a simple string. */
+    while(TRUE) {
+        while(closer_beg < max_end  &&  CH(closer_beg) != _T('`'))
+            closer_beg++;
+        closer_end = closer_beg;
+        while(closer_end < max_end  &&  CH(closer_end) == _T('`'))
+            closer_end++;
+
+        if(closer_end - closer_beg == mark_len)
+            break;
+
+        if(closer_end - closer_beg < CODESPAN_MARK_MAXLEN) {
+            if(closer_beg > last_potential_closers[closer_end - closer_beg - 1])
+                last_potential_closers[closer_end - closer_beg - 1] = closer_beg;
+        }
+
+        if(closer_end >= max_end) {
+            *p_reached_max_end = TRUE;
+            return FALSE;
+        }
+
+        closer_beg = closer_end;
+    }
+
+    /* Eat any space on the inner side if the marks. */
+    while(CH(opener_end) == _T(' ') || ISNEWLINE(opener_end))
+        opener_end++;
+    while(closer_beg > opener_end  &&  (CH(closer_beg-1) == _T(' ') || ISNEWLINE(closer_beg-1)))
+        closer_beg--;
+
+    *p_opener_beg = opener_beg;
+    *p_opener_end = opener_end;
+    *p_closer_beg = closer_beg;
+    *p_closer_end = closer_end;
+    return TRUE;
+}
+
 static int
 md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
 {
     int i;
     int ret = 0;
     MD_MARK* mark;
+    OFF codespan_last_potential_closers[CODESPAN_MARK_MAXLEN] = { 0 };
+    int codespan_scanned_till_end = FALSE;
 
     for(i = 0; i < n_lines; i++) {
         const MD_LINE* line = &lines[i];
@@ -2779,14 +2855,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                 /* Hard-break cannot be on the last line of the block. */
                 if(!ISNEWLINE(off+1)  ||  i+1 < n_lines)
                     PUSH_MARK(ch, off, off+2, MD_MARK_RESOLVED);
-
-                /* If '`' or '>' follows, we need both marks as the backslash
-                 * may be inside a code span or an autolink where escaping is
-                 * disabled. */
-                if(CH(off+1) == _T('`') || CH(off+1) == _T('>'))
-                    off++;
-                else
-                    off += 2;
+                off += 2;
                 continue;
             }
 
@@ -2859,18 +2928,32 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
 
             /* A potential code span start/end. */
             if(ch == _T('`')) {
-                OFF tmp = off+1;
+                OFF opener_beg, opener_end;
+                OFF closer_beg, closer_end;
+                int is_code_span;
 
-                while(tmp < line_end  &&  CH(tmp) == _T('`'))
-                    tmp++;
+                is_code_span = md_is_code_span(ctx, off, lines[n_lines-1].end,
+                                    &opener_beg, &opener_end, &closer_beg, &closer_end,
+                                    codespan_last_potential_closers,
+                                    &codespan_scanned_till_end);
+                if(is_code_span) {
+                    PUSH_MARK(_T('`'), opener_beg, opener_end, MD_MARK_OPENER | MD_MARK_RESOLVED);
+                    PUSH_MARK(_T('`'), closer_beg, closer_end, MD_MARK_CLOSER | MD_MARK_RESOLVED);
+                    ctx->marks[ctx->n_marks-2].next = ctx->n_marks-1;
+                    ctx->marks[ctx->n_marks-1].prev = ctx->n_marks-2;
 
-                /* We limit code span marks to lower then 256 backticks. This
-                 * solves a pathologic case of too many openers, each of
-                 * different length: Their resolving is then O(n^2). */
-                if(tmp - off < 256)
-                    PUSH_MARK(ch, off, tmp, MD_MARK_POTENTIAL_OPENER | MD_MARK_POTENTIAL_CLOSER);
+                    off = closer_end;
 
-                off = tmp;
+                    /* Advance the current line accordingly. */
+                    while(off > line_end) {
+                        i++;
+                        line++;
+                        line_end = line->end;
+                    }
+                    continue;
+                }
+
+                off = opener_end;
                 continue;
             }
 
@@ -2900,7 +2983,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                     /* Given the nature of the raw HTML, we have to recognize
                      * it here. Doing so later in md_analyze_lt_gt() could
                      * open can of worms of quadratic complexity. */
-                    is_html = md_is_html_any(ctx, lines + i, n_lines - i, off, 
+                    is_html = md_is_html_any(ctx, lines + i, n_lines - i, off,
                                     lines[n_lines-1].end, &html_end);
                     if(is_html) {
                         PUSH_MARK(_T('<'), off, off, MD_MARK_OPENER | MD_MARK_RESOLVED);
@@ -2918,7 +3001,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                         continue;
                     }
                 }
-                
+
                 PUSH_MARK(ch, off, off+1, (ch == _T('<') ? MD_MARK_POTENTIAL_OPENER : MD_MARK_POTENTIAL_CLOSER));
                 off++;
                 continue;
@@ -3058,62 +3141,6 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
 
 abort:
     return ret;
-}
-
-
-/* Analyze whether the back-tick is really start/end mark of a code span.
- * If yes, reset all marks inside of it and setup flags of both marks. */
-static void
-md_analyze_backtick(MD_CTX* ctx, int mark_index)
-{
-    MD_MARK* mark = &ctx->marks[mark_index];
-    int opener_index = BACKTICK_OPENERS.tail;
-
-    /* Try to find unresolved opener of the same length. If we find it,
-     * we form a code span. */
-    while(opener_index >= 0) {
-        MD_MARK* opener = &ctx->marks[opener_index];
-
-        if(opener->end - opener->beg == mark->end - mark->beg) {
-            /* Rollback anything found inside it.
-             * (e.g. the code span contains some back-ticks or other special
-             * chars we misinterpreted.) */
-            md_rollback(ctx, opener_index, mark_index, MD_ROLLBACK_ALL);
-
-            /* Resolve the span. */
-            md_resolve_range(ctx, &BACKTICK_OPENERS, opener_index, mark_index);
-
-            /* Append any space or new line inside the span into the mark
-             * itself to swallow it. */
-            while(CH(opener->end) == _T(' ')  ||  ISNEWLINE(opener->end))
-                opener->end++;
-            if(mark->beg > opener->end) {
-                while(CH(mark->beg-1) == _T(' ')  ||  ISNEWLINE(mark->beg-1))
-                    mark->beg--;
-            }
-
-            /* Done. */
-            return;
-        }
-
-        opener_index = ctx->marks[opener_index].prev;
-    }
-
-    /* We didn't find any matching opener, so we ourselves may be the opener
-     * of some upcoming closer. We also have to handle specially if there is
-     * a backslash mark before it as that can cancel the first backtick. */
-    if(mark_index > 0  &&  (mark-1)->beg == mark->beg - 1  &&  (mark-1)->ch == '\\') {
-        if(mark->end - mark->beg == 1) {
-            /* Single escaped backtick. */
-            return;
-        }
-
-        /* Remove the escaped backtick from the opener. */
-        mark->beg++;
-    }
-
-    if(mark->flags & MD_MARK_POTENTIAL_OPENER)
-        md_mark_chain_append(ctx, &BACKTICK_OPENERS, mark_index);
 }
 
 static int
@@ -3741,7 +3768,6 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
 
         /* Analyze the mark. */
         switch(mark->ch) {
-            case '`':   md_analyze_backtick(ctx, i); break;
             case '<':   /* Pass through. */
             case '>':   md_analyze_lt_gt(ctx, i, lines, n_lines); break;
             case '[':   /* Pass through. */
@@ -3775,9 +3801,7 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mod
 
     /* We analyze marks in few groups to handle their precedence. */
     /* (1) Entities; code spans; autolinks; raw HTML. */
-    md_analyze_marks(ctx, lines, n_lines, 0, ctx->n_marks, _T("&`<>"));
-    BACKTICK_OPENERS.head = -1;
-    BACKTICK_OPENERS.tail = -1;
+    md_analyze_marks(ctx, lines, n_lines, 0, ctx->n_marks, _T("&<>"));
     LOWERTHEN_OPENERS.head = -1;
     LOWERTHEN_OPENERS.tail = -1;
 

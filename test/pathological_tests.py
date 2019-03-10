@@ -70,7 +70,10 @@ pathological = {
                   re.compile("<ul>\r?\n(<li>a<ul>\r?\n){999}<li>a</li>\r?\n</ul>\r?\n(</li>\r?\n</ul>\r?\n){999}")),
     "many autolink/html openers and closers":
                  (("<>" * 50000),
-                  re.compile("(&lt;&gt;){50000}"))
+                  re.compile("(&lt;&gt;){50000}")),
+    "many codespan openers with no matching closers":
+                 (("\\``" * 50000),
+                  re.compile("(``){50000}")),
     }
 
 whitespace_re = re.compile('/s+/')
