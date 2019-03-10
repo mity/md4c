@@ -135,8 +135,6 @@ struct MD_CTX_tag {
 
     int n_table_cell_boundaries;
 
-    unsigned codespan_deadend_mask;
-
     /* For resolving links. */
     int unresolved_link_head;
     int unresolved_link_tail;
@@ -2734,16 +2732,23 @@ md_build_mark_char_map(MD_CTX* ctx)
     }
 }
 
+/* We limit code span marks to lower then 32 backticks. This solves the
+ * pathologic case of too many openers, each of different length: Their
+ * resolving would be then O(n^2). */
+#define CODESPAN_MARK_MAXLEN    32
+
 static int
 md_is_code_span(MD_CTX* ctx, OFF beg, OFF max_end,
                 OFF* p_opener_beg, OFF* p_opener_end,
-                OFF* p_closer_beg, OFF* p_closer_end)
+                OFF* p_closer_beg, OFF* p_closer_end,
+                OFF last_potential_closers[CODESPAN_MARK_MAXLEN],
+                int* p_reached_max_end)
 {
     OFF opener_beg = beg;
     OFF opener_end;
     OFF closer_beg;
     OFF closer_end;
-    unsigned potential_closer_mask = 0;
+    SZ mark_len;
 
     opener_end = opener_beg;
     while(opener_end < max_end  &&  CH(opener_end) == _T('`'))
@@ -2752,15 +2757,14 @@ md_is_code_span(MD_CTX* ctx, OFF beg, OFF max_end,
     /* The caller needs to know end of the opening mark even if we fail. */
     *p_opener_end = opener_end;
 
-    /* We limit code span marks to lower then 32 backticks. This solves the
-     * pathologic case of too many openers, each of different length: Their
-     * resolving would be then O(n^2). */
-    if(opener_end - opener_beg > 32)
+    mark_len = opener_end - opener_beg;
+    if(mark_len > CODESPAN_MARK_MAXLEN)
         return FALSE;
 
     /* Check whether we already know there is no closer of this length.
      * If so, re-scan does no sense. This fixes issue #59. */
-    if(ctx->codespan_deadend_mask & (1U << (opener_end - opener_beg - 1)))
+    if(last_potential_closers[mark_len-1] >= max_end  ||
+       (*p_reached_max_end  &&  last_potential_closers[mark_len-1] < opener_end))
         return FALSE;
 
     closer_beg = opener_end;
@@ -2775,15 +2779,16 @@ md_is_code_span(MD_CTX* ctx, OFF beg, OFF max_end,
         while(closer_end < max_end  &&  CH(closer_end) == _T('`'))
             closer_end++;
 
-        if(closer_end - closer_beg == opener_end - opener_beg)
+        if(closer_end - closer_beg == mark_len)
             break;
 
-        potential_closer_mask |= (1U << (closer_end - closer_beg - 1));
+        if(closer_end - closer_beg < CODESPAN_MARK_MAXLEN) {
+            if(closer_beg > last_potential_closers[closer_end - closer_beg - 1])
+                last_potential_closers[closer_end - closer_beg - 1] = closer_beg;
+        }
 
         if(closer_end >= max_end) {
-            /* We have reached end of the block. Lets remember what all lengths
-             * are not possible for the closer. */
-            ctx->codespan_deadend_mask |= ~potential_closer_mask;
+            *p_reached_max_end = TRUE;
             return FALSE;
         }
 
@@ -2914,8 +2919,8 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
     int i;
     int ret = 0;
     MD_MARK* mark;
-
-    ctx->codespan_deadend_mask = 0;  /* Context for md_is_code_span(). */
+    OFF codespan_last_potential_closers[CODESPAN_MARK_MAXLEN] = { 0 };
+    int codespan_scanned_till_end = FALSE;
 
     for(i = 0; i < n_lines; i++) {
         const MD_LINE* line = &lines[i];
@@ -3031,7 +3036,9 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                 int is_code_span;
 
                 is_code_span = md_is_code_span(ctx, off, lines[n_lines-1].end,
-                                    &opener_beg, &opener_end, &closer_beg, &closer_end);
+                                    &opener_beg, &opener_end, &closer_beg, &closer_end,
+                                    codespan_last_potential_closers,
+                                    &codespan_scanned_till_end);
                 if(is_code_span) {
                     PUSH_MARK(_T('`'), opener_beg, opener_end, MD_MARK_OPENER | MD_MARK_RESOLVED);
                     PUSH_MARK(_T('`'), closer_beg, closer_end, MD_MARK_CLOSER | MD_MARK_RESOLVED);
