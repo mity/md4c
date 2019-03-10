@@ -123,16 +123,15 @@ struct MD_CTX_tag {
 #endif
 
     /* For resolving of inline spans. */
-    MD_MARKCHAIN mark_chains[7];
+    MD_MARKCHAIN mark_chains[6];
 #define PTR_CHAIN               ctx->mark_chains[0]
 #define TABLECELLBOUNDARIES     ctx->mark_chains[1]
-#define LOWERTHEN_OPENERS       ctx->mark_chains[2]
-#define ASTERISK_OPENERS        ctx->mark_chains[3]
-#define UNDERSCORE_OPENERS      ctx->mark_chains[4]
-#define TILDE_OPENERS           ctx->mark_chains[5]
-#define BRACKET_OPENERS         ctx->mark_chains[6]
+#define ASTERISK_OPENERS        ctx->mark_chains[2]
+#define UNDERSCORE_OPENERS      ctx->mark_chains[3]
+#define TILDE_OPENERS           ctx->mark_chains[4]
+#define BRACKET_OPENERS         ctx->mark_chains[5]
 #define OPENERS_CHAIN_FIRST     2
-#define OPENERS_CHAIN_LAST      6
+#define OPENERS_CHAIN_LAST      5
 
     int n_table_cell_boundaries;
 
@@ -2660,7 +2659,6 @@ md_rollback(MD_CTX* ctx, int opener_index, int closer_index, int how)
                 switch(mark_opener->ch) {
                     case '*':   chain = &ASTERISK_OPENERS; break;
                     case '_':   chain = &UNDERSCORE_OPENERS; break;
-                    case '<':   chain = &LOWERTHEN_OPENERS; break;
                     case '~':   chain = &TILDE_OPENERS; break;
                     default:    MD_UNREACHABLE(); break;
                 }
@@ -2808,6 +2806,111 @@ md_is_code_span(MD_CTX* ctx, OFF beg, OFF max_end,
     *p_closer_beg = closer_beg;
     *p_closer_end = closer_end;
     return TRUE;
+}
+
+static int
+md_is_autolink_uri(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end)
+{
+    OFF off = beg+1;
+
+    MD_ASSERT(CH(beg) == _T('<'));
+
+    /* Check for scheme. */
+    if(off >= max_end  ||  !ISASCII(off))
+        return FALSE;
+    off++;
+    while(1) {
+        if(off >= max_end)
+            return FALSE;
+        if(off - beg > 32)
+            return FALSE;
+        if(CH(off) == _T(':')  &&  off - beg >= 3)
+            break;
+        if(!ISALNUM(off) && CH(off) != _T('+') && CH(off) != _T('-') && CH(off) != _T('.'))
+            return FALSE;
+        off++;
+    }
+
+    /* Check the path after the scheme. */
+    while(off < max_end  &&  CH(off) != _T('>')) {
+        if(ISWHITESPACE(off) || ISCNTRL(off) || CH(off) == _T('<'))
+            return FALSE;
+        off++;
+    }
+
+    if(off >= max_end)
+        return FALSE;
+
+    MD_ASSERT(CH(off) == _T('>'));
+    *p_end = off+1;
+    return TRUE;
+}
+
+static int
+md_is_autolink_email(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end)
+{
+    OFF off = beg + 1;
+    int label_len;
+
+    MD_ASSERT(CH(beg) == _T('<'));
+
+    /* The code should correspond to this regexp:
+            /^[a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+
+            @[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?
+            (?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/
+     */
+
+    /* Username (before '@'). */
+    while(off < max_end  &&  (ISALNUM(off) || ISANYOF(off, _T(".!#$%&'*+/=?^_`{|}~-"))))
+        off++;
+    if(off <= beg+1)
+        return FALSE;
+
+    /* '@' */
+    if(off >= max_end  ||  CH(off) != _T('@'))
+        return FALSE;
+    off++;
+
+    /* Labels delimited with '.'; each label is sequence of 1 - 62 alnum
+     * characters or '-', but '-' is not allowed as first or last char. */
+    label_len = 0;
+    while(off < max_end) {
+        if(ISALNUM(off))
+            label_len++;
+        else if(CH(off) == _T('-')  &&  label_len > 0)
+            label_len++;
+        else if(CH(off) == _T('.')  &&  label_len > 0  &&  CH(off-1) != _T('-'))
+            label_len = 0;
+        else
+            break;
+
+        if(label_len > 62)
+            return FALSE;
+
+        off++;
+    }
+
+    if(label_len <= 0  || off >= max_end  ||  CH(off) != _T('>') ||  CH(off-1) == _T('-'))
+        return FALSE;
+
+    *p_end = off+1;
+    return TRUE;
+}
+
+static int
+md_is_autolink(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end, int* p_missing_mailto)
+{
+    if(md_is_autolink_uri(ctx, beg, max_end, p_end)) {
+        *p_missing_mailto = FALSE;
+        return TRUE;
+    }
+
+    if(md_is_autolink_email(ctx, beg, max_end, p_end)) {
+        *p_missing_mailto = TRUE;
+        return TRUE;
+    }
+
+    return FALSE;
 }
 
 static int
@@ -2975,8 +3078,12 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
             }
 
             /* A potential autolink or raw HTML start/end. */
-            if(ch == _T('<') || ch == _T('>')) {
-                if(!(ctx->parser.flags & MD_FLAG_NOHTMLSPANS)  &&  ch == _T('<')) {
+            if(ch == _T('<')) {
+                int is_autolink;
+                OFF autolink_end;
+                int missing_mailto;
+
+                if(!(ctx->parser.flags & MD_FLAG_NOHTMLSPANS)) {
                     int is_html;
                     OFF html_end;
 
@@ -3002,7 +3109,19 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                     }
                 }
 
-                PUSH_MARK(ch, off, off+1, (ch == _T('<') ? MD_MARK_POTENTIAL_OPENER : MD_MARK_POTENTIAL_CLOSER));
+                is_autolink = md_is_autolink(ctx, off, lines[n_lines-1].end,
+                                    &autolink_end, &missing_mailto);
+                if(is_autolink) {
+                    PUSH_MARK((missing_mailto ? _T('@') : _T('<')), off, off+1,
+                                MD_MARK_OPENER | MD_MARK_RESOLVED | MD_MARK_AUTOLINK);
+                    PUSH_MARK(_T('>'), autolink_end-1, autolink_end,
+                                MD_MARK_CLOSER | MD_MARK_RESOLVED | MD_MARK_AUTOLINK);
+                    ctx->marks[ctx->n_marks-2].next = ctx->n_marks-1;
+                    ctx->marks[ctx->n_marks-1].prev = ctx->n_marks-2;
+                    off = autolink_end;
+                    continue;
+                }
+
                 off++;
                 continue;
             }
@@ -3141,138 +3260,6 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
 
 abort:
     return ret;
-}
-
-static int
-md_is_autolink_uri(MD_CTX* ctx, OFF beg, OFF end)
-{
-    OFF off = beg;
-
-    /* Check for scheme. */
-    if(off >= end  ||  !ISASCII(off))
-        return FALSE;
-    off++;
-    while(1) {
-        if(off >= end)
-            return FALSE;
-        if(off - beg > 32)
-            return FALSE;
-        if(CH(off) == _T(':')  &&  off - beg >= 2)
-            break;
-        if(!ISALNUM(off) && CH(off) != _T('+') && CH(off) != _T('-') && CH(off) != _T('.'))
-            return FALSE;
-        off++;
-    }
-
-    /* Check the path after the scheme. */
-    while(off < end) {
-        if(ISWHITESPACE(off) || ISCNTRL(off) || CH(off) == _T('<') || CH(off) == _T('>'))
-            return FALSE;
-        off++;
-    }
-
-    return TRUE;
-}
-
-static int
-md_is_autolink_email(MD_CTX* ctx, OFF beg, OFF end)
-{
-    OFF off = beg;
-    int label_len;
-
-    /* The code should correspond to this regexp:
-            /^[a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+
-            @[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?
-            (?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/
-     */
-
-    /* Username (before '@'). */
-    while(off < end  &&  (ISALNUM(off) || ISANYOF(off, _T(".!#$%&'*+/=?^_`{|}~-"))))
-        off++;
-    if(off <= beg)
-        return FALSE;
-
-    /* '@' */
-    if(off >= end  ||  CH(off) != _T('@'))
-        return FALSE;
-    off++;
-
-    /* Labels delimited with '.'; each label is sequence of 1 - 62 alnum
-     * characters or '-', but '-' is not allowed as first or last char. */
-    label_len = 0;
-    while(off < end) {
-        if(ISALNUM(off))
-            label_len++;
-        else if(CH(off) == _T('-')  &&  label_len > 0)
-            label_len++;
-        else if(CH(off) == _T('.')  &&  label_len > 0  &&  CH(off-1) != _T('-'))
-            label_len = 0;
-        else
-            return FALSE;
-
-        if(label_len > 63)
-            return FALSE;
-
-        off++;
-    }
-
-    if(label_len <= 0  ||  CH(off-1) == _T('-'))
-        return FALSE;
-
-    return TRUE;
-}
-
-static int
-md_is_autolink(MD_CTX* ctx, OFF beg, OFF end, int* p_missing_mailto)
-{
-    MD_ASSERT(CH(beg) == _T('<'));
-    MD_ASSERT(CH(end-1) == _T('>'));
-
-    beg++;
-    end--;
-
-    if(md_is_autolink_uri(ctx, beg, end))
-        return TRUE;
-
-    if(md_is_autolink_email(ctx, beg, end)) {
-        *p_missing_mailto = 1;
-        return TRUE;
-    }
-
-    return FALSE;
-}
-
-static void
-md_analyze_lt_gt(MD_CTX* ctx, int mark_index, const MD_LINE* lines, int n_lines)
-{
-    MD_MARK* mark = &ctx->marks[mark_index];
-    int opener_index;
-
-    /* If it is an opener ('<'), remember it. */
-    if(mark->flags & MD_MARK_POTENTIAL_OPENER) {
-        md_mark_chain_append(ctx, &LOWERTHEN_OPENERS, mark_index);
-        return;
-    }
-
-    /* Otherwise we are potential closer: Try the most recent opener to resolve
-     * an autolink. */
-    opener_index = LOWERTHEN_OPENERS.head;
-    if(opener_index >= 0) {
-        MD_MARK* opener = &ctx->marks[opener_index];
-        int is_missing_mailto = 0;
-
-        if(md_is_autolink(ctx, opener->beg, mark->end, &is_missing_mailto)) {
-            if(is_missing_mailto)
-                opener->ch = _T('@');
-
-            md_rollback(ctx, opener_index, mark_index, MD_ROLLBACK_ALL);
-            md_resolve_range(ctx, &LOWERTHEN_OPENERS, opener_index, mark_index);
-
-            /* Distinguish it from raw HTML spans. */
-            opener->flags |= MD_MARK_AUTOLINK;
-            mark->flags |= MD_MARK_AUTOLINK;
-        }
-    }
 }
 
 static void
@@ -3768,8 +3755,6 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
 
         /* Analyze the mark. */
         switch(mark->ch) {
-            case '<':   /* Pass through. */
-            case '>':   md_analyze_lt_gt(ctx, i, lines, n_lines); break;
             case '[':   /* Pass through. */
             case '!':   /* Pass through. */
             case ']':   md_analyze_bracket(ctx, i); break;
@@ -3801,9 +3786,7 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mod
 
     /* We analyze marks in few groups to handle their precedence. */
     /* (1) Entities; code spans; autolinks; raw HTML. */
-    md_analyze_marks(ctx, lines, n_lines, 0, ctx->n_marks, _T("&<>"));
-    LOWERTHEN_OPENERS.head = -1;
-    LOWERTHEN_OPENERS.tail = -1;
+    md_analyze_marks(ctx, lines, n_lines, 0, ctx->n_marks, _T("&"));
 
     if(table_mode) {
         /* (2) Analyze table cell boundaries.
