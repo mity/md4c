@@ -2893,9 +2893,33 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
 
             /* A potential autolink or raw HTML start/end. */
             if(ch == _T('<') || ch == _T('>')) {
-                if(!(ctx->parser.flags & MD_FLAG_NOHTMLSPANS))
-                    PUSH_MARK(ch, off, off+1, (ch == _T('<') ? MD_MARK_POTENTIAL_OPENER : MD_MARK_POTENTIAL_CLOSER));
+                if(!(ctx->parser.flags & MD_FLAG_NOHTMLSPANS)  &&  ch == _T('<')) {
+                    int is_html;
+                    OFF html_end;
 
+                    /* Given the nature of the raw HTML, we have to recognize
+                     * it here. Doing so later in md_analyze_lt_gt() could
+                     * open can of worms of quadratic complexity. */
+                    is_html = md_is_html_any(ctx, lines + i, n_lines - i, off, 
+                                    lines[n_lines-1].end, &html_end);
+                    if(is_html) {
+                        PUSH_MARK(_T('<'), off, off, MD_MARK_OPENER | MD_MARK_RESOLVED);
+                        PUSH_MARK(_T('>'), html_end, html_end, MD_MARK_CLOSER | MD_MARK_RESOLVED);
+                        ctx->marks[ctx->n_marks-2].next = ctx->n_marks-1;
+                        ctx->marks[ctx->n_marks-1].prev = ctx->n_marks-2;
+                        off = html_end;
+
+                        /* Advance the current line accordingly. */
+                        while(off > line_end) {
+                            i++;
+                            line++;
+                            line_end = line->end;
+                        }
+                        continue;
+                    }
+                }
+                
+                PUSH_MARK(ch, off, off+1, (ch == _T('<') ? MD_MARK_POTENTIAL_OPENER : MD_MARK_POTENTIAL_CLOSER));
                 off++;
                 continue;
             }
@@ -3203,61 +3227,24 @@ md_analyze_lt_gt(MD_CTX* ctx, int mark_index, const MD_LINE* lines, int n_lines)
         return;
     }
 
-    /* Otherwise we are potential closer and we try to resolve with since all
-     * the chained unresolved openers. */
+    /* Otherwise we are potential closer: Try the most recent opener to resolve
+     * an autolink. */
     opener_index = LOWERTHEN_OPENERS.head;
-    while(opener_index >= 0) {
+    if(opener_index >= 0) {
         MD_MARK* opener = &ctx->marks[opener_index];
-        OFF detected_end;
-        int is_autolink = 0;
         int is_missing_mailto = 0;
-        int is_raw_html = 0;
 
-        is_autolink = (md_is_autolink(ctx, opener->beg, mark->end, &is_missing_mailto));
-
-        if(is_autolink) {
+        if(md_is_autolink(ctx, opener->beg, mark->end, &is_missing_mailto)) {
             if(is_missing_mailto)
                 opener->ch = _T('@');
-        } else {
-            /* Identify the line where the opening mark lives. */
-            int line_index = 0;
-            while(1) {
-                if(opener->beg < lines[line_index].end)
-                    break;
-                line_index++;
-            }
 
-            is_raw_html = (md_is_html_any(ctx, lines + line_index,
-                    n_lines - line_index, opener->beg, mark->end, &detected_end));
-        }
-
-        /* Check whether the range forms a valid raw HTML. */
-        if(is_autolink || is_raw_html) {
             md_rollback(ctx, opener_index, mark_index, MD_ROLLBACK_ALL);
             md_resolve_range(ctx, &LOWERTHEN_OPENERS, opener_index, mark_index);
 
-            if(is_raw_html) {
-                /* If this fails, it means we have missed some earlier opportunity
-                 * to resolve the opener of raw HTML. */
-                MD_ASSERT(detected_end == mark->end);
-
-                /* Make these marks zero width so the '<' and '>' are part of its
-                 * contents. */
-                opener->end = opener->beg;
-                mark->beg = mark->end;
-
-                opener->flags &= ~MD_MARK_AUTOLINK;
-                mark->flags &= ~MD_MARK_AUTOLINK;
-            } else {
-                opener->flags |= MD_MARK_AUTOLINK;
-                mark->flags |= MD_MARK_AUTOLINK;
-            }
-
-            /* And we are done. */
-            return;
+            /* Distinguish it from raw HTML spans. */
+            opener->flags |= MD_MARK_AUTOLINK;
+            mark->flags |= MD_MARK_AUTOLINK;
         }
-
-        opener_index = opener->next;
     }
 }
 
