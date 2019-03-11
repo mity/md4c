@@ -77,7 +77,10 @@ pathological = {
                   re.compile("(``){50000}")),
     "many broken link titles":
                  (("[ (](" * 50000),
-                  re.compile("(\[ \(\]\(){50000}"))
+                  re.compile("(\[ \(\]\(){50000}")),
+    "broken thematic break":
+                 (("* " * 50000 + "a"),
+                  re.compile("<ul>\r?\n(<li><ul>\r?\n){49999}<li>a</li>\r?\n</ul>\r?\n(</li>\r?\n</ul>\r?\n){49999}"))
     }
 
 whitespace_re = re.compile('/s+/')

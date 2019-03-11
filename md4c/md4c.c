@@ -4799,7 +4799,7 @@ abort:
  ***********************/
 
 static int
-md_is_hr_line(MD_CTX* ctx, OFF beg, OFF* p_end)
+md_is_hr_line(MD_CTX* ctx, OFF beg, OFF* p_end, OFF* p_killer)
 {
     OFF off = beg + 1;
     int n = 1;
@@ -4810,12 +4810,16 @@ md_is_hr_line(MD_CTX* ctx, OFF beg, OFF* p_end)
         off++;
     }
 
-    if(n < 3)
+    if(n < 3) {
+        *p_killer = off;
         return FALSE;
+    }
 
     /* Nothing else can be present on the line. */
-    if(off < ctx->size  &&  !ISNEWLINE(off))
+    if(off < ctx->size  &&  !ISNEWLINE(off)) {
+        *p_killer = off;
         return FALSE;
+    }
 
     *p_end = off;
     return TRUE;
@@ -5395,6 +5399,7 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
     MD_CONTAINER container = { 0 };
     int prev_line_has_list_loosening_effect = ctx->last_line_has_list_loosening_effect;
     OFF off = beg;
+    OFF hr_killer = 0;
     int ret = 0;
 
     line->indent = md_line_indentation(ctx, total_indent, off, &off);
@@ -5570,8 +5575,8 @@ redo:
     }
 
     /* Check for thematic break line. */
-    if(line->indent < ctx->code_indent_offset  &&  ISANYOF(off, _T("-_*"))) {
-        if(md_is_hr_line(ctx, off, &off)) {
+    if(line->indent < ctx->code_indent_offset  &&  ISANYOF(off, _T("-_*"))  &&  off >= hr_killer) {
+        if(md_is_hr_line(ctx, off, &off, &hr_killer)) {
             line->type = MD_LINE_HR;
             goto done;
         }

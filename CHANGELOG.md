@@ -9,7 +9,10 @@ Fixes:
  * Fixed some quadratic behaviors:
    [#58](https://github.com/mity/md4c/issues/58),
    [#59](https://github.com/mity/md4c/issues/59),
-   [#60](https://github.com/mity/md4c/issues/60)
+   [#60](https://github.com/mity/md4c/issues/60),
+   [#66](https://github.com/mity/md4c/issues/66)
+
+   Thanks to Anders Kaseorg for finding all those issues.
 
  * [#61](https://github.com/mity/md4c/issues/59): Flag `MD_FLAG_NOHTMLSPANS`
    erroneously affected also recognition of CommonMark autolinks.
