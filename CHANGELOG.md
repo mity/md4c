@@ -8,7 +8,8 @@ Fixes:
 
  * Fixed some quadratic behaviors:
    [#58](https://github.com/mity/md4c/issues/58),
-   [#59](https://github.com/mity/md4c/issues/59)
+   [#59](https://github.com/mity/md4c/issues/59),
+   [#60](https://github.com/mity/md4c/issues/60)
 
  * [#61](https://github.com/mity/md4c/issues/59): Flag `MD_FLAG_NOHTMLSPANS`
    erroneously affected also recognition of CommonMark autolinks.

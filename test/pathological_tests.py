@@ -74,7 +74,10 @@ pathological = {
                   re.compile("(&lt;&gt;){50000}")),
     "many backticks and escapes":
                  (("\\``" * 50000),
-                  re.compile("(``){50000}"))
+                  re.compile("(``){50000}")),
+    "many broken link titles":
+                 (("[ (](" * 50000),
+                  re.compile("(\[ \(\]\(){50000}"))
     }
 
 whitespace_re = re.compile('/s+/')

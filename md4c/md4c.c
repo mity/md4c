@@ -2058,6 +2058,9 @@ md_is_link_title(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
                 *p_end = off+1;
                 *p_end_line_index = line_index;
                 return TRUE;
+            } else if(closer_char == _T(')')  &&  CH(off) == _T('(')) {
+                /* ()-style title cannot contain (unescaped '(')) */
+                return FALSE;
             }
 
             off++;
