@@ -2785,7 +2785,7 @@ md_is_code_span(MD_CTX* ctx, OFF beg, OFF max_end,
         if(closer_end - closer_beg == mark_len)
             break;
 
-        if(closer_end - closer_beg < CODESPAN_MARK_MAXLEN) {
+        if(closer_end - closer_beg > 0  &&  closer_end - closer_beg < CODESPAN_MARK_MAXLEN) {
             if(closer_beg > last_potential_closers[closer_end - closer_beg - 1])
                 last_potential_closers[closer_end - closer_beg - 1] = closer_beg;
         }
