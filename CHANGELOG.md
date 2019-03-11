@@ -2,6 +2,18 @@
 # MD4C Change Log
 
 
+## Next Version (Work in Progress)
+
+Fixes:
+
+ * Fixed some quadratic behaviors:
+   [#58](https://github.com/mity/md4c/issues/58),
+   [#59](https://github.com/mity/md4c/issues/59)
+
+ * [#61](https://github.com/mity/md4c/issues/59): Flag `MD_FLAG_NOHTMLSPANS`
+   erroneously affected also recognition of CommonMark autolinks.
+
+
 ## Version 0.3.0
 
 New features:
