@@ -30,6 +30,9 @@ pathological = {
     "many emph openers with no closers":
                  (("_a " * 65000),
                   re.compile("(_a ){64999}_a")),
+    "many 3-emph openers with no closers":
+                 (("a***" * 65000),
+                  re.compile("(a[*][*][*]){65000}")),
     "many link closers with no openers":
                  (("a]" * 65000),
                   re.compile("(a\]){65000}")),

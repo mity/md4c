@@ -123,15 +123,20 @@ struct MD_CTX_tag {
 #endif
 
     /* For resolving of inline spans. */
-    MD_MARKCHAIN mark_chains[6];
-#define PTR_CHAIN               ctx->mark_chains[0]
-#define TABLECELLBOUNDARIES     ctx->mark_chains[1]
-#define ASTERISK_OPENERS        ctx->mark_chains[2]
-#define UNDERSCORE_OPENERS      ctx->mark_chains[3]
-#define TILDE_OPENERS           ctx->mark_chains[4]
-#define BRACKET_OPENERS         ctx->mark_chains[5]
-#define OPENERS_CHAIN_FIRST     2
-#define OPENERS_CHAIN_LAST      5
+    MD_MARKCHAIN mark_chains[11];
+#define PTR_CHAIN                               ctx->mark_chains[0]
+#define TABLECELLBOUNDARIES                     ctx->mark_chains[1]
+#define ASTERISK_OPENERS_extraword_mod3_0       ctx->mark_chains[2]
+#define ASTERISK_OPENERS_extraword_mod3_1       ctx->mark_chains[3]
+#define ASTERISK_OPENERS_extraword_mod3_2       ctx->mark_chains[4]
+#define ASTERISK_OPENERS_intraword_mod3_0       ctx->mark_chains[5]
+#define ASTERISK_OPENERS_intraword_mod3_1       ctx->mark_chains[6]
+#define ASTERISK_OPENERS_intraword_mod3_2       ctx->mark_chains[7]
+#define UNDERSCORE_OPENERS                      ctx->mark_chains[8]
+#define TILDE_OPENERS                           ctx->mark_chains[9]
+#define BRACKET_OPENERS                         ctx->mark_chains[10]
+#define OPENERS_CHAIN_FIRST                     2
+#define OPENERS_CHAIN_LAST                      10
 
     int n_table_cell_boundaries;
 
@@ -2493,13 +2498,41 @@ struct MD_MARK_tag {
 
 /* Mark flags specific for various mark types (so they can share bits). */
 #define MD_MARK_EMPH_INTRAWORD              0x20  /* Helper for the "rule of 3". */
-#define MD_MARK_EMPH_MODULO3_0              0x40
-#define MD_MARK_EMPH_MODULO3_1              0x80
-#define MD_MARK_EMPH_MODULO3_2              (0x40 | 0x80)
-#define MD_MARK_EMPH_MODULO3_MASK           (0x40 | 0x80)
+#define MD_MARK_EMPH_MOD3_0                 0x40
+#define MD_MARK_EMPH_MOD3_1                 0x80
+#define MD_MARK_EMPH_MOD3_2                 (0x40 | 0x80)
+#define MD_MARK_EMPH_MOD3_MASK              (0x40 | 0x80)
 #define MD_MARK_AUTOLINK                    0x20  /* Distinguisher for '<', '>'. */
 #define MD_MARK_VALIDPERMISSIVEAUTOLINK     0x20  /* For permissive autolinks. */
 
+static MD_MARKCHAIN*
+md_asterisk_chain(MD_CTX* ctx, unsigned flags)
+{
+    switch(flags & (MD_MARK_EMPH_INTRAWORD | MD_MARK_EMPH_MOD3_MASK)) {
+        case MD_MARK_EMPH_INTRAWORD | MD_MARK_EMPH_MOD3_0:  return &ASTERISK_OPENERS_intraword_mod3_0;
+        case MD_MARK_EMPH_INTRAWORD | MD_MARK_EMPH_MOD3_1:  return &ASTERISK_OPENERS_intraword_mod3_1;
+        case MD_MARK_EMPH_INTRAWORD | MD_MARK_EMPH_MOD3_2:  return &ASTERISK_OPENERS_intraword_mod3_2;
+        case MD_MARK_EMPH_MOD3_0:                           return &ASTERISK_OPENERS_extraword_mod3_0;
+        case MD_MARK_EMPH_MOD3_1:                           return &ASTERISK_OPENERS_extraword_mod3_1;
+        case MD_MARK_EMPH_MOD3_2:                           return &ASTERISK_OPENERS_extraword_mod3_2;
+        default:                                            MD_UNREACHABLE();
+    }
+}
+
+static MD_MARKCHAIN*
+md_mark_chain(MD_CTX* ctx, int mark_index)
+{
+    MD_MARK* mark = &ctx->marks[mark_index];
+
+    switch(mark->ch) {
+        case _T('*'):   return md_asterisk_chain(ctx, mark->flags);
+        case _T('_'):   return &UNDERSCORE_OPENERS;
+        case _T('~'):   return &TILDE_OPENERS;
+        case _T('['):   return &BRACKET_OPENERS;
+        case _T('|'):   return &TABLECELLBOUNDARIES;
+        default:        return NULL;
+    }
+}
 
 static MD_MARK*
 md_push_mark(MD_CTX* ctx)
@@ -2658,16 +2691,11 @@ md_rollback(MD_CTX* ctx, int opener_index, int closer_index, int how)
                 MD_MARKCHAIN* chain;
 
                 mark_opener->flags &= ~(MD_MARK_OPENER | MD_MARK_CLOSER | MD_MARK_RESOLVED);
-
-                switch(mark_opener->ch) {
-                    case '*':   chain = &ASTERISK_OPENERS; break;
-                    case '_':   chain = &UNDERSCORE_OPENERS; break;
-                    case '~':   chain = &TILDE_OPENERS; break;
-                    default:    MD_UNREACHABLE(); break;
+                chain = md_mark_chain(ctx, opener_index);
+                if(chain != NULL) {
+                    md_mark_chain_append(ctx, chain, mark_opener_index);
+                    discard_flag = 1;
                 }
-                md_mark_chain_append(ctx, chain, mark_opener_index);
-
-                discard_flag = 1;
             }
         }
 
@@ -3009,9 +3037,9 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                      * split the mark when being later resolved partially by some
                      * shorter closer. */
                     switch((tmp - off) % 3) {
-                        case 0: flags |= MD_MARK_EMPH_MODULO3_0; break;
-                        case 1: flags |= MD_MARK_EMPH_MODULO3_1; break;
-                        case 2: flags |= MD_MARK_EMPH_MODULO3_2; break;
+                        case 0: flags |= MD_MARK_EMPH_MOD3_0; break;
+                        case 1: flags |= MD_MARK_EMPH_MOD3_1; break;
+                        case 2: flags |= MD_MARK_EMPH_MOD3_2; break;
                     }
 
                     PUSH_MARK(ch, off, tmp, flags);
@@ -3504,7 +3532,7 @@ md_analyze_table_cell_boundary(MD_CTX* ctx, int mark_index)
  * follows.
  */
 static int
-md_split_simple_pairing_mark(MD_CTX* ctx, int mark_index, SZ n)
+md_split_emph_mark(MD_CTX* ctx, int mark_index, SZ n)
 {
     MD_MARK* mark = &ctx->marks[mark_index];
     int new_mark_index = mark_index + (mark->end - mark->beg - n);
@@ -3521,8 +3549,82 @@ md_split_simple_pairing_mark(MD_CTX* ctx, int mark_index, SZ n)
 }
 
 static void
-md_analyze_simple_pairing_mark(MD_CTX* ctx, MD_MARKCHAIN* chain, int mark_index,
-                               int apply_rule_of_three)
+md_analyze_emph(MD_CTX* ctx, int mark_index)
+{
+    MD_MARK* mark = &ctx->marks[mark_index];
+    MD_MARKCHAIN* chain = md_mark_chain(ctx, mark_index);
+
+    /* If we can be a closer, try to resolve with the preceding opener. */
+    if(mark->flags & MD_MARK_POTENTIAL_CLOSER) {
+        MD_MARK* opener = NULL;
+        int opener_index;
+
+        if(mark->ch == _T('*')) {
+            MD_MARKCHAIN* opener_chains[6];
+            int i, n_opener_chains;
+            unsigned flags = mark->flags;
+
+            /* Apply "rule of three". (This is why we break asterisk opener
+             * marks into multiple chains.) */
+            n_opener_chains = 0;
+            if((flags & MD_MARK_EMPH_MOD3_MASK) != MD_MARK_EMPH_MOD3_0)
+                opener_chains[n_opener_chains++] = &ASTERISK_OPENERS_intraword_mod3_0;
+            if((flags & MD_MARK_EMPH_MOD3_MASK) != MD_MARK_EMPH_MOD3_2)
+                opener_chains[n_opener_chains++] = &ASTERISK_OPENERS_intraword_mod3_1;
+            if((flags & MD_MARK_EMPH_MOD3_MASK) != MD_MARK_EMPH_MOD3_1)
+                opener_chains[n_opener_chains++] = &ASTERISK_OPENERS_intraword_mod3_2;
+            if(!(flags & MD_MARK_EMPH_INTRAWORD)  ||  (flags & MD_MARK_EMPH_MOD3_MASK) != MD_MARK_EMPH_MOD3_0)
+                opener_chains[n_opener_chains++] = &ASTERISK_OPENERS_extraword_mod3_0;
+            if(!(flags & MD_MARK_EMPH_INTRAWORD)  ||  (flags & MD_MARK_EMPH_MOD3_MASK) != MD_MARK_EMPH_MOD3_2)
+                opener_chains[n_opener_chains++] = &ASTERISK_OPENERS_extraword_mod3_1;
+            if(!(flags & MD_MARK_EMPH_INTRAWORD)  ||  (flags & MD_MARK_EMPH_MOD3_MASK) != MD_MARK_EMPH_MOD3_1)
+                opener_chains[n_opener_chains++] = &ASTERISK_OPENERS_extraword_mod3_2;
+
+            /* Opener is the most recent mark from the allowed chains. */
+            for(i = 0; i < n_opener_chains; i++) {
+                if(opener_chains[i]->tail >= 0) {
+                    int tmp_index = opener_chains[i]->tail;
+                    MD_MARK* tmp_mark = &ctx->marks[tmp_index];
+                    if(opener == NULL  ||  tmp_mark->end > opener->end) {
+                        opener_index = tmp_index;
+                        opener = tmp_mark;
+                    }
+                }
+            }
+        } else {
+            /* Simple emph. mark */
+            if(chain->tail >= 0) {
+                opener_index = chain->tail;
+                opener = &ctx->marks[opener_index];
+            }
+        }
+
+        /* Resolve, if we have found matching opener. */
+        if(opener != NULL) {
+            SZ opener_size = opener->end - opener->beg;
+            SZ closer_size = mark->end - mark->beg;
+
+            if(opener_size > closer_size) {
+                opener_index = md_split_emph_mark(ctx, opener_index, closer_size);
+                md_mark_chain_append(ctx, md_mark_chain(ctx, opener_index), opener_index);
+            } else if(opener_size < closer_size) {
+                md_split_emph_mark(ctx, mark_index, closer_size - opener_size);
+            }
+
+            md_rollback(ctx, opener_index, mark_index, MD_ROLLBACK_CROSSING);
+            md_resolve_range(ctx, chain, opener_index, mark_index);
+            return;
+        }
+    }
+
+    /* If we could not resolve as closer, we may be yet be an opener. */
+    if(mark->flags & MD_MARK_POTENTIAL_OPENER)
+        md_mark_chain_append(ctx, chain, mark_index);
+}
+
+#if 0
+static void
+md_analyze_emph(MD_CTX* ctx, MD_MARKCHAIN* chains, int n_chains, int mark_index)
 {
     MD_MARK* mark = &ctx->marks[mark_index];
 
@@ -3538,10 +3640,10 @@ md_analyze_simple_pairing_mark(MD_CTX* ctx, MD_MARKCHAIN* chain, int mark_index,
             while((mark->flags & MD_MARK_EMPH_INTRAWORD) || (opener->flags & MD_MARK_EMPH_INTRAWORD)) {
                 SZ opener_orig_size_modulo3;
 
-                switch(opener->flags & MD_MARK_EMPH_MODULO3_MASK) {
-                    case MD_MARK_EMPH_MODULO3_0:    opener_orig_size_modulo3 = 0; break;
-                    case MD_MARK_EMPH_MODULO3_1:    opener_orig_size_modulo3 = 1; break;
-                    case MD_MARK_EMPH_MODULO3_2:    opener_orig_size_modulo3 = 2; break;
+                switch(opener->flags & MD_MARK_EMPH_MOD3_MASK) {
+                    case MD_MARK_EMPH_MOD3_0:    opener_orig_size_modulo3 = 0; break;
+                    case MD_MARK_EMPH_MOD3_1:    opener_orig_size_modulo3 = 1; break;
+                    case MD_MARK_EMPH_MOD3_2:    opener_orig_size_modulo3 = 2; break;
                     default:                        MD_UNREACHABLE(); break;
                 }
 
@@ -3564,10 +3666,10 @@ md_analyze_simple_pairing_mark(MD_CTX* ctx, MD_MARKCHAIN* chain, int mark_index,
         }
 
         if(opener_size > closer_size) {
-            opener_index = md_split_simple_pairing_mark(ctx, opener_index, closer_size);
+            opener_index = md_split_emph_mark(ctx, opener_index, closer_size);
             md_mark_chain_append(ctx, chain, opener_index);
         } else if(opener_size < closer_size) {
-            md_split_simple_pairing_mark(ctx, mark_index, closer_size - opener_size);
+            md_split_emph_mark(ctx, mark_index, closer_size - opener_size);
         }
 
         md_rollback(ctx, opener_index, mark_index, MD_ROLLBACK_CROSSING);
@@ -3581,18 +3683,7 @@ cannot_resolve:
     if(mark->flags & MD_MARK_POTENTIAL_OPENER)
         md_mark_chain_append(ctx, chain, mark_index);
 }
-
-static inline void
-md_analyze_asterisk(MD_CTX* ctx, int mark_index)
-{
-    md_analyze_simple_pairing_mark(ctx, &ASTERISK_OPENERS, mark_index, 1);
-}
-
-static inline void
-md_analyze_underscore(MD_CTX* ctx, int mark_index)
-{
-    md_analyze_simple_pairing_mark(ctx, &UNDERSCORE_OPENERS, mark_index, 1);
-}
+#endif
 
 static void
 md_analyze_tilde(MD_CTX* ctx, int mark_index)
@@ -3763,8 +3854,8 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
             case ']':   md_analyze_bracket(ctx, i); break;
             case '&':   md_analyze_entity(ctx, i); break;
             case '|':   md_analyze_table_cell_boundary(ctx, i); break;
-            case '*':   md_analyze_asterisk(ctx, i); break;
-            case '_':   md_analyze_underscore(ctx, i); break;
+            case '_':   /* Pass through. */
+            case '*':   md_analyze_emph(ctx, i); break;
             case '~':   md_analyze_tilde(ctx, i); break;
             case '.':   /* Pass through. */
             case ':':   md_analyze_permissive_url_autolink(ctx, i); break;
@@ -3823,8 +3914,18 @@ md_analyze_link_contents(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
                          int mark_beg, int mark_end)
 {
     md_analyze_marks(ctx, lines, n_lines, mark_beg, mark_end, _T("*_~@:."));
-    ASTERISK_OPENERS.head = -1;
-    ASTERISK_OPENERS.tail = -1;
+    ASTERISK_OPENERS_extraword_mod3_0.head = -1;
+    ASTERISK_OPENERS_extraword_mod3_0.tail = -1;
+    ASTERISK_OPENERS_extraword_mod3_1.head = -1;
+    ASTERISK_OPENERS_extraword_mod3_1.tail = -1;
+    ASTERISK_OPENERS_extraword_mod3_2.head = -1;
+    ASTERISK_OPENERS_extraword_mod3_2.tail = -1;
+    ASTERISK_OPENERS_intraword_mod3_0.head = -1;
+    ASTERISK_OPENERS_intraword_mod3_0.tail = -1;
+    ASTERISK_OPENERS_intraword_mod3_1.head = -1;
+    ASTERISK_OPENERS_intraword_mod3_1.tail = -1;
+    ASTERISK_OPENERS_intraword_mod3_2.head = -1;
+    ASTERISK_OPENERS_intraword_mod3_2.tail = -1;
     UNDERSCORE_OPENERS.head = -1;
     UNDERSCORE_OPENERS.tail = -1;
     TILDE_OPENERS.head = -1;
