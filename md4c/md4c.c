@@ -4959,9 +4959,6 @@ md_is_setext_underline(MD_CTX* ctx, OFF beg, OFF* p_end, unsigned* p_level)
     while(off < ctx->size  &&  CH(off) == CH(beg))
         off++;
 
-    while(off < ctx->size  && CH(off) == _T(' '))
-        off++;
-
     /* Optionally, space(s) can follow. */
     while(off < ctx->size  &&  CH(off) == _T(' '))
         off++;
