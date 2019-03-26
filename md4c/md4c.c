@@ -3580,14 +3580,12 @@ md_analyze_emph(MD_CTX* ctx, int mark_index)
             /* Apply "rule of three". (This is why we break asterisk opener
              * marks into multiple chains.) */
             n_opener_chains = 0;
-            if((flags & MD_MARK_EMPH_MOD3_MASK) != MD_MARK_EMPH_MOD3_0)
-                opener_chains[n_opener_chains++] = &ASTERISK_OPENERS_intraword_mod3_0;
+            opener_chains[n_opener_chains++] = &ASTERISK_OPENERS_intraword_mod3_0;
             if((flags & MD_MARK_EMPH_MOD3_MASK) != MD_MARK_EMPH_MOD3_2)
                 opener_chains[n_opener_chains++] = &ASTERISK_OPENERS_intraword_mod3_1;
             if((flags & MD_MARK_EMPH_MOD3_MASK) != MD_MARK_EMPH_MOD3_1)
                 opener_chains[n_opener_chains++] = &ASTERISK_OPENERS_intraword_mod3_2;
-            if(!(flags & MD_MARK_EMPH_INTRAWORD)  ||  (flags & MD_MARK_EMPH_MOD3_MASK) != MD_MARK_EMPH_MOD3_0)
-                opener_chains[n_opener_chains++] = &ASTERISK_OPENERS_extraword_mod3_0;
+            opener_chains[n_opener_chains++] = &ASTERISK_OPENERS_extraword_mod3_0;
             if(!(flags & MD_MARK_EMPH_INTRAWORD)  ||  (flags & MD_MARK_EMPH_MOD3_MASK) != MD_MARK_EMPH_MOD3_2)
                 opener_chains[n_opener_chains++] = &ASTERISK_OPENERS_extraword_mod3_1;
             if(!(flags & MD_MARK_EMPH_INTRAWORD)  ||  (flags & MD_MARK_EMPH_MOD3_MASK) != MD_MARK_EMPH_MOD3_1)
