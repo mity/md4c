@@ -2028,7 +2028,7 @@ md_is_link_title(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
     CHAR closer_char;
     int line_index = 0;
 
-    /* Optional white space with up to one line break. */
+    /* White space with up to one line break. */
     while(off < lines[line_index].end  &&  ISWHITESPACE(off))
         off++;
     if(off >= lines[line_index].end) {
@@ -2037,6 +2037,8 @@ md_is_link_title(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
             return FALSE;
         off = lines[line_index].beg;
     }
+    if(off == beg)
+        return FALSE;
 
     *p_beg_line_index = line_index;
 
