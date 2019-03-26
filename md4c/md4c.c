@@ -3622,69 +3622,6 @@ md_analyze_emph(MD_CTX* ctx, int mark_index)
         md_mark_chain_append(ctx, chain, mark_index);
 }
 
-#if 0
-static void
-md_analyze_emph(MD_CTX* ctx, MD_MARKCHAIN* chains, int n_chains, int mark_index)
-{
-    MD_MARK* mark = &ctx->marks[mark_index];
-
-    /* If we can be a closer, try to resolve with the preceding opener. */
-    if((mark->flags & MD_MARK_POTENTIAL_CLOSER)  &&  chain->tail >= 0) {
-        int opener_index = chain->tail;
-        MD_MARK* opener = &ctx->marks[opener_index];
-        SZ opener_size = opener->end - opener->beg;
-        SZ closer_size = mark->end - mark->beg;
-
-        /* Apply the "rule of three". */
-        if(apply_rule_of_three) {
-            while((mark->flags & MD_MARK_EMPH_INTRAWORD) || (opener->flags & MD_MARK_EMPH_INTRAWORD)) {
-                SZ opener_orig_size_modulo3;
-
-                switch(opener->flags & MD_MARK_EMPH_MOD3_MASK) {
-                    case MD_MARK_EMPH_MOD3_0:    opener_orig_size_modulo3 = 0; break;
-                    case MD_MARK_EMPH_MOD3_1:    opener_orig_size_modulo3 = 1; break;
-                    case MD_MARK_EMPH_MOD3_2:    opener_orig_size_modulo3 = 2; break;
-                    default:                        MD_UNREACHABLE(); break;
-                }
-
-                if((opener_orig_size_modulo3 + closer_size) % 3 != 0) {
-                    /* This opener is suitable. */
-                    break;
-                }
-
-                if(opener->prev >= 0) {
-                    /* Try previous opener. */
-                    opener_index = opener->prev;
-                    opener = &ctx->marks[opener_index];
-                    opener_size = opener->end - opener->beg;
-                    closer_size = mark->end - mark->beg;
-                } else {
-                    /* No suitable opener found. */
-                    goto cannot_resolve;
-                }
-            }
-        }
-
-        if(opener_size > closer_size) {
-            opener_index = md_split_emph_mark(ctx, opener_index, closer_size);
-            md_mark_chain_append(ctx, chain, opener_index);
-        } else if(opener_size < closer_size) {
-            md_split_emph_mark(ctx, mark_index, closer_size - opener_size);
-        }
-
-        md_rollback(ctx, opener_index, mark_index, MD_ROLLBACK_CROSSING);
-        md_resolve_range(ctx, chain, opener_index, mark_index);
-        return;
-    }
-
-cannot_resolve:
-    /* If not resolved, and we can be an opener, remember the mark for
-     * the future. */
-    if(mark->flags & MD_MARK_POTENTIAL_OPENER)
-        md_mark_chain_append(ctx, chain, mark_index);
-}
-#endif
-
 static void
 md_analyze_tilde(MD_CTX* ctx, int mark_index)
 {
