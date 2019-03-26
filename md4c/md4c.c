@@ -5048,11 +5048,13 @@ md_is_opening_code_fence(MD_CTX* ctx, OFF beg, OFF* p_end)
     while(off < ctx->size  &&  CH(off) == _T(' '))
         off++;
 
-    /* Optionally, an info string can follow. It must not contain '`'. */
-    while(off < ctx->size  &&  CH(off) != _T('`')  &&  !ISNEWLINE(off))
+    /* Optionally, an info string can follow. */
+    while(off < ctx->size  &&  !ISNEWLINE(off)) {
+        /* Backtick-based fence must not contain '`' in the info string. */
+        if(CH(beg) == _T('`')  &&  CH(off) == _T('`'))
+            return FALSE;
         off++;
-    if(off < ctx->size  &&  !ISNEWLINE(off))
-        return FALSE;
+    }
 
     *p_end = off;
     return TRUE;
