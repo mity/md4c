@@ -2826,11 +2826,22 @@ md_is_code_span(MD_CTX* ctx, OFF beg, OFF max_end,
         closer_beg = closer_end;
     }
 
-    /* Eat any space on the inner side if the marks. */
-    while(CH(opener_end) == _T(' ') || ISNEWLINE(opener_end))
-        opener_end++;
-    while(closer_beg > opener_end  &&  (CH(closer_beg-1) == _T(' ') || ISNEWLINE(closer_beg-1)))
-        closer_beg--;
+    /* If there is a space ore new line both after and before the opener,
+     * consume it. It may be tricky as the new line may be digraph "\r\n". */
+    if((CH(opener_end) == _T(' ') || ISNEWLINE(opener_end))  &&
+       (CH(closer_beg-1) == _T(' ') || ISNEWLINE(closer_beg-1))) {
+        if(CH(opener_end) == _T('\r')  &&  CH(opener_end+1) == _T('\n'))
+            opener_end += 2;
+        else
+            opener_end += 1;
+
+        if(closer_beg > opener_end) {
+            if(CH(closer_beg-2) == _T('\r')  &&  CH(closer_beg-1) == _T('\n'))
+                closer_beg -= 2;
+            else
+                closer_beg -= 1;
+        }
+    }
 
     *p_opener_beg = opener_beg;
     *p_opener_end = opener_end;
