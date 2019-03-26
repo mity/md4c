@@ -1960,7 +1960,7 @@ md_is_link_destination_A(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end,
             continue;
         }
 
-        if(ISWHITESPACE(off)  ||  CH(off) == _T('<'))
+        if(ISNEWLINE(off)  ||  CH(off) == _T('<'))
             return FALSE;
 
         if(CH(off) == _T('>')) {
