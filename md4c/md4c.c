@@ -2019,6 +2019,14 @@ md_is_link_destination_B(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end,
     return TRUE;
 }
 
+static inline int
+md_is_link_destination(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end,
+                       OFF* p_contents_beg, OFF* p_contents_end)
+{
+    return (md_is_link_destination_A(ctx, beg, max_end, p_end, p_contents_beg, p_contents_end)  ||
+            md_is_link_destination_B(ctx, beg, max_end, p_end, p_contents_beg, p_contents_end));
+}
+
 static int
 md_is_link_title(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
                  OFF* p_end, int* p_beg_line_index, int* p_end_line_index,
@@ -2088,9 +2096,7 @@ md_is_link_title(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
  * Returns -1 in case of an error (out of memory).
  */
 static int
-md_is_link_reference_definition_helper(
-            MD_CTX* ctx, const MD_LINE* lines, int n_lines,
-            int (*is_link_dest_fn)(MD_CTX*, OFF, OFF, OFF*, OFF*, OFF*))
+md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 {
     OFF label_contents_beg;
     OFF label_contents_end;
@@ -2134,8 +2140,8 @@ md_is_link_reference_definition_helper(
     }
 
     /* Link destination. */
-    if(!is_link_dest_fn(ctx, off, lines[line_index].end,
-                        &off, &dest_contents_beg, &dest_contents_end))
+    if(!md_is_link_destination(ctx, off, lines[line_index].end,
+                &off, &dest_contents_beg, &dest_contents_end))
         return FALSE;
 
     /* (Optional) title. Note we interpret it as an title only if nothing
@@ -2221,16 +2227,6 @@ abort:
     return -1;
 }
 
-static inline int
-md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
-{
-    int ret;
-    ret = md_is_link_reference_definition_helper(ctx, lines, n_lines, md_is_link_destination_A);
-    if(ret == 0)
-        ret = md_is_link_reference_definition_helper(ctx, lines, n_lines, md_is_link_destination_B);
-    return ret;
-}
-
 static int
 md_is_link_reference(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
                      OFF beg, OFF end, MD_LINK_ATTR* attr)
@@ -2286,9 +2282,8 @@ abort:
 }
 
 static int
-md_is_inline_link_spec_helper(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
-                              OFF beg, OFF* p_end, MD_LINK_ATTR* attr,
-                              int (*is_link_dest_fn)(MD_CTX*, OFF, OFF, OFF*, OFF*, OFF*))
+md_is_inline_link_spec(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
+                       OFF beg, OFF* p_end, MD_LINK_ATTR* attr)
 {
     int line_index = 0;
     int tmp_line_index;
@@ -2328,7 +2323,7 @@ md_is_inline_link_spec_helper(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
     }
 
     /* Link destination. */
-    if(!is_link_dest_fn(ctx, off, lines[line_index].end,
+    if(!md_is_link_destination(ctx, off, lines[line_index].end,
                         &off, &attr->dest_beg, &attr->dest_end))
         return FALSE;
 
@@ -2381,14 +2376,6 @@ md_is_inline_link_spec_helper(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
 
 abort:
     return ret;
-}
-
-static inline int
-md_is_inline_link_spec(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
-                       OFF beg, OFF* p_end, MD_LINK_ATTR* attr)
-{
-    return md_is_inline_link_spec_helper(ctx, lines, n_lines, beg, p_end, attr, md_is_link_destination_A) ||
-           md_is_inline_link_spec_helper(ctx, lines, n_lines, beg, p_end, attr, md_is_link_destination_B);
 }
 
 static void
