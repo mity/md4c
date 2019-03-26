@@ -2,6 +2,14 @@
 # MD4C Change Log
 
 
+## Next Version (Work in Progress)
+
+Fixes:
+ * [#68](https://github.com/mity/md4c/issues/68):
+   Some specific HTML blocks were not recognized when EOF follows without any
+   end-of-line character.
+
+
 ## Version 0.3.1
 
 Fixes:

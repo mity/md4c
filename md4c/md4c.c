@@ -5076,7 +5076,7 @@ md_is_html_block_start_condition(MD_CTX* ctx, OFF beg)
 
     /* Check for type 1: <script, <pre, or <style */
     for(i = 0; t1[i].name != NULL; i++) {
-        if(off + t1[i].len < ctx->size) {
+        if(off + t1[i].len <= ctx->size) {
             if(md_ascii_case_eq(STR(off), t1[i].name, t1[i].len))
                 return 1;
         }
