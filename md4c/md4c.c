@@ -3258,6 +3258,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
 
                 PUSH_MARK(ch, off, tmp, MD_MARK_POTENTIAL_OPENER | MD_MARK_POTENTIAL_CLOSER);
                 off = tmp;
+                continue;
             }
 
             /* Turn non-trivial whitespace into single space. */

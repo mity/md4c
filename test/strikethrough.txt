@@ -32,3 +32,25 @@ new paragraph~~.
 <p>This ~~has a</p>
 <p>new paragraph~~.</p>
 ````````````````````````````````
+
+
+## GitHub Issues
+
+### [Issue 69](https://github.com/mity/md4c/issues/69)
+```````````````````````````````` example
+~`foo`~
+.
+<p><del><code>foo</code></del></p>
+````````````````````````````````
+
+```````````````````````````````` example
+~*foo*~
+.
+<p><del><em>foo</em></del></p>
+````````````````````````````````
+
+```````````````````````````````` example
+*~foo~*
+.
+<p><em><del>foo</del></em></p>
+````````````````````````````````

@@ -9,6 +9,11 @@ Fixes:
    Some specific HTML blocks were not recognized when EOF follows without any
    end-of-line character.
 
+ * [#69](https://github.com/mity/md4c/issues/69):
+   Strike-through span not working correctly when its opener mark is directly
+   followed by other opener mark; or when other closer mark directly precedes
+   its closer mark.
+
 
 ## Version 0.3.1
 
