@@ -2760,21 +2760,27 @@ md_build_mark_char_map(MD_CTX* ctx)
 #define CODESPAN_MARK_MAXLEN    32
 
 static int
-md_is_code_span(MD_CTX* ctx, OFF beg, OFF max_end,
+md_is_code_span(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
                 OFF* p_opener_beg, OFF* p_opener_end,
                 OFF* p_closer_beg, OFF* p_closer_end,
                 OFF last_potential_closers[CODESPAN_MARK_MAXLEN],
-                int* p_reached_max_end)
+                int* p_reached_paragraph_end)
 {
     OFF opener_beg = beg;
     OFF opener_end;
     OFF closer_beg;
     OFF closer_end;
     SZ mark_len;
+    OFF line_end;
+    int has_space_after_opener;
+    int has_space_before_closer;
+    int has_only_space = TRUE;
 
+    line_end = lines[0].end;
     opener_end = opener_beg;
-    while(opener_end < max_end  &&  CH(opener_end) == _T('`'))
+    while(opener_end < line_end  &&  CH(opener_end) == _T('`'))
         opener_end++;
+    has_space_after_opener = (opener_end >= line_end  ||  CH(opener_end) == _T(' '));
 
     /* The caller needs to know end of the opening mark even if we fail. */
     *p_opener_end = opener_end;
@@ -2785,53 +2791,72 @@ md_is_code_span(MD_CTX* ctx, OFF beg, OFF max_end,
 
     /* Check whether we already know there is no closer of this length.
      * If so, re-scan does no sense. This fixes issue #59. */
-    if(last_potential_closers[mark_len-1] >= max_end  ||
-       (*p_reached_max_end  &&  last_potential_closers[mark_len-1] < opener_end))
+    if(last_potential_closers[mark_len-1] >= lines[n_lines-1].end  ||
+       (*p_reached_paragraph_end  &&  last_potential_closers[mark_len-1] < opener_end))
         return FALSE;
 
     closer_beg = opener_end;
     closer_end = opener_end;
 
-    /* Find closer mark. Note we rely on the fact that '`' cannot be in the
-     * "gaps" between lines here so we scan as in a simple string. */
+    /* Find closer mark. */
     while(TRUE) {
-        while(closer_beg < max_end  &&  CH(closer_beg) != _T('`'))
+        while(closer_beg < line_end  &&  CH(closer_beg) != _T('`')) {
+            if(CH(closer_beg) != _T(' '))
+                has_only_space = FALSE;
             closer_beg++;
+        }
         closer_end = closer_beg;
-        while(closer_end < max_end  &&  CH(closer_end) == _T('`'))
+        while(closer_end < line_end  &&  CH(closer_end) == _T('`'))
             closer_end++;
 
-        if(closer_end - closer_beg == mark_len)
+        if(closer_end - closer_beg == mark_len) {
+            /* Success. */
+            has_space_before_closer = (closer_beg == lines[0].beg  ||  CH(closer_beg-1) == _T(' '));
             break;
-
-        if(closer_end - closer_beg > 0  &&  closer_end - closer_beg < CODESPAN_MARK_MAXLEN) {
-            if(closer_beg > last_potential_closers[closer_end - closer_beg - 1])
-                last_potential_closers[closer_end - closer_beg - 1] = closer_beg;
         }
 
-        if(closer_end >= max_end) {
-            *p_reached_max_end = TRUE;
-            return FALSE;
+        if(closer_end - closer_beg > 0) {
+            /* We have found a back-tick which is not part of the closer. */
+            has_only_space = FALSE;
+
+            /* But if we eventually fail, remember it as a potential closer
+             * of its own length for future attempts. This mitigates needs for
+             * rescans. */
+            if(closer_end - closer_beg < CODESPAN_MARK_MAXLEN) {
+                if(closer_beg > last_potential_closers[closer_end - closer_beg - 1])
+                    last_potential_closers[closer_end - closer_beg - 1] = closer_beg;
+            }
         }
 
-        closer_beg = closer_end;
+        if(closer_end >= line_end) {
+            lines++;
+            n_lines--;
+            if(n_lines == 0) {
+                /* Reached end of the paragraph and still nothing. */
+                *p_reached_paragraph_end = TRUE;
+                return FALSE;
+            }
+            /* Try on the next line. */
+            line_end = lines[0].end;
+            closer_beg = lines[0].beg;
+        } else {
+            closer_beg = closer_end;
+        }
     }
 
-    /* If there is a space ore new line both after and before the opener,
-     * consume it. It may be tricky as the new line may be digraph "\r\n". */
-    if((CH(opener_end) == _T(' ') || ISNEWLINE(opener_end))  &&
-       (CH(closer_beg-1) == _T(' ') || ISNEWLINE(closer_beg-1))) {
+    /* If there is a space or a new line both after and before the opener
+     * (and if the code span is not made of spaces only), consume one initial
+     * and one trailing space as part of the marks. */
+    if(has_space_after_opener  &&  has_space_before_closer  &&  !has_only_space) {
         if(CH(opener_end) == _T('\r')  &&  CH(opener_end+1) == _T('\n'))
             opener_end += 2;
         else
             opener_end += 1;
 
-        if(closer_beg > opener_end) {
-            if(CH(closer_beg-2) == _T('\r')  &&  CH(closer_beg-1) == _T('\n'))
-                closer_beg -= 2;
-            else
-                closer_beg -= 1;
-        }
+        if(CH(closer_beg-2) == _T('\r')  &&  CH(closer_beg-1) == _T('\n'))
+            closer_beg -= 2;
+        else
+            closer_beg -= 1;
     }
 
     *p_opener_beg = opener_beg;
@@ -2953,7 +2978,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
     int ret = 0;
     MD_MARK* mark;
     OFF codespan_last_potential_closers[CODESPAN_MARK_MAXLEN] = { 0 };
-    int codespan_scanned_till_end = FALSE;
+    int codespan_scanned_till_paragraph_end = FALSE;
 
     for(i = 0; i < n_lines; i++) {
         const MD_LINE* line = &lines[i];
@@ -3068,10 +3093,10 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                 OFF closer_beg, closer_end;
                 int is_code_span;
 
-                is_code_span = md_is_code_span(ctx, off, lines[n_lines-1].end,
+                is_code_span = md_is_code_span(ctx, lines + i, n_lines - i, off,
                                     &opener_beg, &opener_end, &closer_beg, &closer_end,
                                     codespan_last_potential_closers,
-                                    &codespan_scanned_till_end);
+                                    &codespan_scanned_till_paragraph_end);
                 if(is_code_span) {
                     PUSH_MARK(_T('`'), opener_beg, opener_end, MD_MARK_OPENER | MD_MARK_RESOLVED);
                     PUSH_MARK(_T('`'), closer_beg, closer_end, MD_MARK_CLOSER | MD_MARK_RESOLVED);
