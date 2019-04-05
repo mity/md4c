@@ -2772,15 +2772,19 @@ md_is_code_span(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
     OFF closer_end;
     SZ mark_len;
     OFF line_end;
-    int has_space_after_opener;
-    int has_space_before_closer;
+    int has_space_after_opener = FALSE;
+    int has_eol_after_opener = FALSE;
+    int has_space_before_closer = FALSE;
+    int has_eol_before_closer = FALSE;
     int has_only_space = TRUE;
+    int line_index = 0;
 
     line_end = lines[0].end;
     opener_end = opener_beg;
     while(opener_end < line_end  &&  CH(opener_end) == _T('`'))
         opener_end++;
-    has_space_after_opener = (opener_end >= line_end  ||  CH(opener_end) == _T(' '));
+    has_space_after_opener = (opener_end < line_end && CH(opener_end) == _T(' '));
+    has_eol_after_opener = (opener_end == line_end);
 
     /* The caller needs to know end of the opening mark even if we fail. */
     *p_opener_end = opener_end;
@@ -2811,7 +2815,8 @@ md_is_code_span(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
 
         if(closer_end - closer_beg == mark_len) {
             /* Success. */
-            has_space_before_closer = (closer_beg == lines[0].beg  ||  CH(closer_beg-1) == _T(' '));
+            has_space_before_closer = (closer_beg > lines[line_index].beg && CH(closer_beg-1) == _T(' '));
+            has_eol_before_closer = (closer_beg == lines[line_index].beg);
             break;
         }
 
@@ -2829,16 +2834,15 @@ md_is_code_span(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
         }
 
         if(closer_end >= line_end) {
-            lines++;
-            n_lines--;
-            if(n_lines == 0) {
+            line_index++;
+            if(line_index >= n_lines) {
                 /* Reached end of the paragraph and still nothing. */
                 *p_reached_paragraph_end = TRUE;
                 return FALSE;
             }
             /* Try on the next line. */
-            line_end = lines[0].end;
-            closer_beg = lines[0].beg;
+            line_end = lines[line_index].end;
+            closer_beg = lines[line_index].beg;
         } else {
             closer_beg = closer_end;
         }
@@ -2847,16 +2851,24 @@ md_is_code_span(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
     /* If there is a space or a new line both after and before the opener
      * (and if the code span is not made of spaces only), consume one initial
      * and one trailing space as part of the marks. */
-    if(has_space_after_opener  &&  has_space_before_closer  &&  !has_only_space) {
-        if(CH(opener_end) == _T('\r')  &&  CH(opener_end+1) == _T('\n'))
-            opener_end += 2;
+    if(!has_only_space  &&
+       (has_space_after_opener || has_eol_after_opener)  &&
+       (has_space_before_closer || has_eol_before_closer))
+    {
+        if(has_space_after_opener)
+            opener_end++;
         else
-            opener_end += 1;
+            opener_end = lines[1].beg;
 
-        if(CH(closer_beg-2) == _T('\r')  &&  CH(closer_beg-1) == _T('\n'))
-            closer_beg -= 2;
-        else
-            closer_beg -= 1;
+        if(has_space_before_closer)
+            closer_beg--;
+        else {
+            closer_beg = lines[line_index-1].end;
+            /* We need to eat the preceding "\r\n" but not any line trailing
+             * spaces. */
+            while(closer_beg < ctx->size  &&  ISBLANK(closer_beg))
+                closer_beg++;
+        }
     }
 
     *p_opener_beg = opener_beg;
@@ -4170,14 +4182,24 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 break;
 
             if(text_type == MD_TEXT_CODE) {
-                /* Inside code spans, new lines are transformed into single
-                 * spaces. */
+                OFF tmp;
+
                 MD_ASSERT(prev_mark != NULL);
                 MD_ASSERT(prev_mark->ch == '`'  &&  (prev_mark->flags & MD_MARK_OPENER));
                 MD_ASSERT(mark->ch == '`'  &&  (mark->flags & MD_MARK_CLOSER));
 
+                /* Inside a code span, trailing line whitespace has to be
+                 * outputted. */
+                tmp = off;
+                while(off < ctx->size  &&  ISBLANK(off))
+                    off++;
+                if(off > tmp)
+                    MD_TEXT(MD_TEXT_CODE, STR(tmp), off-tmp);
+
+                /* and new lines are transformed into single spaces. */
                 if(prev_mark->end < off  &&  off < mark->beg)
                     MD_TEXT(MD_TEXT_CODE, _T(" "), 1);
+
             } else if(text_type == MD_TEXT_HTML) {
                 /* Inside raw HTML, we output the new line verbatim, including
                  * any trailing spaces. */
