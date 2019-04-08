@@ -2,16 +2,16 @@
 # MD4C Change Log
 
 
-## Next Version (Work in Progress)
+## Version 0.3.2
 
 Changes:
  * Changes mandated by CommonMark specification 0.29.
 
    Most importantly, the white-space trimming rules for code spans have changed.
    At most one space/newline is trimmed from beginning/end of the code span
-   (if the codespan contains some non-space contents, and if it begins and ends
-   with space at the same time). In all other cases the spaces in the code span
-   are now left intact.
+   (if the code span contains some non-space contents, and if it begins and
+   ends with space at the same time). In all other cases the spaces in the code
+   span are now left intact.
 
    Other changes in behavior are in corner cases only. Refer to [CommonMark
    0.29 notes](https://github.com/commonmark/commonmark-spec/releases/tag/0.29)
