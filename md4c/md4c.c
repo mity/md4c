@@ -4423,6 +4423,7 @@ abort:
 #define MD_BLOCK_CONTAINER_CLOSER   0x02
 #define MD_BLOCK_CONTAINER          (MD_BLOCK_CONTAINER_OPENER | MD_BLOCK_CONTAINER_CLOSER)
 #define MD_BLOCK_LOOSE_LIST         0x04
+#define MD_BLOCK_SETEXT_HEADER      0x08
 
 struct MD_BLOCK_tag {
     MD_BLOCKTYPE type  :  8;
@@ -4875,10 +4876,27 @@ md_end_current_block(MD_CTX* ctx)
     /* Check whether there is a reference definition. (We do this here instead
      * of in md_analyze_line() because reference definition can take multiple
      * lines.) */
-    if(ctx->current_block->type == MD_BLOCK_P) {
+    if(ctx->current_block->type == MD_BLOCK_P  ||
+       (ctx->current_block->type == MD_BLOCK_H  &&  (ctx->current_block->flags & MD_BLOCK_SETEXT_HEADER)))
+    {
         MD_LINE* lines = (MD_LINE*) (ctx->current_block + 1);
         if(CH(lines[0].beg) == _T('['))
             MD_CHECK(md_consume_link_reference_definitions(ctx));
+    }
+
+    if(ctx->current_block->type == MD_BLOCK_H  &&  (ctx->current_block->flags & MD_BLOCK_SETEXT_HEADER)) {
+        int n_lines = ctx->current_block->n_lines;
+
+        if(n_lines > 1) {
+            /* Get rid of the underline. */
+            ctx->current_block->n_lines--;
+            ctx->n_block_bytes -= sizeof(MD_LINE);
+        } else {
+            /* Only the underline has left after eating the ref. defs.
+             * Keep the line as beginning of a new ordinary paragraph. */
+            ctx->current_block->type = MD_BLOCK_P;
+            return 0;
+        }
     }
 
     /* Mark we are not building any block anymore. */
@@ -5999,7 +6017,7 @@ abort:
 }
 
 static int
-md_process_line(MD_CTX* ctx, const MD_LINE_ANALYSIS** p_pivot_line, const MD_LINE_ANALYSIS* line)
+md_process_line(MD_CTX* ctx, const MD_LINE_ANALYSIS** p_pivot_line, MD_LINE_ANALYSIS* line)
 {
     const MD_LINE_ANALYSIS* pivot_line = *p_pivot_line;
     int ret = 0;
@@ -6028,8 +6046,17 @@ md_process_line(MD_CTX* ctx, const MD_LINE_ANALYSIS** p_pivot_line, const MD_LIN
         MD_ASSERT(ctx->current_block != NULL);
         ctx->current_block->type = MD_BLOCK_H;
         ctx->current_block->data = line->data;
+        ctx->current_block->flags |= MD_BLOCK_SETEXT_HEADER;
+        MD_CHECK(md_add_line_into_current_block(ctx, line));
         MD_CHECK(md_end_current_block(ctx));
-        *p_pivot_line = &md_dummy_blank_line;
+        if(ctx->current_block == NULL) {
+            *p_pivot_line = &md_dummy_blank_line;
+        } else {
+            /* This happens if we have consumed all the body as link ref. defs.
+             * and downgraded the underline into start of a new paragraph block. */
+            line->type = MD_LINE_TEXT;
+            *p_pivot_line = line;
+        }
         return 0;
     }
 
