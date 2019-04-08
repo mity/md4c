@@ -110,14 +110,6 @@ a*b**c*
 ````````````````````````````````
 
 
-### [Issue 24](https://github.com/mity/md4c/issues/24)
-```````````````````````````````` example
-[a](<b>c)
-.
-<p><a href="%3Cb%3Ec">a</a></p>
-````````````````````````````````
-
-
 ### [Issue 33](https://github.com/mity/md4c/issues/33)
 ```````````````````````````````` example
 ```&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;

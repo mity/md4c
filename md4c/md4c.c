@@ -1960,7 +1960,7 @@ md_is_link_destination_A(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end,
             continue;
         }
 
-        if(ISWHITESPACE(off)  ||  CH(off) == _T('<'))
+        if(ISNEWLINE(off)  ||  CH(off) == _T('<'))
             return FALSE;
 
         if(CH(off) == _T('>')) {
@@ -2019,6 +2019,16 @@ md_is_link_destination_B(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end,
     return TRUE;
 }
 
+static inline int
+md_is_link_destination(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end,
+                       OFF* p_contents_beg, OFF* p_contents_end)
+{
+    if(CH(beg) == _T('<'))
+        return md_is_link_destination_A(ctx, beg, max_end, p_end, p_contents_beg, p_contents_end);
+    else
+        return md_is_link_destination_B(ctx, beg, max_end, p_end, p_contents_beg, p_contents_end);
+}
+
 static int
 md_is_link_title(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
                  OFF* p_end, int* p_beg_line_index, int* p_end_line_index,
@@ -2028,7 +2038,7 @@ md_is_link_title(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
     CHAR closer_char;
     int line_index = 0;
 
-    /* Optional white space with up to one line break. */
+    /* White space with up to one line break. */
     while(off < lines[line_index].end  &&  ISWHITESPACE(off))
         off++;
     if(off >= lines[line_index].end) {
@@ -2037,6 +2047,8 @@ md_is_link_title(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
             return FALSE;
         off = lines[line_index].beg;
     }
+    if(off == beg)
+        return FALSE;
 
     *p_beg_line_index = line_index;
 
@@ -2086,9 +2098,7 @@ md_is_link_title(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
  * Returns -1 in case of an error (out of memory).
  */
 static int
-md_is_link_reference_definition_helper(
-            MD_CTX* ctx, const MD_LINE* lines, int n_lines,
-            int (*is_link_dest_fn)(MD_CTX*, OFF, OFF, OFF*, OFF*, OFF*))
+md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 {
     OFF label_contents_beg;
     OFF label_contents_end;
@@ -2132,8 +2142,8 @@ md_is_link_reference_definition_helper(
     }
 
     /* Link destination. */
-    if(!is_link_dest_fn(ctx, off, lines[line_index].end,
-                        &off, &dest_contents_beg, &dest_contents_end))
+    if(!md_is_link_destination(ctx, off, lines[line_index].end,
+                &off, &dest_contents_beg, &dest_contents_end))
         return FALSE;
 
     /* (Optional) title. Note we interpret it as an title only if nothing
@@ -2219,16 +2229,6 @@ abort:
     return -1;
 }
 
-static inline int
-md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
-{
-    int ret;
-    ret = md_is_link_reference_definition_helper(ctx, lines, n_lines, md_is_link_destination_A);
-    if(ret == 0)
-        ret = md_is_link_reference_definition_helper(ctx, lines, n_lines, md_is_link_destination_B);
-    return ret;
-}
-
 static int
 md_is_link_reference(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
                      OFF beg, OFF end, MD_LINK_ATTR* attr)
@@ -2284,9 +2284,8 @@ abort:
 }
 
 static int
-md_is_inline_link_spec_helper(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
-                              OFF beg, OFF* p_end, MD_LINK_ATTR* attr,
-                              int (*is_link_dest_fn)(MD_CTX*, OFF, OFF, OFF*, OFF*, OFF*))
+md_is_inline_link_spec(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
+                       OFF beg, OFF* p_end, MD_LINK_ATTR* attr)
 {
     int line_index = 0;
     int tmp_line_index;
@@ -2326,7 +2325,7 @@ md_is_inline_link_spec_helper(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
     }
 
     /* Link destination. */
-    if(!is_link_dest_fn(ctx, off, lines[line_index].end,
+    if(!md_is_link_destination(ctx, off, lines[line_index].end,
                         &off, &attr->dest_beg, &attr->dest_end))
         return FALSE;
 
@@ -2379,14 +2378,6 @@ md_is_inline_link_spec_helper(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
 
 abort:
     return ret;
-}
-
-static inline int
-md_is_inline_link_spec(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
-                       OFF beg, OFF* p_end, MD_LINK_ATTR* attr)
-{
-    return md_is_inline_link_spec_helper(ctx, lines, n_lines, beg, p_end, attr, md_is_link_destination_A) ||
-           md_is_inline_link_spec_helper(ctx, lines, n_lines, beg, p_end, attr, md_is_link_destination_B);
 }
 
 static void
@@ -2769,21 +2760,31 @@ md_build_mark_char_map(MD_CTX* ctx)
 #define CODESPAN_MARK_MAXLEN    32
 
 static int
-md_is_code_span(MD_CTX* ctx, OFF beg, OFF max_end,
+md_is_code_span(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
                 OFF* p_opener_beg, OFF* p_opener_end,
                 OFF* p_closer_beg, OFF* p_closer_end,
                 OFF last_potential_closers[CODESPAN_MARK_MAXLEN],
-                int* p_reached_max_end)
+                int* p_reached_paragraph_end)
 {
     OFF opener_beg = beg;
     OFF opener_end;
     OFF closer_beg;
     OFF closer_end;
     SZ mark_len;
+    OFF line_end;
+    int has_space_after_opener = FALSE;
+    int has_eol_after_opener = FALSE;
+    int has_space_before_closer = FALSE;
+    int has_eol_before_closer = FALSE;
+    int has_only_space = TRUE;
+    int line_index = 0;
 
+    line_end = lines[0].end;
     opener_end = opener_beg;
-    while(opener_end < max_end  &&  CH(opener_end) == _T('`'))
+    while(opener_end < line_end  &&  CH(opener_end) == _T('`'))
         opener_end++;
+    has_space_after_opener = (opener_end < line_end && CH(opener_end) == _T(' '));
+    has_eol_after_opener = (opener_end == line_end);
 
     /* The caller needs to know end of the opening mark even if we fail. */
     *p_opener_end = opener_end;
@@ -2794,43 +2795,81 @@ md_is_code_span(MD_CTX* ctx, OFF beg, OFF max_end,
 
     /* Check whether we already know there is no closer of this length.
      * If so, re-scan does no sense. This fixes issue #59. */
-    if(last_potential_closers[mark_len-1] >= max_end  ||
-       (*p_reached_max_end  &&  last_potential_closers[mark_len-1] < opener_end))
+    if(last_potential_closers[mark_len-1] >= lines[n_lines-1].end  ||
+       (*p_reached_paragraph_end  &&  last_potential_closers[mark_len-1] < opener_end))
         return FALSE;
 
     closer_beg = opener_end;
     closer_end = opener_end;
 
-    /* Find closer mark. Note we rely on the fact that '`' cannot be in the
-     * "gaps" between lines here so we scan as in a simple string. */
+    /* Find closer mark. */
     while(TRUE) {
-        while(closer_beg < max_end  &&  CH(closer_beg) != _T('`'))
+        while(closer_beg < line_end  &&  CH(closer_beg) != _T('`')) {
+            if(CH(closer_beg) != _T(' '))
+                has_only_space = FALSE;
             closer_beg++;
+        }
         closer_end = closer_beg;
-        while(closer_end < max_end  &&  CH(closer_end) == _T('`'))
+        while(closer_end < line_end  &&  CH(closer_end) == _T('`'))
             closer_end++;
 
-        if(closer_end - closer_beg == mark_len)
+        if(closer_end - closer_beg == mark_len) {
+            /* Success. */
+            has_space_before_closer = (closer_beg > lines[line_index].beg && CH(closer_beg-1) == _T(' '));
+            has_eol_before_closer = (closer_beg == lines[line_index].beg);
             break;
-
-        if(closer_end - closer_beg > 0  &&  closer_end - closer_beg < CODESPAN_MARK_MAXLEN) {
-            if(closer_beg > last_potential_closers[closer_end - closer_beg - 1])
-                last_potential_closers[closer_end - closer_beg - 1] = closer_beg;
         }
 
-        if(closer_end >= max_end) {
-            *p_reached_max_end = TRUE;
-            return FALSE;
+        if(closer_end - closer_beg > 0) {
+            /* We have found a back-tick which is not part of the closer. */
+            has_only_space = FALSE;
+
+            /* But if we eventually fail, remember it as a potential closer
+             * of its own length for future attempts. This mitigates needs for
+             * rescans. */
+            if(closer_end - closer_beg < CODESPAN_MARK_MAXLEN) {
+                if(closer_beg > last_potential_closers[closer_end - closer_beg - 1])
+                    last_potential_closers[closer_end - closer_beg - 1] = closer_beg;
+            }
         }
 
-        closer_beg = closer_end;
+        if(closer_end >= line_end) {
+            line_index++;
+            if(line_index >= n_lines) {
+                /* Reached end of the paragraph and still nothing. */
+                *p_reached_paragraph_end = TRUE;
+                return FALSE;
+            }
+            /* Try on the next line. */
+            line_end = lines[line_index].end;
+            closer_beg = lines[line_index].beg;
+        } else {
+            closer_beg = closer_end;
+        }
     }
 
-    /* Eat any space on the inner side if the marks. */
-    while(CH(opener_end) == _T(' ') || ISNEWLINE(opener_end))
-        opener_end++;
-    while(closer_beg > opener_end  &&  (CH(closer_beg-1) == _T(' ') || ISNEWLINE(closer_beg-1)))
-        closer_beg--;
+    /* If there is a space or a new line both after and before the opener
+     * (and if the code span is not made of spaces only), consume one initial
+     * and one trailing space as part of the marks. */
+    if(!has_only_space  &&
+       (has_space_after_opener || has_eol_after_opener)  &&
+       (has_space_before_closer || has_eol_before_closer))
+    {
+        if(has_space_after_opener)
+            opener_end++;
+        else
+            opener_end = lines[1].beg;
+
+        if(has_space_before_closer)
+            closer_beg--;
+        else {
+            closer_beg = lines[line_index-1].end;
+            /* We need to eat the preceding "\r\n" but not any line trailing
+             * spaces. */
+            while(closer_beg < ctx->size  &&  ISBLANK(closer_beg))
+                closer_beg++;
+        }
+    }
 
     *p_opener_beg = opener_beg;
     *p_opener_end = opener_end;
@@ -2951,7 +2990,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
     int ret = 0;
     MD_MARK* mark;
     OFF codespan_last_potential_closers[CODESPAN_MARK_MAXLEN] = { 0 };
-    int codespan_scanned_till_end = FALSE;
+    int codespan_scanned_till_paragraph_end = FALSE;
 
     for(i = 0; i < n_lines; i++) {
         const MD_LINE* line = &lines[i];
@@ -3066,10 +3105,10 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                 OFF closer_beg, closer_end;
                 int is_code_span;
 
-                is_code_span = md_is_code_span(ctx, off, lines[n_lines-1].end,
+                is_code_span = md_is_code_span(ctx, lines + i, n_lines - i, off,
                                     &opener_beg, &opener_end, &closer_beg, &closer_end,
                                     codespan_last_potential_closers,
-                                    &codespan_scanned_till_end);
+                                    &codespan_scanned_till_paragraph_end);
                 if(is_code_span) {
                     PUSH_MARK(_T('`'), opener_beg, opener_end, MD_MARK_OPENER | MD_MARK_RESOLVED);
                     PUSH_MARK(_T('`'), closer_beg, closer_end, MD_MARK_CLOSER | MD_MARK_RESOLVED);
@@ -3568,14 +3607,12 @@ md_analyze_emph(MD_CTX* ctx, int mark_index)
             /* Apply "rule of three". (This is why we break asterisk opener
              * marks into multiple chains.) */
             n_opener_chains = 0;
-            if((flags & MD_MARK_EMPH_MOD3_MASK) != MD_MARK_EMPH_MOD3_0)
-                opener_chains[n_opener_chains++] = &ASTERISK_OPENERS_intraword_mod3_0;
+            opener_chains[n_opener_chains++] = &ASTERISK_OPENERS_intraword_mod3_0;
             if((flags & MD_MARK_EMPH_MOD3_MASK) != MD_MARK_EMPH_MOD3_2)
                 opener_chains[n_opener_chains++] = &ASTERISK_OPENERS_intraword_mod3_1;
             if((flags & MD_MARK_EMPH_MOD3_MASK) != MD_MARK_EMPH_MOD3_1)
                 opener_chains[n_opener_chains++] = &ASTERISK_OPENERS_intraword_mod3_2;
-            if(!(flags & MD_MARK_EMPH_INTRAWORD)  ||  (flags & MD_MARK_EMPH_MOD3_MASK) != MD_MARK_EMPH_MOD3_0)
-                opener_chains[n_opener_chains++] = &ASTERISK_OPENERS_extraword_mod3_0;
+            opener_chains[n_opener_chains++] = &ASTERISK_OPENERS_extraword_mod3_0;
             if(!(flags & MD_MARK_EMPH_INTRAWORD)  ||  (flags & MD_MARK_EMPH_MOD3_MASK) != MD_MARK_EMPH_MOD3_2)
                 opener_chains[n_opener_chains++] = &ASTERISK_OPENERS_extraword_mod3_1;
             if(!(flags & MD_MARK_EMPH_INTRAWORD)  ||  (flags & MD_MARK_EMPH_MOD3_MASK) != MD_MARK_EMPH_MOD3_1)
@@ -4083,14 +4120,24 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 break;
 
             if(text_type == MD_TEXT_CODE) {
-                /* Inside code spans, new lines are transformed into single
-                 * spaces. */
+                OFF tmp;
+
                 MD_ASSERT(prev_mark != NULL);
                 MD_ASSERT(prev_mark->ch == '`'  &&  (prev_mark->flags & MD_MARK_OPENER));
                 MD_ASSERT(mark->ch == '`'  &&  (mark->flags & MD_MARK_CLOSER));
 
+                /* Inside a code span, trailing line whitespace has to be
+                 * outputted. */
+                tmp = off;
+                while(off < ctx->size  &&  ISBLANK(off))
+                    off++;
+                if(off > tmp)
+                    MD_TEXT(MD_TEXT_CODE, STR(tmp), off-tmp);
+
+                /* and new lines are transformed into single spaces. */
                 if(prev_mark->end < off  &&  off < mark->beg)
                     MD_TEXT(MD_TEXT_CODE, _T(" "), 1);
+
             } else if(text_type == MD_TEXT_HTML) {
                 /* Inside raw HTML, we output the new line verbatim, including
                  * any trailing spaces. */
@@ -4314,6 +4361,7 @@ abort:
 #define MD_BLOCK_CONTAINER_CLOSER   0x02
 #define MD_BLOCK_CONTAINER          (MD_BLOCK_CONTAINER_OPENER | MD_BLOCK_CONTAINER_CLOSER)
 #define MD_BLOCK_LOOSE_LIST         0x04
+#define MD_BLOCK_SETEXT_HEADER      0x08
 
 struct MD_BLOCK_tag {
     MD_BLOCKTYPE type  :  8;
@@ -4766,10 +4814,27 @@ md_end_current_block(MD_CTX* ctx)
     /* Check whether there is a reference definition. (We do this here instead
      * of in md_analyze_line() because reference definition can take multiple
      * lines.) */
-    if(ctx->current_block->type == MD_BLOCK_P) {
+    if(ctx->current_block->type == MD_BLOCK_P  ||
+       (ctx->current_block->type == MD_BLOCK_H  &&  (ctx->current_block->flags & MD_BLOCK_SETEXT_HEADER)))
+    {
         MD_LINE* lines = (MD_LINE*) (ctx->current_block + 1);
         if(CH(lines[0].beg) == _T('['))
             MD_CHECK(md_consume_link_reference_definitions(ctx));
+    }
+
+    if(ctx->current_block->type == MD_BLOCK_H  &&  (ctx->current_block->flags & MD_BLOCK_SETEXT_HEADER)) {
+        int n_lines = ctx->current_block->n_lines;
+
+        if(n_lines > 1) {
+            /* Get rid of the underline. */
+            ctx->current_block->n_lines--;
+            ctx->n_block_bytes -= sizeof(MD_LINE);
+        } else {
+            /* Only the underline has left after eating the ref. defs.
+             * Keep the line as beginning of a new ordinary paragraph. */
+            ctx->current_block->type = MD_BLOCK_P;
+            return 0;
+        }
     }
 
     /* Mark we are not building any block anymore. */
@@ -4986,11 +5051,13 @@ md_is_opening_code_fence(MD_CTX* ctx, OFF beg, OFF* p_end)
     while(off < ctx->size  &&  CH(off) == _T(' '))
         off++;
 
-    /* Optionally, an info string can follow. It must not contain '`'. */
-    while(off < ctx->size  &&  CH(off) != _T('`')  &&  !ISNEWLINE(off))
+    /* Optionally, an info string can follow. */
+    while(off < ctx->size  &&  !ISNEWLINE(off)) {
+        /* Backtick-based fence must not contain '`' in the info string. */
+        if(CH(beg) == _T('`')  &&  CH(off) == _T('`'))
+            return FALSE;
         off++;
-    if(off < ctx->size  &&  !ISNEWLINE(off))
-        return FALSE;
+    }
 
     *p_end = off;
     return TRUE;
@@ -5057,7 +5124,7 @@ md_is_html_block_start_condition(MD_CTX* ctx, OFF beg)
     static const TAG h6[] = { X("h1"), X("head"), X("header"), X("hr"), X("html"), Xend };
     static const TAG i6[] = { X("iframe"), Xend };
     static const TAG l6[] = { X("legend"), X("li"), X("link"), Xend };
-    static const TAG m6[] = { X("main"), X("menu"), X("menuitem"), X("meta"), Xend };
+    static const TAG m6[] = { X("main"), X("menu"), X("menuitem"), Xend };
     static const TAG n6[] = { X("nav"), X("noframes"), Xend };
     static const TAG o6[] = { X("ol"), X("optgroup"), X("option"), Xend };
     static const TAG p6[] = { X("p"), X("param"), Xend };
@@ -5356,6 +5423,9 @@ md_is_container_mark(MD_CTX* ctx, unsigned indent, OFF beg, OFF* p_end, MD_CONTA
 {
     OFF off = beg;
     OFF max_end;
+
+    if(indent >= ctx->code_indent_offset)
+        return FALSE;
 
     /* Check for block quote mark. */
     if(off < ctx->size  &&  CH(off) == _T('>')) {
@@ -5885,7 +5955,7 @@ abort:
 }
 
 static int
-md_process_line(MD_CTX* ctx, const MD_LINE_ANALYSIS** p_pivot_line, const MD_LINE_ANALYSIS* line)
+md_process_line(MD_CTX* ctx, const MD_LINE_ANALYSIS** p_pivot_line, MD_LINE_ANALYSIS* line)
 {
     const MD_LINE_ANALYSIS* pivot_line = *p_pivot_line;
     int ret = 0;
@@ -5914,8 +5984,17 @@ md_process_line(MD_CTX* ctx, const MD_LINE_ANALYSIS** p_pivot_line, const MD_LIN
         MD_ASSERT(ctx->current_block != NULL);
         ctx->current_block->type = MD_BLOCK_H;
         ctx->current_block->data = line->data;
+        ctx->current_block->flags |= MD_BLOCK_SETEXT_HEADER;
+        MD_CHECK(md_add_line_into_current_block(ctx, line));
         MD_CHECK(md_end_current_block(ctx));
-        *p_pivot_line = &md_dummy_blank_line;
+        if(ctx->current_block == NULL) {
+            *p_pivot_line = &md_dummy_blank_line;
+        } else {
+            /* This happens if we have consumed all the body as link ref. defs.
+             * and downgraded the underline into start of a new paragraph block. */
+            line->type = MD_LINE_TEXT;
+            *p_pivot_line = line;
+        }
         return 0;
     }
 
