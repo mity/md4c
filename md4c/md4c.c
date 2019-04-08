@@ -5186,7 +5186,7 @@ md_is_html_block_start_condition(MD_CTX* ctx, OFF beg)
     static const TAG h6[] = { X("h1"), X("head"), X("header"), X("hr"), X("html"), Xend };
     static const TAG i6[] = { X("iframe"), Xend };
     static const TAG l6[] = { X("legend"), X("li"), X("link"), Xend };
-    static const TAG m6[] = { X("main"), X("menu"), X("menuitem"), X("meta"), Xend };
+    static const TAG m6[] = { X("main"), X("menu"), X("menuitem"), Xend };
     static const TAG n6[] = { X("nav"), X("noframes"), Xend };
     static const TAG o6[] = { X("ol"), X("optgroup"), X("option"), Xend };
     static const TAG p6[] = { X("p"), X("param"), Xend };
