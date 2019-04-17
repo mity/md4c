@@ -25,6 +25,7 @@
 
 #include "md4c.h"
 
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -2508,6 +2509,7 @@ md_asterisk_chain(MD_CTX* ctx, unsigned flags)
         case MD_MARK_EMPH_MOD3_2:                           return &ASTERISK_OPENERS_extraword_mod3_2;
         default:                                            MD_UNREACHABLE();
     }
+    return NULL;
 }
 
 static MD_MARKCHAIN*
@@ -3447,7 +3449,7 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
         } else {
             if(closer->end < ctx->size  &&  CH(closer->end) == _T('(')) {
                 /* Might be inline link. */
-                OFF inline_link_end = -1;
+                OFF inline_link_end = UINT_MAX;
 
                 is_link = md_is_inline_link_spec(ctx, lines, n_lines, closer->end, &inline_link_end, &attr);
                 if(is_link < 0)
@@ -4235,10 +4237,13 @@ static int
 md_process_table_row(MD_CTX* ctx, MD_BLOCKTYPE cell_type, OFF beg, OFF end,
                      const MD_ALIGN* align, int col_count)
 {
-    MD_LINE line = { beg, end };
+    MD_LINE line;
     OFF* pipe_offs = NULL;
     int i, j, n;
     int ret = 0;
+
+    line.beg = beg;
+    line.end = end;
 
     /* Break the line into table cells by identifying pipe characters who
      * form the cell boundary. */
@@ -4326,9 +4331,12 @@ abort:
 static int
 md_is_table_row(MD_CTX* ctx, OFF beg, OFF* p_end)
 {
-    MD_LINE line = { beg, beg };
+    MD_LINE line;
     int i;
     int ret = FALSE;
+
+    line.beg = beg;
+    line.end = beg;
 
     /* Find end of line. */
     while(line.end < ctx->size  &&  !ISNEWLINE(line.end))
@@ -5290,6 +5298,7 @@ md_is_html_block_end_condition(MD_CTX* ctx, OFF beg, OFF* p_end)
         default:
             MD_UNREACHABLE();
     }
+    return FALSE;
 }
 
 
