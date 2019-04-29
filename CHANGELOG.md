@@ -2,6 +2,13 @@
 # MD4C Change Log
 
 
+## Next Version (Work in Progress)
+
+Fixes:
+ * [#73](https://github.com/mity/md4c/issues/73):
+   Some raw HTML inputs could lead to quadratic parsing times.
+
+
 ## Version 0.3.2
 
 Changes:

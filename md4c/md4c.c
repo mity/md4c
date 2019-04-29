@@ -149,6 +149,12 @@ struct MD_CTX_tag {
     int unresolved_link_head;
     int unresolved_link_tail;
 
+    /* For resolving raw HTML. */
+    OFF html_comment_horizon;
+    OFF html_proc_instr_horizon;
+    OFF html_decl_horizon;
+    OFF html_cdata_horizon;
+
     /* For block analysis.
      * Notes:
      *   -- It holds MD_BLOCK as well as MD_LINE structures. After each
@@ -166,15 +172,14 @@ struct MD_CTX_tag {
     int n_containers;
     int alloc_containers;
 
-    int last_line_has_list_loosening_effect;
-    int last_list_item_starts_with_two_blank_lines;
-
     /* Minimal indentation to call the block "indented code block". */
     unsigned code_indent_offset;
 
     /* Contextual info for line analysis. */
     SZ code_fence_length;   /* For checking closing fence length. */
     int html_block_type;    /* For checking closing raw HTML condition. */
+    int last_line_has_list_loosening_effect;
+    int last_list_item_starts_with_two_blank_lines;
 };
 
 typedef enum MD_LINETYPE_tag MD_LINETYPE;
@@ -1071,10 +1076,45 @@ done:
 }
 
 static int
-md_is_html_comment(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF max_end, OFF* p_end)
+md_scan_for_html_closer(MD_CTX* ctx, const MD_CHAR* str, MD_SIZE len,
+                        const MD_LINE* lines, int n_lines,
+                        OFF beg, OFF max_end, OFF* p_end,
+                        OFF* p_scan_horizon)
 {
     OFF off = beg;
     int i = 0;
+
+    if(off < *p_scan_horizon  &&  *p_scan_horizon >= max_end - len) {
+        /* We have already scanned the range up to the max_end and we now
+         * there is nothing to see. */
+        return FALSE;
+    }
+
+    while(TRUE) {
+        while(off + len <= lines[i].end  &&  off + len <= max_end) {
+            if(md_ascii_eq(STR(off), str, len)) {
+                /* Success. */
+                *p_end = off + len;
+                return TRUE;
+            }
+            off++;
+        }
+
+        i++;
+        if(off >= max_end  ||  i >= n_lines) {
+            /* Failure. */
+            *p_scan_horizon = off;
+            return FALSE;
+        }
+
+        off = lines[i].beg;
+    }
+}
+
+static int
+md_is_html_comment(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF max_end, OFF* p_end)
+{
+    OFF off = beg;
 
     MD_ASSERT(CH(beg) == _T('<'));
 
@@ -1084,53 +1124,30 @@ md_is_html_comment(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF 
         return FALSE;
     off += 4;
 
-    /* ">" and "->" must follow the opening. */
+    /* ">" and "->" must not follow the opening. */
     if(off < lines[0].end  &&  CH(off) == _T('>'))
         return FALSE;
     if(off+1 < lines[0].end  &&  CH(off) == _T('-')  &&  CH(off+1) == _T('>'))
         return FALSE;
 
-    while(1) {
-        while(off + 2 < lines[i].end) {
-            if(CH(off) == _T('-')  &&  CH(off+1) == _T('-')) {
-                if(CH(off+2) == _T('>')) {
-                    /* Success. */
-                    off += 2;
-                    goto done;
-                } else {
-                    /* "--" is prohibited inside the comment. */
-                    return FALSE;
-                }
-            }
-
-            off++;
+    /* HTML comment must not contyain "--", so we scan just for "--" instead
+     * of "-->" and verify manually that '>' follows. */
+    if(md_scan_for_html_closer(ctx, _T("--"), 2,
+                lines, n_lines, off, max_end, p_end, &ctx->html_comment_horizon))
+    {
+        if(*p_end < max_end  &&  CH(*p_end) == _T('>')) {
+            *p_end = *p_end + 1;
+            return TRUE;
         }
-
-        i++;
-        if(i >= n_lines)
-            return FALSE;
-
-        off = lines[i].beg;
-
-        if(off >= max_end)
-            return FALSE;
     }
 
-done:
-    if(off >= max_end)
-        return FALSE;
-
-    *p_end = off+1;
-    return TRUE;
+    return FALSE;
 }
 
 static int
 md_is_html_processing_instruction(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF max_end, OFF* p_end)
 {
     OFF off = beg;
-    int i = 0;
-
-    MD_ASSERT(CH(beg) == _T('<'));
 
     if(off + 2 >= lines[0].end)
         return FALSE;
@@ -1138,41 +1155,14 @@ md_is_html_processing_instruction(MD_CTX* ctx, const MD_LINE* lines, int n_lines
         return FALSE;
     off += 2;
 
-    while(1) {
-        while(off + 1 < lines[i].end) {
-            if(CH(off) == _T('?')  &&  CH(off+1) == _T('>')) {
-                /* Success. */
-                off++;
-                goto done;
-            }
-
-            off++;
-        }
-
-        i++;
-        if(i >= n_lines)
-            return FALSE;
-
-        off = lines[i].beg;
-        if(off >= max_end)
-            return FALSE;
-    }
-
-done:
-    if(off >= max_end)
-        return FALSE;
-
-    *p_end = off+1;
-    return TRUE;
+    return md_scan_for_html_closer(ctx, _T("?>"), 2,
+                lines, n_lines, off, max_end, p_end, &ctx->html_proc_instr_horizon);
 }
 
 static int
 md_is_html_declaration(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF max_end, OFF* p_end)
 {
     OFF off = beg;
-    int i = 0;
-
-    MD_ASSERT(CH(beg) == _T('<'));
 
     if(off + 2 >= lines[0].end)
         return FALSE;
@@ -1189,31 +1179,8 @@ md_is_html_declaration(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, 
     if(off < lines[0].end  &&  !ISWHITESPACE(off))
         return FALSE;
 
-    while(1) {
-        while(off < lines[i].end) {
-            if(CH(off) == _T('>')) {
-                /* Success. */
-                goto done;
-            }
-
-            off++;
-        }
-
-        i++;
-        if(i >= n_lines)
-            return FALSE;
-
-        off = lines[i].beg;
-        if(off >= max_end)
-            return FALSE;
-    }
-
-done:
-    if(off >= max_end)
-        return FALSE;
-
-    *p_end = off+1;
-    return TRUE;
+    return md_scan_for_html_closer(ctx, _T(">"), 1,
+                lines, n_lines, off, max_end, p_end, &ctx->html_decl_horizon);
 }
 
 static int
@@ -1223,7 +1190,6 @@ md_is_html_cdata(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF ma
     static const SZ open_size = SIZEOF_ARRAY(open_str) - 1;
 
     OFF off = beg;
-    int i = 0;
 
     if(off + open_size >= lines[0].end)
         return FALSE;
@@ -1231,49 +1197,22 @@ md_is_html_cdata(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF ma
         return FALSE;
     off += open_size;
 
-    while(1) {
-        while(off + 2 < lines[i].end) {
-            if(CH(off) == _T(']')  &&  CH(off+1) == _T(']')  &&  CH(off+2) == _T('>')) {
-                /* Success. */
-                off += 2;
-                goto done;
-            }
+    if(lines[n_lines-1].end < max_end)
+        max_end = lines[n_lines-1].end - 2;
 
-            off++;
-        }
-
-        i++;
-        if(i >= n_lines)
-            return FALSE;
-
-        off = lines[i].beg;
-        if(off >= max_end)
-            return FALSE;
-    }
-
-done:
-    if(off >= max_end)
-        return FALSE;
-
-    *p_end = off+1;
-    return TRUE;
+    return md_scan_for_html_closer(ctx, _T("]]>"), 3,
+                lines, n_lines, off, max_end, p_end, &ctx->html_cdata_horizon);
 }
 
 static int
 md_is_html_any(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF max_end, OFF* p_end)
 {
-    if(md_is_html_tag(ctx, lines, n_lines, beg, max_end, p_end) == TRUE)
-        return TRUE;
-    if(md_is_html_comment(ctx, lines, n_lines, beg, max_end, p_end) == TRUE)
-        return TRUE;
-    if(md_is_html_processing_instruction(ctx, lines, n_lines, beg, max_end, p_end) == TRUE)
-        return TRUE;
-    if(md_is_html_declaration(ctx, lines, n_lines, beg, max_end, p_end) == TRUE)
-        return TRUE;
-    if(md_is_html_cdata(ctx, lines, n_lines, beg, max_end, p_end) == TRUE)
-        return TRUE;
-
-    return FALSE;
+    MD_ASSERT(CH(beg) == _T('<'));
+    return (md_is_html_tag(ctx, lines, n_lines, beg, max_end, p_end)  ||
+            md_is_html_comment(ctx, lines, n_lines, beg, max_end, p_end)  ||
+            md_is_html_processing_instruction(ctx, lines, n_lines, beg, max_end, p_end)  ||
+            md_is_html_declaration(ctx, lines, n_lines, beg, max_end, p_end)  ||
+            md_is_html_cdata(ctx, lines, n_lines, beg, max_end, p_end));
 }
 
 

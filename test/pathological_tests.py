@@ -75,6 +75,12 @@ pathological = {
     "many html openers and closers":
                  (("<>" * 50000),
                   re.compile("(&lt;&gt;){50000}")),
+    "many html proc. inst. openers":
+                 (("x" + "<?" * 50000),
+                  re.compile("x(&lt;\\?){50000}")),
+    "many html CDATA openers":
+                 (("x" + "<![CDATA[" * 50000),
+                  re.compile("x(&lt;!\\[CDATA\\[){50000}")),
     "many backticks and escapes":
                  (("\\``" * 50000),
                   re.compile("(``){50000}")),
