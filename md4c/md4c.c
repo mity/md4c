@@ -35,17 +35,13 @@
  ***  Miscellaneous Stuff  ***
  *****************************/
 
-/* Inline keyword has been added in C99. */
-#if __STDC_VERSION__ < 199901L
-    #if defined _MSC_VER
+#ifdef _MSC_VER
+    /* MSVC does not understand "inline" when building as pure C (not C++).
+     * However it understands "__inline" */
+    #ifndef __cplusplus
         #define inline __inline
-    #elif defined __GNUC__
-        #define inline __inline__
-    #else
-        #define inline
     #endif
 #endif
-
 
 #ifdef _T
     #undef _T
@@ -1457,8 +1453,8 @@ abort:
  ***  Dictionary of Reference Definitions  ***
  *********************************************/
 
-#define MD_FNV1A_BASE       2166136261U
-#define MD_FNV1A_PRIME      16777619U
+#define MD_FNV1A_BASE       2166136261
+#define MD_FNV1A_PRIME      16777619
 
 static inline unsigned
 md_fnv1a(unsigned base, const void* data, size_t n)

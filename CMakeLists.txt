@@ -34,7 +34,7 @@ endif()
 
 
 if(${CMAKE_C_COMPILER_ID} MATCHES GNU|Clang)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -std=c90")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 elseif(MSVC)
     # Disable warnings about the so-called unsecured functions:
     add_definitions(/D_CRT_SECURE_NO_WARNINGS)
