@@ -4739,6 +4739,7 @@ md_consume_link_reference_definitions(MD_CTX* ctx)
             /* Remove complete block. */
             ctx->n_block_bytes -= n * sizeof(MD_LINE);
             ctx->n_block_bytes -= sizeof(MD_BLOCK);
+            ctx->current_block = NULL;
         } else {
             /* Remove just some initial lines from the block. */
             memmove(lines, lines + n, (n_lines - n) * sizeof(MD_LINE));
@@ -4765,8 +4766,11 @@ md_end_current_block(MD_CTX* ctx)
        (ctx->current_block->type == MD_BLOCK_H  &&  (ctx->current_block->flags & MD_BLOCK_SETEXT_HEADER)))
     {
         MD_LINE* lines = (MD_LINE*) (ctx->current_block + 1);
-        if(CH(lines[0].beg) == _T('['))
+        if(CH(lines[0].beg) == _T('[')) {
             MD_CHECK(md_consume_link_reference_definitions(ctx));
+            if(ctx->current_block == NULL)
+                return ret;
+        }
     }
 
     if(ctx->current_block->type == MD_BLOCK_H  &&  (ctx->current_block->flags & MD_BLOCK_SETEXT_HEADER)) {

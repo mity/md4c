@@ -151,6 +151,21 @@ __x_ _x___
 ````````````````````````````````
 
 
+### [Issue 74](https://github.com/mity/md4c/issues/74)
+```````````````````````````````` example
+[f]:
+-
+    xx
+-
+.
+<pre><code>xx
+</code></pre>
+<ul>
+<li></li>
+</ul>
+````````````````````````````````
+
+
 
 ## Code coverage
 
