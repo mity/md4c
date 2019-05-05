@@ -5548,6 +5548,15 @@ redo:
             }
         }
 
+        if(off >= ctx->size  ||  ISNEWLINE(off)) {
+            /* Blank line does not need any real indentation to be nested inside
+             * a list. */
+            if(n_brothers + n_children == 0) {
+                while(n_parents < ctx->n_containers  &&  ctx->containers[n_parents].ch != _T('>'))
+                    n_parents++;
+            }
+        }
+
         if(n_parents == ctx->n_containers) {
             line->type = MD_LINE_HTML;
             goto done;
