@@ -5493,6 +5493,15 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
         n_parents++;
     }
 
+    if(off >= ctx->size  ||  ISNEWLINE(off)) {
+        /* Blank line does not need any real indentation to be nested inside
+         * a list. */
+        if(n_brothers + n_children == 0) {
+            while(n_parents < ctx->n_containers  &&  ctx->containers[n_parents].ch != _T('>'))
+                n_parents++;
+        }
+    }
+
 redo:
     /* Check whether we are fenced code continuation. */
     if(pivot_line->type == MD_LINE_FENCEDCODE) {
@@ -5505,15 +5514,6 @@ redo:
                 line->type = MD_LINE_BLANK;
                 ctx->last_line_has_list_loosening_effect = FALSE;
                 goto done;
-            }
-        }
-
-        if(off >= ctx->size  ||  ISNEWLINE(off)) {
-            /* Blank line does not need any real indentation to be nested inside
-             * a list. */
-            if(n_brothers + n_children == 0) {
-                while(n_parents < ctx->n_containers  &&  ctx->containers[n_parents].ch != _T('>'))
-                    n_parents++;
             }
         }
 
@@ -5548,15 +5548,6 @@ redo:
             }
         }
 
-        if(off >= ctx->size  ||  ISNEWLINE(off)) {
-            /* Blank line does not need any real indentation to be nested inside
-             * a list. */
-            if(n_brothers + n_children == 0) {
-                while(n_parents < ctx->n_containers  &&  ctx->containers[n_parents].ch != _T('>'))
-                    n_parents++;
-            }
-        }
-
         if(n_parents == ctx->n_containers) {
             line->type = MD_LINE_HTML;
             goto done;
@@ -5565,13 +5556,6 @@ redo:
 
     /* Check for blank line. */
     if(off >= ctx->size  ||  ISNEWLINE(off)) {
-        /* Blank line does not need any real indentation to be nested inside
-         * a list. */
-        if(n_brothers + n_children == 0) {
-            while(n_parents < ctx->n_containers  &&  ctx->containers[n_parents].ch != _T('>'))
-                n_parents++;
-        }
-
         if(pivot_line->type == MD_LINE_INDENTEDCODE  &&  n_parents == ctx->n_containers) {
             line->type = MD_LINE_INDENTEDCODE;
             if(line->indent > ctx->code_indent_offset)
