@@ -91,7 +91,8 @@ def get_tests(specfile):
         for line in specf:
             line_number = line_number + 1
             l = line.strip()
-            if l == "`" * 32 + " example":
+            #if l == "`" * 32 + " example":
+            if re.match("`{32} example( [a-z]{1,})?", l):
                 state = 1
             elif state == 2 and l == "`" * 32:
                 state = 0
