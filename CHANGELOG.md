@@ -4,6 +4,13 @@
 
 ## Next Version (Work in Progress)
 
+Changes:
+ * Make permissive URL autolink and permssive WWW autolink extensions stricter.
+
+   This brings the behavior closer to GFM and mitigates risk of false positives.
+   In particular, the domain has to contain at least one dot and parenthesis
+   can be part of the link destination only if `(` and `)` are balanced.
+
 Fixes:
  * [#73](https://github.com/mity/md4c/issues/73):
    Some raw HTML inputs could lead to quadratic parsing times.
@@ -11,6 +18,8 @@ Fixes:
  * [#74](https://github.com/mity/md4c/issues/74):
    Fix input leading to a crash. Found by fuzzing.
 
+ * [#76](https://github.com/mity/md4c/issues/76):
+   Fix handling of parenthesis in some corner cases.
 
 ## Version 0.3.2
 

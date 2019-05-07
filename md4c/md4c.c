@@ -3628,55 +3628,57 @@ md_analyze_permissive_url_autolink(MD_CTX* ctx, int mark_index)
     MD_MARK* closer = &ctx->marks[closer_index];
     MD_MARK* next_resolved_mark;
     OFF off = opener->end;
-    int seen_dot = FALSE;
-    int seen_underscore_or_hyphen[2] = { FALSE, FALSE };
+    int n_dots = FALSE;
+    int has_underscore_in_last_seg = FALSE;
+    int has_underscore_in_next_to_last_seg = FALSE;
+    int n_opened_parenthesis = 0;
 
     /* Check for domain. */
     while(off < ctx->size) {
-        if(ISALNUM(off)) {
+        if(ISALNUM(off) || CH(off) == _T('-')) {
             off++;
         } else if(CH(off) == _T('.')) {
-            seen_dot = TRUE;
-            seen_underscore_or_hyphen[0] = seen_underscore_or_hyphen[1];
-            seen_underscore_or_hyphen[1] = FALSE;
+            /* We must see at least one period. */
+            n_dots++;
+            has_underscore_in_next_to_last_seg = has_underscore_in_last_seg;
+            has_underscore_in_last_seg = FALSE;
             off++;
-        } else if(ISANYOF2(off, _T('-'), _T('_'))) {
-            seen_underscore_or_hyphen[1] = TRUE;
+        } else if(CH(off) == _T('_')) {
+            /* No underscore may be present in the last two domain segments. */
+            has_underscore_in_last_seg = TRUE;
             off++;
         } else {
             break;
         }
     }
-
-    if(off <= opener->end || !seen_dot || seen_underscore_or_hyphen[0] || seen_underscore_or_hyphen[1])
+    if(off > opener->end  &&  CH(off-1) == _T('.')) {
+        off--;
+        n_dots--;
+    }
+    if(off <= opener->end || n_dots == 0 || has_underscore_in_next_to_last_seg || has_underscore_in_last_seg)
         return;
 
     /* Check for path. */
     next_resolved_mark = closer + 1;
     while(next_resolved_mark->ch == 'D' || !(next_resolved_mark->flags & MD_MARK_RESOLVED))
         next_resolved_mark++;
-    while(off < next_resolved_mark->beg  &&  CH(off) != _T('<')  &&  !ISWHITESPACE(off)  &&  !ISNEWLINE(off))
-        off++;
-
-    /* Path validation. */
-    if(ISANYOF(off-1, _T("?!.,:*_~)"))) {
-        if(CH(off-1) != _T(')')) {
-            off--;
-        } else {
-            int parenthesis_balance = 0;
-            OFF tmp;
-
-            for(tmp = opener->end; tmp < off; tmp++) {
-                if(CH(tmp) == _T('('))
-                    parenthesis_balance++;
-                else if(CH(tmp) == _T(')'))
-                    parenthesis_balance--;
-            }
-
-            if(parenthesis_balance < 0)
-                off--;
+    while(off < next_resolved_mark->beg  &&  CH(off) != _T('<')  &&  !ISWHITESPACE(off)  &&  !ISNEWLINE(off)) {
+        /* Parenthesis must be balanced. */
+        if(CH(off) == _T('(')) {
+            n_opened_parenthesis++;
+        } else if(CH(off) == _T(')')) {
+            if(n_opened_parenthesis > 0)
+                n_opened_parenthesis--;
+            else
+                break;
         }
+
+        off++;
     }
+    /* These cannot be last char In such case they are more likely normal
+     * punctuation. */
+    if(ISANYOF(off-1, _T("?!.,:*_~")))
+        off--;
 
     /* Ok. Lets call it auto-link. Adapt opener and create closer to zero
      * length so all the contents becomes the link text. */

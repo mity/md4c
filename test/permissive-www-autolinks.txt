@@ -64,9 +64,9 @@ the only parentheses are in the interior of the autolink, no special rules are
 applied:
 
 ```````````````````````````````` example
-www.google.com/search?q=(business))+ok
+www.google.com/search?q=(business)+ok
 .
-<p><a href="http://www.google.com/search?q=(business))+ok">www.google.com/search?q=(business))+ok</a></p>
+<p><a href="http://www.google.com/search?q=(business)+ok">www.google.com/search?q=(business)+ok</a></p>
 ````````````````````````````````
 
 If an autolink ends in a semicolon (`;`), we check to see if it appears to

@@ -77,3 +77,13 @@ This is [link](http://github.com/)X
 .
 <p>This is <a href="http://github.com/">link</a>X</p>
 ````````````````````````````````
+
+
+## [Issue 76](https://github.com/mity/md4c/issues/76)
+```````````````````````````````` example
+*(http://example.com)*
+.
+<p><em>(<a href="http://example.com">http://example.com</a>)</em></p>
+````````````````````````````````
+
+
