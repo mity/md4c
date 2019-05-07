@@ -19,7 +19,8 @@ Fixes:
    Fix input leading to a crash. Found by fuzzing.
 
  * [#76](https://github.com/mity/md4c/issues/76):
-   Fix handling of parenthesis in some corner cases.
+   Fix handling of parenthesis in some corner cases of permissive URL autolink
+   and permssive WWW autolink extensions.
 
 ## Version 0.3.2
 
