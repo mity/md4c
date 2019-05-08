@@ -64,7 +64,9 @@ bar</a></p>
 </blockquote>
 ````````````````````````````````
 
+
 ### [Issue 10](https://github.com/mity/md4c/issues/10)
+
 ```````````````````````````````` example
 [x]:
 x
@@ -80,14 +82,18 @@ x
 </ul>
 ````````````````````````````````
 
+
 ### [Issue 11](https://github.com/mity/md4c/issues/11)
+
 ```````````````````````````````` example
 x [link](/url "foo &ndash; bar") x
 .
 <p>x <a href="/url" title="foo – bar">link</a> x</p>
 ````````````````````````````````
 
+
 ### [Issue 15](https://github.com/mity/md4c/issues/15)
+
 ```````````````````````````````` example
 ***b* c*
 .
@@ -96,6 +102,7 @@ x [link](/url "foo &ndash; bar") x
 
 
 ### [Issue 14](https://github.com/mity/md4c/issues/14)
+
 ```````````````````````````````` example
 a***b* c*
 .
@@ -104,6 +111,7 @@ a***b* c*
 
 
 ### [Issue 21](https://github.com/mity/md4c/issues/21)
+
 ```````````````````````````````` example
 a*b**c*
 .
@@ -112,6 +120,7 @@ a*b**c*
 
 
 ### [Issue 33](https://github.com/mity/md4c/issues/33)
+
 ```````````````````````````````` example
 ```&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;
 .
@@ -120,6 +129,7 @@ a*b**c*
 
 
 ### [Issue 36](https://github.com/mity/md4c/issues/36)
+
 ```````````````````````````````` example
 __x_ _x___
 .
@@ -128,6 +138,7 @@ __x_ _x___
 
 
 ### [Issue 39](https://github.com/mity/md4c/issues/39)
+
 ```````````````````````````````` example
 [\\]: x
 .
@@ -135,6 +146,7 @@ __x_ _x___
 
 
 ### [Issue 40](https://github.com/mity/md4c/issues/40)
+
 ```````````````````````````````` example
 [x](url
 'title'
@@ -145,6 +157,7 @@ __x_ _x___
 
 
 ### [Issue 65](https://github.com/mity/md4c/issues/65)
+
 ```````````````````````````````` example
 `
 .
@@ -153,6 +166,7 @@ __x_ _x___
 
 
 ### [Issue 74](https://github.com/mity/md4c/issues/74)
+
 ```````````````````````````````` example
 [f]:
 -
@@ -217,7 +231,6 @@ Ditto for Unicode punctuation (here U+00A1).
 
 ### `md_is_link_destination_A()`
 
-
 ```````````````````````````````` example
 [link](</url\.with\.escape>)
 .
@@ -226,7 +239,6 @@ Ditto for Unicode punctuation (here U+00A1).
 
 
 ### `md_link_label_eq()`
-
 
 ```````````````````````````````` example
 [foo bar]

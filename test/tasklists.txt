@@ -19,6 +19,7 @@ Basic task list may look as follows:
 ````````````````````````````````
 
 Task lists can also be in ordered lists:
+
 ```````````````````````````````` example
  1. [x] foo
  2. [X] bar
@@ -32,6 +33,7 @@ Task lists can also be in ordered lists:
 ````````````````````````````````
 
 Task lists can also be nested in ordinary lists:
+
 ```````````````````````````````` example
  * xxx:
    * [x] foo
@@ -59,6 +61,7 @@ Task lists can also be nested in ordinary lists:
 ````````````````````````````````
 
 Or in a parent task list:
+
 ```````````````````````````````` example
  1. [x] xxx:
     * [x] foo
@@ -86,6 +89,7 @@ Or in a parent task list:
 ````````````````````````````````
 
 Also, ordinary lists can be nested in the task lists.
+
 ```````````````````````````````` example
  * [x] xxx:
    * foo

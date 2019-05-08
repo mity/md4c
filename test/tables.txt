@@ -312,14 +312,15 @@ But the last line is not part of it due its indentation.)
 
 
 ### [Issue 42](https://github.com/mity/md4c/issues/42)
-```
+
+```````````````````````````````` example
 ] http://x.x *x*
 
 |x|x|
 |---|---|
 |x|
 .
-<p>] <a href="http://x.x">http://x.x</a> <em>x</em></p>
+<p>] http://x.x <em>x</em></p>
 <table>
 <thead>
 <tr>
@@ -330,7 +331,8 @@ But the last line is not part of it due its indentation.)
 <tbody>
 <tr>
 <td>x</td>
+<td></td>
 </tr>
 </tbody>
 </table>
-```
+````````````````````````````````

@@ -67,11 +67,13 @@ Anonymous FTP is available at ftp://foo.bar.baz.
 ## GitHub Issues
 
 ### [Issue 53](https://github.com/mity/md4c/issues/53)
+
 ```````````````````````````````` example
 This is [link](http://github.com/).
 .
 <p>This is <a href="http://github.com/">link</a>.</p>
 ````````````````````````````````
+
 ```````````````````````````````` example
 This is [link](http://github.com/)X
 .
@@ -80,6 +82,7 @@ This is [link](http://github.com/)X
 
 
 ## [Issue 76](https://github.com/mity/md4c/issues/76)
+
 ```````````````````````````````` example
 *(http://example.com)*
 .
