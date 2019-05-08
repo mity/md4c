@@ -1081,7 +1081,7 @@ md_scan_for_html_closer(MD_CTX* ctx, const MD_CHAR* str, MD_SIZE len,
     int i = 0;
 
     if(off < *p_scan_horizon  &&  *p_scan_horizon >= max_end - len) {
-        /* We have already scanned the range up to the max_end and we now
+        /* We have already scanned the range up to the max_end so we know
          * there is nothing to see. */
         return FALSE;
     }
