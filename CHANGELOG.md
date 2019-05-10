@@ -2,7 +2,7 @@
 # MD4C Change Log
 
 
-## Next Version (Work in Progress)
+## Version 0.3.3
 
 Changes:
  * Make permissive URL autolink and permssive WWW autolink extensions stricter.
@@ -21,6 +21,7 @@ Fixes:
  * [#76](https://github.com/mity/md4c/issues/76):
    Fix handling of parenthesis in some corner cases of permissive URL autolink
    and permssive WWW autolink extensions.
+
 
 ## Version 0.3.2
 
