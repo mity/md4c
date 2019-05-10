@@ -5504,340 +5504,328 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
         }
     }
 
-redo:
-    /* Check whether we are fenced code continuation. */
-    if(pivot_line->type == MD_LINE_FENCEDCODE) {
-        line->beg = off;
-
-        /* We are another MD_LINE_FENCEDCODE unless we are closing fence
-         * which we transform into MD_LINE_BLANK. */
-        if(line->indent < ctx->code_indent_offset) {
-            if(md_is_closing_code_fence(ctx, CH(pivot_line->beg), off, &off)) {
-                line->type = MD_LINE_BLANK;
-                ctx->last_line_has_list_loosening_effect = FALSE;
-                goto done;
-            }
-        }
-
-        /* Change indentation accordingly to the initial code fence. */
-        if(n_parents == ctx->n_containers) {
-            if(line->indent > pivot_line->indent)
-                line->indent -= pivot_line->indent;
-            else
-                line->indent = 0;
-
-            line->type = MD_LINE_FENCEDCODE;
-            goto done;
-        }
-    }
-
-    /* Check whether we are HTML block continuation. */
-    if(pivot_line->type == MD_LINE_HTML  &&  ctx->html_block_type > 0) {
-        int html_block_type;
-
-        html_block_type = md_is_html_block_end_condition(ctx, off, &off);
-        if(html_block_type > 0) {
-            MD_ASSERT(html_block_type == ctx->html_block_type);
-
-            /* Make sure this is the last line of the block. */
-            ctx->html_block_type = 0;
-
-            /* Some end conditions serve as blank lines at the same time. */
-            if(html_block_type == 6 || html_block_type == 7) {
-                line->type = MD_LINE_BLANK;
-                line->indent = 0;
-                goto done;
-            }
-        }
-
-        if(n_parents == ctx->n_containers) {
-            line->type = MD_LINE_HTML;
-            goto done;
-        }
-    }
-
-    /* Check for blank line. */
-    if(off >= ctx->size  ||  ISNEWLINE(off)) {
-        if(pivot_line->type == MD_LINE_INDENTEDCODE  &&  n_parents == ctx->n_containers) {
-            line->type = MD_LINE_INDENTEDCODE;
-            if(line->indent > ctx->code_indent_offset)
-                line->indent -= ctx->code_indent_offset;
-            else
-                line->indent = 0;
-            ctx->last_line_has_list_loosening_effect = FALSE;
-        } else {
-            line->type = MD_LINE_BLANK;
-            ctx->last_line_has_list_loosening_effect = (n_parents > 0  &&
-                    n_brothers + n_children == 0  &&
-                    ctx->containers[n_parents-1].ch != _T('>'));
-
-#if 1
-            /* See https://github.com/mity/md4c/issues/6
-             *
-             * This ugly checking tests we are in (yet empty) list item but not
-             * its very first line (with the list item mark).
-             *
-             * If we are such blank line, then any following non-blank line
-             * which would be part of this list item actually ends the list
-             * because "a list item can begin with at most one blank line."
-             */
-            if(n_parents > 0  &&  ctx->containers[n_parents-1].ch != _T('>')  &&
-               n_brothers + n_children == 0  &&  ctx->current_block == NULL  &&
-               ctx->n_block_bytes > (int) sizeof(MD_BLOCK))
-            {
-                MD_BLOCK* top_block = (MD_BLOCK*) ((char*)ctx->block_bytes + ctx->n_block_bytes - sizeof(MD_BLOCK));
-                if(top_block->type == MD_BLOCK_LI)
-                    ctx->last_list_item_starts_with_two_blank_lines = TRUE;
-            }
-#endif
-        }
-        goto done_on_eol;
-    } else {
-#if 1
-        /* This is 2nd half of the hack. If the flag is set (that is there
-         * were 2nd blank line at the start of the list item) and we would also
-         * belonging to such list item, then interrupt the list. */
-        ctx->last_line_has_list_loosening_effect = FALSE;
-        if(ctx->last_list_item_starts_with_two_blank_lines) {
-            if(n_parents > 0  &&  ctx->containers[n_parents-1].ch != _T('>')  &&
-               n_brothers + n_children == 0  &&  ctx->current_block == NULL  &&
-               ctx->n_block_bytes > (int) sizeof(MD_BLOCK))
-            {
-                MD_BLOCK* top_block = (MD_BLOCK*) ((char*)ctx->block_bytes + ctx->n_block_bytes - sizeof(MD_BLOCK));
-                if(top_block->type == MD_BLOCK_LI)
-                    n_parents--;
-            }
-
-            ctx->last_list_item_starts_with_two_blank_lines = FALSE;
-        }
-#endif
-    }
-
-    /* Check whether we are Setext underline. */
-    if(line->indent < ctx->code_indent_offset  &&  pivot_line->type == MD_LINE_TEXT
-        &&  (CH(off) == _T('=') || CH(off) == _T('-'))
-        &&  (n_parents == ctx->n_containers))
-    {
-        unsigned level;
-
-        if(md_is_setext_underline(ctx, off, &off, &level)) {
-            line->type = MD_LINE_SETEXTUNDERLINE;
-            line->data = level;
-            goto done;
-        }
-    }
-
-    /* Check for thematic break line. */
-    if(line->indent < ctx->code_indent_offset  &&  ISANYOF(off, _T("-_*"))  &&  off >= hr_killer) {
-        if(md_is_hr_line(ctx, off, &off, &hr_killer)) {
-            line->type = MD_LINE_HR;
-            goto done;
-        }
-    }
-
-    /* Check for "brother" container. I.e. whether we are another list item
-     * in already started list. */
-    if(n_parents < ctx->n_containers  &&  n_brothers + n_children == 0) {
-        OFF tmp;
-
-        if(md_is_container_mark(ctx, line->indent, off, &tmp, &container)  &&
-           md_is_container_compatible(&ctx->containers[n_parents], &container))
-        {
-            pivot_line = &md_dummy_blank_line;
-
-            off = tmp;
-
-            total_indent += container.contents_indent - container.mark_indent;
-            line->indent = md_line_indentation(ctx, total_indent, off, &off);
-            total_indent += line->indent;
+    while(TRUE) {
+        /* Check whether we are fenced code continuation. */
+        if(pivot_line->type == MD_LINE_FENCEDCODE) {
             line->beg = off;
 
-            /* Some of the following whitespace actually still belongs to the mark. */
-            if(off >= ctx->size || ISNEWLINE(off)) {
-                container.contents_indent++;
-            } else if(line->indent <= ctx->code_indent_offset) {
-                container.contents_indent += line->indent;
-                line->indent = 0;
-            } else {
-                container.contents_indent += 1;
-                line->indent--;
+            /* We are another MD_LINE_FENCEDCODE unless we are closing fence
+             * which we transform into MD_LINE_BLANK. */
+            if(line->indent < ctx->code_indent_offset) {
+                if(md_is_closing_code_fence(ctx, CH(pivot_line->beg), off, &off)) {
+                    line->type = MD_LINE_BLANK;
+                    ctx->last_line_has_list_loosening_effect = FALSE;
+                    break;
+                }
             }
 
-            ctx->containers[n_parents].mark_indent = container.mark_indent;
-            ctx->containers[n_parents].contents_indent = container.contents_indent;
+            /* Change indentation accordingly to the initial code fence. */
+            if(n_parents == ctx->n_containers) {
+                if(line->indent > pivot_line->indent)
+                    line->indent -= pivot_line->indent;
+                else
+                    line->indent = 0;
 
-            n_brothers++;
-            goto redo;
-        }
-    }
-
-    /* Check for indented code.
-     * Note indented code block cannot interrupt a paragraph. */
-    if(line->indent >= ctx->code_indent_offset  &&
-        (pivot_line->type == MD_LINE_BLANK || pivot_line->type == MD_LINE_INDENTEDCODE))
-    {
-        line->type = MD_LINE_INDENTEDCODE;
-        MD_ASSERT(line->indent >= ctx->code_indent_offset);
-        line->indent -= ctx->code_indent_offset;
-        line->data = 0;
-        goto done;
-    }
-
-    /* Check for start of a new container block. */
-    if(line->indent < ctx->code_indent_offset  &&
-       md_is_container_mark(ctx, line->indent, off, &off, &container))
-    {
-        if(pivot_line->type == MD_LINE_TEXT  &&  n_parents == ctx->n_containers  &&
-                    (off >= ctx->size || ISNEWLINE(off)))
-        {
-            /* Noop. List mark followed by a blank line cannot interrupt a paragraph. */
-        } else if(pivot_line->type == MD_LINE_TEXT  &&  n_parents == ctx->n_containers  &&
-                    (container.ch == _T('.') || container.ch == _T(')'))  &&  container.start != 1)
-        {
-            /* Noop. Ordered list cannot interrupt a paragraph unless the start index is 1. */
-        } else {
-            total_indent += container.contents_indent - container.mark_indent;
-            line->indent = md_line_indentation(ctx, total_indent, off, &off);
-            total_indent += line->indent;
-
-            line->beg = off;
-            line->data = container.ch;
-
-            /* Some of the following whitespace actually still belongs to the mark. */
-            if(off >= ctx->size || ISNEWLINE(off)) {
-                container.contents_indent++;
-            } else if(line->indent <= ctx->code_indent_offset) {
-                container.contents_indent += line->indent;
-                line->indent = 0;
-            } else {
-                container.contents_indent += 1;
-                line->indent--;
+                line->type = MD_LINE_FENCEDCODE;
+                break;
             }
-
-            if(n_brothers + n_children == 0)
-                pivot_line = &md_dummy_blank_line;
-
-            if(n_children == 0)
-                MD_CHECK(md_leave_child_containers(ctx, n_parents + n_brothers));
-
-            n_children++;
-            MD_CHECK(md_push_container(ctx, &container));
-            goto redo;
         }
-    }
 
-    /* Check whether we are table continuation. */
-    if(pivot_line->type == MD_LINE_TABLE  &&  md_is_table_row(ctx, off, &off)  &&
-       n_parents == ctx->n_containers)
-    {
-        line->type = MD_LINE_TABLE;
-        goto done;
-    }
+        /* Check whether we are HTML block continuation. */
+        if(pivot_line->type == MD_LINE_HTML  &&  ctx->html_block_type > 0) {
+            int html_block_type;
 
-    /* Check for ATX header. */
-    if(line->indent < ctx->code_indent_offset  &&  CH(off) == _T('#')) {
-        unsigned level;
+            html_block_type = md_is_html_block_end_condition(ctx, off, &off);
+            if(html_block_type > 0) {
+                MD_ASSERT(html_block_type == ctx->html_block_type);
 
-        if(md_is_atxheader_line(ctx, off, &line->beg, &off, &level)) {
-            line->type = MD_LINE_ATXHEADER;
-            line->data = level;
-            goto done;
-        }
-    }
-
-    /* Check whether we are starting code fence. */
-    if(CH(off) == _T('`') || CH(off) == _T('~')) {
-        if(md_is_opening_code_fence(ctx, off, &off)) {
-            line->type = MD_LINE_FENCEDCODE;
-            line->data = 1;
-            goto done;
-        }
-    }
-
-    /* Check for start of raw HTML block. */
-    if(CH(off) == _T('<')  &&  !(ctx->parser.flags & MD_FLAG_NOHTMLBLOCKS))
-    {
-        ctx->html_block_type = md_is_html_block_start_condition(ctx, off);
-
-        /* HTML block type 7 cannot interrupt paragraph. */
-        if(ctx->html_block_type == 7  &&  pivot_line->type == MD_LINE_TEXT)
-            ctx->html_block_type = 0;
-
-        if(ctx->html_block_type > 0) {
-            /* The line itself also may immediately close the block. */
-            if(md_is_html_block_end_condition(ctx, off, &off) == ctx->html_block_type) {
                 /* Make sure this is the last line of the block. */
                 ctx->html_block_type = 0;
+
+                /* Some end conditions serve as blank lines at the same time. */
+                if(html_block_type == 6 || html_block_type == 7) {
+                    line->type = MD_LINE_BLANK;
+                    line->indent = 0;
+                    break;
+                }
             }
 
-            line->type = MD_LINE_HTML;
-            goto done;
+            if(n_parents == ctx->n_containers) {
+                line->type = MD_LINE_HTML;
+                break;
+            }
         }
-    }
 
-    /* Check for table underline. */
-    if((ctx->parser.flags & MD_FLAG_TABLES)  &&  pivot_line->type == MD_LINE_TEXT  &&
-       (CH(off) == _T('|') || CH(off) == _T('-') || CH(off) == _T(':'))  &&
-       n_parents == ctx->n_containers)
-    {
-        unsigned col_count;
+        /* Check for blank line. */
+        if(off >= ctx->size  ||  ISNEWLINE(off)) {
+            if(pivot_line->type == MD_LINE_INDENTEDCODE  &&  n_parents == ctx->n_containers) {
+                line->type = MD_LINE_INDENTEDCODE;
+                if(line->indent > ctx->code_indent_offset)
+                    line->indent -= ctx->code_indent_offset;
+                else
+                    line->indent = 0;
+                ctx->last_line_has_list_loosening_effect = FALSE;
+            } else {
+                line->type = MD_LINE_BLANK;
+                ctx->last_line_has_list_loosening_effect = (n_parents > 0  &&
+                        n_brothers + n_children == 0  &&
+                        ctx->containers[n_parents-1].ch != _T('>'));
 
-        if(ctx->current_block != NULL  &&  ctx->current_block->n_lines == 1  &&
-            md_is_table_underline(ctx, off, &off, &col_count)  &&
-            md_is_table_row(ctx, pivot_line->beg, NULL))
+    #if 1
+                /* See https://github.com/mity/md4c/issues/6
+                 *
+                 * This ugly checking tests we are in (yet empty) list item but not
+                 * its very first line (with the list item mark).
+                 *
+                 * If we are such blank line, then any following non-blank line
+                 * which would be part of this list item actually ends the list
+                 * because "a list item can begin with at most one blank line."
+                 */
+                if(n_parents > 0  &&  ctx->containers[n_parents-1].ch != _T('>')  &&
+                   n_brothers + n_children == 0  &&  ctx->current_block == NULL  &&
+                   ctx->n_block_bytes > (int) sizeof(MD_BLOCK))
+                {
+                    MD_BLOCK* top_block = (MD_BLOCK*) ((char*)ctx->block_bytes + ctx->n_block_bytes - sizeof(MD_BLOCK));
+                    if(top_block->type == MD_BLOCK_LI)
+                        ctx->last_list_item_starts_with_two_blank_lines = TRUE;
+                }
+    #endif
+            }
+            break;
+        } else {
+    #if 1
+            /* This is 2nd half of the hack. If the flag is set (that is there
+             * were 2nd blank line at the start of the list item) and we would also
+             * belonging to such list item, then interrupt the list. */
+            ctx->last_line_has_list_loosening_effect = FALSE;
+            if(ctx->last_list_item_starts_with_two_blank_lines) {
+                if(n_parents > 0  &&  ctx->containers[n_parents-1].ch != _T('>')  &&
+                   n_brothers + n_children == 0  &&  ctx->current_block == NULL  &&
+                   ctx->n_block_bytes > (int) sizeof(MD_BLOCK))
+                {
+                    MD_BLOCK* top_block = (MD_BLOCK*) ((char*)ctx->block_bytes + ctx->n_block_bytes - sizeof(MD_BLOCK));
+                    if(top_block->type == MD_BLOCK_LI)
+                        n_parents--;
+                }
+
+                ctx->last_list_item_starts_with_two_blank_lines = FALSE;
+            }
+    #endif
+        }
+
+        /* Check whether we are Setext underline. */
+        if(line->indent < ctx->code_indent_offset  &&  pivot_line->type == MD_LINE_TEXT
+            &&  (CH(off) == _T('=') || CH(off) == _T('-'))
+            &&  (n_parents == ctx->n_containers))
         {
-            line->data = col_count;
-            line->type = MD_LINE_TABLEUNDERLINE;
-            goto done;
+            unsigned level;
+
+            if(md_is_setext_underline(ctx, off, &off, &level)) {
+                line->type = MD_LINE_SETEXTUNDERLINE;
+                line->data = level;
+                break;
+            }
         }
-    }
 
-    /* By default, we are normal text line. */
-    line->type = MD_LINE_TEXT;
-    if(pivot_line->type == MD_LINE_TEXT  &&  n_brothers + n_children == 0) {
-        /* Lazy continuation. */
-        n_parents = ctx->n_containers;
-    }
+        /* Check for thematic break line. */
+        if(line->indent < ctx->code_indent_offset  &&  ISANYOF(off, _T("-_*"))  &&  off >= hr_killer) {
+            if(md_is_hr_line(ctx, off, &off, &hr_killer)) {
+                line->type = MD_LINE_HR;
+                break;
+            }
+        }
 
-    /* Check for task mark. */
-    if((ctx->parser.flags & MD_FLAG_TASKLISTS)  &&  n_brothers + n_children > 0  &&
-       ISANYOF_(ctx->containers[ctx->n_containers-1].ch, _T("-+*.)")))
-    {
-        OFF tmp = off;
+        /* Check for "brother" container. I.e. whether we are another list item
+         * in already started list. */
+        if(n_parents < ctx->n_containers  &&  n_brothers + n_children == 0) {
+            OFF tmp;
 
-        while(tmp < ctx->size  &&  tmp < off + 3  &&  ISBLANK(tmp))
-            tmp++;
-        if(tmp + 2 < ctx->size  &&  CH(tmp) == _T('[')  &&
-           ISANYOF(tmp+1, _T("xX "))  &&  CH(tmp+2) == _T(']')  &&
-           (tmp + 3 == ctx->size  ||  ISBLANK(tmp+3)  ||  ISNEWLINE(tmp+3)))
+            if(md_is_container_mark(ctx, line->indent, off, &tmp, &container)  &&
+               md_is_container_compatible(&ctx->containers[n_parents], &container))
+            {
+                pivot_line = &md_dummy_blank_line;
+
+                off = tmp;
+
+                total_indent += container.contents_indent - container.mark_indent;
+                line->indent = md_line_indentation(ctx, total_indent, off, &off);
+                total_indent += line->indent;
+                line->beg = off;
+
+                /* Some of the following whitespace actually still belongs to the mark. */
+                if(off >= ctx->size || ISNEWLINE(off)) {
+                    container.contents_indent++;
+                } else if(line->indent <= ctx->code_indent_offset) {
+                    container.contents_indent += line->indent;
+                    line->indent = 0;
+                } else {
+                    container.contents_indent += 1;
+                    line->indent--;
+                }
+
+                ctx->containers[n_parents].mark_indent = container.mark_indent;
+                ctx->containers[n_parents].contents_indent = container.contents_indent;
+
+                n_brothers++;
+                continue;
+            }
+        }
+
+        /* Check for indented code.
+         * Note indented code block cannot interrupt a paragraph. */
+        if(line->indent >= ctx->code_indent_offset  &&
+            (pivot_line->type == MD_LINE_BLANK || pivot_line->type == MD_LINE_INDENTEDCODE))
         {
-            MD_CONTAINER* task_container = (n_children > 0 ? &ctx->containers[ctx->n_containers-1] : &container);
-            task_container->is_task = TRUE;
-            task_container->task_mark_off = tmp + 1;
-            off = tmp + 3;
-            while(ISWHITESPACE(off))
-                off++;
-            line->beg = off;
+            line->type = MD_LINE_INDENTEDCODE;
+            MD_ASSERT(line->indent >= ctx->code_indent_offset);
+            line->indent -= ctx->code_indent_offset;
+            line->data = 0;
+            break;
+        }
+
+        /* Check for start of a new container block. */
+        if(line->indent < ctx->code_indent_offset  &&
+           md_is_container_mark(ctx, line->indent, off, &off, &container))
+        {
+            if(pivot_line->type == MD_LINE_TEXT  &&  n_parents == ctx->n_containers  &&
+                        (off >= ctx->size || ISNEWLINE(off)))
+            {
+                /* Noop. List mark followed by a blank line cannot interrupt a paragraph. */
+            } else if(pivot_line->type == MD_LINE_TEXT  &&  n_parents == ctx->n_containers  &&
+                        (container.ch == _T('.') || container.ch == _T(')'))  &&  container.start != 1)
+            {
+                /* Noop. Ordered list cannot interrupt a paragraph unless the start index is 1. */
+            } else {
+                total_indent += container.contents_indent - container.mark_indent;
+                line->indent = md_line_indentation(ctx, total_indent, off, &off);
+                total_indent += line->indent;
+
+                line->beg = off;
+                line->data = container.ch;
+
+                /* Some of the following whitespace actually still belongs to the mark. */
+                if(off >= ctx->size || ISNEWLINE(off)) {
+                    container.contents_indent++;
+                } else if(line->indent <= ctx->code_indent_offset) {
+                    container.contents_indent += line->indent;
+                    line->indent = 0;
+                } else {
+                    container.contents_indent += 1;
+                    line->indent--;
+                }
+
+                if(n_brothers + n_children == 0)
+                    pivot_line = &md_dummy_blank_line;
+
+                if(n_children == 0)
+                    MD_CHECK(md_leave_child_containers(ctx, n_parents + n_brothers));
+
+                n_children++;
+                MD_CHECK(md_push_container(ctx, &container));
+                continue;
+            }
+        }
+
+        /* Check whether we are table continuation. */
+        if(pivot_line->type == MD_LINE_TABLE  &&  md_is_table_row(ctx, off, &off)  &&
+           n_parents == ctx->n_containers)
+        {
+            line->type = MD_LINE_TABLE;
+            break;
+        }
+
+        /* Check for ATX header. */
+        if(line->indent < ctx->code_indent_offset  &&  CH(off) == _T('#')) {
+            unsigned level;
+
+            if(md_is_atxheader_line(ctx, off, &line->beg, &off, &level)) {
+                line->type = MD_LINE_ATXHEADER;
+                line->data = level;
+                break;
+            }
+        }
+
+        /* Check whether we are starting code fence. */
+        if(CH(off) == _T('`') || CH(off) == _T('~')) {
+            if(md_is_opening_code_fence(ctx, off, &off)) {
+                line->type = MD_LINE_FENCEDCODE;
+                line->data = 1;
+                break;
+            }
+        }
+
+        /* Check for start of raw HTML block. */
+        if(CH(off) == _T('<')  &&  !(ctx->parser.flags & MD_FLAG_NOHTMLBLOCKS))
+        {
+            ctx->html_block_type = md_is_html_block_start_condition(ctx, off);
+
+            /* HTML block type 7 cannot interrupt paragraph. */
+            if(ctx->html_block_type == 7  &&  pivot_line->type == MD_LINE_TEXT)
+                ctx->html_block_type = 0;
+
+            if(ctx->html_block_type > 0) {
+                /* The line itself also may immediately close the block. */
+                if(md_is_html_block_end_condition(ctx, off, &off) == ctx->html_block_type) {
+                    /* Make sure this is the last line of the block. */
+                    ctx->html_block_type = 0;
+                }
+
+                line->type = MD_LINE_HTML;
+                break;
+            }
+        }
+
+        /* Check for table underline. */
+        if((ctx->parser.flags & MD_FLAG_TABLES)  &&  pivot_line->type == MD_LINE_TEXT  &&
+           (CH(off) == _T('|') || CH(off) == _T('-') || CH(off) == _T(':'))  &&
+           n_parents == ctx->n_containers)
+        {
+            unsigned col_count;
+
+            if(ctx->current_block != NULL  &&  ctx->current_block->n_lines == 1  &&
+                md_is_table_underline(ctx, off, &off, &col_count)  &&
+                md_is_table_row(ctx, pivot_line->beg, NULL))
+            {
+                line->data = col_count;
+                line->type = MD_LINE_TABLEUNDERLINE;
+                break;
+            }
+        }
+
+        /* By default, we are normal text line. */
+        line->type = MD_LINE_TEXT;
+        if(pivot_line->type == MD_LINE_TEXT  &&  n_brothers + n_children == 0) {
+            /* Lazy continuation. */
+            n_parents = ctx->n_containers;
+        }
+
+        /* Check for task mark. */
+        if((ctx->parser.flags & MD_FLAG_TASKLISTS)  &&  n_brothers + n_children > 0  &&
+           ISANYOF_(ctx->containers[ctx->n_containers-1].ch, _T("-+*.)")))
+        {
+            OFF tmp = off;
+
+            while(tmp < ctx->size  &&  tmp < off + 3  &&  ISBLANK(tmp))
+                tmp++;
+            if(tmp + 2 < ctx->size  &&  CH(tmp) == _T('[')  &&
+               ISANYOF(tmp+1, _T("xX "))  &&  CH(tmp+2) == _T(']')  &&
+               (tmp + 3 == ctx->size  ||  ISBLANK(tmp+3)  ||  ISNEWLINE(tmp+3)))
+            {
+                MD_CONTAINER* task_container = (n_children > 0 ? &ctx->containers[ctx->n_containers-1] : &container);
+                task_container->is_task = TRUE;
+                task_container->task_mark_off = tmp + 1;
+                off = tmp + 3;
+                while(ISWHITESPACE(off))
+                    off++;
+                line->beg = off;
+            }
         }
     }
 
-done:
-    /* Scan for end of the line.
-     *
-     * Note this is bottleneck of this function as we itereate over (almost)
-     * all line contents after some initial line indentation. To optimize, we
-     * try to eat multiple chars in every loop iteration.
-     *
-     * (Measured ~6% performance boost of md2html with this optimization for
-     * normal kind of input.)
-     */
-    while(off + 4 < ctx->size  &&  !ISNEWLINE(off+0)  &&  !ISNEWLINE(off+1)
-                               &&  !ISNEWLINE(off+2)  &&  !ISNEWLINE(off+3))
-        off += 4;
+    /* Scan for end of the line. */
     while(off < ctx->size  &&  !ISNEWLINE(off))
         off++;
 
-done_on_eol:
     /* Set end of the line. */
     line->end = off;
 
