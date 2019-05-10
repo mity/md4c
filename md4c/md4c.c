@@ -5820,6 +5820,8 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
                 line->beg = off;
             }
         }
+
+        break;
     }
 
     /* Scan for end of the line. */
