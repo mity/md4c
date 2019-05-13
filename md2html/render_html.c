@@ -69,7 +69,7 @@ render_text(MD_RENDER_HTML* r, const MD_CHAR* text, MD_SIZE size)
     r->process_output(text, size, r->userdata);
 }
 
-#define RENDER_LITERAL(r, literal)    render_text((r), (literal), strlen(literal))
+#define RENDER_LITERAL(r, literal)    render_text((r), (literal), (MD_SIZE) strlen(literal))
 
 
 static void
