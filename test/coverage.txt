@@ -92,21 +92,21 @@ x [link](/url "foo &ndash; bar") x
 ````````````````````````````````
 
 
-### [Issue 15](https://github.com/mity/md4c/issues/15)
-
-```````````````````````````````` example
-***b* c*
-.
-<p>*<em><em>b</em> c</em></p>
-````````````````````````````````
-
-
 ### [Issue 14](https://github.com/mity/md4c/issues/14)
 
 ```````````````````````````````` example
 a***b* c*
 .
 <p>a*<em><em>b</em> c</em></p>
+````````````````````````````````
+
+
+### [Issue 15](https://github.com/mity/md4c/issues/15)
+
+```````````````````````````````` example
+***b* c*
+.
+<p>*<em><em>b</em> c</em></p>
 ````````````````````````````````
 
 
