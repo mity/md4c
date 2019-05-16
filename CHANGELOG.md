@@ -2,6 +2,14 @@
 # MD4C Change Log
 
 
+## Next Version (Work in Progress)
+
+Fixes:
+ * [#77](https://github.com/mity/md4c/issues/77):
+   Fix maximal counts of digits for numerical character references, as requested
+   by CommonMark specification 0.29.
+
+
 ## Version 0.3.3
 
 Changes:

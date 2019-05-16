@@ -1224,7 +1224,7 @@ md_is_hex_entity_contents(MD_CTX* ctx, const CHAR* text, OFF beg, OFF max_end, O
     while(off < max_end  &&  ISXDIGIT_(text[off])  &&  off - beg <= 8)
         off++;
 
-    if(1 <= off - beg  &&  off - beg <= 8) {
+    if(1 <= off - beg  &&  off - beg <= 6) {
         *p_end = off;
         return TRUE;
     } else {
@@ -1240,7 +1240,7 @@ md_is_dec_entity_contents(MD_CTX* ctx, const CHAR* text, OFF beg, OFF max_end, O
     while(off < max_end  &&  ISDIGIT_(text[off])  &&  off - beg <= 8)
         off++;
 
-    if(1 <= off - beg  &&  off - beg <= 8) {
+    if(1 <= off - beg  &&  off - beg <= 7) {
         *p_end = off;
         return TRUE;
     } else {
