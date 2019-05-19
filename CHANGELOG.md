@@ -12,6 +12,9 @@ Fixes:
    Fix maximal counts of digits for numerical character references, as requested
    by CommonMark specification 0.29.
 
+ * [#78](https://github.com/mity/md4c/issues/78):
+   Fix link reference definition label matching for Unicode characters where
+   the folding mapping leads to multiple codepoints, as e.g. in `ẞ` -> `SS`.
 
 ## Version 0.3.3
 

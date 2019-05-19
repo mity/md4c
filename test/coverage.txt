@@ -181,6 +181,16 @@ __x_ _x___
 ````````````````````````````````
 
 
+### [Issue 78](https://github.com/mity/md4c/issues/78)
+
+```````````````````````````````` example
+[SS ẞ]: /url
+[ẞ SS]
+.
+<p><a href="/url">ẞ SS</a></p>
+````````````````````````````````
+
+
 ## Code coverage
 
 ### `md_is_unicode_whitespace__()`

@@ -1518,60 +1518,75 @@ md_link_label_hash(const CHAR* label, SZ size)
     return hash;
 }
 
+static OFF
+md_link_label_cmp_load_fold_info(const CHAR* label, OFF off, SZ size,
+                                 MD_UNICODE_FOLD_INFO* fold_info)
+{
+    unsigned codepoint;
+    SZ char_size;
+
+    if(off >= size) {
+        /* Treat end of link label as a whitespace. */
+        goto whitespace;
+    }
+
+    if(ISNEWLINE_(label[off])) {
+        /* Treat new lines as a whitespace. */
+        off++;
+        goto whitespace;
+    }
+
+    codepoint = md_decode_unicode(label, off, size, &char_size);
+    off += char_size;
+    if(ISUNICODEWHITESPACE_(codepoint)) {
+        /* Treat all whitespace as equivalent */
+        goto whitespace;
+    }
+
+    /* Get real folding info. */
+    md_get_unicode_fold_info(codepoint, fold_info);
+    return off;
+
+whitespace:
+    fold_info->codepoints[0] = _T(' ');
+    fold_info->n_codepoints = 1;
+    return off;
+}
+
 static int
 md_link_label_cmp(const CHAR* a_label, SZ a_size, const CHAR* b_label, SZ b_size)
 {
     OFF a_off;
     OFF b_off;
+    int a_reached_end = FALSE;
+    int b_reached_end = FALSE;
+    MD_UNICODE_FOLD_INFO a_fi = { 0 };
+    MD_UNICODE_FOLD_INFO b_fi = { 0 };
+    OFF a_fi_off = 0;
+    OFF b_fi_off = 0;
+    int cmp;
 
-    /* The slow path, with Unicode case folding and Unicode whitespace collapsing. */
     a_off = md_skip_unicode_whitespace(a_label, 0, a_size);
     b_off = md_skip_unicode_whitespace(b_label, 0, b_size);
-    while(a_off < a_size  ||  b_off < b_size) {
-        unsigned a_codepoint, b_codepoint;
-        SZ a_char_size, b_char_size;
-        int a_is_whitespace, b_is_whitespace;
-
-        if(a_off < a_size) {
-            a_codepoint = md_decode_unicode(a_label, a_off, a_size, &a_char_size);
-            a_is_whitespace = ISUNICODEWHITESPACE_(a_codepoint) || ISNEWLINE_(a_label[a_off]);
-        } else {
-            /* Treat end of label as a whitespace. */
-            a_codepoint = 0;
-            a_is_whitespace = TRUE;
+    while(!a_reached_end  &&  !b_reached_end) {
+        /* If needed, load fold info for next char. */
+        if(a_fi_off >= a_fi.n_codepoints) {
+            a_fi_off = 0;
+            a_off = md_link_label_cmp_load_fold_info(a_label, a_off, a_size, &a_fi);
+            a_reached_end = (a_off >= a_size);
+        }
+        if(b_fi_off >= b_fi.n_codepoints) {
+            b_fi_off = 0;
+            b_off = md_link_label_cmp_load_fold_info(b_label, b_off, b_size, &b_fi);
+            b_reached_end = (b_off >= b_size);
         }
 
-        if(b_off < b_size) {
-            b_codepoint = md_decode_unicode(b_label, b_off, b_size, &b_char_size);
-            b_is_whitespace = ISUNICODEWHITESPACE_(b_codepoint) || ISNEWLINE_(b_label[b_off]);
-        } else {
-            /* Treat end of label as a whitespace. */
-            b_codepoint = 0;
-            b_is_whitespace = TRUE;
-        }
+        cmp = b_fi.codepoints[b_fi_off] - a_fi.codepoints[a_fi_off];
+        if(cmp != 0)
+            return cmp;
 
-        if(a_is_whitespace || b_is_whitespace) {
-            if(!a_is_whitespace || !b_is_whitespace)
-                return (a_is_whitespace ? -1 : +1);
-
-            a_off = md_skip_unicode_whitespace(a_label, a_off, a_size);
-            b_off = md_skip_unicode_whitespace(b_label, b_off, b_size);
-        } else {
-            MD_UNICODE_FOLD_INFO a_fold_info, b_fold_info;
-            int cmp;
-
-            md_get_unicode_fold_info(a_codepoint, &a_fold_info);
-            md_get_unicode_fold_info(b_codepoint, &b_fold_info);
-
-            if(a_fold_info.n_codepoints != b_fold_info.n_codepoints)
-                return (a_fold_info.n_codepoints - b_fold_info.n_codepoints);
-            cmp = memcmp(a_fold_info.codepoints, b_fold_info.codepoints, a_fold_info.n_codepoints * sizeof(unsigned));
-            if(cmp != 0)
-                return cmp;
-
-            a_off += a_char_size;
-            b_off += b_char_size;
-        }
+        a_fi_off++;
+        b_fi_off++;
     }
 
     return 0;
