@@ -5837,11 +5837,19 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
     /* Scan for end of the line. */
     if(ctx->doc_ends_with_newline  &&  off < ctx->size) {
         /* There is a good chance libc provides well optimized code for these. */
+        while(TRUE) {
 #ifdef MD4C_USE_UTF16
-        off += (OFF) wcscspn(STR(off), _T("\r\n"));
+            off += (OFF) wcscspn(STR(off), _T("\r\n"));
 #else
-        off += (OFF) strcspn(STR(off), "\r\n");
+            off += (OFF) strcspn(STR(off), "\r\n");
 #endif
+            /* strcspn()/wcscspn() also stops on zero terminator (which we
+             * need to ignore here.) */
+            if(CH(off) == _T('\0'))
+                off++;
+            else
+                break;
+        }
     } else {
         /* Optimization: Use some loop unrolling. */
         while(off + 3 < ctx->size  &&  !ISNEWLINE(off+0)  &&  !ISNEWLINE(off+1)
