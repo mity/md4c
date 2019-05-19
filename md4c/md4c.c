@@ -5834,23 +5834,28 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
         break;
     }
 
-    /* Scan for end of the line. */
+    /* Scan for end of the line.
+     *
+     * Note this is quite a bottleneck of the parsing as we here iterate almost
+     * over compete document.
+     */
+#if defined __linux__ && !defined MD4C_USE_UTF16
+    /* Recent glibc versions have superbly optimized strcspn(), even using
+     * vectorization if available. */
     if(ctx->doc_ends_with_newline  &&  off < ctx->size) {
-        /* There is a good chance libc provides well optimized code for these. */
         while(TRUE) {
-#ifdef MD4C_USE_UTF16
-            off += (OFF) wcscspn(STR(off), _T("\r\n"));
-#else
             off += (OFF) strcspn(STR(off), "\r\n");
-#endif
-            /* strcspn()/wcscspn() also stops on zero terminator (which we
-             * need to ignore here.) */
+
+            /* strcspn() can stop on zero terminator; but that can appear
+             * anywhere in the Markfown input... */
             if(CH(off) == _T('\0'))
                 off++;
             else
                 break;
         }
-    } else {
+    } else
+#endif
+    {
         /* Optimization: Use some loop unrolling. */
         while(off + 3 < ctx->size  &&  !ISNEWLINE(off+0)  &&  !ISNEWLINE(off+1)
                                    &&  !ISNEWLINE(off+2)  &&  !ISNEWLINE(off+3))
