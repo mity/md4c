@@ -50,6 +50,7 @@ struct MD_RENDER_HTML_tag {
     void* userdata;
     unsigned flags;
     int image_nesting_level;
+    char escape_map[256];
 };
 
 
@@ -79,12 +80,16 @@ render_html_escaped(MD_RENDER_HTML* r, const MD_CHAR* data, MD_SIZE size)
     MD_OFFSET off = 0;
 
     /* Some characters need to be escaped in normal HTML text. */
-    #define HTML_NEED_ESCAPE(ch)                                            \
-            ((ch) == '&' || (ch) == '<' || (ch) == '>' || (ch) == '"')
+    #define HTML_NEED_ESCAPE(ch)        (r->escape_map[(unsigned char)(ch)] != 0)
 
     while(1) {
+        /* Optimization: Use some loop unrolling. */
+        while(off + 3 < size  &&  !HTML_NEED_ESCAPE(data[off+0])  &&  !HTML_NEED_ESCAPE(data[off+1])
+                              &&  !HTML_NEED_ESCAPE(data[off+2])  &&  !HTML_NEED_ESCAPE(data[off+3]))
+            off += 4;
         while(off < size  &&  !HTML_NEED_ESCAPE(data[off]))
             off++;
+
         if(off > beg)
             render_text(r, data + beg, off - beg);
 
@@ -487,7 +492,7 @@ md_render_html(const MD_CHAR* input, MD_SIZE input_size,
                void (*process_output)(const MD_CHAR*, MD_SIZE, void*),
                void* userdata, unsigned parser_flags, unsigned renderer_flags)
 {
-    MD_RENDER_HTML render = { process_output, userdata, renderer_flags, 0 };
+    MD_RENDER_HTML render = { process_output, userdata, renderer_flags, 0, { 0 } };
 
     MD_PARSER parser = {
         0,
@@ -500,6 +505,11 @@ md_render_html(const MD_CHAR* input, MD_SIZE input_size,
         debug_log_callback,
         NULL
     };
+
+    render.escape_map[(unsigned char)'"'] = 1;
+    render.escape_map[(unsigned char)'&'] = 1;
+    render.escape_map[(unsigned char)'<'] = 1;
+    render.escape_map[(unsigned char)'>'] = 1;
 
     return md_parse(input, input_size, &parser, (void*) &render);
 }

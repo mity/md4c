@@ -98,6 +98,9 @@ struct MD_CTX_tag {
     MD_PARSER parser;
     void* userdata;
 
+    /* When this is true, it allows some optimizations. */
+    int doc_ends_with_newline;
+
     /* Helper temporary growing buffer. */
     CHAR* buffer;
     unsigned alloc_buffer;
@@ -2957,8 +2960,8 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
     #define IS_MARK_CHAR(off)   (ctx->mark_char_map[(unsigned char) CH(off)])
 #endif
 
-            /* Optimization: Fast path (with some loop unrolling). */
-            while(off + 4 < line_end  &&  !IS_MARK_CHAR(off+0)  &&  !IS_MARK_CHAR(off+1)
+            /* Optimization: Use some loop unrolling. */
+            while(off + 3 < line_end  &&  !IS_MARK_CHAR(off+0)  &&  !IS_MARK_CHAR(off+1)
                                       &&  !IS_MARK_CHAR(off+2)  &&  !IS_MARK_CHAR(off+3))
                 off += 4;
             while(off < line_end  &&  !IS_MARK_CHAR(off+0))
@@ -5832,8 +5835,21 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
     }
 
     /* Scan for end of the line. */
-    while(off < ctx->size  &&  !ISNEWLINE(off))
-        off++;
+    if(ctx->doc_ends_with_newline  &&  off < ctx->size) {
+        /* There is a good chance libc provides well optimized code for these. */
+#ifdef MD4C_USE_UTF16
+        off += (OFF) wcscspn(STR(off), _T("\r\n"));
+#else
+        off += (OFF) strcspn(STR(off), "\r\n");
+#endif
+    } else {
+        /* Optimization: Use some loop unrolling. */
+        while(off + 3 < ctx->size  &&  !ISNEWLINE(off+0)  &&  !ISNEWLINE(off+1)
+                                   &&  !ISNEWLINE(off+2)  &&  !ISNEWLINE(off+3))
+            off += 4;
+        while(off < ctx->size  &&  !ISNEWLINE(off))
+            off++;
+    }
 
     /* Set end of the line. */
     line->end = off;
@@ -6053,6 +6069,7 @@ md_parse(const MD_CHAR* text, MD_SIZE size, const MD_PARSER* parser, void* userd
     ctx.userdata = userdata;
     ctx.code_indent_offset = (ctx.parser.flags & MD_FLAG_NOINDENTEDCODEBLOCKS) ? (OFF)(-1) : 4;
     md_build_mark_char_map(&ctx);
+    ctx.doc_ends_with_newline = (size > 0  &&  ISNEWLINE_(text[size-1]));
 
     /* Reset all unresolved opener mark chains. */
     for(i = 0; i < (int) SIZEOF_ARRAY(ctx.mark_chains); i++) {
