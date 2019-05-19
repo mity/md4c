@@ -5,21 +5,22 @@
 ## Next Version (Work in Progress)
 
 Changes:
- * Update Unicode-specific code to use Unicode 12.1.
+ * Update Unicode-specific code compliant to Unicode 12.1.
 
 Fixes:
  * [#77](https://github.com/mity/md4c/issues/77):
-   Fix maximal counts of digits for numerical character references, as requested
+   Fix maximal count of digits for numerical character references, as requested
    by CommonMark specification 0.29.
 
  * [#78](https://github.com/mity/md4c/issues/78):
    Fix link reference definition label matching for Unicode characters where
    the folding mapping leads to multiple codepoints, as e.g. in `ẞ` -> `SS`.
 
+
 ## Version 0.3.3
 
 Changes:
- * Make permissive URL autolink and permssive WWW autolink extensions stricter.
+ * Make permissive URL autolink and permissive WWW autolink extensions stricter.
 
    This brings the behavior closer to GFM and mitigates risk of false positives.
    In particular, the domain has to contain at least one dot and parenthesis
@@ -34,7 +35,7 @@ Fixes:
 
  * [#76](https://github.com/mity/md4c/issues/76):
    Fix handling of parenthesis in some corner cases of permissive URL autolink
-   and permssive WWW autolink extensions.
+   and permissive WWW autolink extensions.
 
 
 ## Version 0.3.2
