@@ -181,7 +181,6 @@ __x_ _x___
 ````````````````````````````````
 
 
-
 ## Code coverage
 
 ### `md_is_unicode_whitespace__()`

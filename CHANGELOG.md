@@ -4,6 +4,9 @@
 
 ## Next Version (Work in Progress)
 
+Changes:
+ * Update Unicode-specific code to use Unicode 12.1.
+
 Fixes:
  * [#77](https://github.com/mity/md4c/issues/77):
    Fix maximal counts of digits for numerical character references, as requested
