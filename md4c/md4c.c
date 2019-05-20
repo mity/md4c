@@ -181,7 +181,6 @@ struct MD_CTX_tag {
     int last_list_item_starts_with_two_blank_lines;
 };
 
-typedef enum MD_LINETYPE_tag MD_LINETYPE;
 enum MD_LINETYPE_tag {
     MD_LINE_BLANK,
     MD_LINE_HR,
@@ -195,6 +194,7 @@ enum MD_LINETYPE_tag {
     MD_LINE_TABLE,
     MD_LINE_TABLEUNDERLINE
 };
+typedef enum MD_LINETYPE_tag MD_LINETYPE;
 
 typedef struct MD_LINE_ANALYSIS_tag MD_LINE_ANALYSIS;
 struct MD_LINE_ANALYSIS_tag {
