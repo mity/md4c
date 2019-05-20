@@ -5,9 +5,15 @@
 ## Next Version (Work in Progress)
 
 Changes:
+
  * Update Unicode-specific code compliant to Unicode 12.1.
 
+ * Structure `MD_BLOCK_CODE_DETAIL` got new member `fenced_char`. Application
+   can use it to detect character used to form the block fences (`` ` `` or
+   `~`). In the case of indented code block, it is set to zero.
+
 Fixes:
+
  * [#77](https://github.com/mity/md4c/issues/77):
    Fix maximal count of digits for numerical character references, as requested
    by CommonMark specification 0.29.
@@ -20,6 +26,7 @@ Fixes:
 ## Version 0.3.3
 
 Changes:
+
  * Make permissive URL autolink and permissive WWW autolink extensions stricter.
 
    This brings the behavior closer to GFM and mitigates risk of false positives.
@@ -27,6 +34,7 @@ Changes:
    can be part of the link destination only if `(` and `)` are balanced.
 
 Fixes:
+
  * [#73](https://github.com/mity/md4c/issues/73):
    Some raw HTML inputs could lead to quadratic parsing times.
 
@@ -41,6 +49,7 @@ Fixes:
 ## Version 0.3.2
 
 Changes:
+
  * Changes mandated by CommonMark specification 0.29.
 
    Most importantly, the white-space trimming rules for code spans have changed.
@@ -54,6 +63,7 @@ Changes:
    for more info.
 
 Fixes:
+
  * [#68](https://github.com/mity/md4c/issues/68):
    Some specific HTML blocks were not recognized when EOF follows without any
    end-of-line character.

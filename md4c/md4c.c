@@ -4461,6 +4461,8 @@ md_setup_fenced_code_detail(MD_CTX* ctx, const MD_BLOCK* block, MD_BLOCK_CODE_DE
         lang_end++;
     MD_CHECK(md_build_attribute(ctx, STR(beg), lang_end - beg, 0, &det->lang, lang_build));
 
+    det->fence_char = fence_ch;
+
 abort:
     return ret;
 }

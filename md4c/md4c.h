@@ -238,6 +238,7 @@ typedef struct MD_BLOCK_H_DETAIL {
 typedef struct MD_BLOCK_CODE_DETAIL {
     MD_ATTRIBUTE info;
     MD_ATTRIBUTE lang;
+    MD_CHAR fence_char;     /* The character used for fenced code block; or zero for indented code block. */
 } MD_BLOCK_CODE_DETAIL;
 
 /* Detailed info for MD_BLOCK_TH and MD_BLOCK_TD. */
