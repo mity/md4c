@@ -26,7 +26,11 @@
 #ifndef MD4C_RENDER_HTML_H
 #define MD4C_RENDER_HTML_H
 
-#include "md4c.h"
+#include "../md4c/md4c.h"
+
+#ifdef __cplusplus
+    extern "C" {
+#endif
 
 /* If set, debug output from md_parse() is sent to stderr. */
 #define MD_RENDER_FLAG_DEBUG                0x0001
@@ -53,5 +57,8 @@ int md_render_html(const MD_CHAR* input, MD_SIZE input_size,
                    void (*process_output)(const MD_CHAR*, MD_SIZE, void*),
                    void* userdata, unsigned parser_flags, unsigned renderer_flags);
 
+#ifdef __cplusplus
+    }  /* extern "C" { */
+#endif
 
 #endif  /* MD4C_RENDER_HTML_H */
