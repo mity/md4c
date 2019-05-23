@@ -6,7 +6,7 @@
 
 Changes:
 
- * Update Unicode-specific code compliant to Unicode 12.1.
+ * Make Unicode-specific code compliant to Unicode 12.1.
 
  * Structure `MD_BLOCK_CODE_DETAIL` got new member `fenced_char`. Application
    can use it to detect character used to form the block fences (`` ` `` or
