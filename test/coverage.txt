@@ -191,6 +191,19 @@ __x_ _x___
 ````````````````````````````````
 
 
+### [Issue 83](https://github.com/mity/md4c/issues/83)
+
+```````````````````````````````` example
+foo
+>
+.
+<p>foo</p>
+<blockquote>
+</blockquote>
+
+````````````````````````````````
+
+
 ## Code coverage
 
 ### `md_is_unicode_whitespace__()`

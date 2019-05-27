@@ -5700,7 +5700,7 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
            md_is_container_mark(ctx, line->indent, off, &off, &container))
         {
             if(pivot_line->type == MD_LINE_TEXT  &&  n_parents == ctx->n_containers  &&
-                        (off >= ctx->size || ISNEWLINE(off)))
+                        (off >= ctx->size || ISNEWLINE(off))  &&  container.ch != _T('>'))
             {
                 /* Noop. List mark followed by a blank line cannot interrupt a paragraph. */
             } else if(pivot_line->type == MD_LINE_TEXT  &&  n_parents == ctx->n_containers  &&

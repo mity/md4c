@@ -22,6 +22,9 @@ Fixes:
    Fix link reference definition label matching for Unicode characters where
    the folding mapping leads to multiple codepoints, as e.g. in `ẞ` -> `SS`.
 
+ * [#83](https://github.com/mity/md4c/issues/83):
+   Fix recognition of an empty blockquote which interrupts a paragraph.
+
 
 ## Version 0.3.3
 
