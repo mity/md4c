@@ -50,7 +50,7 @@ MD4C is C Markdown parser with the following features:
 
 * **Permissive license:** MD4C is available under the MIT license.
 
-* **Performance:** MD4C is [very fast](https://talk.commonmark.org/t/why-is-md4c-so-fast-c/2520).
+* **Performance:** MD4C is [very fast](https://talk.commonmark.org/t/2520).
 
 
 ## Using MD4C
