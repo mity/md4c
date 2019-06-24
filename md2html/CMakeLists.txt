@@ -5,3 +5,4 @@ add_executable(md2html cmdline.c cmdline.h entity.c entity.h md2html.c render_ht
 target_link_libraries(md2html md4c)
 
 install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/md2html DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(FILES "md2html.1" DESTINATION "${CMAKE_INSTALL_MANDIR}/man1")
