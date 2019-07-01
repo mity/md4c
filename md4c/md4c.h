@@ -129,7 +129,13 @@ typedef enum MD_SPANTYPE {
     /* <del>...</del>
      * Note: Recognized only when MD_FLAG_STRIKETHROUGH is enabled.
      */
-    MD_SPAN_DEL
+    MD_SPAN_DEL,
+
+    /* For recognizing inline ($) and display ($$) equations
+     * Note: Recognized only when MD_FLAG_LATEX is enabled.
+     */
+    MD_SPAN_LATEX,
+    MD_SPAN_LATEX_DISPLAY
 } MD_SPANTYPE;
 
 /* Text is the actual textual contents of span. */
@@ -275,6 +281,7 @@ typedef struct MD_SPAN_IMG_DETAIL {
 #define MD_FLAG_STRIKETHROUGH               0x0200  /* Enable strikethrough extension. */
 #define MD_FLAG_PERMISSIVEWWWAUTOLINKS      0x0400  /* Enable WWW autolinks (even without any scheme prefix, if they begin with 'www.') */
 #define MD_FLAG_TASKLISTS                   0x0800  /* Enable task list extension. */
+#define MD_FLAG_LATEX                       0x1000  /* Enable $ and $$ containing LaTeX equations. */
 
 #define MD_FLAG_PERMISSIVEAUTOLINKS         (MD_FLAG_PERMISSIVEEMAILAUTOLINKS | MD_FLAG_PERMISSIVEURLAUTOLINKS | MD_FLAG_PERMISSIVEWWWAUTOLINKS)
 #define MD_FLAG_NOHTML                      (MD_FLAG_NOHTMLBLOCKS | MD_FLAG_NOHTMLSPANS)

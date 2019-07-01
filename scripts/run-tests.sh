@@ -61,3 +61,7 @@ $PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/tasklists.txt" -p "$PROGRAM --ft
 echo
 echo "Pathological input:"
 $PYTHON "$TEST_DIR/pathological_tests.py" -p "$PROGRAM"
+
+echo
+echo "LaTeX extension:"
+$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/latex.txt" -p "$PROGRAM --flatex"
