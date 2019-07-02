@@ -1,7 +1,7 @@
 
 # LaTeX
 
-With the flag `MD_FLAG_LATEX`, MD4C enables extension for recognition
+With the flag `MD_FLAG_LATEXMATHSPANS`, MD4C enables extension for recognition
 of LaTeX style equation spans.
 
 An equation is is any text wrapped in tildes ($ or $$).

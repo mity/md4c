@@ -2684,7 +2684,7 @@ md_build_mark_char_map(MD_CTX* ctx)
     if(ctx->parser.flags & MD_FLAG_STRIKETHROUGH)
         ctx->mark_char_map['~'] = 1;
 
-    if(ctx->parser.flags & MD_FLAG_LATEX)
+    if(ctx->parser.flags & MD_FLAG_LATEXMATHSPANS)
         ctx->mark_char_map['$'] = 1;
 
     if(ctx->parser.flags & MD_FLAG_PERMISSIVEEMAILAUTOLINKS)
@@ -3257,8 +3257,8 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
 
             /* A potential equation start/end */
             if(ch == _T('$')) {
-                // We can have at most two consecutive $ signs,
-                // where two dollar signs signify a display equation
+                /* We can have at most two consecutive $ signs,
+                 * where two dollar signs signify a display equation. */
                 OFF tmp = off+1;
 
                 while(tmp < line_end && CH(tmp) == _T('$'))
@@ -4018,10 +4018,10 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 
                 case '$':
                     if(mark->flags & MD_MARK_OPENER) {
-                        MD_ENTER_SPAN((mark->end - off) % 2 ? MD_SPAN_LATEX : MD_SPAN_LATEX_DISPLAY, NULL);
-                        text_type = MD_TEXT_CODE; // LaTeX should be read as code
+                        MD_ENTER_SPAN((mark->end - off) % 2 ? MD_SPAN_LATEXMATH : MD_SPAN_LATEXMATH_DISPLAY, NULL);
+                        text_type = MD_TEXT_CODE; /* LaTeX should be read as code */
                     } else {
-                        MD_LEAVE_SPAN((mark->end - off) % 2 ? MD_SPAN_LATEX : MD_SPAN_LATEX_DISPLAY, NULL);
+                        MD_LEAVE_SPAN((mark->end - off) % 2 ? MD_SPAN_LATEXMATH : MD_SPAN_LATEXMATH_DISPLAY, NULL);
                         text_type = MD_TEXT_NORMAL;
                     }
                     break;
