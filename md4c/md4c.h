@@ -174,7 +174,11 @@ typedef enum MD_TEXTTYPE {
     /* Text is a raw HTML. If it is contents of a raw HTML block (i.e. not
      * an inline raw HTML), then MD_TEXT_BR and MD_TEXT_SOFTBR are not used.
      * The text contains verbatim '\n' for the new lines. */
-    MD_TEXT_HTML
+    MD_TEXT_HTML,
+
+    /* Text is inside an equation. This is processed the same way as inlined code
+     * spans (`code`). */
+    MD_TEXT_LATEXMATH
 } MD_TEXTTYPE;
 
 

@@ -4029,7 +4029,7 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 case '$':
                     if(mark->flags & MD_MARK_OPENER) {
                         MD_ENTER_SPAN((mark->end - off) % 2 ? MD_SPAN_LATEXMATH : MD_SPAN_LATEXMATH_DISPLAY, NULL);
-                        text_type = MD_TEXT_CODE; /* LaTeX should be read as code */
+                        text_type = MD_TEXT_LATEXMATH;
                     } else {
                         MD_LEAVE_SPAN((mark->end - off) % 2 ? MD_SPAN_LATEXMATH : MD_SPAN_LATEXMATH_DISPLAY, NULL);
                         text_type = MD_TEXT_NORMAL;
@@ -4134,12 +4134,17 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             if(off >= end)
                 break;
 
-            if(text_type == MD_TEXT_CODE) {
+            if(text_type == MD_TEXT_CODE || text_type == MD_TEXT_LATEXMATH) {
                 OFF tmp;
 
                 MD_ASSERT(prev_mark != NULL);
-                MD_ASSERT(prev_mark->ch == '`'  &&  (prev_mark->flags & MD_MARK_OPENER));
-                MD_ASSERT(mark->ch == '`'  &&  (mark->flags & MD_MARK_CLOSER));
+                if (text_type == MD_TEXT_CODE) {
+                    MD_ASSERT(prev_mark->ch == '`'  &&  (prev_mark->flags & MD_MARK_OPENER));
+                    MD_ASSERT(mark->ch == '`'  &&  (mark->flags & MD_MARK_CLOSER));
+                } else if (text_type == MD_TEXT_LATEXMATH) {
+                    MD_ASSERT(prev_mark->ch == '$'  &&  (prev_mark->flags & MD_MARK_OPENER));
+                    MD_ASSERT(mark->ch == '$'  &&  (mark->flags & MD_MARK_CLOSER));
+                }
 
                 /* Inside a code span, trailing line whitespace has to be
                  * outputted. */
@@ -4147,11 +4152,11 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 while(off < ctx->size  &&  ISBLANK(off))
                     off++;
                 if(off > tmp)
-                    MD_TEXT(MD_TEXT_CODE, STR(tmp), off-tmp);
+                    MD_TEXT(text_type, STR(tmp), off-tmp);
 
                 /* and new lines are transformed into single spaces. */
                 if(prev_mark->end < off  &&  off < mark->beg)
-                    MD_TEXT(MD_TEXT_CODE, _T(" "), 1);
+                    MD_TEXT(text_type, _T(" "), 1);
 
             } else if(text_type == MD_TEXT_HTML) {
                 /* Inside raw HTML, we output the new line verbatim, including
