@@ -21,12 +21,14 @@ This is a display equation: $$\int_a^b x dx$$.
 <p>This is a display equation: <equation type="display">\int_a^b x dx</equation>.</p>
 ````````````````````````````````
 
-Math spans may span multiple lines as they are normal spans.
+Math spans may span multiple lines as they are normal spans:
 
 ```````````````````````````````` example
 $$
-\int_a^b f(x) dx
+\int_a^b
+f(x) dx
 $$
+.
 <p><equation type="display">\int_a^b f(x) dx </equation></p>
 ````````````````````````````````
 
