@@ -60,7 +60,7 @@ $PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/tasklists.txt" -p "$PROGRAM --ft
 
 echo
 echo "LaTeX extension:"
-$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/latex.txt" -p "$PROGRAM --flatex-math"
+$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/latex-math.txt" -p "$PROGRAM --flatex-math"
 
 echo
 echo "Pathological input:"

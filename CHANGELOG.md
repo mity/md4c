@@ -2,6 +2,16 @@
 # MD4C Change Log
 
 
+## Next Version (Work in Progress)
+
+Changes:
+
+ * With `MD_FLAG_LATEXMATHSPANS`, LaTeX math spans (`$...$`) and LaTeX display
+   math spans (`$$...$$`) are recognized. (Note though that the HTML renderer
+   outputs them verbatim.) Thanks for the feature belong to [Tilman Roeder](
+   https://github.com/dyedgreen).
+
+
 ## Version 0.3.4
 
 Changes:

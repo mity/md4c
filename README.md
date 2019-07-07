@@ -101,6 +101,10 @@ extensions:
  * With the flag `MD_FLAG_PERMISSIVEWWWAUTOLINKS` permissive WWW autolinks
    (without any scheme specified; `http:` is assumed) are supported.
 
+ * With the flag `MD_FLAG_LATEXMATHSPANS` LaTeX math spans (`$...$`) and
+   LaTeX display math spans (`$$...$$`) are supported. (Note though that the
+   HTML renderer outputs them verbatim.)
+
 The syntax of the extensions is described on [MD4C wiki].
 
 Few features (those some people see as mis-features) of CommonMark
