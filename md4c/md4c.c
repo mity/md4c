@@ -4138,13 +4138,8 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 OFF tmp;
 
                 MD_ASSERT(prev_mark != NULL);
-                if (text_type == MD_TEXT_CODE) {
-                    MD_ASSERT(prev_mark->ch == '`'  &&  (prev_mark->flags & MD_MARK_OPENER));
-                    MD_ASSERT(mark->ch == '`'  &&  (mark->flags & MD_MARK_CLOSER));
-                } else if (text_type == MD_TEXT_LATEXMATH) {
-                    MD_ASSERT(prev_mark->ch == '$'  &&  (prev_mark->flags & MD_MARK_OPENER));
-                    MD_ASSERT(mark->ch == '$'  &&  (mark->flags & MD_MARK_CLOSER));
-                }
+                MD_ASSERT(ISANYOF2_(prev_mark->ch, '`', '$')  &&  (prev_mark->flags & MD_MARK_OPENER));
+                MD_ASSERT(ISANYOF2_(mark->ch, '`', '$')  &&  (mark->flags & MD_MARK_CLOSER));
 
                 /* Inside a code span, trailing line whitespace has to be
                  * outputted. */
@@ -4157,7 +4152,6 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 /* and new lines are transformed into single spaces. */
                 if(prev_mark->end < off  &&  off < mark->beg)
                     MD_TEXT(text_type, _T(" "), 1);
-
             } else if(text_type == MD_TEXT_HTML) {
                 /* Inside raw HTML, we output the new line verbatim, including
                  * any trailing spaces. */
