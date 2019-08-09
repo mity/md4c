@@ -3,11 +3,11 @@ exec_prefix=@CMAKE_INSTALL_PREFIX@
 libdir=${exec_prefix}/@CMAKE_INSTALL_LIBDIR@
 includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
 
-Name: @PROJECT_NAME@
-Description: Markdown parser library with a SAX-like callback-based interface.
+Name: @PROJECT_NAME@ HTML renderer
+Description: Markdown to HTML converter library.
 Version: @PROJECT_VERSION@
 URL: @PROJECT_URL@
 
-Requires:
-Libs: -L${libdir} -lmd4c
+Requires: md4c = @PROJECT_VERSION@
+Libs: -L${libdir} -lmd4c-html
 Cflags: -I${includedir}

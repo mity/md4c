@@ -7,6 +7,9 @@ set(MD_VERSION_MINOR 4)
 set(MD_VERSION_RELEASE 3)
 set(MD_VERSION "${MD_VERSION_MAJOR}.${MD_VERSION_MINOR}.${MD_VERSION_RELEASE}")
 
+set(PROJECT_VERSION "${MD_VERSION}")
+set(PROJECT_URL "https://github.com/mity/md4c")
+
 if(WIN32)
     # On Windows, given there is no standard lib install dir etc., we rather
     # by default build static lib.
