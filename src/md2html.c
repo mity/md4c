@@ -28,7 +28,7 @@
 #include <string.h>
 #include <time.h>
 
-#include "render_html.h"
+#include "md4c-html.h"
 #include "cmdline.h"
 
 

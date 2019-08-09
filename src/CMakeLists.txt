@@ -15,10 +15,21 @@ set_target_properties(md4c PROPERTIES
 )
 
 
+# Build rules for HTML renderer library
+
+add_library(md4c-html md4c-html.c md4c-html.h entity.c entity.h)
+set_target_properties(md4c-html PROPERTIES
+    VERSION ${MD_VERSION}
+    SOVERSION ${MD_VERSION_MAJOR}
+    PUBLIC_HEADER md4c-html.h
+)
+target_link_libraries(md4c-html md4c)
+
+
 # Build rules for md2html command line utility
 
-add_executable(md2html cmdline.c cmdline.h entity.c entity.h md2html.c render_html.c render_html.h)
-target_link_libraries(md2html md4c)
+add_executable(md2html cmdline.c cmdline.h md2html.c)
+target_link_libraries(md2html md4c-html)
 
 
 # Install rules

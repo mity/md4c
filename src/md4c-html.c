@@ -26,7 +26,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "render_html.h"
+#include "md4c-html.h"
 #include "entity.h"
 
 
