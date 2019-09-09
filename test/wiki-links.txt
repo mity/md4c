@@ -37,3 +37,48 @@ Wiki links are prioritized over regular links.
 <p><x-wikilink data-target="foo">foo</x-wikilink>(foo.jpg)</p>
 ````````````````````````````````
 
+Something that may look like a wiki link at first, but turns out not to be,
+is recognized as a normal link.
+
+```````````````````````````````` example
+[[foo]
+
+[foo]: /url
+.
+<p>[<a href="/url">foo</a></p>
+````````````````````````````````
+
+Escaping the opening `[`, we should get a normal link.
+
+```````````````````````````````` example
+\[[foo]]
+.
+<p>[<a href="/url">foo</a>]</p>
+````````````````````````````````
+
+Like normal links, the innermost wiki link is preferred.
+
+```````````````````````````````` example
+[[foo[[bar]]]]
+.
+<p>[[foo<x-wikilink data-target="bar">bar</x-wikilink>]]</p>
+````````````````````````````````
+
+
+There is limit of 99 characters inside a wiki link target (or id); 100
+characters is too much.
+
+```````````````````````````````` example
+[[1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890]]
+.
+<p>[[1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890]]</p>
+````````````````````````````````
+
+99 characters inside a wiki link target works.
+
+```````````````````````````````` example
+[[123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789]]
+.
+<p><x-wikilink data-target="123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789">123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789</x-wikilink></p>
+````````````````````````````````
+
