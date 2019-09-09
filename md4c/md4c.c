@@ -2332,20 +2332,22 @@ abort:
 }
 
 static int
-md_is_inline_wikilink_spec(MD_CTX* ctx, const MD_LINE* lines, OFF beg)
+md_is_inline_wikilink_id(MD_CTX* ctx, const MD_LINE* lines, OFF beg, OFF end)
 {
-    int line_index = 0;
-    OFF off = beg;
+    OFF off = end;
+    int count = 0;
 
-    while(off >= lines[line_index].end)
-        line_index++;
-
-    while(off < lines[line_index].end) {
-        if(CH(off++) == _T(']') && CH(off++) == _T(']'))
-            return TRUE;
+    while(off > beg && count < 102) {  /* +2 to account for innermost brackets */
+        count++;
+        if(ISNEWLINE(off))
+            return FALSE;
+        off--;
     }
 
-    return FALSE;
+    if(off > beg)
+        return FALSE;
+
+    return TRUE;
 }
 
 static void
@@ -3426,7 +3428,7 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             (next_opener->ch == '[' && next_closer->ch == ']'))
         {
 
-            is_link = md_is_inline_wikilink_spec(ctx, lines, opener->end);
+            is_link = md_is_inline_wikilink_id(ctx, lines, opener->beg, closer->end);
 
             if (is_link) {
                 opener->beg = next_opener->beg;
