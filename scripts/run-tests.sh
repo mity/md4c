@@ -63,5 +63,9 @@ echo "LaTeX extension:"
 $PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/latex-math.txt" -p "$PROGRAM --flatex-math"
 
 echo
+echo "Wiki links extension:"
+$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/wiki-links.txt" -p "$PROGRAM --fwiki-links"
+
+echo
 echo "Pathological input:"
 $PYTHON "$TEST_DIR/pathological_tests.py" -p "$PROGRAM"

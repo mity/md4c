@@ -2331,6 +2331,23 @@ abort:
     return ret;
 }
 
+static int
+md_is_inline_wikilink_spec(MD_CTX* ctx, const MD_LINE* lines, OFF beg)
+{
+    int line_index = 0;
+    OFF off = beg;
+
+    while(off >= lines[line_index].end)
+        line_index++;
+
+    while(off < lines[line_index].end) {
+		if(CH(off++) == _T(']') && CH(off++) == _T(']'))
+			return TRUE;
+	}
+
+    return FALSE;
+}
+
 static void
 md_free_ref_defs(MD_CTX* ctx)
 {
@@ -3398,6 +3415,47 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             continue;
         }
 
+        /* Detect and resolve wiki links. */
+        if ((ctx->parser.flags & MD_FLAG_WIKILINKS) &&
+            next_opener != NULL && next_closer != NULL &&
+            (opener->end - opener->beg == 1) &&
+            (next_opener->beg == opener->beg - 1) &&
+            (next_closer->beg == closer->beg + 1) &&
+            (next_opener->end - next_opener->beg == 1) &&
+            (next_closer->end - next_closer->beg == 1) &&
+            (next_opener->ch == '[' && next_closer->ch == ']'))
+        {
+
+            is_link = md_is_inline_wikilink_spec(ctx, lines, opener->end);
+            if (!is_link) {
+                opener_index = next_index;
+                continue;
+            }
+
+            opener->beg = next_opener->beg;
+            closer->end = next_closer->end;
+
+            /* This does not seem to do much: */
+            /* next_opener->ch = 'D'; */
+            /* next_closer->ch = 'D'; */
+
+            opener->next = closer_index;
+            opener->flags |= MD_MARK_OPENER | MD_MARK_RESOLVED;
+            closer->prev = opener_index;
+            closer->flags |= MD_MARK_CLOSER | MD_MARK_RESOLVED;
+
+            last_link_beg = opener->beg;
+            last_link_end = closer->end;
+
+            /* We want to render the label/text of the link. Something like
+             * md_analyze_link_contents should work for that. But there is no
+             * support for the `|` delimiter inside the wiki link yet. */
+
+            opener_index = next_index;
+            continue;
+        }
+
+
         if(next_opener != NULL  &&  next_opener->beg == closer->end) {
             if(next_closer->beg > closer->end + 1) {
                 /* Might be full reference link. */
@@ -3941,6 +3999,27 @@ abort:
     return ret;
 }
 
+static int
+md_enter_leave_span_wikilink(MD_CTX* ctx, int enter, const CHAR* target, SZ target_size)
+{
+    MD_ATTRIBUTE_BUILD target_build = { 0 };
+    MD_SPAN_WIKILINK_DETAIL det;
+    int ret = 0;
+
+    memset(&det, 0, sizeof(MD_SPAN_WIKILINK_DETAIL));
+    MD_CHECK(md_build_attribute(ctx, target, target_size, 0, &det.target, &target_build));
+
+    if (enter)
+        MD_ENTER_SPAN(MD_SPAN_WIKILINK, &det);
+    else
+        MD_LEAVE_SPAN(MD_SPAN_WIKILINK, &det);
+
+abort:
+    md_free_attribute(ctx, &target_build);
+    return ret;
+}
+
+
 /* Render the output, accordingly to the analyzed ctx->marks. */
 static int
 md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
@@ -4036,11 +4115,22 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                     }
                     break;
 
-                case '[':       /* Link, image. */
+                case '[':       /* Link, wiki link, image. */
                 case '!':
                 case ']':
                 {
                     const MD_MARK* opener = (mark->ch != ']' ? mark : &ctx->marks[mark->prev]);
+                    const MD_MARK* closer = &ctx->marks[opener->next];
+
+                    if ((opener->ch == '[' && closer->ch == ']') &&
+                        opener->end - opener->beg == 2 &&
+                        closer->end - closer->beg == 2)
+                    {
+                        MD_CHECK(md_enter_leave_span_wikilink(ctx, (mark->ch != ']'),
+                                 STR(opener->end), closer->beg - opener->end));
+                        break;
+                    }
+
                     const MD_MARK* dest_mark = opener+1;
                     const MD_MARK* title_mark = opener+2;
 

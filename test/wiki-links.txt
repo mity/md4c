@@ -1,0 +1,39 @@
+
+# Wiki Links
+
+With the flag `MD_FLAG_WIKILINKS`, MD4C recognizes wiki links.
+
+A wiki link is ...
+
+```````````````````````````````` example
+[[foo]]
+.
+<p><x-wikilink data-target="foo">foo</x-wikilink></p>
+````````````````````````````````
+
+The link target of a wiki link cannot span more than one line:
+
+```````````````````````````````` example
+[[foo
+bar]]
+.
+<p>[[foo
+bar]]</p>
+````````````````````````````````
+
+The link target is rendered verbatim; inline markup is not recognized.
+
+```````````````````````````````` example
+[[*foo*]]
+.
+<p><x-wikilink data-target="*foo*">*foo*</x-wikilink></p>
+````````````````````````````````
+
+Wiki links are prioritized over regular links.
+
+```````````````````````````````` example
+[[foo]](foo.jpg)
+.
+<p><x-wikilink data-target="foo">foo</x-wikilink>(foo.jpg)</p>
+````````````````````````````````
+
