@@ -3427,32 +3427,31 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
         {
 
             is_link = md_is_inline_wikilink_spec(ctx, lines, opener->end);
-            if (!is_link) {
+
+            if (is_link) {
+                opener->beg = next_opener->beg;
+                closer->end = next_closer->end;
+
+                /* This does not seem to do much: */
+                /* next_opener->ch = 'D'; */
+                /* next_closer->ch = 'D'; */
+
+                opener->next = closer_index;
+                opener->flags |= MD_MARK_OPENER | MD_MARK_RESOLVED;
+                closer->prev = opener_index;
+                closer->flags |= MD_MARK_CLOSER | MD_MARK_RESOLVED;
+
+                last_link_beg = opener->beg;
+                last_link_end = closer->end;
+
+                /* We want to render the label/text of the link. Something like
+                 * md_analyze_link_contents should work for that. But there is no
+                 * support for the `|` delimiter inside the wiki link yet. */
+
                 opener_index = next_index;
                 continue;
             }
 
-            opener->beg = next_opener->beg;
-            closer->end = next_closer->end;
-
-            /* This does not seem to do much: */
-            /* next_opener->ch = 'D'; */
-            /* next_closer->ch = 'D'; */
-
-            opener->next = closer_index;
-            opener->flags |= MD_MARK_OPENER | MD_MARK_RESOLVED;
-            closer->prev = opener_index;
-            closer->flags |= MD_MARK_CLOSER | MD_MARK_RESOLVED;
-
-            last_link_beg = opener->beg;
-            last_link_end = closer->end;
-
-            /* We want to render the label/text of the link. Something like
-             * md_analyze_link_contents should work for that. But there is no
-             * support for the `|` delimiter inside the wiki link yet. */
-
-            opener_index = next_index;
-            continue;
         }
 
 
