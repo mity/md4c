@@ -2341,9 +2341,9 @@ md_is_inline_wikilink_spec(MD_CTX* ctx, const MD_LINE* lines, OFF beg)
         line_index++;
 
     while(off < lines[line_index].end) {
-		if(CH(off++) == _T(']') && CH(off++) == _T(']'))
-			return TRUE;
-	}
+        if(CH(off++) == _T(']') && CH(off++) == _T(']'))
+            return TRUE;
+    }
 
     return FALSE;
 }
