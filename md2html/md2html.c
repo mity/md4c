@@ -209,7 +209,7 @@ static const option cmdline_options[] = {
     { "ftables",                     0,  'T', OPTION_ARG_NONE },
     { "fstrikethrough",              0,  'S', OPTION_ARG_NONE },
     { "flatex-math",                 0,  'L', OPTION_ARG_NONE },
-    { "fwiki-links",                 0,  'w', OPTION_ARG_NONE },
+    { "fwiki-links",                 0,  'K', OPTION_ARG_NONE },
     { "ftasklists",                  0,  'X', OPTION_ARG_NONE },
     { 0 }
 };
@@ -309,7 +309,7 @@ cmdline_callback(int opt, char const* value, void* data)
         case 'T':   parser_flags |= MD_FLAG_TABLES; break;
         case 'S':   parser_flags |= MD_FLAG_STRIKETHROUGH; break;
         case 'L':   parser_flags |= MD_FLAG_LATEXMATHSPANS; break;
-        case 'w':   parser_flags |= MD_FLAG_WIKILINKS; break;
+        case 'K':   parser_flags |= MD_FLAG_WIKILINKS; break;
         case 'X':   parser_flags |= MD_FLAG_TASKLISTS; break;
 
         default:
