@@ -2331,25 +2331,6 @@ abort:
     return ret;
 }
 
-static int
-md_is_inline_wikilink_id(MD_CTX* ctx, const MD_LINE* lines, OFF beg, OFF end)
-{
-    OFF off = end;
-    int count = 0;
-
-    while(off > beg && count < 102) {  /* +2 to account for innermost brackets */
-        count++;
-        if(ISNEWLINE(off))
-            return FALSE;
-        off--;
-    }
-
-    if(off > beg)
-        return FALSE;
-
-    return TRUE;
-}
-
 static void
 md_free_ref_defs(MD_CTX* ctx)
 {
@@ -2715,7 +2696,7 @@ md_build_mark_char_map(MD_CTX* ctx)
     if(ctx->parser.flags & MD_FLAG_PERMISSIVEWWWAUTOLINKS)
         ctx->mark_char_map['.'] = 1;
 
-    if(ctx->parser.flags & MD_FLAG_TABLES)
+    if((ctx->parser.flags & MD_FLAG_TABLES) || (ctx->parser.flags & MD_FLAG_WIKILINKS))
         ctx->mark_char_map['|'] = 1;
 
     if(ctx->parser.flags & MD_FLAG_COLLAPSEWHITESPACE) {
@@ -3255,8 +3236,8 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                 continue;
             }
 
-            /* A potential table cell boundary. */
-            if(table_mode  &&  ch == _T('|')) {
+            /* A potential table cell boundary or wiki link label delimiter. */
+            if((table_mode || ctx->parser.flags & MD_FLAG_WIKILINKS) && ch == _T('|')) {
                 PUSH_MARK(ch, off, off+1, 0);
                 off++;
                 continue;
@@ -3375,6 +3356,8 @@ md_analyze_bracket(MD_CTX* ctx, int mark_index)
 static void md_analyze_link_contents(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
                                      int mark_beg, int mark_end);
 
+static int md_is_inline_wikilink_spec(MD_CTX* ctx, int opener_index, int closer_index);
+
 static int
 md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 {
@@ -3428,9 +3411,10 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             (next_opener->ch == '[' && next_closer->ch == ']'))
         {
 
-            is_link = md_is_inline_wikilink_id(ctx, lines, opener->beg, closer->end);
+            is_link = md_is_inline_wikilink_spec(ctx, opener_index, closer_index);
 
             if (is_link) {
+
                 opener->beg = next_opener->beg;
                 closer->end = next_closer->end;
 
@@ -3442,9 +3426,8 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 last_link_beg = opener->beg;
                 last_link_end = closer->end;
 
-                /* We want to render the label/text of the link. Something like
-                 * md_analyze_link_contents should work for that. But there is no
-                 * support for the `|` delimiter inside the wiki link yet. */
+                if ((opener->end - opener->beg > 2))
+                    md_analyze_link_contents(ctx, lines, n_lines, opener_index+1, closer_index);
 
                 opener_index = next_index;
                 continue;
@@ -3551,6 +3534,74 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 
     return 0;
 }
+
+static int
+md_is_inline_wikilink_spec(MD_CTX* ctx, int opener_index, int closer_index)
+
+{
+    MD_MARK* opener = &ctx->marks[opener_index];
+    MD_MARK* closer = &ctx->marks[closer_index];
+
+    int delim_index = opener_index;
+    MD_MARK* delim = &ctx->marks[delim_index];
+
+    /* No content; ignore. */
+    if (opener->end == closer->beg)
+        goto not_found;
+
+    while(delim_index < closer_index) {
+
+        /* The wiki link is ignored if the `|` delimiter is used, but without a
+         * label. TODO Unsure if this is the desired behavior. How about
+         * removing the `|` from the output instead, and keeping the link? */
+
+        /* The wiki link is also ignored if the delimiter is used, but without
+         * a target. */
+
+        if(delim->ch == '|' && (delim->end == closer->beg || delim->beg == opener->end)) {
+            goto not_found;
+        } else if(delim->ch == '|') {
+            opener->end = delim->beg;
+            break;
+        }
+
+        delim_index++;
+        delim = &ctx->marks[delim_index];
+    }
+
+    OFF off = closer->end;
+    int count = 0;
+    int newlines = 0;
+    int has_label = (opener->end - opener->beg > 2);
+
+    /* Check for newlines. */
+    while(off > opener->beg && count < 102) {  /* +2 to account for innermost brackets */
+        count++;
+
+        /* Only if we are inside the link target is a (single) newline allowed. */
+
+        if(has_label && (off <= opener->end) && ISNEWLINE(off))
+            goto not_found;
+        else if(!has_label && off > opener->end && ISNEWLINE(off))
+            goto not_found;
+        else if(ISNEWLINE(off) && newlines > 0)
+            goto not_found;
+        else if(ISNEWLINE(off))
+            newlines++;
+
+        off--;
+    }
+
+    if(off > opener->beg)
+        goto not_found;
+
+    delim->flags |= MD_MARK_RESOLVED;
+    return TRUE;
+
+not_found:
+    return FALSE;
+}
+
 
 /* Analyze whether the mark '&' starts a HTML entity.
  * If so, update its flags as well as flags of corresponding closer ';'. */
@@ -3935,6 +3986,7 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mod
     ctx->unresolved_link_head = -1;
     ctx->unresolved_link_tail = -1;
 
+
     /* (4) Emphasis and strong emphasis; permissive autolinks. */
     md_analyze_link_contents(ctx, lines, n_lines, 0, ctx->n_marks);
 
@@ -4120,11 +4172,15 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                     const MD_MARK* closer = &ctx->marks[opener->next];
 
                     if ((opener->ch == '[' && closer->ch == ']') &&
-                        opener->end - opener->beg == 2 &&
+                        opener->end - opener->beg >= 2 &&
                         closer->end - closer->beg == 2)
                     {
+
+                        int has_label = (opener->end - opener->beg > 2);
                         MD_CHECK(md_enter_leave_span_wikilink(ctx, (mark->ch != ']'),
-                                 STR(opener->end), closer->beg - opener->end));
+                                 has_label ? STR(opener->beg+2) : STR(opener->end),
+                                 has_label ? opener->end - (opener->beg+2) : closer->beg - opener->end));
+
                         break;
                     }
 
