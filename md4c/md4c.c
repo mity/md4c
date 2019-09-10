@@ -3434,10 +3434,6 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 opener->beg = next_opener->beg;
                 closer->end = next_closer->end;
 
-                /* This does not seem to do much: */
-                /* next_opener->ch = 'D'; */
-                /* next_closer->ch = 'D'; */
-
                 opener->next = closer_index;
                 opener->flags |= MD_MARK_OPENER | MD_MARK_RESOLVED;
                 closer->prev = opener_index;
