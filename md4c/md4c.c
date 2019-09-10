@@ -3578,7 +3578,7 @@ md_is_inline_wikilink_spec(MD_CTX* ctx, int opener_index, int closer_index)
     while(off > opener->beg && count < 102) {  /* +2 to account for innermost brackets */
         count++;
 
-        /* Only if we are inside the link target is a (single) newline allowed. */
+        /* Only if we are inside the link label is a (single) newline allowed. */
 
         if(has_label && (off <= opener->end) && ISNEWLINE(off))
             goto not_found;
