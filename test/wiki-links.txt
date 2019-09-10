@@ -52,6 +52,8 @@ Escaping the opening `[`, we should get a normal link.
 
 ```````````````````````````````` example
 \[[foo]]
+
+[foo]: /url
 .
 <p>[<a href="/url">foo</a>]</p>
 ````````````````````````````````
