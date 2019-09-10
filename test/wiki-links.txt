@@ -37,6 +37,14 @@ Wiki links are prioritized over regular links.
 <p><x-wikilink data-target="foo">foo</x-wikilink>(foo.jpg)</p>
 ````````````````````````````````
 
+Wiki links not prioritzed over images.
+
+```````````````````````````````` example
+![[foo]](foo.jpg)
+.
+<p><img src="foo.jpg" alt="[foo]"></p>
+````````````````````````````````
+
 Something that may look like a wiki link at first, but turns out not to be,
 is recognized as a normal link.
 
