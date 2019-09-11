@@ -3356,8 +3356,6 @@ md_analyze_bracket(MD_CTX* ctx, int mark_index)
 static void md_analyze_link_contents(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
                                      int mark_beg, int mark_end);
 
-static int md_is_inline_wikilink_spec(MD_CTX* ctx, int opener_index, int closer_index);
-
 static int
 md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 {
@@ -3410,8 +3408,58 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             (next_closer->end - next_closer->beg == 1) &&
             (next_opener->ch == '[' && next_closer->ch == ']'))
         {
+            is_link = TRUE;
 
-            is_link = md_is_inline_wikilink_spec(ctx, opener_index, closer_index);
+            if (opener->end == closer->beg)
+                is_link = FALSE;
+
+            int delim_index = opener_index;
+            MD_MARK* delim = &ctx->marks[delim_index];
+
+            while(is_link && delim_index < closer_index) {
+
+                /* The wiki link is ignored if the `|` delimiter is used,
+                 * but without a label. TODO Unsure if this is the desired
+                 * behavior. How about removing the `|` from the output
+                 * instead, and keeping the link? */
+
+                /* The wiki link is also ignored if the delimiter is used,
+                 * but without a target. */
+
+                if(delim->ch == '|' && (delim->end == closer->beg || delim->beg == opener->end)) {
+                    is_link = FALSE;
+                } else if(delim->ch == '|') {
+                    opener->end = delim->beg;
+                    break;
+                }
+
+                delim_index++;
+                delim = &ctx->marks[delim_index];
+            }
+
+            OFF off = closer->end;
+            int count = 0;
+            int has_label = (opener->end - opener->beg > 2);
+
+            while(is_link && off > opener->beg && count++ < 102) {  /* +2 to account for innermost brackets */
+
+                /* TODO Account for being nested in a block quote, in which
+                 * case the limit count does not work. */
+
+                /* Newline not allowed in link target. */
+                if(has_label && (off <= opener->end) && ISNEWLINE(off))
+                    is_link = FALSE;
+                else if(!has_label && off > opener->end && ISNEWLINE(off))
+                    is_link = FALSE;
+
+                off--;
+            }
+
+            if(off > opener->beg)
+                is_link = FALSE;
+
+            if(is_link)
+                delim->flags |= MD_MARK_RESOLVED;
 
             if (is_link) {
 
@@ -3534,74 +3582,6 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 
     return 0;
 }
-
-static int
-md_is_inline_wikilink_spec(MD_CTX* ctx, int opener_index, int closer_index)
-
-{
-    MD_MARK* opener = &ctx->marks[opener_index];
-    MD_MARK* closer = &ctx->marks[closer_index];
-
-    int delim_index = opener_index;
-    MD_MARK* delim = &ctx->marks[delim_index];
-
-    /* No content; ignore. */
-    if (opener->end == closer->beg)
-        goto not_found;
-
-    while(delim_index < closer_index) {
-
-        /* The wiki link is ignored if the `|` delimiter is used, but without a
-         * label. TODO Unsure if this is the desired behavior. How about
-         * removing the `|` from the output instead, and keeping the link? */
-
-        /* The wiki link is also ignored if the delimiter is used, but without
-         * a target. */
-
-        if(delim->ch == '|' && (delim->end == closer->beg || delim->beg == opener->end)) {
-            goto not_found;
-        } else if(delim->ch == '|') {
-            opener->end = delim->beg;
-            break;
-        }
-
-        delim_index++;
-        delim = &ctx->marks[delim_index];
-    }
-
-    OFF off = closer->end;
-    int count = 0;
-    int newlines = 0;
-    int has_label = (opener->end - opener->beg > 2);
-
-    /* Check for newlines. */
-    while(off > opener->beg && count < 102) {  /* +2 to account for innermost brackets */
-        count++;
-
-        /* Only if we are inside the link label is a (single) newline allowed. */
-
-        if(has_label && (off <= opener->end) && ISNEWLINE(off))
-            goto not_found;
-        else if(!has_label && off > opener->end && ISNEWLINE(off))
-            goto not_found;
-        else if(ISNEWLINE(off) && newlines > 0)
-            goto not_found;
-        else if(ISNEWLINE(off))
-            newlines++;
-
-        off--;
-    }
-
-    if(off > opener->beg)
-        goto not_found;
-
-    delim->flags |= MD_MARK_RESOLVED;
-    return TRUE;
-
-not_found:
-    return FALSE;
-}
-
 
 /* Analyze whether the mark '&' starts a HTML entity.
  * If so, update its flags as well as flags of corresponding closer ';'. */
@@ -3966,8 +3946,16 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mod
     /* (1) Entities; code spans; autolinks; raw HTML. */
     md_analyze_marks(ctx, lines, n_lines, 0, ctx->n_marks, _T("&"));
 
+    /* (2) Links. */
+    md_analyze_marks(ctx, lines, n_lines, 0, ctx->n_marks, _T("[]!"));
+    MD_CHECK(md_resolve_links(ctx, lines, n_lines));
+    BRACKET_OPENERS.head = -1;
+    BRACKET_OPENERS.tail = -1;
+    ctx->unresolved_link_head = -1;
+    ctx->unresolved_link_tail = -1;
+
     if(table_mode) {
-        /* (2) Analyze table cell boundaries.
+        /* (3) Analyze table cell boundaries.
          * Note we reset TABLECELLBOUNDARIES chain prior to the call md_analyze_marks(),
          * not after, because caller may need it. */
         MD_ASSERT(n_lines == 1);
@@ -3977,15 +3965,6 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mod
         md_analyze_marks(ctx, lines, n_lines, 0, ctx->n_marks, _T("|"));
         return ret;
     }
-
-    /* (3) Links. */
-    md_analyze_marks(ctx, lines, n_lines, 0, ctx->n_marks, _T("[]!"));
-    MD_CHECK(md_resolve_links(ctx, lines, n_lines));
-    BRACKET_OPENERS.head = -1;
-    BRACKET_OPENERS.tail = -1;
-    ctx->unresolved_link_head = -1;
-    ctx->unresolved_link_tail = -1;
-
 
     /* (4) Emphasis and strong emphasis; permissive autolinks. */
     md_analyze_link_contents(ctx, lines, n_lines, 0, ctx->n_marks);

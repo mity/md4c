@@ -64,7 +64,7 @@ $PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/latex-math.txt" -p "$PROGRAM --f
 
 echo
 echo "Wiki links extension:"
-$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/wiki-links.txt" -p "$PROGRAM --fwiki-links"
+$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/wiki-links.txt" -p "$PROGRAM --fwiki-links --ftables"
 
 echo
 echo "Pathological input:"

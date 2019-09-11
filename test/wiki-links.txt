@@ -87,19 +87,6 @@ baz*]]
 baz</em></x-wikilink></p>
 ````````````````````````````````
 
-With more than one linebreak in the label, the wiki link is ignored, but any
-inline markup is kept.
-
-```````````````````````````````` example
-[[foo|*bar
-baz
-qux*]]
-.
-<p>[[foo|<em>bar
-baz
-qux</em>]]</p>
-````````````````````````````````
-
 A wiki link with an empty label is considered invalid.
 
 ```````````````````````````````` example
@@ -117,14 +104,16 @@ regular link.
 <p><a href="foo.jpg">[foo|]</a></p>
 ````````````````````````````````
 
-The label can span at most two lines.
+The label can span multiple lines.
 
 ```````````````````````````````` example
 [[foo|foo
-bar]]
+bar
+baz]]
 .
 <p><x-wikilink data-target="foo">foo
-bar</x-wikilink></p>
+bar
+baz</x-wikilink></p>
 ````````````````````````````````
 
 Wiki links are prioritized over regular links.
@@ -133,6 +122,29 @@ Wiki links are prioritized over regular links.
 [[foo]](foo.jpg)
 .
 <p><x-wikilink data-target="foo">foo</x-wikilink>(foo.jpg)</p>
+````````````````````````````````
+
+Wiki links can be inlined in tables.
+
+```````````````````````````````` example
+| A                | B   |
+|------------------|-----|
+| [[foo|*bar*]]    | baz |
+.
+<table>
+<thead>
+<tr>
+<th>A</th>
+<th>B</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><x-wikilink data-target="foo"><em>bar</em></x-wikilink></td>
+<td>baz</td>
+</tr>
+</tbody>
+</table>
 ````````````````````````````````
 
 Wiki links not prioritzed over images.
