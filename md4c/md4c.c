@@ -3462,7 +3462,8 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 is_link = FALSE;
 
             if(is_link) {
-                delim->flags |= MD_MARK_RESOLVED;
+                if(delim->ch == '|')
+                    delim->flags |= MD_MARK_RESOLVED;
 
                 opener->beg = next_opener->beg;
                 closer->end = next_closer->end;
