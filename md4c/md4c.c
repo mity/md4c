@@ -204,12 +204,14 @@ struct MD_LINE_ANALYSIS_tag {
     OFF beg;
     OFF end;
     unsigned indent;        /* Indentation level. */
+    unsigned total_indent;  /* Total indent in characters. */
 };
 
 typedef struct MD_LINE_tag MD_LINE;
 struct MD_LINE_tag {
     OFF beg;
     OFF end;
+    unsigned total_indent;  /* Total indent in characters. */
 };
 
 typedef struct MD_VERBATIMLINE_tag MD_VERBATIMLINE;
@@ -3440,17 +3442,20 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             OFF off = closer->end;
             int count = 0;
             int has_label = (opener->end - opener->beg > 2);
+            const MD_LINE* line;
+            int line_index = n_lines-1;
 
             while(is_link && off > opener->beg && count++ < 102) {  /* +2 to account for innermost brackets */
-
-                /* TODO Account for being nested in a block quote, in which
-                 * case the limit count does not work. */
 
                 /* Newline not allowed in link target. */
                 if(has_label && (off <= opener->end) && ISNEWLINE(off))
                     is_link = FALSE;
                 else if(!has_label && off > opener->end && ISNEWLINE(off))
                     is_link = FALSE;
+                else if(ISNEWLINE(off)) {
+                    line = &lines[line_index--];
+                    count = count - line->total_indent - 1;  /* Count newline too. */
+                }
 
                 off--;
             }
@@ -5016,6 +5021,7 @@ md_add_line_into_current_block(MD_CTX* ctx, const MD_LINE_ANALYSIS* analysis)
 
         line->beg = analysis->beg;
         line->end = analysis->end;
+        line->total_indent = analysis->total_indent;
     }
     ctx->current_block->n_lines++;
 
@@ -5680,6 +5686,7 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
                 line->indent--;
 
             line->beg = off;
+
         } else if(c->ch != _T('>')  &&  line->indent >= c->contents_indent) {
             /* List. */
             line->indent -= c->contents_indent;
@@ -6018,6 +6025,8 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
 
         break;
     }
+
+    line->total_indent = total_indent;
 
     /* Scan for end of the line.
      *
