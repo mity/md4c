@@ -3438,6 +3438,11 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             const MD_LINE* line;
             int line_index = n_lines-1;
 
+            /* An image inside the link target disables the wiki link. */
+            if( (has_label && last_img_beg >= opener->beg && last_img_end <= opener->end) ||
+                (!has_label && last_img_beg >= opener->beg && last_img_end <= closer->end))
+                is_link = FALSE;
+
             while(is_link && off > opener->beg && count++ < 100) {
 
                 /* Newline not allowed in link target. */

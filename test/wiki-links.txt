@@ -146,6 +146,29 @@ Wiki links not prioritzed over images.
 <p><img src="foo.jpg" alt="[foo]"></p>
 ````````````````````````````````
 
+An image placed inside a wiki link target disables the wiki link.
+
+```````````````````````````````` example
+[[![foo](foo.jpg)]]
+.
+<p>[[<img src="foo.jpg" alt="foo">]]</p>
+
+````````````````````````````````
+
+```````````````````````````````` example
+[[![foo](foo.jpg)|test]]
+.
+<p>[[<img src="foo.jpg" alt="foo">|test]]</p>
+````````````````````````````````
+
+But images can be placed in the wiki link label.
+
+```````````````````````````````` example
+[[foo|![bar](bar.jpg)]]
+.
+<p><x-wikilink data-target="foo"><img src="bar.jpg" alt="bar"></x-wikilink></p>
+````````````````````````````````
+
 Something that may look like a wiki link at first, but turns out not to be,
 is recognized as a normal link.
 
