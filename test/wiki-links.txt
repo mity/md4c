@@ -92,16 +92,7 @@ A wiki link with an empty label is considered invalid.
 ```````````````````````````````` example
 [[foo|]]
 .
-<p>[[foo|]]</p>
-````````````````````````````````
-
-A wiki link with an empty label is not prevented from being considered as a
-regular link.
-
-```````````````````````````````` example
-[[foo|]](foo.jpg)
-.
-<p><a href="foo.jpg">[foo|]</a></p>
+<p><x-wikilink data-target="foo">foo</x-wikilink></p>
 ````````````````````````````````
 
 The label can span multiple lines.

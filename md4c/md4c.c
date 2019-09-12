@@ -3419,22 +3419,14 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             MD_MARK* delim = &ctx->marks[delim_index];
 
             while(is_link && delim_index < closer_index) {
-
-                /* The wiki link is ignored if the `|` delimiter is used,
-                 * but without a label. TODO Unsure if this is the desired
-                 * behavior. How about removing the `|` from the output
-                 * instead, and keeping the link? */
-
-                /* The wiki link is also ignored if the delimiter is used,
-                 * but without a target. */
-
-                if(delim->ch == '|' && (delim->end == closer->beg || delim->beg == opener->end)) {
+                if(delim->ch == '|' && delim->beg == opener->end) {
                     is_link = FALSE;
+                } else if(delim->ch == '|' && delim->end == closer->beg) {
+                    break;
                 } else if(delim->ch == '|') {
                     opener->end = delim->beg;
                     break;
                 }
-
                 delim_index++;
                 delim = &ctx->marks[delim_index];
             }
@@ -4157,11 +4149,20 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                         opener->end - opener->beg >= 2 &&
                         closer->end - closer->beg == 2)
                     {
-
+                        const MD_MARK* delim = opener+3;  /* Scan past the two dummy marks. */
                         int has_label = (opener->end - opener->beg > 2);
+                        int target_sz;
+
+                        if(has_label)
+                            target_sz = opener->end - (opener->beg+2);
+                        else if(delim->ch == '|')
+                            target_sz = (closer->beg-1) - opener->end;
+                        else
+                            target_sz = closer->beg - opener->end;
+
                         MD_CHECK(md_enter_leave_span_wikilink(ctx, (mark->ch != ']'),
                                  has_label ? STR(opener->beg+2) : STR(opener->end),
-                                 has_label ? opener->end - (opener->beg+2) : closer->beg - opener->end));
+                                 target_sz));
 
                         break;
                     }
