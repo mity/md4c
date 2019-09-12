@@ -3418,8 +3418,8 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             int delim_index = opener_index;
             MD_MARK* delim = &ctx->marks[delim_index];
 
-            /* To prevent runaway O(n^2) performance, don't look too far for the delimiter (.. < 32). */
-            while(is_link && delim_index < closer_index && (delim_index - opener_index) < 32 ) {
+            /* To prevent runaway O(n^2) performance, don't look too far for the delimiter (.. < 100). */
+            while(is_link && delim_index < closer_index && (delim_index - opener_index) < 100 ) {
                 if(delim->ch == '|' && delim->beg == opener->end) {
                     is_link = FALSE;
                 } else if(delim->ch == '|' && delim->end == closer->beg) {
