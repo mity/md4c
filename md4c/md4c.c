@@ -3439,13 +3439,13 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 delim = &ctx->marks[delim_index];
             }
 
-            OFF off = closer->end;
+            OFF off = closer->beg-1;
             int count = 0;
             int has_label = (opener->end - opener->beg > 2);
             const MD_LINE* line;
             int line_index = n_lines-1;
 
-            while(is_link && off > opener->beg && count++ < 102) {  /* +2 to account for innermost brackets */
+            while(is_link && off > opener->beg && count++ < 100) {
 
                 /* Newline not allowed in link target. */
                 if(has_label && (off <= opener->end) && ISNEWLINE(off))
