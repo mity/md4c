@@ -11,6 +11,12 @@ Changes:
    outputs them verbatim.) Thanks for the feature belong to [Tilman Roeder](
    https://github.com/dyedgreen).
 
+Fixes:
+
+ * [#94](https://github.com/mity/md4c/issues/94):
+   `md_build_ref_def_hashtable()`: Do not allocate more memory then strictly
+   needed.
+
 
 ## Version 0.3.4
 

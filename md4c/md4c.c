@@ -1687,7 +1687,7 @@ md_build_ref_def_hashtable(MD_CTX* ctx)
             }
 
             /* Make the bucket capable of holding more ref. defs. */
-            list = (MD_REF_DEF_LIST*) malloc(sizeof(MD_REF_DEF_LIST) + 4 * sizeof(MD_REF_DEF));
+            list = (MD_REF_DEF_LIST*) malloc(sizeof(MD_REF_DEF_LIST) + 4 * sizeof(MD_REF_DEF*));
             if(list == NULL) {
                 MD_LOG("malloc() failed.");
                 goto abort;
@@ -1704,7 +1704,7 @@ md_build_ref_def_hashtable(MD_CTX* ctx)
         list = (MD_REF_DEF_LIST*) bucket;
         if(list->n_ref_defs >= list->alloc_ref_defs) {
             MD_REF_DEF_LIST* list_tmp = (MD_REF_DEF_LIST*) realloc(list,
-                        sizeof(MD_REF_DEF_LIST) + 2 * list->alloc_ref_defs * sizeof(MD_REF_DEF));
+                        sizeof(MD_REF_DEF_LIST) + 2 * list->alloc_ref_defs * sizeof(MD_REF_DEF*));
             if(list_tmp == NULL) {
                 MD_LOG("realloc() failed.");
                 goto abort;
