@@ -165,6 +165,11 @@ to the following preprocessor macros:
 the isolation of the respective code.)
 
 
+## Ports to Other Languages
+
+ * D language: [commonmark-d](https://github.com/p0nce/commonmark-d)
+
+
 ## License
 
 MD4C is covered with MIT license, see the file `LICENSE.md`.
