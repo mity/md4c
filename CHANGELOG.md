@@ -6,6 +6,13 @@
 
 Changes:
 
+ * Parsing of tables (with `MD_FLAG_TABLES`) is now closer to the way how
+   cmark-gfm parses tables as we do not require every row of the table to
+   contain a pipe `|` anymore.
+
+   As a consequence, paragraphs now cannot interrupt tables. A paragraph which
+   follows the table has to be delimited with a blank line.
+
  * With `MD_FLAG_LATEXMATHSPANS`, LaTeX math spans (`$...$`) and LaTeX display
    math spans (`$$...$$`) are recognized. (Note though that the HTML renderer
    outputs them verbatim.) Thanks for the feature belong to [Tilman Roeder](
