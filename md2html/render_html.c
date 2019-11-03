@@ -432,8 +432,8 @@ enter_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
         case MD_SPAN_IMG:               render_open_img_span(r, (MD_SPAN_IMG_DETAIL*) detail); break;
         case MD_SPAN_CODE:              RENDER_LITERAL(r, "<code>"); break;
         case MD_SPAN_DEL:               RENDER_LITERAL(r, "<del>"); break;
-        case MD_SPAN_LATEXMATH:         RENDER_LITERAL(r, "<equation>"); break;
-        case MD_SPAN_LATEXMATH_DISPLAY: RENDER_LITERAL(r, "<equation type=\"display\">"); break;
+        case MD_SPAN_LATEXMATH:         RENDER_LITERAL(r, "<x-equation>"); break;
+        case MD_SPAN_LATEXMATH_DISPLAY: RENDER_LITERAL(r, "<x-equation type=\"display\">"); break;
     }
 
     return 0;
@@ -460,7 +460,7 @@ leave_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
         case MD_SPAN_CODE:              RENDER_LITERAL(r, "</code>"); break;
         case MD_SPAN_DEL:               RENDER_LITERAL(r, "</del>"); break;
         case MD_SPAN_LATEXMATH:         /*fall through*/
-        case MD_SPAN_LATEXMATH_DISPLAY: RENDER_LITERAL(r, "</equation>"); break;
+        case MD_SPAN_LATEXMATH_DISPLAY: RENDER_LITERAL(r, "</x-equation>"); break;
     }
 
     return 0;

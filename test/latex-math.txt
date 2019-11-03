@@ -10,7 +10,7 @@ A math span is is any text wrapped in dollars or double dollars (`$...$` or
 ```````````````````````````````` example
 $a+b=c$ Hello, world!
 .
-<p><equation>a+b=c</equation> Hello, world!</p>
+<p><x-equation>a+b=c</x-equation> Hello, world!</p>
 ````````````````````````````````
 
 If the double dollar sign is used, the math span is a display math span.
@@ -18,7 +18,7 @@ If the double dollar sign is used, the math span is a display math span.
 ```````````````````````````````` example
 This is a display equation: $$\int_a^b x dx$$.
 .
-<p>This is a display equation: <equation type="display">\int_a^b x dx</equation>.</p>
+<p>This is a display equation: <x-equation type="display">\int_a^b x dx</x-equation>.</p>
 ````````````````````````````````
 
 Math spans may span multiple lines as they are normal spans:
@@ -29,7 +29,7 @@ $$
 f(x) dx
 $$
 .
-<p><equation type="display">\int_a^b f(x) dx </equation></p>
+<p><x-equation type="display">\int_a^b f(x) dx </x-equation></p>
 ````````````````````````````````
 
 Note though that many (simple) renderers may output the math spans just as a
