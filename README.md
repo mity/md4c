@@ -167,7 +167,7 @@ the isolation of the respective code.)
 
 ## Ports to Other Languages
 
- * D language: [commonmark-d](https://github.com/p0nce/commonmark-d)
+ * D language: [commonmark-d](https://github.com/AuburnSounds/commonmark-d)
 
 
 ## License
