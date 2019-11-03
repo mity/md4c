@@ -213,6 +213,23 @@ foo
 ````````````````````````````````
 
 
+### [Issue 96](https://github.com/mity/md4c/issues/96)
+
+```````````````````````````````` example
+[ab]: /foo
+[a] [ab] [abc]
+.
+<p>[a] <a href="/foo">ab</a> [abc]</p>
+````````````````````````````````
+
+```````````````````````````````` example
+[a b]: /foo
+[a   b]
+.
+<p><a href="/foo">a   b</a></p>
+````````````````````````````````
+
+
 ## Code coverage
 
 ### `md_is_unicode_whitespace__()`

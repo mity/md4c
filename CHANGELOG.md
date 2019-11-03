@@ -20,6 +20,9 @@ Fixes:
  * [#95](https://github.com/mity/md4c/issues/95):
    `md_is_container_mark()`: Ordered list mark requires at least one digit.
 
+ * [#96](https://github.com/mity/md4c/issues/96):
+   Some fixes for link label comparison.
+
 
 ## Version 0.3.4
 

@@ -1530,7 +1530,7 @@ md_link_label_cmp_load_fold_info(const CHAR* label, OFF off, SZ size,
     SZ char_size;
 
     if(off >= size) {
-        /* Treat end of link label as a whitespace. */
+        /* Treat end of a link label as a whitespace. */
         goto whitespace;
     }
 
@@ -1554,7 +1554,7 @@ md_link_label_cmp_load_fold_info(const CHAR* label, OFF off, SZ size,
 whitespace:
     fold_info->codepoints[0] = _T(' ');
     fold_info->n_codepoints = 1;
-    return off;
+    return md_skip_unicode_whitespace(label, off, size);
 }
 
 static int
@@ -1572,7 +1572,7 @@ md_link_label_cmp(const CHAR* a_label, SZ a_size, const CHAR* b_label, SZ b_size
 
     a_off = md_skip_unicode_whitespace(a_label, 0, a_size);
     b_off = md_skip_unicode_whitespace(b_label, 0, b_size);
-    while(!a_reached_end  &&  !b_reached_end) {
+    while(!a_reached_end  ||  !b_reached_end) {
         /* If needed, load fold info for next char. */
         if(a_fi_off >= a_fi.n_codepoints) {
             a_fi_off = 0;
