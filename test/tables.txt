@@ -85,8 +85,9 @@ quux     | quuz
 </table>
 ````````````````````````````````
 
-However for one-column table, at least one of those has to be used, otherwise
-it would be parsed as a Setext title followed by paragraph.
+However for one-column table, at least one pipe has to be used in the table
+header underline, otherwise it would be parsed as a Setext title followed by
+a paragraph.
 
 ```````````````````````````````` example
 Column 1
@@ -141,8 +142,7 @@ Lorem ipsum dolor sit amet.
 | quux     | quuz</p>
 ````````````````````````````````
 
-But paragraph or other block can interrupt a table as a line without any pipe
-ends the table.
+Similarly, paragraph cannot interrupt a table:
 
 ```````````````````````````````` example
 Column 1 | Column 2
@@ -160,15 +160,15 @@ Lorem ipsum dolor sit amet.
 <tr><td>foo</td><td>bar</td></tr>
 <tr><td>baz</td><td>qux</td></tr>
 <tr><td>quux</td><td>quuz</td></tr>
+<tr><td>Lorem ipsum dolor sit amet.</td><td></td></tr>
 </tbody>
 </table>
-<p>Lorem ipsum dolor sit amet.</p>
 ````````````````````````````````
 
-The ruling line between head and body of the table must include the same amount
-of cells as the line with column names, and each cell has to consist of three
-dash (`-`) characters. However first, last or both dashes may be replaced with
-colon to denote column alignment.
+The underline of the table is crucial for recognition of the table, count of
+its columns and their alignment: The line has to contain at least one pipe,
+and it has provide at least three dash (`-`) characters for every column in
+the table.
 
 Thus this is not a table because there are too few dashes for Column 2.
 
@@ -186,7 +186,9 @@ Thus this is not a table because there are too few dashes for Column 2.
 | quux     | quuz</p>
 ````````````````````````````````
 
-And this is a table where each of the four column uses different alignment.
+The first, the last or both the first and the last dash in each column
+underline can be replaced with a colon (`:`) to request left, right or middle
+alignment of the respective column:
 
 ```````````````````````````````` example
 | Column 1 | Column 2 | Column 3 | Column 4 |
@@ -263,12 +265,11 @@ quux     | quuz
 <tr><th>Column 1</th><th>Column 2</th></tr>
 </thead>
 <tbody>
+<tr><td><code>foo     | bar</code></td><td></td></tr>
+<tr><td>baz</td><td>qux</td></tr>
+<tr><td>quux</td><td>quuz</td></tr>
 </tbody>
 </table>
-<p><code>foo     | bar</code>
-baz      | qux
-quux     | quuz</p>
-
 ````````````````````````````````
 
 
