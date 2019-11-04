@@ -209,6 +209,7 @@ static const option cmdline_options[] = {
     { "ftables",                     0,  'T', OPTION_ARG_NONE },
     { "fstrikethrough",              0,  'S', OPTION_ARG_NONE },
     { "flatex-math",                 0,  'L', OPTION_ARG_NONE },
+    { "fwiki-links",                 0,  'K', OPTION_ARG_NONE },
     { "ftasklists",                  0,  'X', OPTION_ARG_NONE },
     { 0 }
 };
@@ -258,6 +259,7 @@ usage(void)
         "      --ftables        Enable tables\n"
         "      --fstrikethrough Enable strikethrough spans\n"
         "      --flatex-math    Enable LaTeX style mathematics spans (e.g. $a+b=c$ becomes <equation>a+b=c</equation>)\n"
+        "      --fwiki-links    Enable wiki links\n"
         "      --ftasklists     Enable task lists\n"
     );
 }
@@ -307,6 +309,7 @@ cmdline_callback(int opt, char const* value, void* data)
         case 'T':   parser_flags |= MD_FLAG_TABLES; break;
         case 'S':   parser_flags |= MD_FLAG_STRIKETHROUGH; break;
         case 'L':   parser_flags |= MD_FLAG_LATEXMATHSPANS; break;
+        case 'K':   parser_flags |= MD_FLAG_WIKILINKS; break;
         case 'X':   parser_flags |= MD_FLAG_TASKLISTS; break;
 
         default:

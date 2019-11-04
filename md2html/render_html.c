@@ -353,6 +353,15 @@ render_close_img_span(MD_RENDER_HTML* r, const MD_SPAN_IMG_DETAIL* det)
     r->image_nesting_level--;
 }
 
+static void
+render_open_wikilink_span(MD_RENDER_HTML* r, const MD_SPAN_WIKILINK_DETAIL* det)
+{
+    RENDER_LITERAL(r, "<x-wikilink data-target=\"");
+    render_attribute(r, &det->target, render_html_escaped);
+
+    RENDER_LITERAL(r, "\">");
+}
+
 
 /**************************************
  ***  HTML renderer implementation  ***
@@ -434,6 +443,7 @@ enter_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
         case MD_SPAN_DEL:               RENDER_LITERAL(r, "<del>"); break;
         case MD_SPAN_LATEXMATH:         RENDER_LITERAL(r, "<x-equation>"); break;
         case MD_SPAN_LATEXMATH_DISPLAY: RENDER_LITERAL(r, "<x-equation type=\"display\">"); break;
+        case MD_SPAN_WIKILINK:          render_open_wikilink_span(r, (MD_SPAN_WIKILINK_DETAIL*) detail); break;
     }
 
     return 0;
@@ -461,6 +471,7 @@ leave_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
         case MD_SPAN_DEL:               RENDER_LITERAL(r, "</del>"); break;
         case MD_SPAN_LATEXMATH:         /*fall through*/
         case MD_SPAN_LATEXMATH_DISPLAY: RENDER_LITERAL(r, "</x-equation>"); break;
+        case MD_SPAN_WIKILINK:          RENDER_LITERAL(r, "</x-wikilink>"); break;
     }
 
     return 0;

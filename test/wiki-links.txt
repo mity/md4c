@@ -1,0 +1,254 @@
+
+# Wiki Links
+
+With the flag `MD_FLAG_WIKILINKS`, MD4C recognizes wiki links.
+
+A wiki link is ...
+
+```````````````````````````````` example
+[[foo]]
+.
+<p><x-wikilink data-target="foo">foo</x-wikilink></p>
+````````````````````````````````
+
+A wiki link cannot be empty.
+
+```````````````````````````````` example
+[[]]
+.
+<p>[[]]</p>
+````````````````````````````````
+
+The link target of a wiki link cannot span more than one line:
+
+```````````````````````````````` example
+[[foo
+bar]]
+.
+<p>[[foo
+bar]]</p>
+````````````````````````````````
+
+The link target is rendered verbatim; inline markup is not recognized.
+
+```````````````````````````````` example
+[[*foo*]]
+.
+<p><x-wikilink data-target="*foo*">*foo*</x-wikilink></p>
+````````````````````````````````
+
+Wiki links can have a label that is delimited by a `|`.
+
+```````````````````````````````` example
+[[foo|bar]]
+.
+<p><x-wikilink data-target="foo">bar</x-wikilink></p>
+````````````````````````````````
+
+A wiki link with a label but without an id is not a wiki link.
+
+```````````````````````````````` example
+[[|foo]]
+.
+<p>[[|foo]]</p>
+````````````````````````````````
+
+With multiple `|` delimiters, only the first is recognized.
+
+```````````````````````````````` example
+[[foo|bar|baz]]
+.
+<p><x-wikilink data-target="foo">bar|baz</x-wikilink></p>
+````````````````````````````````
+
+The delimiter `|` can be escaped with `/`.
+
+```````````````````````````````` example
+[[foo\|bar|baz]]
+.
+<p><x-wikilink data-target="foo|bar">baz</x-wikilink></p>
+````````````````````````````````
+
+The label can contain inline elements.
+
+```````````````````````````````` example
+[[foo|*bar*]]
+.
+<p><x-wikilink data-target="foo"><em>bar</em></x-wikilink></p>
+````````````````````````````````
+
+The label can contain at most one linebreak.
+
+```````````````````````````````` example
+[[foo|*bar
+baz*]]
+.
+<p><x-wikilink data-target="foo"><em>bar
+baz</em></x-wikilink></p>
+````````````````````````````````
+
+A wiki link with an empty label is considered invalid.
+
+```````````````````````````````` example
+[[foo|]]
+.
+<p><x-wikilink data-target="foo">foo</x-wikilink></p>
+````````````````````````````````
+
+The label can span multiple lines.
+
+```````````````````````````````` example
+[[foo|foo
+bar
+baz]]
+.
+<p><x-wikilink data-target="foo">foo
+bar
+baz</x-wikilink></p>
+````````````````````````````````
+
+Wiki links are prioritized over regular links.
+
+```````````````````````````````` example
+[[foo]](foo.jpg)
+.
+<p><x-wikilink data-target="foo">foo</x-wikilink>(foo.jpg)</p>
+````````````````````````````````
+
+Wiki links can be inlined in tables.
+
+```````````````````````````````` example
+| A                | B   |
+|------------------|-----|
+| [[foo|*bar*]]    | baz |
+.
+<table>
+<thead>
+<tr>
+<th>A</th>
+<th>B</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><x-wikilink data-target="foo"><em>bar</em></x-wikilink></td>
+<td>baz</td>
+</tr>
+</tbody>
+</table>
+````````````````````````````````
+
+Wiki links not prioritzed over images.
+
+```````````````````````````````` example
+![[foo]](foo.jpg)
+.
+<p><img src="foo.jpg" alt="[foo]"></p>
+````````````````````````````````
+
+An image placed inside a wiki link target disables the wiki link.
+
+```````````````````````````````` example
+[[![foo](foo.jpg)]]
+.
+<p>[[<img src="foo.jpg" alt="foo">]]</p>
+
+````````````````````````````````
+
+```````````````````````````````` example
+[[![foo](foo.jpg)|test]]
+.
+<p>[[<img src="foo.jpg" alt="foo">|test]]</p>
+````````````````````````````````
+
+But images can be placed in the wiki link label.
+
+```````````````````````````````` example
+[[foo|![bar](bar.jpg)]]
+.
+<p><x-wikilink data-target="foo"><img src="bar.jpg" alt="bar"></x-wikilink></p>
+````````````````````````````````
+
+Something that may look like a wiki link at first, but turns out not to be,
+is recognized as a normal link.
+
+```````````````````````````````` example
+[[foo]
+
+[foo]: /url
+.
+<p>[<a href="/url">foo</a></p>
+````````````````````````````````
+
+Escaping the opening `[`, we should get a normal link.
+
+```````````````````````````````` example
+\[[foo]]
+
+[foo]: /url
+.
+<p>[<a href="/url">foo</a>]</p>
+````````````````````````````````
+
+Like normal links, the innermost wiki link is preferred.
+
+```````````````````````````````` example
+[[foo[[bar]]]]
+.
+<p>[[foo<x-wikilink data-target="bar">bar</x-wikilink>]]</p>
+````````````````````````````````
+
+
+There is limit of 100 characters inside a wiki link target (or id); 101
+characters is too much.
+
+```````````````````````````````` example
+[[12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901]]
+.
+<p>[[12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901]]</p>
+````````````````````````````````
+
+100 characters inside a wiki link target works.
+
+```````````````````````````````` example
+[[1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890]]
+.
+<p><x-wikilink data-target="1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890">1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890</x-wikilink></p>
+````````````````````````````````
+
+If a label is included, the limit is 99 characters in total, excluding the `|`
+delimiter.
+
+```````````````````````````````` example
+[[12345678901234567890123456789012345678901234567890|1234567890123456789012345678901234567890123456789]]
+.
+<p><x-wikilink data-target="12345678901234567890123456789012345678901234567890">1234567890123456789012345678901234567890123456789</x-wikilink></p>
+````````````````````````````````
+
+This example shows that 101 characters (or 100 exclusive the delimiter) is one
+too many.
+
+```````````````````````````````` example
+[[12345678901234567890123456789012345678901234567890|12345678901234567890123456789012345678901234567890]]
+.
+<p>[[12345678901234567890123456789012345678901234567890|12345678901234567890123456789012345678901234567890]]</p>
+````````````````````````````````
+
+The limit on link content does not include any characters belonging to a block
+quote, if the label spans multiple lines contained in a block quote.
+
+```````````````````````````````` example
+> [[12345678901234567890123456789012345678901234567890|1234567890
+> 1234567890
+> 1234567890
+> 1234567890
+> 123456789]]
+.
+<blockquote>
+<p><x-wikilink data-target="12345678901234567890123456789012345678901234567890">1234567890
+1234567890
+1234567890
+1234567890
+123456789</x-wikilink></p>
+</blockquote>
+````````````````````````````````
