@@ -4251,7 +4251,7 @@ md_process_table_row(MD_CTX* ctx, MD_BLOCKTYPE cell_type, OFF beg, OFF end,
 {
     MD_LINE line;
     OFF* pipe_offs = NULL;
-    int i, j, n;
+    int i, j, k, n;
     int ret = 0;
 
     line.beg = beg;
@@ -4263,32 +4263,32 @@ md_process_table_row(MD_CTX* ctx, MD_BLOCKTYPE cell_type, OFF beg, OFF end,
 
     /* We have to remember the cell boundaries in local buffer because
      * ctx->marks[] shall be reused during cell contents processing. */
-    n = ctx->n_table_cell_boundaries;
+    n = ctx->n_table_cell_boundaries + 2;
     pipe_offs = (OFF*) malloc(n * sizeof(OFF));
     if(pipe_offs == NULL) {
         MD_LOG("malloc() failed.");
         ret = -1;
         goto abort;
     }
-    for(i = TABLECELLBOUNDARIES.head, j = 0; i >= 0; i = ctx->marks[i].next) {
+    j = 0;
+    pipe_offs[j++] = beg;
+    for(i = TABLECELLBOUNDARIES.head; i >= 0; i = ctx->marks[i].next) {
         MD_MARK* mark = &ctx->marks[i];
-        pipe_offs[j++] = mark->beg;
+        pipe_offs[j++] = mark->end;
     }
+    pipe_offs[j++] = end+1;
 
     /* Process cells. */
     MD_ENTER_BLOCK(MD_BLOCK_TR, NULL);
-    j = 0;
-    if(beg < pipe_offs[0]  &&  j < col_count)
-        MD_CHECK(md_process_table_cell(ctx, cell_type, align[j++], beg, pipe_offs[0]));
-    for(i = 0; i < n-1  &&  j < col_count; i++)
-        MD_CHECK(md_process_table_cell(ctx, cell_type, align[j++], pipe_offs[i]+1, pipe_offs[i+1]));
-    if(pipe_offs[n-1] < end-1  &&  j < col_count)
-        MD_CHECK(md_process_table_cell(ctx, cell_type, align[j++], pipe_offs[n-1]+1, end));
+    k = 0;
+    for(i = 0; i < j-1  &&  k < col_count; i++) {
+        if(pipe_offs[i] < pipe_offs[i+1]-1)
+            MD_CHECK(md_process_table_cell(ctx, cell_type, align[k++], pipe_offs[i], pipe_offs[i+1]-1));
+    }
     /* Make sure we call enough table cells even if the current table contains
      * too few of them. */
-    while(j < col_count)
-        MD_CHECK(md_process_table_cell(ctx, cell_type, align[j++], 0, 0));
-
+    while(k < col_count)
+        MD_CHECK(md_process_table_cell(ctx, cell_type, align[k++], 0, 0));
     MD_LEAVE_BLOCK(MD_BLOCK_TR, NULL);
 
 abort:
@@ -4337,38 +4337,6 @@ md_process_table_block_contents(MD_CTX* ctx, int col_count, const MD_LINE* lines
 
 abort:
     free(align);
-    return ret;
-}
-
-static int
-md_is_table_row(MD_CTX* ctx, OFF beg, OFF* p_end)
-{
-    MD_LINE line;
-    int i;
-    int ret = FALSE;
-
-    line.beg = beg;
-    line.end = beg;
-
-    /* Find end of line. */
-    while(line.end < ctx->size  &&  !ISNEWLINE(line.end))
-        line.end++;
-
-    MD_CHECK(md_analyze_inlines(ctx, &line, 1, TRUE));
-
-    if(TABLECELLBOUNDARIES.head >= 0) {
-        if(p_end != NULL)
-            *p_end = line.end;
-        ret = TRUE;
-    }
-
-abort:
-    /* Free any temporary memory blocks stored within some dummy marks. */
-    for(i = PTR_CHAIN.head; i >= 0; i = ctx->marks[i].next)
-        free(md_mark_get_ptr(ctx, i));
-    PTR_CHAIN.head = -1;
-    PTR_CHAIN.tail = -1;
-
     return ret;
 }
 
@@ -5803,9 +5771,7 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
         }
 
         /* Check whether we are table continuation. */
-        if(pivot_line->type == MD_LINE_TABLE  &&  md_is_table_row(ctx, off, &off)  &&
-           n_parents == ctx->n_containers)
-        {
+        if(pivot_line->type == MD_LINE_TABLE  &&  n_parents == ctx->n_containers) {
             line->type = MD_LINE_TABLE;
             break;
         }
@@ -5859,8 +5825,7 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
             unsigned col_count;
 
             if(ctx->current_block != NULL  &&  ctx->current_block->n_lines == 1  &&
-                md_is_table_underline(ctx, off, &off, &col_count)  &&
-                md_is_table_row(ctx, pivot_line->beg, NULL))
+                md_is_table_underline(ctx, off, &off, &col_count))
             {
                 line->data = col_count;
                 line->type = MD_LINE_TABLEUNDERLINE;
