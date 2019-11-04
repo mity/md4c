@@ -6,10 +6,29 @@
 
 Changes:
 
+ * Parsing of tables (with `MD_FLAG_TABLES`) is now closer to the way how
+   cmark-gfm parses tables as we do not require every row of the table to
+   contain a pipe `|` anymore.
+
+   As a consequence, paragraphs now cannot interrupt tables. A paragraph which
+   follows the table has to be delimited with a blank line.
+
  * With `MD_FLAG_LATEXMATHSPANS`, LaTeX math spans (`$...$`) and LaTeX display
    math spans (`$$...$$`) are recognized. (Note though that the HTML renderer
    outputs them verbatim.) Thanks for the feature belong to [Tilman Roeder](
    https://github.com/dyedgreen).
+
+Fixes:
+
+ * [#94](https://github.com/mity/md4c/issues/94):
+   `md_build_ref_def_hashtable()`: Do not allocate more memory then strictly
+   needed.
+
+ * [#95](https://github.com/mity/md4c/issues/95):
+   `md_is_container_mark()`: Ordered list mark requires at least one digit.
+
+ * [#96](https://github.com/mity/md4c/issues/96):
+   Some fixes for link label comparison.
 
 
 ## Version 0.3.4
