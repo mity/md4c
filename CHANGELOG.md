@@ -14,9 +14,16 @@ Changes:
    follows the table has to be delimited with a blank line.
 
  * With `MD_FLAG_LATEXMATHSPANS`, LaTeX math spans (`$...$`) and LaTeX display
-   math spans (`$$...$$`) are recognized. (Note though that the HTML renderer
-   outputs them verbatim.) Thanks for the feature belong to [Tilman Roeder](
-   https://github.com/dyedgreen).
+   math spans (`$$...$$`) are now recognized. (Note though that the HTML
+   renderer outputs them verbatim in a custom `<x-equation>` tag.)
+
+   Contributed by [Tilman Roeder](https://github.com/dyedgreen).
+
+ * With `MD_FLAG_WIKILINKS`, Wiki-style links (`[[...]]`) are now recognized.
+   (Note htough that the HTML renderer renders them as a custom `<x-wikilink>`
+   tag.)
+
+   Contributed by [Nils Blomqvist](https://github.com/niblo).
 
 Fixes:
 
