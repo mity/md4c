@@ -4,14 +4,7 @@
 
 ## Next Version (Work in Progress)
 
-Changes:
-
- * Parsing of tables (with `MD_FLAG_TABLES`) is now closer to the way how
-   cmark-gfm parses tables as we do not require every row of the table to
-   contain a pipe `|` anymore.
-
-   As a consequence, paragraphs now cannot interrupt tables. A paragraph which
-   follows the table has to be delimited with a blank line.
+New features:
 
  * With `MD_FLAG_LATEXMATHSPANS`, LaTeX math spans (`$...$`) and LaTeX display
    math spans (`$$...$$`) are now recognized. (Note though that the HTML
@@ -24,6 +17,15 @@ Changes:
    tag.)
 
    Contributed by [Nils Blomqvist](https://github.com/niblo).
+
+Changes:
+
+ * Parsing of tables (with `MD_FLAG_TABLES`) is now closer to the way how
+   cmark-gfm parses tables as we do not require every row of the table to
+   contain a pipe `|` anymore.
+
+   As a consequence, paragraphs now cannot interrupt tables. A paragraph which
+   follows the table has to be delimited with a blank line.
 
 Fixes:
 
