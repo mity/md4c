@@ -2,7 +2,13 @@
 # MD4C Change Log
 
 
-## Next Version (Work in Progress)
+## Version 0.4.1
+
+Unfortunately, 0.4.0 has been released with badly updated ChangeLog. Fixing
+this is the only change on 0.4.1.
+
+
+## Version 0.4.0
 
 New features:
 
