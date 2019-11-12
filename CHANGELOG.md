@@ -2,6 +2,14 @@
 # MD4C Change Log
 
 
+## Next Version (Work in Progress)
+
+Fixes:
+ * [#98](https://github.com/mity/md4c/issues/98):
+   Fix mis-detection of asterisk-encoded emphasis in some corner cases when
+   length of the opener and closer differs, as in `**a *b c** d*`.
+
+
 ## Version 0.4.1
 
 Unfortunately, 0.4.0 has been released with badly updated ChangeLog. Fixing

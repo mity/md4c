@@ -3699,16 +3699,17 @@ md_analyze_emph(MD_CTX* ctx, int mark_index)
         if(opener != NULL) {
             SZ opener_size = opener->end - opener->beg;
             SZ closer_size = mark->end - mark->beg;
+            MD_MARKCHAIN* opener_chain = md_mark_chain(ctx, mark_index);
 
             if(opener_size > closer_size) {
                 opener_index = md_split_emph_mark(ctx, opener_index, closer_size);
-                md_mark_chain_append(ctx, md_mark_chain(ctx, opener_index), opener_index);
+                md_mark_chain_append(ctx, opener_chain, opener_index);
             } else if(opener_size < closer_size) {
                 md_split_emph_mark(ctx, mark_index, closer_size - opener_size);
             }
 
             md_rollback(ctx, opener_index, mark_index, MD_ROLLBACK_CROSSING);
-            md_resolve_range(ctx, chain, opener_index, mark_index);
+            md_resolve_range(ctx, opener_chain, opener_index, mark_index);
             return;
         }
     }

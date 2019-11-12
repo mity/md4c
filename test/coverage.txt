@@ -230,6 +230,17 @@ foo
 ````````````````````````````````
 
 
+### [Issue 97](https://github.com/mity/md4c/issues/97)
+
+
+```````````````````````````````` example
+*a **b c* d**
+.
+<p><em>a <em><em>b c</em> d</em></em></p>
+
+````````````````````````````````
+
+
 ## Code coverage
 
 ### `md_is_unicode_whitespace__()`
