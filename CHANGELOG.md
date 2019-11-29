@@ -2,7 +2,7 @@
 # MD4C Change Log
 
 
-## Next Version (Work in Progress)
+## Version 0.4.2
 
 Fixes:
  * [#98](https://github.com/mity/md4c/issues/98):
