@@ -187,7 +187,7 @@ For now you have to directly reuse that code in your project. There is also
 [some discussion](https://github.com/mity/md4c/issues/82) whether this
 should change (and how) in the future.
 
-**Q: How does MD4C compares to a parser XY?**
+**Q: How does MD4C compare to a parser XY?**
 
 **A:** Some other implementations combine Markdown parser and HTML generator
 into a single entangled code hidden behind an interface which just allows the
