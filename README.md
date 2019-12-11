@@ -203,13 +203,12 @@ It's completely fine as long as you really need it. If you don't need the full
 AST, there is very high chance that using MD4C will be faster and much less
 memory-hungry.
 
-Also surprisingly many Markdown implementations are implemented in a naive way.
-When fed with a [smartly crafted input patterns](test/pathological_tests.py),
-they may exhibit quadratic (or even worse) parsing times. What MD4C can still
-parse in a fraction of second may turn into long minutes or possibly hours with
-them. Hence, when such a naive parser is used to process an input from an
-untrusted source, the possibility of denial-of-service attacks becomes a real
-danger.
+Last but not least, some Markdown parsers are implemented in a naive way. When
+fed with a [smartly crafted input patterns](test/pathological_tests.py), they
+may exhibit quadratic (or even worse) parsing times. What MD4C can still parse
+in a fraction of second may turn into long minutes or possibly hours with them.
+Hence, when such a naive parser is used to process an input from an untrusted
+source, the possibility of denial-of-service attacks becomes a real danger.
 
 A lot of our effort went into providing linear parsing times no matter what
 kind of crazy input MD4C parser is fed with. (And, if you encounter an input
@@ -246,6 +245,5 @@ MD4C is covered with MIT license, see the file `LICENSE.md`.
 
 * [commonmark-d](https://github.com/AuburnSounds/commonmark-d):
   Port of MD4C in D language.
-
 * [markdown-wasm](https://github.com/rsms/markdown-wasm):
   Markdown parser and HTML generator for WebAssembly, based on MD4C.
