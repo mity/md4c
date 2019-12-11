@@ -53,6 +53,9 @@ struct MD_RENDER_HTML_tag {
     char escape_map[256];
 };
 
+#define NEED_HTML_ESC_FLAG   0x1
+#define NEED_URL_ESC_FLAG    0x2
+
 
 /*****************************************
  ***  HTML rendering helper functions  ***
@@ -80,14 +83,14 @@ render_html_escaped(MD_RENDER_HTML* r, const MD_CHAR* data, MD_SIZE size)
     MD_OFFSET off = 0;
 
     /* Some characters need to be escaped in normal HTML text. */
-    #define HTML_NEED_ESCAPE(ch)        (r->escape_map[(unsigned char)(ch)] != 0)
+    #define NEED_HTML_ESC(ch)   (r->escape_map[(unsigned char)(ch)] & NEED_HTML_ESC_FLAG)
 
     while(1) {
         /* Optimization: Use some loop unrolling. */
-        while(off + 3 < size  &&  !HTML_NEED_ESCAPE(data[off+0])  &&  !HTML_NEED_ESCAPE(data[off+1])
-                              &&  !HTML_NEED_ESCAPE(data[off+2])  &&  !HTML_NEED_ESCAPE(data[off+3]))
+        while(off + 3 < size  &&  !NEED_HTML_ESC(data[off+0])  &&  !NEED_HTML_ESC(data[off+1])
+                              &&  !NEED_HTML_ESC(data[off+2])  &&  !NEED_HTML_ESC(data[off+3]))
             off += 4;
-        while(off < size  &&  !HTML_NEED_ESCAPE(data[off]))
+        while(off < size  &&  !NEED_HTML_ESC(data[off]))
             off++;
 
         if(off > beg)
@@ -115,11 +118,11 @@ render_url_escaped(MD_RENDER_HTML* r, const MD_CHAR* data, MD_SIZE size)
     MD_OFFSET beg = 0;
     MD_OFFSET off = 0;
 
-    #define URL_NEED_ESCAPE(ch)                                             \
-            (!ISALNUM(ch)  &&  strchr("-_.+!*'(),%#@?=;:/,+$", ch) == NULL)
+    /* Some characters need to be escaped in URL attributes. */
+    #define NEED_URL_ESC(ch)    (r->escape_map[(unsigned char)(ch)] & NEED_URL_ESC_FLAG)
 
     while(1) {
-        while(off < size  &&  !URL_NEED_ESCAPE(data[off]))
+        while(off < size  &&  !NEED_URL_ESC(data[off]))
             off++;
         if(off > beg)
             render_text(r, data + beg, off - beg);
@@ -129,7 +132,6 @@ render_url_escaped(MD_RENDER_HTML* r, const MD_CHAR* data, MD_SIZE size)
 
             switch(data[off]) {
                 case '&':   RENDER_LITERAL(r, "&amp;"); break;
-                case '\'':  RENDER_LITERAL(r, "&#x27;"); break;
                 default:
                     hex[0] = '%';
                     hex[1] = hex_chars[((unsigned)data[off] >> 4) & 0xf];
@@ -508,6 +510,7 @@ md_render_html(const MD_CHAR* input, MD_SIZE input_size,
                void* userdata, unsigned parser_flags, unsigned renderer_flags)
 {
     MD_RENDER_HTML render = { process_output, userdata, renderer_flags, 0, { 0 } };
+    int i;
 
     MD_PARSER parser = {
         0,
@@ -521,10 +524,16 @@ md_render_html(const MD_CHAR* input, MD_SIZE input_size,
         NULL
     };
 
-    render.escape_map[(unsigned char)'"'] = 1;
-    render.escape_map[(unsigned char)'&'] = 1;
-    render.escape_map[(unsigned char)'<'] = 1;
-    render.escape_map[(unsigned char)'>'] = 1;
+    /* Build map of characters which need escaping. */
+    for(i = 0; i < 256; i++) {
+        unsigned char ch = (unsigned char) i;
+
+        if(strchr("\"&<>", ch) != NULL)
+            render.escape_map[i] |= NEED_HTML_ESC_FLAG;
+
+        if(!ISALNUM(ch)  &&  strchr("-_.+!*(),%#@?=;:/,+$", ch) == NULL)
+            render.escape_map[i] |= NEED_URL_ESC_FLAG;
+    }
 
     return md_parse(input, input_size, &parser, (void*) &render);
 }
