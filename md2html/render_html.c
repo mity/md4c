@@ -68,12 +68,15 @@ struct MD_RENDER_HTML_tag {
 
 
 static inline void
-render_text(MD_RENDER_HTML* r, const MD_CHAR* text, MD_SIZE size)
+render_verbatim(MD_RENDER_HTML* r, const MD_CHAR* text, MD_SIZE size)
 {
     r->process_output(text, size, r->userdata);
 }
 
-#define RENDER_LITERAL(r, literal)    render_text((r), (literal), (MD_SIZE) strlen(literal))
+/* Keep this as a macro. Most compiler should then be smart enough to replace
+ * the strlen() call with a compile-time constant if the string is a C literal. */
+#define RENDER_VERBATIM(r, verbatim)                                    \
+        render_verbatim((r), (verbatim), (MD_SIZE) (strlen(verbatim)))
 
 
 static void
@@ -94,14 +97,14 @@ render_html_escaped(MD_RENDER_HTML* r, const MD_CHAR* data, MD_SIZE size)
             off++;
 
         if(off > beg)
-            render_text(r, data + beg, off - beg);
+            render_verbatim(r, data + beg, off - beg);
 
         if(off < size) {
             switch(data[off]) {
-                case '&':   RENDER_LITERAL(r, "&amp;"); break;
-                case '<':   RENDER_LITERAL(r, "&lt;"); break;
-                case '>':   RENDER_LITERAL(r, "&gt;"); break;
-                case '"':   RENDER_LITERAL(r, "&quot;"); break;
+                case '&':   RENDER_VERBATIM(r, "&amp;"); break;
+                case '<':   RENDER_VERBATIM(r, "&lt;"); break;
+                case '>':   RENDER_VERBATIM(r, "&gt;"); break;
+                case '"':   RENDER_VERBATIM(r, "&quot;"); break;
             }
             off++;
         } else {
@@ -125,18 +128,18 @@ render_url_escaped(MD_RENDER_HTML* r, const MD_CHAR* data, MD_SIZE size)
         while(off < size  &&  !NEED_URL_ESC(data[off]))
             off++;
         if(off > beg)
-            render_text(r, data + beg, off - beg);
+            render_verbatim(r, data + beg, off - beg);
 
         if(off < size) {
             char hex[3];
 
             switch(data[off]) {
-                case '&':   RENDER_LITERAL(r, "&amp;"); break;
+                case '&':   RENDER_VERBATIM(r, "&amp;"); break;
                 default:
                     hex[0] = '%';
                     hex[1] = hex_chars[((unsigned)data[off] >> 4) & 0xf];
                     hex[2] = hex_chars[((unsigned)data[off] >> 0) & 0xf];
-                    render_text(r, hex, 3);
+                    render_verbatim(r, hex, 3);
                     break;
             }
             off++;
@@ -252,7 +255,7 @@ render_attribute(MD_RENDER_HTML* r, const MD_ATTRIBUTE* attr,
         const MD_CHAR* text = attr->text + off;
 
         switch(type) {
-            case MD_TEXT_NULLCHAR:  render_utf8_codepoint(r, 0x0000, render_text); break;
+            case MD_TEXT_NULLCHAR:  render_utf8_codepoint(r, 0x0000, render_verbatim); break;
             case MD_TEXT_ENTITY:    render_entity(r, text, size, fn_append); break;
             default:                fn_append(r, text, size); break;
         }
@@ -266,78 +269,78 @@ render_open_ol_block(MD_RENDER_HTML* r, const MD_BLOCK_OL_DETAIL* det)
     char buf[64];
 
     if(det->start == 1) {
-        RENDER_LITERAL(r, "<ol>\n");
+        RENDER_VERBATIM(r, "<ol>\n");
         return;
     }
 
     snprintf(buf, sizeof(buf), "<ol start=\"%u\">\n", det->start);
-    RENDER_LITERAL(r, buf);
+    RENDER_VERBATIM(r, buf);
 }
 
 static void
 render_open_li_block(MD_RENDER_HTML* r, const MD_BLOCK_LI_DETAIL* det)
 {
     if(det->is_task) {
-        RENDER_LITERAL(r, "<li class=\"task-list-item\">"
+        RENDER_VERBATIM(r, "<li class=\"task-list-item\">"
                           "<input type=\"checkbox\" class=\"task-list-item-checkbox\" disabled");
         if(det->task_mark == 'x' || det->task_mark == 'X')
-            RENDER_LITERAL(r, " checked");
-        RENDER_LITERAL(r, ">");
+            RENDER_VERBATIM(r, " checked");
+        RENDER_VERBATIM(r, ">");
     } else {
-        RENDER_LITERAL(r, "<li>");
+        RENDER_VERBATIM(r, "<li>");
     }
 }
 
 static void
 render_open_code_block(MD_RENDER_HTML* r, const MD_BLOCK_CODE_DETAIL* det)
 {
-    RENDER_LITERAL(r, "<pre><code");
+    RENDER_VERBATIM(r, "<pre><code");
 
     /* If known, output the HTML 5 attribute class="language-LANGNAME". */
     if(det->lang.text != NULL) {
-        RENDER_LITERAL(r, " class=\"language-");
+        RENDER_VERBATIM(r, " class=\"language-");
         render_attribute(r, &det->lang, render_html_escaped);
-        RENDER_LITERAL(r, "\"");
+        RENDER_VERBATIM(r, "\"");
     }
 
-    RENDER_LITERAL(r, ">");
+    RENDER_VERBATIM(r, ">");
 }
 
 static void
 render_open_td_block(MD_RENDER_HTML* r, const MD_CHAR* cell_type, const MD_BLOCK_TD_DETAIL* det)
 {
-    RENDER_LITERAL(r, "<");
-    RENDER_LITERAL(r, cell_type);
+    RENDER_VERBATIM(r, "<");
+    RENDER_VERBATIM(r, cell_type);
 
     switch(det->align) {
-        case MD_ALIGN_LEFT:     RENDER_LITERAL(r, " align=\"left\">"); break;
-        case MD_ALIGN_CENTER:   RENDER_LITERAL(r, " align=\"center\">"); break;
-        case MD_ALIGN_RIGHT:    RENDER_LITERAL(r, " align=\"right\">"); break;
-        default:                RENDER_LITERAL(r, ">"); break;
+        case MD_ALIGN_LEFT:     RENDER_VERBATIM(r, " align=\"left\">"); break;
+        case MD_ALIGN_CENTER:   RENDER_VERBATIM(r, " align=\"center\">"); break;
+        case MD_ALIGN_RIGHT:    RENDER_VERBATIM(r, " align=\"right\">"); break;
+        default:                RENDER_VERBATIM(r, ">"); break;
     }
 }
 
 static void
 render_open_a_span(MD_RENDER_HTML* r, const MD_SPAN_A_DETAIL* det)
 {
-    RENDER_LITERAL(r, "<a href=\"");
+    RENDER_VERBATIM(r, "<a href=\"");
     render_attribute(r, &det->href, render_url_escaped);
 
     if(det->title.text != NULL) {
-        RENDER_LITERAL(r, "\" title=\"");
+        RENDER_VERBATIM(r, "\" title=\"");
         render_attribute(r, &det->title, render_html_escaped);
     }
 
-    RENDER_LITERAL(r, "\">");
+    RENDER_VERBATIM(r, "\">");
 }
 
 static void
 render_open_img_span(MD_RENDER_HTML* r, const MD_SPAN_IMG_DETAIL* det)
 {
-    RENDER_LITERAL(r, "<img src=\"");
+    RENDER_VERBATIM(r, "<img src=\"");
     render_attribute(r, &det->src, render_url_escaped);
 
-    RENDER_LITERAL(r, "\" alt=\"");
+    RENDER_VERBATIM(r, "\" alt=\"");
 
     r->image_nesting_level++;
 }
@@ -346,11 +349,11 @@ static void
 render_close_img_span(MD_RENDER_HTML* r, const MD_SPAN_IMG_DETAIL* det)
 {
     if(det->title.text != NULL) {
-        RENDER_LITERAL(r, "\" title=\"");
+        RENDER_VERBATIM(r, "\" title=\"");
         render_attribute(r, &det->title, render_html_escaped);
     }
 
-    RENDER_LITERAL(r, "\">");
+    RENDER_VERBATIM(r, "\">");
 
     r->image_nesting_level--;
 }
@@ -358,10 +361,10 @@ render_close_img_span(MD_RENDER_HTML* r, const MD_SPAN_IMG_DETAIL* det)
 static void
 render_open_wikilink_span(MD_RENDER_HTML* r, const MD_SPAN_WIKILINK_DETAIL* det)
 {
-    RENDER_LITERAL(r, "<x-wikilink data-target=\"");
+    RENDER_VERBATIM(r, "<x-wikilink data-target=\"");
     render_attribute(r, &det->target, render_html_escaped);
 
-    RENDER_LITERAL(r, "\">");
+    RENDER_VERBATIM(r, "\">");
 }
 
 
@@ -377,19 +380,19 @@ enter_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
 
     switch(type) {
         case MD_BLOCK_DOC:      /* noop */ break;
-        case MD_BLOCK_QUOTE:    RENDER_LITERAL(r, "<blockquote>\n"); break;
-        case MD_BLOCK_UL:       RENDER_LITERAL(r, "<ul>\n"); break;
+        case MD_BLOCK_QUOTE:    RENDER_VERBATIM(r, "<blockquote>\n"); break;
+        case MD_BLOCK_UL:       RENDER_VERBATIM(r, "<ul>\n"); break;
         case MD_BLOCK_OL:       render_open_ol_block(r, (const MD_BLOCK_OL_DETAIL*)detail); break;
         case MD_BLOCK_LI:       render_open_li_block(r, (const MD_BLOCK_LI_DETAIL*)detail); break;
-        case MD_BLOCK_HR:       RENDER_LITERAL(r, "<hr>\n"); break;
-        case MD_BLOCK_H:        RENDER_LITERAL(r, head[((MD_BLOCK_H_DETAIL*)detail)->level - 1]); break;
+        case MD_BLOCK_HR:       RENDER_VERBATIM(r, "<hr>\n"); break;
+        case MD_BLOCK_H:        RENDER_VERBATIM(r, head[((MD_BLOCK_H_DETAIL*)detail)->level - 1]); break;
         case MD_BLOCK_CODE:     render_open_code_block(r, (const MD_BLOCK_CODE_DETAIL*) detail); break;
         case MD_BLOCK_HTML:     /* noop */ break;
-        case MD_BLOCK_P:        RENDER_LITERAL(r, "<p>"); break;
-        case MD_BLOCK_TABLE:    RENDER_LITERAL(r, "<table>\n"); break;
-        case MD_BLOCK_THEAD:    RENDER_LITERAL(r, "<thead>\n"); break;
-        case MD_BLOCK_TBODY:    RENDER_LITERAL(r, "<tbody>\n"); break;
-        case MD_BLOCK_TR:       RENDER_LITERAL(r, "<tr>\n"); break;
+        case MD_BLOCK_P:        RENDER_VERBATIM(r, "<p>"); break;
+        case MD_BLOCK_TABLE:    RENDER_VERBATIM(r, "<table>\n"); break;
+        case MD_BLOCK_THEAD:    RENDER_VERBATIM(r, "<thead>\n"); break;
+        case MD_BLOCK_TBODY:    RENDER_VERBATIM(r, "<tbody>\n"); break;
+        case MD_BLOCK_TR:       RENDER_VERBATIM(r, "<tr>\n"); break;
         case MD_BLOCK_TH:       render_open_td_block(r, "th", (MD_BLOCK_TD_DETAIL*)detail); break;
         case MD_BLOCK_TD:       render_open_td_block(r, "td", (MD_BLOCK_TD_DETAIL*)detail); break;
     }
@@ -405,21 +408,21 @@ leave_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
 
     switch(type) {
         case MD_BLOCK_DOC:      /*noop*/ break;
-        case MD_BLOCK_QUOTE:    RENDER_LITERAL(r, "</blockquote>\n"); break;
-        case MD_BLOCK_UL:       RENDER_LITERAL(r, "</ul>\n"); break;
-        case MD_BLOCK_OL:       RENDER_LITERAL(r, "</ol>\n"); break;
-        case MD_BLOCK_LI:       RENDER_LITERAL(r, "</li>\n"); break;
+        case MD_BLOCK_QUOTE:    RENDER_VERBATIM(r, "</blockquote>\n"); break;
+        case MD_BLOCK_UL:       RENDER_VERBATIM(r, "</ul>\n"); break;
+        case MD_BLOCK_OL:       RENDER_VERBATIM(r, "</ol>\n"); break;
+        case MD_BLOCK_LI:       RENDER_VERBATIM(r, "</li>\n"); break;
         case MD_BLOCK_HR:       /*noop*/ break;
-        case MD_BLOCK_H:        RENDER_LITERAL(r, head[((MD_BLOCK_H_DETAIL*)detail)->level - 1]); break;
-        case MD_BLOCK_CODE:     RENDER_LITERAL(r, "</code></pre>\n"); break;
+        case MD_BLOCK_H:        RENDER_VERBATIM(r, head[((MD_BLOCK_H_DETAIL*)detail)->level - 1]); break;
+        case MD_BLOCK_CODE:     RENDER_VERBATIM(r, "</code></pre>\n"); break;
         case MD_BLOCK_HTML:     /* noop */ break;
-        case MD_BLOCK_P:        RENDER_LITERAL(r, "</p>\n"); break;
-        case MD_BLOCK_TABLE:    RENDER_LITERAL(r, "</table>\n"); break;
-        case MD_BLOCK_THEAD:    RENDER_LITERAL(r, "</thead>\n"); break;
-        case MD_BLOCK_TBODY:    RENDER_LITERAL(r, "</tbody>\n"); break;
-        case MD_BLOCK_TR:       RENDER_LITERAL(r, "</tr>\n"); break;
-        case MD_BLOCK_TH:       RENDER_LITERAL(r, "</th>\n"); break;
-        case MD_BLOCK_TD:       RENDER_LITERAL(r, "</td>\n"); break;
+        case MD_BLOCK_P:        RENDER_VERBATIM(r, "</p>\n"); break;
+        case MD_BLOCK_TABLE:    RENDER_VERBATIM(r, "</table>\n"); break;
+        case MD_BLOCK_THEAD:    RENDER_VERBATIM(r, "</thead>\n"); break;
+        case MD_BLOCK_TBODY:    RENDER_VERBATIM(r, "</tbody>\n"); break;
+        case MD_BLOCK_TR:       RENDER_VERBATIM(r, "</tr>\n"); break;
+        case MD_BLOCK_TH:       RENDER_VERBATIM(r, "</th>\n"); break;
+        case MD_BLOCK_TD:       RENDER_VERBATIM(r, "</td>\n"); break;
     }
 
     return 0;
@@ -431,20 +434,33 @@ enter_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
     MD_RENDER_HTML* r = (MD_RENDER_HTML*) userdata;
 
     if(r->image_nesting_level > 0) {
-        /* We are inside an image, i.e. rendering the ALT attribute of
-         * <IMG> tag. */
+        /* We are inside a Markdown image label. Markdown allows to use any
+         * emphasis and other rich contents in that context similarly as in
+         * any link label.
+         *
+         * However, unlike in the case of links (where that contents becomes
+         * contents of the <a>...</a> tag), in the case of images the contents
+         * is supposed to fall into the attribute alt: <img alt="...">.
+         *
+         * In that context we naturally cannot output nested HTML tags. So lets
+         * suppress them and only output the plain text (i.e. what falls into
+         * text() callback).
+         *
+         * This make-it-a-plain-text approach is the recommended practice by
+         * CommonMark specification (for HTML output).
+         */
         return 0;
     }
 
     switch(type) {
-        case MD_SPAN_EM:                RENDER_LITERAL(r, "<em>"); break;
-        case MD_SPAN_STRONG:            RENDER_LITERAL(r, "<strong>"); break;
+        case MD_SPAN_EM:                RENDER_VERBATIM(r, "<em>"); break;
+        case MD_SPAN_STRONG:            RENDER_VERBATIM(r, "<strong>"); break;
         case MD_SPAN_A:                 render_open_a_span(r, (MD_SPAN_A_DETAIL*) detail); break;
         case MD_SPAN_IMG:               render_open_img_span(r, (MD_SPAN_IMG_DETAIL*) detail); break;
-        case MD_SPAN_CODE:              RENDER_LITERAL(r, "<code>"); break;
-        case MD_SPAN_DEL:               RENDER_LITERAL(r, "<del>"); break;
-        case MD_SPAN_LATEXMATH:         RENDER_LITERAL(r, "<x-equation>"); break;
-        case MD_SPAN_LATEXMATH_DISPLAY: RENDER_LITERAL(r, "<x-equation type=\"display\">"); break;
+        case MD_SPAN_CODE:              RENDER_VERBATIM(r, "<code>"); break;
+        case MD_SPAN_DEL:               RENDER_VERBATIM(r, "<del>"); break;
+        case MD_SPAN_LATEXMATH:         RENDER_VERBATIM(r, "<x-equation>"); break;
+        case MD_SPAN_LATEXMATH_DISPLAY: RENDER_VERBATIM(r, "<x-equation type=\"display\">"); break;
         case MD_SPAN_WIKILINK:          render_open_wikilink_span(r, (MD_SPAN_WIKILINK_DETAIL*) detail); break;
     }
 
@@ -457,23 +473,23 @@ leave_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
     MD_RENDER_HTML* r = (MD_RENDER_HTML*) userdata;
 
     if(r->image_nesting_level > 0) {
-        /* We are inside an image, i.e. rendering the ALT attribute of
-         * <IMG> tag. */
+        /* Ditto as in enter_span_callback(), except we have to allow the
+         * end of the <img> tag. */
         if(r->image_nesting_level == 1  &&  type == MD_SPAN_IMG)
             render_close_img_span(r, (MD_SPAN_IMG_DETAIL*) detail);
         return 0;
     }
 
     switch(type) {
-        case MD_SPAN_EM:                RENDER_LITERAL(r, "</em>"); break;
-        case MD_SPAN_STRONG:            RENDER_LITERAL(r, "</strong>"); break;
-        case MD_SPAN_A:                 RENDER_LITERAL(r, "</a>"); break;
+        case MD_SPAN_EM:                RENDER_VERBATIM(r, "</em>"); break;
+        case MD_SPAN_STRONG:            RENDER_VERBATIM(r, "</strong>"); break;
+        case MD_SPAN_A:                 RENDER_VERBATIM(r, "</a>"); break;
         case MD_SPAN_IMG:               /*noop, handled above*/ break;
-        case MD_SPAN_CODE:              RENDER_LITERAL(r, "</code>"); break;
-        case MD_SPAN_DEL:               RENDER_LITERAL(r, "</del>"); break;
+        case MD_SPAN_CODE:              RENDER_VERBATIM(r, "</code>"); break;
+        case MD_SPAN_DEL:               RENDER_VERBATIM(r, "</del>"); break;
         case MD_SPAN_LATEXMATH:         /*fall through*/
-        case MD_SPAN_LATEXMATH_DISPLAY: RENDER_LITERAL(r, "</x-equation>"); break;
-        case MD_SPAN_WIKILINK:          RENDER_LITERAL(r, "</x-wikilink>"); break;
+        case MD_SPAN_LATEXMATH_DISPLAY: RENDER_VERBATIM(r, "</x-equation>"); break;
+        case MD_SPAN_WIKILINK:          RENDER_VERBATIM(r, "</x-wikilink>"); break;
     }
 
     return 0;
@@ -485,10 +501,10 @@ text_callback(MD_TEXTTYPE type, const MD_CHAR* text, MD_SIZE size, void* userdat
     MD_RENDER_HTML* r = (MD_RENDER_HTML*) userdata;
 
     switch(type) {
-        case MD_TEXT_NULLCHAR:  render_utf8_codepoint(r, 0x0000, render_text); break;
-        case MD_TEXT_BR:        RENDER_LITERAL(r, (r->image_nesting_level == 0 ? "<br>\n" : " ")); break;
-        case MD_TEXT_SOFTBR:    RENDER_LITERAL(r, (r->image_nesting_level == 0 ? "\n" : " ")); break;
-        case MD_TEXT_HTML:      render_text(r, text, size); break;
+        case MD_TEXT_NULLCHAR:  render_utf8_codepoint(r, 0x0000, render_verbatim); break;
+        case MD_TEXT_BR:        RENDER_VERBATIM(r, (r->image_nesting_level == 0 ? "<br>\n" : " ")); break;
+        case MD_TEXT_SOFTBR:    RENDER_VERBATIM(r, (r->image_nesting_level == 0 ? "\n" : " ")); break;
+        case MD_TEXT_HTML:      render_verbatim(r, text, size); break;
         case MD_TEXT_ENTITY:    render_entity(r, text, size, render_html_escaped); break;
         default:                render_html_escaped(r, text, size); break;
     }
