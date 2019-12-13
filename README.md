@@ -75,13 +75,13 @@ directory which implements a conversion utility from Markdown to HTML.
 
 ## Markdown Extensions
 
-The default behavior is to recognize only elements defined by the [CommonMark
-specification](http://spec.commonmark.org/).
+The default behavior is to recognize only Markdown syntax defined by the
+[CommonMark specification](http://spec.commonmark.org/).
 
 However with appropriate flags, the behavior can be tuned to enable some
-extensions:
+additional extensions:
 
-* With the flag `MD_FLAG_COLLAPSEWHITESPACE`, non-trivial whitespace is
+* With the flag `MD_FLAG_COLLAPSEWHITESPACE`, a non-trivial whitespace is
   collapsed into a single space.
 
 * With the flag `MD_FLAG_TABLES`, GitHub-style tables are supported.
@@ -105,8 +105,8 @@ extensions:
   LaTeX display math spans (`$$...$$`) are supported. (Note though that the
   HTML renderer outputs them verbatim.)
 
-Few features (those some people see as mis-features) of CommonMark
-specification may be disabled:
+Few features of CommonMark (those some people see as mis-features) may be
+disabled:
 
 * With the flag `MD_FLAG_NOHTMLSPANS` or `MD_FLAG_NOHTMLBLOCKS`, raw inline
   HTML or raw HTML blocks respectively are disabled.
@@ -229,10 +229,11 @@ as a bug.)
 
 **A:** No.
 
-CommonMark specification declares that any valid UTF-8 document is a valid
-Markdown file; i.e. that it does not matter whether some Markdown syntax is
-in some way broken or not. If it is broken, it will simply not be recognized
-and the parser should see the broken syntax construction as a verbatim text.
+CommonMark specification declares that any sequence of (Unicode) characters is
+a valid Markdown document; i.e. that it does not matter whether some Markdown
+syntax is in some way broken or not. If it is broken, it will simply not be
+recognized and the parser should see the broken syntax construction just as a
+verbatim text.
 
 MD4C takes this a step further. It sees any sequence of bytes as a valid input,
 following completely the GIGO philosophy (garbage in, garbage out).
@@ -243,7 +244,9 @@ before passing it to the MD4C parser.
 
 Alternatively, you may perform the validation on the fly during the parsing,
 in the `MD_PARSER::text()` callback. (Given how MD4C works internally, it will
-never cut a valid UTF-8 sequence into multiple callback calls.)
+never break a sequence of bytes into multiple calls of `MD_PARSER::text()`,
+unless that sequence is already broken to multiple pieces in the input by some
+whitespace, new line character(s) and/or any Markdown syntax construction.)
 
 
 ## License
