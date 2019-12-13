@@ -98,8 +98,8 @@ extensions:
   autolinks (not enclosed in `<` and `>`) are supported.
 
 * With the flag `MD_FLAG_PERMISSIVEWWWAUTOLINKS` permissive WWW autolinks
-  without any scheme specified are supported. (`http:` scheme is then
-  assumed).
+  without any scheme specified (e.g. `www.example.com/`) are supported.
+  (MD4C then assumes `http:` scheme.)
 
 * With the flag `MD_FLAG_LATEXMATHSPANS` LaTeX math spans (`$...$`) and
   LaTeX display math spans (`$$...$$`) are supported. (Note though that the
@@ -148,11 +148,10 @@ and sent to the renderer's callback functions unchanged.
 The two situations (word boundary detection and link reference matching) where
 MD4C has to understand Unicode are handled as specified by the following rules:
 
-* If preprocessor macro `MD4C_USE_UTF8` is defined, MD4C assumes UTF-8
-  for word boundary detection and case-folding.
+* If preprocessor macro `MD4C_USE_UTF8` is defined, MD4C assumes UTF-8 for the
+  word boundary detection and for the case-insensitive matching of link labels.
 
-  Also, this is the default behavior when none of these macros is explicitly
-  used.
+  When none of these macros is explicitly used, this is the default behavior.
 
 * On Windows, if preprocessor macro `MD4C_USE_UTF16` is defined, MD4C uses
   `WCHAR` instead of `char` and assumes UTF-16 encoding in those situations.
@@ -163,9 +162,9 @@ MD4C has to understand Unicode are handled as specified by the following rules:
   to define the macro both when building MD4C as well as when including
   `md4c.h`.
 
-  Also note this is only supported in the parser (`md4c.h` and `md4c.c`). The
-  HTML renderer does not support this and you will have to write your own
-  custom renderer to use this feature.
+  Also note this is only supported in the parser (`md4c.[hc]`). The HTML
+  renderer does not support this and you will have to write your own custom
+  renderer to use this feature.
 
 * If preprocessor macro `MD4C_USE_ASCII` is defined, MD4C assumes nothing but
   an ASCII input.
@@ -222,9 +221,9 @@ Hence, when such a naive parser is used to process an input from an untrusted
 source, the possibility of denial-of-service attacks becomes a real danger.
 
 A lot of our effort went into providing linear parsing times no matter what
-kind of crazy input MD4C parser is fed with. (And, if you encounter an input
-pattern which leads to a sub-linear parsing times, please do not hesitate and
-report it as a bug.)
+kind of crazy input MD4C parser is fed with. (If you encounter an input pattern
+which leads to a sub-linear parsing times, please do not hesitate and report it
+as a bug.)
 
 **Q: Does MD4C perform any input validation?**
 
