@@ -45,7 +45,7 @@ New features:
    Contributed by [Tilman Roeder](https://github.com/dyedgreen).
 
  * With `MD_FLAG_WIKILINKS`, Wiki-style links (`[[...]]`) are now recognized.
-   (Note htough that the HTML renderer renders them as a custom `<x-wikilink>`
+   (Note though that the HTML renderer renders them as a custom `<x-wikilink>`
    tag.)
 
    Contributed by [Nils Blomqvist](https://github.com/niblo).
