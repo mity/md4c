@@ -151,7 +151,7 @@ MD4C has to understand Unicode are handled as specified by the following rules:
 * If preprocessor macro `MD4C_USE_UTF8` is defined, MD4C assumes UTF-8
   for word boundary detection and case-folding.
 
-  Also, this is the default behavior when none of these macro is explicitly
+  Also, this is the default behavior when none of these macros is explicitly
   used.
 
 * On Windows, if preprocessor macro `MD4C_USE_UTF16` is defined, MD4C uses
@@ -193,9 +193,10 @@ parser. Nothing more and nothing less.
 
 That said, there is a complete HTML generator built on top of the parser in the
 directory `md2html` (the files `render_html.[hc]` and `md2html/entity.[hc]`).
-For now you have to directly reuse that code in your project. There is also
-[some discussion](https://github.com/mity/md4c/issues/82) whether this
-should change (and how) in the future.
+At this time, you have to directly reuse that code in your project.
+
+There is [some discussion](https://github.com/mity/md4c/issues/82) whether this
+should be changed (and how) in the future.
 
 **Q: How does MD4C compare to a parser XY?**
 
