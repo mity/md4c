@@ -151,15 +151,25 @@ MD4C has to understand Unicode are handled as specified by the following rules:
 * If preprocessor macro `MD4C_USE_UTF8` is defined, MD4C assumes UTF-8
   for word boundary detection and case-folding.
 
-  (Note the CMake-based build does define this macro; you likely only need it
-  when embedding `md4c.h` and `md4c.c` directly in your project.)
+  Also, this is the default behavior when none of these macro is explicitly
+  used.
 
 * On Windows, if preprocessor macro `MD4C_USE_UTF16` is defined, MD4C uses
   `WCHAR` instead of `char` and assumes UTF-16 encoding in those situations.
   (UTF-16 is what Windows developers usually call just "Unicode" and what
   Win32API generally works with.)
 
-* Otherwise (when none of the two macros is defined), ASCII-only mode is used.
+  Note that because this macro affects also the types in `md4c.h`, you have
+  to define the macro both when building MD4C as well as when including
+  `md4c.h`.
+
+  Also note this is only supported in the parser (`md4c.h` and `md4c.c`). The
+  HTML renderer does not support this and you will have to write your own
+  custom renderer to use this feature.
+
+* If preprocessor macro `MD4C_USE_ASCII` is defined, MD4C assumes nothing but
+  an ASCII input.
+
   That effectively means that non-ASCII whitespace or punctuation characters
   won't be recognized as such and that link reference matching will work in
   a case-insensitive way only for ASCII letters (`[a-zA-Z]`).
@@ -204,7 +214,7 @@ AST, there is very high chance that using MD4C will be faster and much less
 memory-hungry.
 
 Last but not least, some Markdown parsers are implemented in a naive way. When
-fed with a [smartly crafted input patterns](test/pathological_tests.py), they
+fed with a [smartly crafted input pattern](test/pathological_tests.py), they
 may exhibit quadratic (or even worse) parsing times. What MD4C can still parse
 in a fraction of second may turn into long minutes or possibly hours with them.
 Hence, when such a naive parser is used to process an input from an untrusted

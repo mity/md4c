@@ -2,6 +2,24 @@
 # MD4C Change Log
 
 
+## Next Version (Work in Progress)
+
+Changes:
+
+ * When building MD4C by hand instead of using its CMake-based build, the UTF-8
+   support was by default disabled, unless explicitly asked for by defining
+   a preprocessor macro `MD4C_USE_UTF8`.
+
+   This has been changed and the UTF-8 mode now becomes the default, no matter
+   how `md4c.c` is compiled. If you need to disable it and use the ASCII-only
+   mode, you have explicitly define macro `MD4C_USE_ASCII` when compiling it.
+
+   (The CMake-based build as provided in our repository explicitly asked for
+   the UTF-8 support with `-DMD4C_USE_UTF8`. I.e. if you are using MD4C library
+   built with our vanilla `CMakeLists.txt` files, this change should not affect
+   you.)
+
+
 ## Version 0.4.2
 
 Fixes:

@@ -43,6 +43,12 @@
     #endif
 #endif
 
+/* Make the UTF-8 support the default. */
+#if !defined MD4C_USE_ASCII && !defined MD4C_USE_UTF8 && !defined MD4C_USE_UTF16
+    #define MD4C_USE_UTF8
+#endif
+
+/* Magic for making wide literals with MD4C_USE_UTF16. */
 #ifdef _T
     #undef _T
 #endif

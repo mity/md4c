@@ -3,8 +3,6 @@ set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS 1)
 
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -DDEBUG")
 
-add_definitions(-DMD4C_USE_UTF8)
-
 set(md4c_src
     md4c.c
 )
