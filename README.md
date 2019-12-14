@@ -98,12 +98,16 @@ additional extensions:
   autolinks (not enclosed in `<` and `>`) are supported.
 
 * With the flag `MD_FLAG_PERMISSIVEWWWAUTOLINKS` permissive WWW autolinks
-  without any scheme specified (e.g. `www.example.com/`) are supported.
-  (MD4C then assumes `http:` scheme.)
+  without any scheme specified (e.g. `www.example.com`) are supported. MD4C
+  then assumes `http:` scheme.
 
 * With the flag `MD_FLAG_LATEXMATHSPANS` LaTeX math spans (`$...$`) and
   LaTeX display math spans (`$$...$$`) are supported. (Note though that the
-  HTML renderer outputs them verbatim.)
+  HTML renderer outputs them verbatim in a custom tag `<x-equation>`.)
+
+* With the flag `MD_FLAG_WIKILINKS`, wiki-style links (`[[link label]]` and
+  `[[target article|link label]]`) are supported. (Note that the HTML renderer
+  outputs them in a custom tag `<x-wikilink>`.)
 
 Few features of CommonMark (those some people see as mis-features) may be
 disabled:
