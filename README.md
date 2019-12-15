@@ -3,6 +3,7 @@
 [![Code Coverage Status (codecov.io)](https://img.shields.io/codecov/c/github/mity/md4c/master.svg?logo=codecov&label=code%20coverage)](https://codecov.io/github/mity/md4c)
 [![Coverity Scan Status](https://img.shields.io/coverity/scan/mity-md4c.svg?label=coverity%20scan)](https://scan.coverity.com/projects/mity-md4c)
 
+
 # MD4C Readme
 
 * Home: http://github.com/mity/md4c
@@ -260,7 +261,15 @@ MD4C is covered with MIT license, see the file `LICENSE.md`.
 
 ## Links to Related Projects
 
+Ports and bindings to other languages:
+
 * [commonmark-d](https://github.com/AuburnSounds/commonmark-d):
-  Port of MD4C in D language.
+  Port of MD4C to D language.
 * [markdown-wasm](https://github.com/rsms/markdown-wasm):
   Markdown parser and HTML generator for WebAssembly, based on MD4C.
+
+Software using MD4C:
+
+* [Qt toolkit](https://www.qt.io/)
+* [Textosaurus](https://github.com/martinrotter/textosaurus)
+* [8th](https://8th-dev.com/)
