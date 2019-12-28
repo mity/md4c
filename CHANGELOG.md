@@ -4,6 +4,12 @@
 
 ## Next Version (Work in Progress)
 
+Fixes:
+
+ * Fixed some string length handling in the build mode with `MD4C_USE_UTF16`
+   enabled (Windows-only feature, in order to use `WCHAR` instead of ordinary
+   `char` types).
+
 Changes:
 
  * When building MD4C by hand instead of using its CMake-based build, the UTF-8
@@ -23,6 +29,7 @@ Changes:
 ## Version 0.4.2
 
 Fixes:
+
  * [#98](https://github.com/mity/md4c/issues/98):
    Fix mis-detection of asterisk-encoded emphasis in some corner cases when
    length of the opener and closer differs, as in `**a *b c** d*`.

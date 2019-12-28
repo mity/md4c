@@ -5245,7 +5245,7 @@ md_is_html_block_start_condition(MD_CTX* ctx, OFF beg)
 #ifdef X
     #undef X
 #endif
-#define X(name)     { _T(name), sizeof(name)-1 }
+#define X(name)     { _T(name), (sizeof(name)-1) / sizeof(CHAR) }
 #define Xend        { NULL, 0 }
     static const TAG t1[] = { X("script"), X("pre"), X("style"), Xend };
 
@@ -5301,7 +5301,7 @@ md_is_html_block_start_condition(MD_CTX* ctx, OFF beg)
 
         /* Check for type 5: <![CDATA[ */
         if(off + 8 < ctx->size) {
-            if(md_ascii_eq(STR(off), _T("![CDATA["), 8 * sizeof(CHAR)))
+            if(md_ascii_eq(STR(off), _T("![CDATA["), 8))
                 return 5;
         }
     }
