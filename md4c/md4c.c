@@ -1625,7 +1625,7 @@ md_ref_def_cmp(const void* a, const void* b)
 }
 
 static int
-md_ref_def_cmp_stable(const void* a, const void* b)
+md_ref_def_cmp_for_sort(const void* a, const void* b)
 {
     int cmp;
 
@@ -1678,6 +1678,7 @@ md_build_ref_def_hashtable(MD_CTX* ctx)
         bucket = ctx->ref_def_hashtable[def->hash % ctx->ref_def_hashtable_size];
 
         if(bucket == NULL) {
+            /* The bucket is empty. Make it just point to the def. */
             ctx->ref_def_hashtable[def->hash % ctx->ref_def_hashtable_size] = def;
             continue;
         }
@@ -1689,12 +1690,12 @@ md_build_ref_def_hashtable(MD_CTX* ctx)
             MD_REF_DEF* old_def = (MD_REF_DEF*) bucket;
 
             if(md_link_label_cmp(def->label, def->label_size, old_def->label, old_def->label_size) == 0) {
-                /* Ignore this ref. def. */
+                /* Duplicate label: Ignore this ref. def. */
                 continue;
             }
 
-            /* Make the bucket capable of holding more ref. defs. */
-            list = (MD_REF_DEF_LIST*) malloc(sizeof(MD_REF_DEF_LIST) + 4 * sizeof(MD_REF_DEF*));
+            /* Make the bucket complex, i.e. able to hold more ref. defs. */
+            list = (MD_REF_DEF_LIST*) malloc(sizeof(MD_REF_DEF_LIST) + 2 * sizeof(MD_REF_DEF*));
             if(list == NULL) {
                 MD_LOG("malloc() failed.");
                 goto abort;
@@ -1702,12 +1703,17 @@ md_build_ref_def_hashtable(MD_CTX* ctx)
             list->ref_defs[0] = old_def;
             list->ref_defs[1] = def;
             list->n_ref_defs = 2;
-            list->alloc_ref_defs = 4;
+            list->alloc_ref_defs = 2;
             ctx->ref_def_hashtable[def->hash % ctx->ref_def_hashtable_size] = list;
             continue;
         }
 
-        /* Append the def to the bucket list. */
+        /* Append the def to the complex bucket list.
+         *
+         * Note in this case we ignore potential duplicates to avoid expensive
+         * iterating over the complex bucket. Below, we revisit all the complex
+         * buckets and handle it more cheaply after the complex bucket contents
+         * is sorted. */
         list = (MD_REF_DEF_LIST*) bucket;
         if(list->n_ref_defs >= list->alloc_ref_defs) {
             MD_REF_DEF_LIST* list_tmp = (MD_REF_DEF_LIST*) realloc(list,
@@ -1736,9 +1742,12 @@ md_build_ref_def_hashtable(MD_CTX* ctx)
             continue;
 
         list = (MD_REF_DEF_LIST*) bucket;
-        qsort(list->ref_defs, list->n_ref_defs, sizeof(MD_REF_DEF*), md_ref_def_cmp_stable);
+        qsort(list->ref_defs, list->n_ref_defs, sizeof(MD_REF_DEF*), md_ref_def_cmp_for_sort);
 
-        /* Disable duplicates. */
+        /* Disable all duplicates in the complex bucket by forcing all such
+         * records to point to the 1st such ref. def. I.e. no matter which
+         * record is found during the lookup, it will always point to the right
+         * ref. def. in ctx->ref_defs[]. */
         for(j = 1; j < list->n_ref_defs; j++) {
             if(md_ref_def_cmp(&list->ref_defs[j-1], &list->ref_defs[j]) == 0)
                 list->ref_defs[j] = list->ref_defs[j-1];
