@@ -310,16 +310,12 @@ struct MD_VERBATIMLINE_tag {
 #define ISALNUM(off)                    ISALNUM_(CH(off))
 
 
-static inline const CHAR*
-md_strchr(const CHAR* str, CHAR ch)
-{
-    OFF i;
-    for(i = 0; str[i] != _T('\0'); i++) {
-        if(ch == str[i])
-            return (str + i);
-    }
-    return NULL;
-}
+#if defined MD4C_USE_UTF16
+    #define md_strchr wcschr
+#else
+    #define md_strchr strchr
+#endif
+
 
 /* Case insensitive check of string equality. */
 static inline int
