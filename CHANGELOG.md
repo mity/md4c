@@ -4,12 +4,6 @@
 
 ## Next Version (Work in Progress)
 
-Fixes:
-
- * Fixed some string length handling in the build mode with `MD4C_USE_UTF16`
-   enabled (Windows-only feature, in order to use `WCHAR` instead of ordinary
-   `char` types).
-
 Changes:
 
  * When building MD4C by hand instead of using its CMake-based build, the UTF-8
@@ -24,6 +18,13 @@ Changes:
    the UTF-8 support with `-DMD4C_USE_UTF8`. I.e. if you are using MD4C library
    built with our vanilla `CMakeLists.txt` files, this change should not affect
    you.)
+
+Fixes:
+
+ * Fixed some string length handling in the special `MD4C_USE_UTF16` build.
+
+   (This does not affect you unless you are on Windows and explicitly define
+   the macro when building MD4C.)
 
 
 ## Version 0.4.2
