@@ -2900,7 +2900,7 @@ md_is_autolink_email(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end)
         return FALSE;
     off++;
 
-    /* Labels delimited with '.'; each label is sequence of 1 - 62 alnum
+    /* Labels delimited with '.'; each label is sequence of 1 - 63 alnum
      * characters or '-', but '-' is not allowed as first or last char. */
     label_len = 0;
     while(off < max_end) {
@@ -2913,7 +2913,7 @@ md_is_autolink_email(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end)
         else
             break;
 
-        if(label_len > 62)
+        if(label_len > 63)
             return FALSE;
 
         off++;

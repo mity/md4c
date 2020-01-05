@@ -26,6 +26,10 @@ Fixes:
    (This does not affect you unless you are on Windows and explicitly define
    the macro when building MD4C.)
 
+ * [#100](https://github.com/mity/md4c/issues/100):
+   Fixed an off-by-one error in the maximal length limit of some segments
+   of e-mail addresses used in autolinks.
+
 
 ## Version 0.4.2
 
