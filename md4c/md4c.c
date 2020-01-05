@@ -373,89 +373,89 @@ md_text_with_null_replacement(MD_CTX* ctx, MD_TEXTTYPE type, const CHAR* str, SZ
 }
 
 
-#define MD_CHECK(func)                                                  \
-    do {                                                                \
-        ret = (func);                                                   \
-        if(ret < 0)                                                     \
-            goto abort;                                                 \
+#define MD_CHECK(func)                                                      \
+    do {                                                                    \
+        ret = (func);                                                       \
+        if(ret < 0)                                                         \
+            goto abort;                                                     \
     } while(0)
 
 
-#define MD_TEMP_BUFFER(sz)                                              \
-    do {                                                                \
-        if(sz > ctx->alloc_buffer) {                                    \
-            CHAR* new_buffer;                                           \
-            SZ new_size = ((sz) + (sz) / 2 + 128) & ~127;               \
-                                                                        \
-            new_buffer = realloc(ctx->buffer, new_size);                \
-            if(new_buffer == NULL) {                                    \
-                MD_LOG("realloc() failed.");                            \
-                ret = -1;                                               \
-                goto abort;                                             \
-            }                                                           \
-                                                                        \
-            ctx->buffer = new_buffer;                                   \
-            ctx->alloc_buffer = new_size;                               \
-        }                                                               \
+#define MD_TEMP_BUFFER(sz)                                                  \
+    do {                                                                    \
+        if(sz > ctx->alloc_buffer) {                                        \
+            CHAR* new_buffer;                                               \
+            SZ new_size = ((sz) + (sz) / 2 + 128) & ~127;                   \
+                                                                            \
+            new_buffer = realloc(ctx->buffer, new_size);                    \
+            if(new_buffer == NULL) {                                        \
+                MD_LOG("realloc() failed.");                                \
+                ret = -1;                                                   \
+                goto abort;                                                 \
+            }                                                               \
+                                                                            \
+            ctx->buffer = new_buffer;                                       \
+            ctx->alloc_buffer = new_size;                                   \
+        }                                                                   \
     } while(0)
 
 
-#define MD_ENTER_BLOCK(type, arg)                                       \
-    do {                                                                \
-        ret = ctx->parser.enter_block((type), (arg), ctx->userdata);         \
-        if(ret != 0) {                                                  \
-            MD_LOG("Aborted from enter_block() callback.");             \
-            goto abort;                                                 \
-        }                                                               \
+#define MD_ENTER_BLOCK(type, arg)                                           \
+    do {                                                                    \
+        ret = ctx->parser.enter_block((type), (arg), ctx->userdata);        \
+        if(ret != 0) {                                                      \
+            MD_LOG("Aborted from enter_block() callback.");                 \
+            goto abort;                                                     \
+        }                                                                   \
     } while(0)
 
-#define MD_LEAVE_BLOCK(type, arg)                                       \
-    do {                                                                \
-        ret = ctx->parser.leave_block((type), (arg), ctx->userdata);         \
-        if(ret != 0) {                                                  \
-            MD_LOG("Aborted from leave_block() callback.");             \
-            goto abort;                                                 \
-        }                                                               \
+#define MD_LEAVE_BLOCK(type, arg)                                           \
+    do {                                                                    \
+        ret = ctx->parser.leave_block((type), (arg), ctx->userdata);        \
+        if(ret != 0) {                                                      \
+            MD_LOG("Aborted from leave_block() callback.");                 \
+            goto abort;                                                     \
+        }                                                                   \
     } while(0)
 
-#define MD_ENTER_SPAN(type, arg)                                        \
-    do {                                                                \
-        ret = ctx->parser.enter_span((type), (arg), ctx->userdata);          \
-        if(ret != 0) {                                                  \
-            MD_LOG("Aborted from enter_span() callback.");              \
-            goto abort;                                                 \
-        }                                                               \
+#define MD_ENTER_SPAN(type, arg)                                            \
+    do {                                                                    \
+        ret = ctx->parser.enter_span((type), (arg), ctx->userdata);         \
+        if(ret != 0) {                                                      \
+            MD_LOG("Aborted from enter_span() callback.");                  \
+            goto abort;                                                     \
+        }                                                                   \
     } while(0)
 
-#define MD_LEAVE_SPAN(type, arg)                                        \
-    do {                                                                \
-        ret = ctx->parser.leave_span((type), (arg), ctx->userdata);          \
-        if(ret != 0) {                                                  \
-            MD_LOG("Aborted from leave_span() callback.");              \
-            goto abort;                                                 \
-        }                                                               \
+#define MD_LEAVE_SPAN(type, arg)                                            \
+    do {                                                                    \
+        ret = ctx->parser.leave_span((type), (arg), ctx->userdata);         \
+        if(ret != 0) {                                                      \
+            MD_LOG("Aborted from leave_span() callback.");                  \
+            goto abort;                                                     \
+        }                                                                   \
     } while(0)
 
-#define MD_TEXT(type, str, size)                                        \
-    do {                                                                \
-        if(size > 0) {                                                  \
-            ret = ctx->parser.text((type), (str), (size), ctx->userdata);    \
-            if(ret != 0) {                                              \
-                MD_LOG("Aborted from text() callback.");                \
-                goto abort;                                             \
-            }                                                           \
-        }                                                               \
+#define MD_TEXT(type, str, size)                                            \
+    do {                                                                    \
+        if(size > 0) {                                                      \
+            ret = ctx->parser.text((type), (str), (size), ctx->userdata);   \
+            if(ret != 0) {                                                  \
+                MD_LOG("Aborted from text() callback.");                    \
+                goto abort;                                                 \
+            }                                                               \
+        }                                                                   \
     } while(0)
 
-#define MD_TEXT_INSECURE(type, str, size)                               \
-    do {                                                                \
-        if(size > 0) {                                                  \
-            ret = md_text_with_null_replacement(ctx, type, str, size);  \
-            if(ret != 0) {                                              \
-                MD_LOG("Aborted from text() callback.");                \
-                goto abort;                                             \
-            }                                                           \
-        }                                                               \
+#define MD_TEXT_INSECURE(type, str, size)                                   \
+    do {                                                                    \
+        if(size > 0) {                                                      \
+            ret = md_text_with_null_replacement(ctx, type, str, size);      \
+            if(ret != 0) {                                                  \
+                MD_LOG("Aborted from text() callback.");                    \
+                goto abort;                                                 \
+            }                                                               \
+        }                                                                   \
     } while(0)
 
 
