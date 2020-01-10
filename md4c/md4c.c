@@ -3996,27 +3996,14 @@ static void
 md_analyze_link_contents(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
                          int mark_beg, int mark_end)
 {
+    int i;
+
     md_analyze_marks(ctx, lines, n_lines, mark_beg, mark_end, _T("*_~$@:."));
-    ASTERISK_OPENERS_extraword_mod3_0.head = -1;
-    ASTERISK_OPENERS_extraword_mod3_0.tail = -1;
-    ASTERISK_OPENERS_extraword_mod3_1.head = -1;
-    ASTERISK_OPENERS_extraword_mod3_1.tail = -1;
-    ASTERISK_OPENERS_extraword_mod3_2.head = -1;
-    ASTERISK_OPENERS_extraword_mod3_2.tail = -1;
-    ASTERISK_OPENERS_intraword_mod3_0.head = -1;
-    ASTERISK_OPENERS_intraword_mod3_0.tail = -1;
-    ASTERISK_OPENERS_intraword_mod3_1.head = -1;
-    ASTERISK_OPENERS_intraword_mod3_1.tail = -1;
-    ASTERISK_OPENERS_intraword_mod3_2.head = -1;
-    ASTERISK_OPENERS_intraword_mod3_2.tail = -1;
-    UNDERSCORE_OPENERS.head = -1;
-    UNDERSCORE_OPENERS.tail = -1;
-    TILDE_OPENERS_1.head = -1;
-    TILDE_OPENERS_1.tail = -1;
-    TILDE_OPENERS_2.head = -1;
-    TILDE_OPENERS_2.tail = -1;
-    DOLLAR_OPENERS.head = -1;
-    DOLLAR_OPENERS.tail = -1;
+
+    for(i = OPENERS_CHAIN_FIRST; i <= OPENERS_CHAIN_LAST; i++) {
+        ctx->mark_chains[i].head = -1;
+        ctx->mark_chains[i].tail = -1;
+    }
 }
 
 static int
