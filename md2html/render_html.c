@@ -455,6 +455,7 @@ enter_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
     switch(type) {
         case MD_SPAN_EM:                RENDER_VERBATIM(r, "<em>"); break;
         case MD_SPAN_STRONG:            RENDER_VERBATIM(r, "<strong>"); break;
+        case MD_SPAN_U:                 RENDER_VERBATIM(r, "<u>"); break;
         case MD_SPAN_A:                 render_open_a_span(r, (MD_SPAN_A_DETAIL*) detail); break;
         case MD_SPAN_IMG:               render_open_img_span(r, (MD_SPAN_IMG_DETAIL*) detail); break;
         case MD_SPAN_CODE:              RENDER_VERBATIM(r, "<code>"); break;
@@ -483,6 +484,7 @@ leave_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
     switch(type) {
         case MD_SPAN_EM:                RENDER_VERBATIM(r, "</em>"); break;
         case MD_SPAN_STRONG:            RENDER_VERBATIM(r, "</strong>"); break;
+        case MD_SPAN_U:                 RENDER_VERBATIM(r, "</u>"); break;
         case MD_SPAN_A:                 RENDER_VERBATIM(r, "</a>"); break;
         case MD_SPAN_IMG:               /*noop, handled above*/ break;
         case MD_SPAN_CODE:              RENDER_VERBATIM(r, "</code>"); break;

@@ -4,6 +4,12 @@
 
 ## Next Version (Work in Progress)
 
+New features:
+
+ * With `MD_FLAG_UNDERLINE`, spans enclosed in underscore (`_foo_`) are seen
+   as underline (`MD_SPAN_UNDERLINE`) rather then an ordinary emphasis or
+   strong emphasis.
+
 Changes:
 
  * Recognition of strike-through spans (with the flag `MD_FLAG_STRIKETHROUGH`)

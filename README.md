@@ -110,6 +110,9 @@ additional extensions:
   `[[target article|link label]]`) are supported. (Note that the HTML renderer
   outputs them in a custom tag `<x-wikilink>`.)
 
+* With the flag `MD_FLAG_UNDERLINE`, underscore (`_`) denotes an underline
+  instead of an ordinary emphasis or strong emphasis.
+
 Few features of CommonMark (those some people see as mis-features) may be
 disabled:
 
