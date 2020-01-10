@@ -193,25 +193,29 @@ static const option cmdline_options[] = {
     { "stat",                       's', 's', OPTION_ARG_NONE },
     { "help",                       'h', 'h', OPTION_ARG_NONE },
     { "version",                    'v', 'v', OPTION_ARG_NONE },
+
     { "commonmark",                  0,  'c', OPTION_ARG_NONE },
     { "github",                      0,  'g', OPTION_ARG_NONE },
-    { "fverbatim-entities",          0,  'E', OPTION_ARG_NONE },
+
+    { "fcollapse-whitespace",        0,  'W', OPTION_ARG_NONE },
+    { "flatex-math",                 0,  'L', OPTION_ARG_NONE },
     { "fpermissive-atx-headers",     0,  'A', OPTION_ARG_NONE },
+    { "fpermissive-autolinks",       0,  'V', OPTION_ARG_NONE },
+    { "fpermissive-email-autolinks", 0,  '@', OPTION_ARG_NONE },
     { "fpermissive-url-autolinks",   0,  'U', OPTION_ARG_NONE },
     { "fpermissive-www-autolinks",   0,  '.', OPTION_ARG_NONE },
-    { "fpermissive-email-autolinks", 0,  '@', OPTION_ARG_NONE },
-    { "fpermissive-autolinks",       0,  'V', OPTION_ARG_NONE },
-    { "fno-indented-code",           0,  'I', OPTION_ARG_NONE },
+    { "fstrikethrough",              0,  'S', OPTION_ARG_NONE },
+    { "ftables",                     0,  'T', OPTION_ARG_NONE },
+    { "ftasklists",                  0,  'X', OPTION_ARG_NONE },
+    { "funderline",                  0,  '_', OPTION_ARG_NONE },
+    { "fverbatim-entities",          0,  'E', OPTION_ARG_NONE },
+    { "fwiki-links",                 0,  'K', OPTION_ARG_NONE },
+
     { "fno-html-blocks",             0,  'F', OPTION_ARG_NONE },
     { "fno-html-spans",              0,  'G', OPTION_ARG_NONE },
     { "fno-html",                    0,  'H', OPTION_ARG_NONE },
-    { "fcollapse-whitespace",        0,  'W', OPTION_ARG_NONE },
-    { "ftables",                     0,  'T', OPTION_ARG_NONE },
-    { "fstrikethrough",              0,  'S', OPTION_ARG_NONE },
-    { "flatex-math",                 0,  'L', OPTION_ARG_NONE },
-    { "fwiki-links",                 0,  'K', OPTION_ARG_NONE },
-    { "ftasklists",                  0,  'X', OPTION_ARG_NONE },
-    { "funderline",                  0,  '_', OPTION_ARG_NONE },
+    { "fno-indented-code",           0,  'I', OPTION_ARG_NONE },
+
     { 0 }
 };
 
@@ -230,15 +234,14 @@ usage(void)
         "  -v, --version        Display version and exit\n"
         "\n"
         "Markdown dialect options:\n"
-        "(note these are equivalent to some combinations of flags below)\n"
+        "(note these are equivalent to some combinations of the flags below)\n"
         "      --commonmark     CommonMark (this is default)\n"
         "      --github         Github Flavored Markdown\n"
         "\n"
         "Markdown extension options:\n"
         "      --fcollapse-whitespace\n"
         "                       Collapse non-trivial whitespace\n"
-        "      --fverbatim-entities\n"
-        "                       Do not translate entities\n"
+        "      --flatex-math    Enable LaTeX style mathematics spans\n"
         "      --fpermissive-atx-headers\n"
         "                       Allow ATX headers without delimiting space\n"
         "      --fpermissive-url-autolinks\n"
@@ -250,19 +253,25 @@ usage(void)
         "      --fpermissive-autolinks\n"
         "                       Same as --fpermissive-url-autolinks --fpermissive-www-autolinks\n"
         "                       --fpermissive-email-autolinks\n"
-        "      --fno-indented-code\n"
-        "                       Disable indented code blocks\n"
+        "      --fstrikethrough Enable strike-through spans\n"
+        "      --ftables        Enable tables\n"
+        "      --ftasklists     Enable task lists\n"
+        "      --funderline     Enable underline spans\n"
+        "      --fwiki-links    Enable wiki links\n"
+        "\n"
+        "Markdown suppression options:\n"
         "      --fno-html-blocks\n"
         "                       Disable raw HTML blocks\n"
         "      --fno-html-spans\n"
         "                       Disable raw HTML spans\n"
         "      --fno-html       Same as --fno-html-blocks --fno-html-spans\n"
-        "      --ftables        Enable tables\n"
-        "      --fstrikethrough Enable strikethrough spans\n"
-        "      --flatex-math    Enable LaTeX style mathematics spans (e.g. $a+b=c$ becomes <equation>a+b=c</equation>)\n"
-        "      --fwiki-links    Enable wiki links\n"
-        "      --ftasklists     Enable task lists\n"
-        "      --funderline     Enable underline spans\n"
+        "      --fno-indented-code\n"
+        "                       Disable indented code blocks\n"
+        "\n"
+        "HTML generator options:\n"
+        "      --fverbatim-entities\n"
+        "                       Do not translate entities\n"
+        "\n"
     );
 }
 
