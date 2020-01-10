@@ -211,6 +211,7 @@ static const option cmdline_options[] = {
     { "flatex-math",                 0,  'L', OPTION_ARG_NONE },
     { "fwiki-links",                 0,  'K', OPTION_ARG_NONE },
     { "ftasklists",                  0,  'X', OPTION_ARG_NONE },
+    { "funderline",                  0,  '_', OPTION_ARG_NONE },
     { 0 }
 };
 
@@ -261,6 +262,7 @@ usage(void)
         "      --flatex-math    Enable LaTeX style mathematics spans (e.g. $a+b=c$ becomes <equation>a+b=c</equation>)\n"
         "      --fwiki-links    Enable wiki links\n"
         "      --ftasklists     Enable task lists\n"
+        "      --funderline     Enable underline spans\n"
     );
 }
 
@@ -311,6 +313,7 @@ cmdline_callback(int opt, char const* value, void* data)
         case 'L':   parser_flags |= MD_FLAG_LATEXMATHSPANS; break;
         case 'K':   parser_flags |= MD_FLAG_WIKILINKS; break;
         case 'X':   parser_flags |= MD_FLAG_TASKLISTS; break;
+        case '_':   parser_flags |= MD_FLAG_UNDERLINE; break;
 
         default:
             fprintf(stderr, "Illegal option: %s\n", value);

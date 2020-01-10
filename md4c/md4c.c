@@ -4111,7 +4111,23 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                     }
                     break;
 
-                case '_':
+                case '_':       /* Underline (or emphasis if we fall through). */
+                    if(ctx->parser.flags & MD_FLAG_UNDERLINE) {
+                        if(mark->flags & MD_MARK_OPENER) {
+                            while(off < mark->end) {
+                                MD_ENTER_SPAN(MD_SPAN_U, NULL);
+                                off++;
+                            }
+                        } else {
+                            while(off < mark->end) {
+                                MD_LEAVE_SPAN(MD_SPAN_U, NULL);
+                                off++;
+                            }
+                        }
+                        break;
+                    }
+                    /* Fall though. */
+
                 case '*':       /* Emphasis, strong emphasis. */
                     if(mark->flags & MD_MARK_OPENER) {
                         if((mark->end - off) % 2) {
