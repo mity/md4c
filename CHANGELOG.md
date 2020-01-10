@@ -6,6 +6,18 @@
 
 Changes:
 
+ * Recognition of strike-through spans (with the flag `MD_FLAG_STRIKETHROUGH`)
+   has become much stricter and, arguably, reasonable.
+
+    - Only single tildes (`~`) and double tildes (`~~`) are recognized as
+      strike-through marks. Longer ones are not anymore.
+    - The length of the opener and closer marks have to be the same.
+    - The tildes cannot open a strike-through span if a whitespace follows.
+    - The tildes cannot close a strike-through span if a whitespace precedes.
+
+   This change follows the changes of behavior in cmark-gfm some time ago, so
+   it is also beneficial from compatibility point of view.
+
  * When building MD4C by hand instead of using its CMake-based build, the UTF-8
    support was by default disabled, unless explicitly asked for by defining
    a preprocessor macro `MD4C_USE_UTF8`.

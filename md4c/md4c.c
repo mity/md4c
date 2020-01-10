@@ -133,7 +133,7 @@ struct MD_CTX_tag {
 #endif
 
     /* For resolving of inline spans. */
-    MD_MARKCHAIN mark_chains[12];
+    MD_MARKCHAIN mark_chains[13];
 #define PTR_CHAIN                               ctx->mark_chains[0]
 #define TABLECELLBOUNDARIES                     ctx->mark_chains[1]
 #define ASTERISK_OPENERS_extraword_mod3_0       ctx->mark_chains[2]
@@ -143,11 +143,12 @@ struct MD_CTX_tag {
 #define ASTERISK_OPENERS_intraword_mod3_1       ctx->mark_chains[6]
 #define ASTERISK_OPENERS_intraword_mod3_2       ctx->mark_chains[7]
 #define UNDERSCORE_OPENERS                      ctx->mark_chains[8]
-#define TILDE_OPENERS                           ctx->mark_chains[9]
-#define BRACKET_OPENERS                         ctx->mark_chains[10]
-#define DOLLAR_OPENERS                          ctx->mark_chains[11]
+#define TILDE_OPENERS_1                         ctx->mark_chains[9]
+#define TILDE_OPENERS_2                         ctx->mark_chains[10]
+#define BRACKET_OPENERS                         ctx->mark_chains[11]
+#define DOLLAR_OPENERS                          ctx->mark_chains[12]
 #define OPENERS_CHAIN_FIRST                     2
-#define OPENERS_CHAIN_LAST                      11
+#define OPENERS_CHAIN_LAST                      12
 
     int n_table_cell_boundaries;
 
@@ -2474,7 +2475,7 @@ md_mark_chain(MD_CTX* ctx, int mark_index)
     switch(mark->ch) {
         case _T('*'):   return md_asterisk_chain(ctx, mark->flags);
         case _T('_'):   return &UNDERSCORE_OPENERS;
-        case _T('~'):   return &TILDE_OPENERS;
+        case _T('~'):   return (mark->end - mark->beg == 1) ? &TILDE_OPENERS_1 : &TILDE_OPENERS_2;
         case _T('['):   return &BRACKET_OPENERS;
         case _T('|'):   return &TABLECELLBOUNDARIES;
         default:        return NULL;
@@ -3254,7 +3255,17 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                 while(tmp < line_end  &&  CH(tmp) == _T('~'))
                     tmp++;
 
-                PUSH_MARK(ch, off, tmp, MD_MARK_POTENTIAL_OPENER | MD_MARK_POTENTIAL_CLOSER);
+                if(tmp - off < 3) {
+                    unsigned flags = 0;
+
+                    if(tmp < line_end  &&  !ISUNICODEWHITESPACE(tmp))
+                        flags |= MD_MARK_POTENTIAL_OPENER;
+                    if(off > line->beg  &&  !ISUNICODEWHITESPACEBEFORE(off))
+                        flags |= MD_MARK_POTENTIAL_CLOSER;
+                    if(flags != 0)
+                        PUSH_MARK(ch, off, tmp, flags);
+                }
+
                 off = tmp;
                 continue;
             }
@@ -3724,20 +3735,23 @@ md_analyze_emph(MD_CTX* ctx, int mark_index)
 static void
 md_analyze_tilde(MD_CTX* ctx, int mark_index)
 {
-    /* We attempt to be Github Flavored Markdown compatible here. GFM says
-     * that length of the tilde sequence is not important at all. Note that
-     * implies the TILDE_OPENERS chain can have at most one item. */
+    MD_MARK* mark = &ctx->marks[mark_index];
+    MD_MARKCHAIN* chain = md_mark_chain(ctx, mark_index);
 
-    if(TILDE_OPENERS.head >= 0) {
-        /* The chain already contains an opener, so we may resolve the span. */
-        int opener_index = TILDE_OPENERS.head;
+    /* We attempt to be Github Flavored Markdown compatible here. GFM accepts
+     * only tildes sequences of length 1 and 2, and the length of the opener
+     * and closer has to match. */
+
+    if((mark->flags & MD_MARK_POTENTIAL_CLOSER)  &&  chain->head >= 0) {
+        int opener_index = chain->head;
 
         md_rollback(ctx, opener_index, mark_index, MD_ROLLBACK_CROSSING);
-        md_resolve_range(ctx, &TILDE_OPENERS, opener_index, mark_index);
-    } else {
-        /* We can only be opener. */
-        md_mark_chain_append(ctx, &TILDE_OPENERS, mark_index);
+        md_resolve_range(ctx, chain, opener_index, mark_index);
+        return;
     }
+
+    if(mark->flags & MD_MARK_POTENTIAL_OPENER)
+        md_mark_chain_append(ctx, chain, mark_index);
 }
 
 static void
@@ -3997,8 +4011,10 @@ md_analyze_link_contents(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
     ASTERISK_OPENERS_intraword_mod3_2.tail = -1;
     UNDERSCORE_OPENERS.head = -1;
     UNDERSCORE_OPENERS.tail = -1;
-    TILDE_OPENERS.head = -1;
-    TILDE_OPENERS.tail = -1;
+    TILDE_OPENERS_1.head = -1;
+    TILDE_OPENERS_1.tail = -1;
+    TILDE_OPENERS_2.head = -1;
+    TILDE_OPENERS_2.tail = -1;
     DOLLAR_OPENERS.head = -1;
     DOLLAR_OPENERS.tail = -1;
 }
