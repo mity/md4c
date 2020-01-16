@@ -1836,6 +1836,7 @@ struct MD_LINK_ATTR_tag {
 
     CHAR* title;
     SZ title_size;
+    int title_needs_free;
 };
 
 
@@ -2232,6 +2233,7 @@ md_is_link_reference(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
         attr->dest_end = def->dest_end;
         attr->title = def->title;
         attr->title_size = def->title_size;
+        attr->title_needs_free = FALSE;
     }
 
     if(!IS_INPUT_STR(label))
@@ -2278,6 +2280,7 @@ md_is_inline_link_spec(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
         attr->dest_end = off;
         attr->title = NULL;
         attr->title_size = 0;
+        attr->title_needs_free = FALSE;
         off++;
         *p_end = off;
         return TRUE;
@@ -2320,13 +2323,16 @@ md_is_inline_link_spec(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
     if(title_contents_beg >= title_contents_end) {
         attr->title = NULL;
         attr->title_size = 0;
+        attr->title_needs_free = FALSE;
     } else if(!title_is_multiline) {
         attr->title = (CHAR*) STR(title_contents_beg);
         attr->title_size = title_contents_end - title_contents_beg;
+        attr->title_needs_free = FALSE;
     } else {
         MD_CHECK(md_merge_lines_alloc(ctx, title_contents_beg, title_contents_end,
                     lines + title_contents_line_index, n_lines - title_contents_line_index,
                     _T('\n'), &attr->title, &attr->title_size));
+        attr->title_needs_free = TRUE;
     }
 
     *p_end = off;
@@ -3499,7 +3505,6 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 
         }
 
-
         if(next_opener != NULL  &&  next_opener->beg == closer->end) {
             if(next_closer->beg > closer->end + 1) {
                 /* Might be full reference link. */
@@ -3578,7 +3583,8 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 
             MD_ASSERT(ctx->marks[opener_index+2].ch == 'D');
             md_mark_store_ptr(ctx, opener_index+2, attr.title);
-            if(attr.title != NULL  &&  !IS_INPUT_STR(attr.title))
+            /* The title might or might not have been allocated for us. */
+            if(attr.title_needs_free)
                 md_mark_chain_append(ctx, &PTR_CHAIN, opener_index+2);
             ctx->marks[opener_index+2].prev = attr.title_size;
 
