@@ -2531,6 +2531,7 @@ md_mark_chain_append(MD_CTX* ctx, MD_MARKCHAIN* chain, int mark_index)
         chain->head = mark_index;
 
     ctx->marks[mark_index].prev = chain->tail;
+    ctx->marks[mark_index].next = -1;
     chain->tail = mark_index;
 }
 
@@ -3577,7 +3578,7 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 
             MD_ASSERT(ctx->marks[opener_index+2].ch == 'D');
             md_mark_store_ptr(ctx, opener_index+2, attr.title);
-            if(!IS_INPUT_STR(attr.title))
+            if(attr.title != NULL  &&  !IS_INPUT_STR(attr.title))
                 md_mark_chain_append(ctx, &PTR_CHAIN, opener_index+2);
             ctx->marks[opener_index+2].prev = attr.title_size;
 

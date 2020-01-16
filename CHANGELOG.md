@@ -48,6 +48,9 @@ Fixes:
    Fixed an off-by-one error in the maximal length limit of some segments
    of e-mail addresses used in autolinks.
 
+ * [#104](https://github.com/mity/md4c/issues/104):
+   Fix an infinite loop when tables (`MD_FLAG_TABLES`) and links are combined.
+
 
 ## Version 0.4.2
 

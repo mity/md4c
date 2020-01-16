@@ -337,3 +337,27 @@ But the last line is not part of it due its indentation.)
 </tbody>
 </table>
 ````````````````````````````````
+
+
+### [Issue 104](https://github.com/mity/md4c/issues/104)
+
+```````````````````````````````` example
+A | B
+--- | ---
+[x](url)
+.
+<table>
+<thead>
+<tr>
+<th>A</th>
+<th>B</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="url">x</a></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+````````````````````````````````
