@@ -1339,8 +1339,9 @@ md_build_attr_append_substr(MD_CTX* ctx, MD_ATTRIBUTE_BUILD* build,
         MD_TEXTTYPE* new_substr_types;
         OFF* new_substr_offsets;
 
-        build->substr_alloc = (build->substr_alloc == 0 ? 8 : build->substr_alloc * 2);
-
+        build->substr_alloc = (build->substr_alloc > 0
+                ? build->substr_alloc + build->substr_alloc / 2
+                : 8);
         new_substr_types = (MD_TEXTTYPE*) realloc(build->substr_types,
                                     build->substr_alloc * sizeof(MD_TEXTTYPE));
         if(new_substr_types == NULL) {
@@ -1717,14 +1718,15 @@ md_build_ref_def_hashtable(MD_CTX* ctx)
          * is sorted. */
         list = (MD_REF_DEF_LIST*) bucket;
         if(list->n_ref_defs >= list->alloc_ref_defs) {
+            int alloc_ref_defs = list->alloc_ref_defs + list->alloc_ref_defs / 2;
             MD_REF_DEF_LIST* list_tmp = (MD_REF_DEF_LIST*) realloc(list,
-                        sizeof(MD_REF_DEF_LIST) + 2 * list->alloc_ref_defs * sizeof(MD_REF_DEF*));
+                        sizeof(MD_REF_DEF_LIST) + alloc_ref_defs * sizeof(MD_REF_DEF*));
             if(list_tmp == NULL) {
                 MD_LOG("realloc() failed.");
                 goto abort;
             }
             list = list_tmp;
-            list->alloc_ref_defs *= 2;
+            list->alloc_ref_defs = alloc_ref_defs;
             ctx->ref_def_hashtable[def->hash % ctx->ref_def_hashtable_size] = list;
         }
 
@@ -2149,7 +2151,9 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
     if(ctx->n_ref_defs >= ctx->alloc_ref_defs) {
         MD_REF_DEF* new_defs;
 
-        ctx->alloc_ref_defs = (ctx->alloc_ref_defs > 0 ? ctx->alloc_ref_defs * 2 : 16);
+        ctx->alloc_ref_defs = (ctx->alloc_ref_defs > 0
+                ? ctx->alloc_ref_defs + ctx->alloc_ref_defs / 2
+                : 16);
         new_defs = (MD_REF_DEF*) realloc(ctx->ref_defs, ctx->alloc_ref_defs * sizeof(MD_REF_DEF));
         if(new_defs == NULL) {
             MD_LOG("realloc() failed.");
@@ -2494,7 +2498,9 @@ md_push_mark(MD_CTX* ctx)
     if(ctx->n_marks >= ctx->alloc_marks) {
         MD_MARK* new_marks;
 
-        ctx->alloc_marks = (ctx->alloc_marks > 0 ? ctx->alloc_marks * 2 : 64);
+        ctx->alloc_marks = (ctx->alloc_marks > 0
+                ? ctx->alloc_marks + ctx->alloc_marks / 2
+                : 64);
         new_marks = realloc(ctx->marks, ctx->alloc_marks * sizeof(MD_MARK));
         if(new_marks == NULL) {
             MD_LOG("realloc() failed.");
@@ -4834,7 +4840,9 @@ md_push_block_bytes(MD_CTX* ctx, int n_bytes)
     if(ctx->n_block_bytes + n_bytes > ctx->alloc_block_bytes) {
         void* new_block_bytes;
 
-        ctx->alloc_block_bytes = (ctx->alloc_block_bytes > 0 ? ctx->alloc_block_bytes * 2 : 512);
+        ctx->alloc_block_bytes = (ctx->alloc_block_bytes > 0
+                ? ctx->alloc_block_bytes + ctx->alloc_block_bytes / 2
+                : 512);
         new_block_bytes = realloc(ctx->block_bytes, ctx->alloc_block_bytes);
         if(new_block_bytes == NULL) {
             MD_LOG("realloc() failed.");
@@ -5472,7 +5480,9 @@ md_push_container(MD_CTX* ctx, const MD_CONTAINER* container)
     if(ctx->n_containers >= ctx->alloc_containers) {
         MD_CONTAINER* new_containers;
 
-        ctx->alloc_containers = (ctx->alloc_containers > 0 ? ctx->alloc_containers * 2 : 16);
+        ctx->alloc_containers = (ctx->alloc_containers > 0
+                ? ctx->alloc_containers + ctx->alloc_containers / 2
+                : 16);
         new_containers = realloc(ctx->containers, ctx->alloc_containers * sizeof(MD_CONTAINER));
         if(new_containers == NULL) {
             MD_LOG("realloc() failed.");

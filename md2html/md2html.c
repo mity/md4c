@@ -90,7 +90,7 @@ static void
 membuf_append(struct membuffer* buf, const char* data, MD_SIZE size)
 {
     if(buf->asize < buf->size + size)
-        membuf_grow(buf, (buf->size + size) * 2);
+        membuf_grow(buf, buf->size + buf->size / 2 + size);
     memcpy(buf->data + buf->size, data, size);
     buf->size += size;
 }
@@ -120,7 +120,7 @@ process_file(FILE* in, FILE* out)
     /* Read the input file into a buffer. */
     while(1) {
         if(buf_in.size >= buf_in.asize)
-            membuf_grow(&buf_in, 2 * buf_in.asize);
+            membuf_grow(&buf_in, buf_in.asize + buf_in.asize / 2);
 
         n = fread(buf_in.data + buf_in.size, 1, buf_in.asize - buf_in.size, in);
         if(n == 0)
