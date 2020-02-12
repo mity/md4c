@@ -30,11 +30,14 @@
 #include "entity.h"
 
 
-#ifdef _MSC_VER
-    /* MSVC does not understand "inline" when building as pure C (not C++).
-     * However it understands "__inline" */
-    #ifndef __cplusplus
+#if !defined(__STDC_VERSION__) || __STDC_VERSION__ < 199409L
+    /* C89/90 or old compilers in general may not understand "inline". */
+    #if defined __GNUC__
+        #define inline __inline__
+    #elif defined _MSC_VER
         #define inline __inline
+    #else
+        #define inline
     #endif
 #endif
 

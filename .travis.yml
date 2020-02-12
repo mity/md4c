@@ -15,7 +15,9 @@ addons:
 before_script:
     - mkdir build
     - cd build
-    - CFLAGS='--coverage -g -O0' cmake -DCMAKE_BUILD_TYPE=Debug -G 'Unix Makefiles' ..
+    # We enforce C89/90 (-std=c89) because Qt project needs to build MD4C with
+    # Integrity compiler so we need to be quite conservative.
+    - CFLAGS='--coverage -g -O0 -std=c89 -Wall' cmake -DCMAKE_BUILD_TYPE=Debug -G 'Unix Makefiles' ..
 
 script:
     - make VERBOSE=1

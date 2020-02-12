@@ -35,11 +35,14 @@
  ***  Miscellaneous Stuff  ***
  *****************************/
 
-#ifdef _MSC_VER
-    /* MSVC does not understand "inline" when building as pure C (not C++).
-     * However it understands "__inline" */
-    #ifndef __cplusplus
+#if !defined(__STDC_VERSION__) || __STDC_VERSION__ < 199409L
+    /* C89/90 or old compilers in general may not understand "inline". */
+    #if defined __GNUC__
+        #define inline __inline__
+    #elif defined _MSC_VER
         #define inline __inline
+    #else
+        #define inline
     #endif
 #endif
 
@@ -1467,8 +1470,8 @@ abort:
  ***  Dictionary of Reference Definitions  ***
  *********************************************/
 
-#define MD_FNV1A_BASE       2166136261
-#define MD_FNV1A_PRIME      16777619
+#define MD_FNV1A_BASE       2166136261U
+#define MD_FNV1A_PRIME      16777619U
 
 static inline unsigned
 md_fnv1a(unsigned base, const void* data, size_t n)
@@ -4186,6 +4189,8 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 {
                     const MD_MARK* opener = (mark->ch != ']' ? mark : &ctx->marks[mark->prev]);
                     const MD_MARK* closer = &ctx->marks[opener->next];
+                    const MD_MARK* dest_mark;
+                    const MD_MARK* title_mark;
 
                     if ((opener->ch == '[' && closer->ch == ']') &&
                         opener->end - opener->beg >= 2 &&
@@ -4209,10 +4214,9 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                         break;
                     }
 
-                    const MD_MARK* dest_mark = opener+1;
-                    const MD_MARK* title_mark = opener+2;
-
+                    dest_mark = opener+1;
                     MD_ASSERT(dest_mark->ch == 'D');
+                    title_mark = opener+2;
                     MD_ASSERT(title_mark->ch == 'D');
 
                     MD_CHECK(md_enter_leave_span_a(ctx, (mark->ch != ']'),
