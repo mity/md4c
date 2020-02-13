@@ -214,14 +214,12 @@ struct MD_LINE_ANALYSIS_tag {
     OFF beg;
     OFF end;
     unsigned indent;        /* Indentation level. */
-    unsigned total_indent;  /* Total indent in characters. */
 };
 
 typedef struct MD_LINE_tag MD_LINE;
 struct MD_LINE_tag {
     OFF beg;
     OFF end;
-    unsigned total_indent;  /* Total indent in characters. */
 };
 
 typedef struct MD_VERBATIMLINE_tag MD_VERBATIMLINE;
@@ -2638,7 +2636,7 @@ md_rollback(MD_CTX* ctx, int opener_index, int closer_index, int how)
             chain->head = -1;
     }
 
-    /* Go backwards so that un-resolved openers are re-added into their
+    /* Go backwards so that unresolved openers are re-added into their
      * respective chains, in the right order. */
     mark_index = closer_index - 1;
     while(mark_index > opener_index) {
@@ -3429,89 +3427,87 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             continue;
         }
 
-        /* Detect and resolve wiki links. */
+        /* Recognize and resolve wiki links.
+         * Wiki-links maybe '[[destination]]' or '[[destination|label]]'.
+         */
         if ((ctx->parser.flags & MD_FLAG_WIKILINKS) &&
-            next_opener != NULL && next_closer != NULL &&
-            (opener->end - opener->beg == 1) &&
+            (opener->end - opener->beg == 1) &&         /* not image */
+            next_opener != NULL &&                      /* double '[' opener */
+            next_opener->ch == '[' &&
             (next_opener->beg == opener->beg - 1) &&
-            (next_closer->beg == closer->beg + 1) &&
             (next_opener->end - next_opener->beg == 1) &&
-            (next_closer->end - next_closer->beg == 1) &&
-            (next_opener->ch == '[' && next_closer->ch == ']'))
+            next_closer != NULL &&                      /* double ']' closer */
+            next_closer->ch == ']' &&
+            (next_closer->beg == closer->beg + 1) &&
+            (next_closer->end - next_closer->beg == 1))
         {
+            MD_MARK* delim = NULL;
+            int delim_index;
+            OFF dest_beg, dest_end;
+            OFF off;
+
             is_link = TRUE;
 
-            if (opener->end == closer->beg)
-                is_link = FALSE;
-
-            int delim_index = opener_index;
-            MD_MARK* delim = &ctx->marks[delim_index];
-
-            /* To prevent runaway O(n^2) performance, don't look too far for the delimiter (.. < 100). */
-            while(is_link && delim_index < closer_index && (delim_index - opener_index) < 100 ) {
-                if(delim->ch == '|' && delim->beg == opener->end) {
-                    is_link = FALSE;
-                } else if(delim->ch == '|' && delim->end == closer->beg) {
+            /* We don't allow destination to be longer then 100 characters.
+             * Lets scan to see whether there is '|'. (If not then the whole
+             * wiki-link has to be below the 100 characters.) */
+            delim_index = opener_index + 1;
+            while(delim_index < closer_index) {
+                if(ctx->marks[delim_index].beg - opener->end > 100)
                     break;
-                } else if(delim->ch == '|') {
-                    opener->end = delim->beg;
+                if(ctx->marks[delim_index].ch == '|') {
+                    delim = &ctx->marks[delim_index];
                     break;
                 }
                 delim_index++;
-                delim = &ctx->marks[delim_index];
             }
-
-            OFF off = closer->beg-1;
-            int count = 0;
-            int has_label = (opener->end - opener->beg > 2);
-            const MD_LINE* line;
-            int line_index = n_lines-1;
-
-            /* An image inside the link target disables the wiki link. */
-            if( (has_label && last_img_beg >= opener->beg && last_img_end <= opener->end) ||
-                (!has_label && last_img_beg >= opener->beg && last_img_end <= closer->end))
+            dest_beg = opener->end;
+            dest_end = (delim != NULL) ? delim->beg : closer->beg;
+            if(dest_end - dest_beg == 0 || dest_end - dest_beg > 100)
                 is_link = FALSE;
 
-            while(is_link && off > opener->beg && count++ < 100) {
-
-                /* Newline not allowed in link target. */
-                if(has_label && (off <= opener->end) && ISNEWLINE(off))
-                    is_link = FALSE;
-                else if(!has_label && off > opener->end && ISNEWLINE(off))
-                    is_link = FALSE;
-                else if(ISNEWLINE(off)) {
-                    line = &lines[line_index--];
-                    count = count - line->total_indent - 1;  /* Count newline too. */
+            /* There may not be any new line in the destination. */
+            if(is_link) {
+                for(off = dest_beg; off < dest_end; off++) {
+                    if(ISNEWLINE(off)) {
+                        is_link = FALSE;
+                        break;
+                    }
                 }
-
-                off--;
             }
-
-            if(off > opener->beg)
-                is_link = FALSE;
 
             if(is_link) {
-                if(delim->ch == '|')
-                    delim->flags |= MD_MARK_RESOLVED;
+                if(delim != NULL) {
+                    if(delim->end < closer->beg) {
+                        opener->end = delim->beg;
+                    } else {
+                        closer->beg = delim->beg;
+                        delim = NULL;
+                    }
+                }
 
                 opener->beg = next_opener->beg;
-                closer->end = next_closer->end;
-
                 opener->next = closer_index;
                 opener->flags |= MD_MARK_OPENER | MD_MARK_RESOLVED;
+
+                closer->end = next_closer->end;
                 closer->prev = opener_index;
                 closer->flags |= MD_MARK_CLOSER | MD_MARK_RESOLVED;
 
                 last_link_beg = opener->beg;
                 last_link_end = closer->end;
 
-                if ((opener->end - opener->beg > 2))
+                if(delim != NULL) {
+                    delim->flags |= MD_MARK_RESOLVED;
+                    md_rollback(ctx, opener_index, delim_index, MD_ROLLBACK_ALL);
                     md_analyze_link_contents(ctx, lines, n_lines, opener_index+1, closer_index);
+                } else {
+                    md_rollback(ctx, opener_index, closer_index, MD_ROLLBACK_ALL);
+                }
 
-                opener_index = next_index;
+                opener_index = next_opener->prev;
                 continue;
             }
-
         }
 
         if(next_opener != NULL  &&  next_opener->beg == closer->end) {
@@ -4194,16 +4190,13 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 
                     if ((opener->ch == '[' && closer->ch == ']') &&
                         opener->end - opener->beg >= 2 &&
-                        closer->end - closer->beg == 2)
+                        closer->end - closer->beg >= 2)
                     {
-                        const MD_MARK* delim = opener+3;  /* Scan past the two dummy marks. */
                         int has_label = (opener->end - opener->beg > 2);
-                        int target_sz;
+                        SZ target_sz;
 
                         if(has_label)
                             target_sz = opener->end - (opener->beg+2);
-                        else if(delim->ch == '|')
-                            target_sz = (closer->beg-1) - opener->end;
                         else
                             target_sz = closer->beg - opener->end;
 
@@ -5036,7 +5029,6 @@ md_add_line_into_current_block(MD_CTX* ctx, const MD_LINE_ANALYSIS* analysis)
 
         line->beg = analysis->beg;
         line->end = analysis->end;
-        line->total_indent = analysis->total_indent;
     }
     ctx->current_block->n_lines++;
 
@@ -6042,8 +6034,6 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
 
         break;
     }
-
-    line->total_indent = total_indent;
 
     /* Scan for end of the line.
      *
