@@ -3444,7 +3444,6 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             MD_MARK* delim = NULL;
             int delim_index;
             OFF dest_beg, dest_end;
-            OFF off;
 
             is_link = TRUE;
 
@@ -3453,12 +3452,13 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
              * wiki-link has to be below the 100 characters.) */
             delim_index = opener_index + 1;
             while(delim_index < closer_index) {
-                if(ctx->marks[delim_index].beg - opener->end > 100)
-                    break;
-                if(ctx->marks[delim_index].ch == '|') {
-                    delim = &ctx->marks[delim_index];
+                MD_MARK* m = &ctx->marks[delim_index];
+                if(m->ch == '|') {
+                    delim = m;
                     break;
                 }
+                if(m->ch != 'D'  &&  m->beg - opener->end > 100)
+                    break;
                 delim_index++;
             }
             dest_beg = opener->end;
@@ -3468,6 +3468,7 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 
             /* There may not be any new line in the destination. */
             if(is_link) {
+                OFF off;
                 for(off = dest_beg; off < dest_end; off++) {
                     if(ISNEWLINE(off)) {
                         is_link = FALSE;
@@ -3481,6 +3482,7 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                     if(delim->end < closer->beg) {
                         opener->end = delim->beg;
                     } else {
+                        /* The pipe is just before the closer: [[foo|]] */
                         closer->beg = delim->beg;
                         delim = NULL;
                     }
