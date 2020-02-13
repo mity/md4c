@@ -2,6 +2,7 @@
 # See https://docs.travis-ci.com/user/languages/c
 
 language: c
+dist: bionic
 
 compiler:
     - gcc
@@ -15,9 +16,10 @@ addons:
 before_script:
     - mkdir build
     - cd build
-    # We enforce C89/90 (-std=c89) because Qt project needs to build MD4C with
-    # Integrity compiler so we need to be quite conservative.
-    - CFLAGS='--coverage -g -O0 -std=c89 -Wall' cmake -DCMAKE_BUILD_TYPE=Debug -G 'Unix Makefiles' ..
+    # We enforce -Wdeclaration-after-statement because Qt project needs to
+    # build MD4C with Integrity compiler which chokes whenever a declaration
+    # is not at the beginning of a block.
+    - CFLAGS='--coverage -g -O0 -Wall -Wdeclaration-after-statement -Werror' cmake -DCMAKE_BUILD_TYPE=Debug -G 'Unix Makefiles' ..
 
 script:
     - make VERBOSE=1
