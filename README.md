@@ -27,7 +27,7 @@ The following resources can explain more if you are unfamiliar with it:
 MD4C is C Markdown parser with the following features:
 
 * **Compliance:** Generally MD4C aims to be compliant to the latest version of
-  [CommonMark specification](http://spec.commonmark.org/). Right now we are
+  [CommonMark specification](http://spec.commonmark.org/). Currently, we are
   fully compliant to CommonMark 0.29.
 
 * **Extensions:** MD4C supports some commonly requested and accepted extensions.
@@ -39,16 +39,18 @@ MD4C is C Markdown parser with the following features:
 * **Embedding:** MD4C is easy to reuse in other projects, its API is very
   straightforward: There is actually just one function, `md_parse()`.
 
-* **Push model:** MD4C parses the complete document and calls callback
-  functions provided by the application for each start/end of block, start/end
-  of a span, and with any textual contents.
+* **Push model:** MD4C parses the complete document and calls few callback
+  functions provided by the application to inform it about a start/end of
+  every block, a start/end of every span, and with any textual contents.
 
-* **Portability:** MD4C builds and works on Windows and POSIX-compliant systems,
-  and it should be fairly simple to make it run also on most other systems.
+* **Portability:** MD4C builds and works on Windows and POSIX-compliant OSes.
+  (It should be simple to make it run also on most other platforms, at least as
+  long as the platform provides C standard library, including a heap memory
+  management.)
 
 * **Encoding:** MD4C can be compiled to recognize ASCII-only control characters,
-  UTF-8 and, on Windows, also UTF-16, i.e. what is on Windows commonly called
-  just "Unicode". See more details below.
+  UTF-8 and, on Windows, also UTF-16 (i.e. what is on Windows commonly called
+  just "Unicode"). See more details below.
 
 * **Permissive license:** MD4C is available under the MIT license.
 
@@ -61,16 +63,16 @@ Application has to include the header `md4c.h` and link against MD4C library;
 or alternatively it may include `md4c.h` and `md4c.c` directly into its source
 base as the parser is only implemented in the single C source file.
 
-The main provided function is `md_parse()`. It takes a text in Markdown syntax
-as an input and a pointer to a structure which holds pointers to several
-callback functions.
+The main provided function is `md_parse()`. It takes a text in the Markdown
+syntax and a pointer to a structure which provides pointers to several callback
+functions.
 
-As `md_parse()` processes the input, and it calls the appropriate callbacks
-(when entering or leaving any Markdown block or span; and when outputting any
-textual content of the document), allowing application to convert it into
-another format or render it onto the screen.
+As `md_parse()` processes the input, it calls the callbacks (when entering or
+leaving any Markdown block or span; and when outputting any textual content of
+the document), allowing application to convert it into another format or render
+it onto the screen.
 
-Example implementation of simple renderer is available in the `md2html`
+An example implementation of simple renderer is available in the `md2html`
 directory which implements a conversion utility from Markdown to HTML.
 
 
