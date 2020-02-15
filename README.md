@@ -201,8 +201,8 @@ details may be little-bit outdated.
 parser. Nothing more and nothing less.
 
 That said, there is a complete HTML generator built on top of the parser in the
-directory `md2html` (the files `render_html.[hc]` and `md2html/entity.[hc]`).
-At this time, you have to directly reuse that code in your project.
+directory `md2html` (the files `render_html.[hc]` and `entity.[hc]`). At this
+time, you have to directly reuse that code in your project.
 
 There is [some discussion](https://github.com/mity/md4c/issues/82) whether this
 should be changed (and how) in the future.
@@ -270,11 +270,17 @@ Ports and bindings to other languages:
 
 * [commonmark-d](https://github.com/AuburnSounds/commonmark-d):
   Port of MD4C to D language.
+
 * [markdown-wasm](https://github.com/rsms/markdown-wasm):
   Markdown parser and HTML generator for WebAssembly, based on MD4C.
 
 Software using MD4C:
 
-* [Qt toolkit](https://www.qt.io/)
-* [Textosaurus](https://github.com/martinrotter/textosaurus)
-* [8th](https://8th-dev.com/)
+* [Qt](https://www.qt.io/):
+  Cross-platform C++ GUI framework.
+
+* [Textosaurus](https://github.com/martinrotter/textosaurus):
+  Cross-platform text editor based on Qt and Scintilla.
+
+* [8th](https://8th-dev.com/):
+  Cross-platform concatenative programming language.
