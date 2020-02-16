@@ -256,6 +256,16 @@ foo
 (Note the `x` here which turns it over the max. allowed length limit.)
 
 
+### [Issue 107](https://github.com/mity/md4c/issues/107)
+
+```````````````````````````````` example
+***foo *bar baz***
+.
+<p>*<strong>foo <em>bar baz</em></strong></p>
+
+````````````````````````````````
+
+
 ## Code coverage
 
 ### `md_is_unicode_whitespace__()`

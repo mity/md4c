@@ -60,6 +60,10 @@ Fixes:
    Fixed an off-by-one error in the maximal length limit of some segments
    of e-mail addresses used in autolinks.
 
+ * [#107](https://github.com/mity/md4c/issues/107):
+   Fix mis-detection of asterisk-encoded emphasis in some corner cases when
+   length of the opener and closer differs, as in `***foo *bar baz***`.
+
 
 ## Version 0.4.2
 

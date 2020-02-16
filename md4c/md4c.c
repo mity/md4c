@@ -3689,8 +3689,7 @@ md_analyze_emph(MD_CTX* ctx, int mark_index)
             int i, n_opener_chains;
             unsigned flags = mark->flags;
 
-            /* Apply "rule of three". (This is why we break asterisk opener
-             * marks into multiple chains.) */
+            /* Apply the "rule of three". */
             n_opener_chains = 0;
             opener_chains[n_opener_chains++] = &ASTERISK_OPENERS_intraword_mod3_0;
             if((flags & MD_MARK_EMPH_MOD3_MASK) != MD_MARK_EMPH_MOD3_2)
@@ -3726,7 +3725,7 @@ md_analyze_emph(MD_CTX* ctx, int mark_index)
         if(opener != NULL) {
             SZ opener_size = opener->end - opener->beg;
             SZ closer_size = mark->end - mark->beg;
-            MD_MARKCHAIN* opener_chain = md_mark_chain(ctx, mark_index);
+            MD_MARKCHAIN* opener_chain = md_mark_chain(ctx, opener_index);
 
             if(opener_size > closer_size) {
                 opener_index = md_split_emph_mark(ctx, opener_index, closer_size);
