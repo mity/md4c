@@ -37,5 +37,4 @@ _emph_ __strong__ ___strong emph___
 [ref] [ref][] [link](/url)
 ![ref] ![ref][] ![img](/url)
 <http://example.com> <doe@example.com>
-www.example.com doe@example.com
 \\ \* \. \` \
