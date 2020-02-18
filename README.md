@@ -276,6 +276,10 @@ Ports and bindings to other languages:
 
 Software using MD4C:
 
+* [QOwnNotes](https://www.qownnotes.org/):
+  A plain-text file notepad and todo-list manager with markdown support and
+  ownCloud / Nextcloud integration.
+
 * [Qt](https://www.qt.io/):
   Cross-platform C++ GUI framework.
 
