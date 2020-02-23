@@ -1,296 +1,205 @@
-/* cmdline.c: a reentrant version of getopt(). Written 2006 by Brian
- * Raiter. This code is in the public domain.
+/*
+ * C Reusables
+ * <http://github.com/mity/c-reusables>
+ *
+ * Copyright (c) 2017-2020 Martin Mitas
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
  */
 
-#include	<stdio.h>
-#include	<stdlib.h>
-#include	<string.h>
-#include	<ctype.h>
-#include	"cmdline.h"
+#include "cmdline.h"
 
-#define	docallback(opt, val) \
-	    do { if ((r = callback(opt, val, data)) != 0) return r; } while (0)
+#include <stdio.h>
+#include <string.h>
 
-/* Parse the given cmdline arguments.
- */
-int readoptions(option const* list, int argc, char **argv,
-		int (*callback)(int, char const*, void*), void *data)
+
+#ifdef _WIN32
+    #define snprintf    _snprintf
+#endif
+
+
+#define CMDLINE_AUXBUF_SIZE     32
+
+
+
+static int
+cmdline_handle_short_opt_group(const CMDLINE_OPTION* options, const char* arggroup,
+        int (*callback)(int /*optval*/, const char* /*arg*/, void* /*userdata*/),
+        void* userdata)
 {
-    char		argstring[] = "--";
-    option const       *opt;
-    char const	       *val;
-    char const	       *p;
-    int			stop = 0;
-    int			argi, len, r;
+    const CMDLINE_OPTION* opt;
+    int i;
+    int ret = 0;
 
-    if (!list || !callback)
-	return -1;
+    for(i = 0; arggroup[i] != '\0'; i++) {
+        for(opt = options; opt->id != 0; opt++) {
+            if(arggroup[i] == opt->shortname)
+                break;
+        }
 
-    for (argi = 1 ; argi < argc ; ++argi)
-    {
-	/* First, check for "--", which forces all remaining arguments
-	 * to be treated as non-options.
-	 */
-	if (!stop && argv[argi][0] == '-' && argv[argi][1] == '-'
-					  && argv[argi][2] == '\0') {
-	    stop = 1;
-	    continue;
-	}
+        if(opt->id != 0  &&  !(opt->flags & CMDLINE_OPTFLAG_REQUIREDARG)) {
+            ret = callback(opt->id, NULL, userdata);
+        } else {
+            /* Unknown option. */
+            char badoptname[3];
+            badoptname[0] = '-';
+            badoptname[1] = arggroup[i];
+            badoptname[2] = '\0';
+            ret = callback((opt->id != 0 ? CMDLINE_OPTID_MISSINGARG : CMDLINE_OPTID_UNKNOWN),
+                            badoptname, userdata);
+        }
 
-	/* Arguments that do not begin with '-' (or are only "-") are
-	 * not options.
-	 */
-	if (stop || argv[argi][0] != '-' || argv[argi][1] == '\0') {
-	    docallback(0, argv[argi]);
-	    continue;
-	}
-
-	if (argv[argi][1] == '-')
-	{
-	    /* Arguments that begin with a double-dash are long
-	     * options.
-	     */
-	    p = argv[argi] + 2;
-	    val = strchr(p, '=');
-	    if (val)
-		len = val++ - p;
-	    else
-		len = strlen(p);
-
-	    /* Is it on the list of valid options? If so, does it
-	     * expect a parameter?
-	     */
-	    for (opt = list ; opt->optval ; ++opt)
-		if (opt->name && !strncmp(p, opt->name, len)
-			      && !opt->name[len])
-		    break;
-	    if (!opt->optval) {
-		docallback('?', argv[argi]);
-	    } else if (!val && opt->arg == 1) {
-		docallback(':', argv[argi]);
-	    } else if (val && opt->arg == 0) {
-		docallback('=', argv[argi]);
-	    } else {
-		docallback(opt->optval, val);
-	    }
-	}
-	else
-	{
-	    /* Arguments that begin with a single dash contain one or
-	     * more short options. Each character in the argument is
-	     * examined in turn, unless a parameter consumes the rest
-	     * of the argument (or possibly even the following
-	     * argument).
-	     */
-	    for (p = argv[argi] + 1 ; *p ; ++p) {
-		for (opt = list ; opt->optval ; ++opt)
-		    if (opt->chname == *p)
-			break;
-		if (!opt->optval) {
-		    argstring[1] = *p;
-		    docallback('?', argstring);
-		    continue;
-		} else if (opt->arg == 0) {
-		    docallback(opt->optval, NULL);
-		    continue;
-		} else if (p[1]) {
-		    docallback(opt->optval, p + 1);
-		    break;
-		} else if (argi + 1 < argc && strcmp(argv[argi + 1], "--")) {
-		    ++argi;
-		    docallback(opt->optval, argv[argi]);
-		    break;
-		} else if (opt->arg == 2) {
-		    docallback(opt->optval, NULL);
-		    continue;
-		} else {
-		    argstring[1] = *p;
-		    docallback(':', argstring);
-		    break;
-		}
-	    }
-	}
+        if(ret != 0)
+            break;
     }
-    return 0;
+
+    return ret;
 }
 
-/* Verify that str points to an ASCII zero or one (optionally with
- * whitespace) and return the value present, or -1 if str's contents
- * are anything else.
- */
-static int readboolvalue(char const *str)
+int
+cmdline_read(const CMDLINE_OPTION* options, int argc, char** argv,
+        int (*callback)(int /*optval*/, const char* /*arg*/, void* /*userdata*/),
+        void* userdata)
 {
-    char	d;
+    const CMDLINE_OPTION* opt;
+    char auxbuf[CMDLINE_AUXBUF_SIZE+1];
+    int fast_optarg_decision = 1;
+    int after_doubledash = 0;
+    int i = 1;
+    int ret = 0;
 
-    while (isspace(*str))
-	++str;
-    if (!*str)
-	return -1;
-    d = *str++;
-    while (isspace(*str))
-	++str;
-    if (*str)
-	return -1;
-    if (d == '0')
-	return 0;
-    else if (d == '1')
-	return 1;
-    else
-	return -1;
+    auxbuf[CMDLINE_AUXBUF_SIZE] = '\0';
+
+    /* Check whether there is any CMDLINE_OPTFLAG_COMPILERLIKE option with
+     * a name not starting with '-'. That would imply we can to check for
+     * non-option arguments only after refusing all such options. */
+    for(opt = options; opt->id != 0; opt++) {
+        if((opt->flags & CMDLINE_OPTFLAG_COMPILERLIKE)  &&  opt->longname[0] != '-')
+            fast_optarg_decision = 0;
+    }
+
+    while(i < argc) {
+        if(after_doubledash  ||  strcmp(argv[i], "-") == 0) {
+            /* Non-option argument.
+             * Standalone "-" usually means "read from stdin" or "write to
+             * stdout" so treat it always as a non-option. */
+            ret = callback(CMDLINE_OPTID_NONE, argv[i], userdata);
+        } else if(strcmp(argv[i], "--") == 0) {
+            /* End of options. All the remaining tokens are non-options
+             * even if they start with a dash. */
+            after_doubledash = 1;
+        } else if(fast_optarg_decision  &&  argv[i][0] != '-') {
+            /* Non-option argument. */
+            ret = callback(CMDLINE_OPTID_NONE, argv[i], userdata);
+        } else {
+            for(opt = options; opt->id != 0; opt++) {
+                if(opt->flags & CMDLINE_OPTFLAG_COMPILERLIKE) {
+                    size_t len = strlen(opt->longname);
+                    if(strncmp(argv[i], opt->longname, len) == 0) {
+                        /* Compiler-like option. */
+                        if(argv[i][len] != '\0')
+                            ret = callback(opt->id, argv[i] + len, userdata);
+                        else if(i+1 < argc)
+                            ret = callback(opt->id, argv[++i], userdata);
+                        else
+                            ret = callback(CMDLINE_OPTID_MISSINGARG, opt->longname, userdata);
+                        break;
+                    }
+                } else if(opt->longname != NULL  &&  strncmp(argv[i], "--", 2) == 0) {
+                    size_t len = strlen(opt->longname);
+                    if(strncmp(argv[i]+2, opt->longname, len) == 0) {
+                        /* Regular long option. */
+                        if(argv[i][2+len] == '\0') {
+                            /* with no argument provided. */
+                            if(!(opt->flags & CMDLINE_OPTFLAG_REQUIREDARG))
+                                ret = callback(opt->id, NULL, userdata);
+                            else
+                                ret = callback(CMDLINE_OPTID_MISSINGARG, argv[i], userdata);
+                            break;
+                        } else if(argv[i][2+len] == '=') {
+                            /* with an argument provided. */
+                            if(opt->flags & (CMDLINE_OPTFLAG_OPTIONALARG | CMDLINE_OPTFLAG_REQUIREDARG)) {
+                                ret = callback(opt->id, argv[i]+2+len+1, userdata);
+                            } else {
+                                snprintf(auxbuf, CMDLINE_AUXBUF_SIZE, "--%s", opt->longname);
+                                ret = callback(CMDLINE_OPTID_BOGUSARG, auxbuf, userdata);
+                            }
+                            break;
+                        } else {
+                            continue;
+                        }
+                    }
+                } else if(opt->shortname != '\0'  &&  argv[i][0] == '-') {
+                    if(argv[i][1] == opt->shortname) {
+                        /* Regular short option. */
+                        if(opt->flags & CMDLINE_OPTFLAG_REQUIREDARG) {
+                            if(argv[i][2] != '\0')
+                                ret = callback(opt->id, argv[i]+2, userdata);
+                            else if(i+1 < argc)
+                                ret = callback(opt->id, argv[++i], userdata);
+                            else
+                                ret = callback(CMDLINE_OPTID_MISSINGARG, argv[i], userdata);
+                            break;
+                        } else {
+                            ret = callback(opt->id, NULL, userdata);
+
+                            /* There might be more (argument-less) short options
+                             * grouped together. */
+                            if(ret == 0  &&  argv[i][2] != '\0')
+                                ret = cmdline_handle_short_opt_group(options, argv[i]+2, callback, userdata);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if(opt->id == 0) {  /* still not handled? */
+                if(argv[i][0] != '-') {
+                    /* Non-option argument. */
+                    ret = callback(CMDLINE_OPTID_NONE, argv[i], userdata);
+                } else {
+                    /* Unknown option. */
+                    char* badoptname = argv[i];
+
+                    if(strncmp(badoptname, "--", 2) == 0) {
+                        /* Strip any argument from the long option. */
+                        char* assignment = strchr(badoptname, '=');
+                        if(assignment != NULL) {
+                            size_t len = assignment - badoptname;
+                            if(len > CMDLINE_AUXBUF_SIZE)
+                                len = CMDLINE_AUXBUF_SIZE;
+                            strncpy(auxbuf, badoptname, len);
+                            auxbuf[len] = '\0';
+                            badoptname = auxbuf;
+                        }
+                    }
+
+                    ret = callback(CMDLINE_OPTID_UNKNOWN, badoptname, userdata);
+                }
+            }
+        }
+
+        if(ret != 0)
+            return ret;
+        i++;
+    }
+
+    return ret;
 }
 
-/* Parse a configuration file.
- */
-int readcfgfile(option const* list, FILE *fp,
-		int (*callback)(int, char const*, void*), void *data)
-{
-    char		buf[1024];
-    option const       *opt;
-    char	       *name, *val, *p;
-    int			len, f, r;
-
-    while (fgets(buf, sizeof buf, fp) != NULL)
-    {
-	/* Strip off the trailing newline and any leading whitespace.
-	 * If the line begins with a hash sign, skip it entirely.
-	 */
-	len = strlen(buf);
-	if (len && buf[len - 1] == '\n')
-	    buf[--len] = '\0';
-	for (p = buf ; isspace(*p) ; ++p) ;
-	if (!*p || *p == '#')
-	    continue;
-
-	/* Find the end of the option's name and the beginning of the
-	 * parameter, if any.
-	 */
-	for (name = p ; *p && *p != '=' && !isspace(*p) ; ++p) ;
-	len = p - name;
-	for ( ; *p == '=' || isspace(*p) ; ++p) ;
-	val = p;
-
-	/* Is it on the list of valid options? Does it take a
-	 * full parameter, or just an optional boolean?
-	 */
-	for (opt = list ; opt->optval ; ++opt)
-	    if (opt->name && !strncmp(name, opt->name, len)
-			  && !opt->name[len])
-		    break;
-	if (!opt->optval) {
-	    docallback('?', name);
-	} else if (!*val && opt->arg == 1) {
-	    docallback(':', name);
-	} else if (*val && opt->arg == 0) {
-	    f = readboolvalue(val);
-	    if (f < 0)
-		docallback('=', name);
-	    else if (f == 1)
-		docallback(opt->optval, NULL);
-	} else {
-	    docallback(opt->optval, val);
-	}
-    }
-    return ferror(fp) ? -1 : 0;
-}
-
-/* Turn a string containing a cmdline into an argc-argv pair.
- */
-int makecmdline(char const *cmdline, int *argcp, char ***argvp)
-{
-    char      **argv;
-    int		argc;
-    char const *s;
-    int		n, quoted;
-
-    if (!cmdline)
-	return 0;
-
-    /* Calcuate argc by counting the number of "clumps" of non-spaces.
-     */
-    for (s = cmdline ; isspace(*s) ; ++s) ;
-    if (!*s) {
-	*argcp = 1;
-	if (argvp) {
-	    *argvp = malloc(2 * sizeof(char*));
-	    if (!*argvp)
-		return 0;
-	    (*argvp)[0] = NULL;
-	    (*argvp)[1] = NULL;
-	}
-	return 1;
-    }
-    for (argc = 2, quoted = 0 ; *s ; ++s) {
-	if (quoted == '"') {
-	    if (*s == '"')
-		quoted = 0;
-	    else if (*s == '\\' && s[1])
-		++s;
-	} else if (quoted == '\'') {
-	    if (*s == '\'')
-		quoted = 0;
-	} else {
-	    if (isspace(*s)) {
-		for ( ; isspace(s[1]) ; ++s) ;
-		if (!s[1])
-		    break;
-		++argc;
-	    } else if (*s == '"' || *s == '\'') {
-		quoted = *s;
-	    }
-	}
-    }
-
-    *argcp = argc;
-    if (!argvp)
-	return 1;
-
-    /* Allocate space for all the arguments and their pointers.
-     */
-    argv = malloc((argc + 1) * sizeof(char*) + strlen(cmdline) + 1);
-    *argvp = argv;
-    if (!argv)
-	return 0;
-    argv[0] = NULL;
-    argv[1] = (char*)(argv + argc + 1);
-
-    /* Copy the string into the allocated memory immediately after the
-     * argv array. Where spaces immediately follows a nonspace,
-     * replace it with a \0. Where a nonspace immediately follows
-     * spaces, store a pointer to it. (Except, of course, when the
-     * space-nonspace transitions occur within quotes.)
-     */
-    for (s = cmdline ; isspace(*s) ; ++s) ;
-    for (argc = 1, n = 0, quoted = 0 ; *s ; ++s) {
-	if (quoted == '"') {
-	    if (*s == '"') {
-		quoted = 0;
-	    } else {
-		if (*s == '\\' && s[1])
-		    ++s;
-		argv[argc][n++] = *s;
-	    }
-	} else if (quoted == '\'') {
-	    if (*s == '\'')
-		quoted = 0;
-	    else
-		argv[argc][n++] = *s;
-	} else {
-	    if (isspace(*s)) {
-		argv[argc][n] = '\0';
-		for ( ; isspace(s[1]) ; ++s) ;
-		if (!s[1])
-		    break;
-		argv[argc + 1] = argv[argc] + n + 1;
-		++argc;
-		n = 0;
-	    } else {
-		if (*s == '"' || *s == '\'')
-		    quoted = *s;
-		else
-		    argv[argc][n++] = *s;
-	    }
-	}
-    }
-    argv[argc + 1] = NULL;
-    return 1;
-}

@@ -2,7 +2,7 @@
  * MD4C: Markdown parser for C
  * (http://github.com/mity/md4c)
  *
- * Copyright (c) 2016-2017 Martin Mitas
+ * Copyright (c) 2016-2020 Martin Mitas
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -183,40 +183,36 @@ out:
 }
 
 
-#define OPTION_ARG_NONE         0
-#define OPTION_ARG_REQUIRED     1
-#define OPTION_ARG_OPTIONAL     2
+static const CMDLINE_OPTION cmdline_options[] = {
+    { 'o', "output",                        'o', CMDLINE_OPTFLAG_REQUIREDARG },
+    { 'f', "full-html",                     'f', 0 },
+    { 's', "stat",                          's', 0 },
+    { 'h', "help",                          'h', 0 },
+    { 'v', "version",                       'v', 0 },
 
-static const option cmdline_options[] = {
-    { "output",                     'o', 'o', OPTION_ARG_REQUIRED },
-    { "full-html",                  'f', 'f', OPTION_ARG_NONE },
-    { "stat",                       's', 's', OPTION_ARG_NONE },
-    { "help",                       'h', 'h', OPTION_ARG_NONE },
-    { "version",                    'v', 'v', OPTION_ARG_NONE },
+    {  0,  "commonmark",                    'c', 0 },
+    {  0,  "github",                        'g', 0 },
 
-    { "commonmark",                  0,  'c', OPTION_ARG_NONE },
-    { "github",                      0,  'g', OPTION_ARG_NONE },
+    {  0,  "fcollapse-whitespace",          'W', 0 },
+    {  0,  "flatex-math",                   'L', 0 },
+    {  0,  "fpermissive-atx-headers",       'A', 0 },
+    {  0,  "fpermissive-autolinks",         'V', 0 },
+    {  0,  "fpermissive-email-autolinks",   '@', 0 },
+    {  0,  "fpermissive-url-autolinks",     'U', 0 },
+    {  0,  "fpermissive-www-autolinks",     '.', 0 },
+    {  0,  "fstrikethrough",                'S', 0 },
+    {  0,  "ftables",                       'T', 0 },
+    {  0,  "ftasklists",                    'X', 0 },
+    {  0,  "funderline",                    '_', 0 },
+    {  0,  "fverbatim-entities",            'E', 0 },
+    {  0,  "fwiki-links",                   'K', 0 },
 
-    { "fcollapse-whitespace",        0,  'W', OPTION_ARG_NONE },
-    { "flatex-math",                 0,  'L', OPTION_ARG_NONE },
-    { "fpermissive-atx-headers",     0,  'A', OPTION_ARG_NONE },
-    { "fpermissive-autolinks",       0,  'V', OPTION_ARG_NONE },
-    { "fpermissive-email-autolinks", 0,  '@', OPTION_ARG_NONE },
-    { "fpermissive-url-autolinks",   0,  'U', OPTION_ARG_NONE },
-    { "fpermissive-www-autolinks",   0,  '.', OPTION_ARG_NONE },
-    { "fstrikethrough",              0,  'S', OPTION_ARG_NONE },
-    { "ftables",                     0,  'T', OPTION_ARG_NONE },
-    { "ftasklists",                  0,  'X', OPTION_ARG_NONE },
-    { "funderline",                  0,  '_', OPTION_ARG_NONE },
-    { "fverbatim-entities",          0,  'E', OPTION_ARG_NONE },
-    { "fwiki-links",                 0,  'K', OPTION_ARG_NONE },
+    {  0,  "fno-html-blocks",               'F', 0 },
+    {  0,  "fno-html-spans",                'G', 0 },
+    {  0,  "fno-html",                      'H', 0 },
+    {  0,  "fno-indented-code",             'I', 0 },
 
-    { "fno-html-blocks",             0,  'F', OPTION_ARG_NONE },
-    { "fno-html-spans",              0,  'G', OPTION_ARG_NONE },
-    { "fno-html",                    0,  'H', OPTION_ARG_NONE },
-    { "fno-indented-code",           0,  'I', OPTION_ARG_NONE },
-
-    { 0 }
+    {  0,  NULL,                             0,  0 }
 };
 
 static void
@@ -341,7 +337,7 @@ main(int argc, char** argv)
     FILE* out = stdout;
     int ret = 0;
 
-    if(readoptions(cmdline_options, argc, argv, cmdline_callback, NULL) < 0) {
+    if(cmdline_read(cmdline_options, argc, argv, cmdline_callback, NULL) != 0) {
         usage();
         exit(1);
     }
