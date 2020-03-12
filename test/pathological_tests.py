@@ -21,6 +21,12 @@ cmark = CMark(prog=args.program, library_dir=args.library_dir)
 # list of pairs consisting of input and a regex that must match the output.
 pathological = {
     # note - some pythons have limit of 65535 for {num-matches} in re.
+    "U+0000":
+                 ("abc\u0000de\u0000",
+                  re.compile("abc\ufffd?de\ufffd?")),
+    "U+FEFF (Unicode BOM)":
+                 ("\ufefffoo",
+                  re.compile("<p>foo</p>")),
     "nested strong emph":
                 (("*a **a " * 65000) + "b" + (" a** a*" * 65000),
                  re.compile("(<em>a <strong>a ){65000}b( a</strong> a</em>){65000}")),
@@ -57,9 +63,6 @@ pathological = {
     "nested block quotes":
                  ((("> " * 50000) + "a"),
                   re.compile("(<blockquote>\r?\n){50000}")),
-    "U+0000 in input":
-                 ("abc\u0000de\u0000",
-                  re.compile("abc\ufffd?de\ufffd?")),
     "backticks":
                  ("".join(map(lambda x: ("e" + "`" * x), range(1,1000))),
                   re.compile("^<p>[e`]*</p>\r?\n$")),

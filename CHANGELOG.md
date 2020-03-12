@@ -2,6 +2,18 @@
 # MD4C Change Log
 
 
+## Next Version (Work in Progress)
+
+New features:
+
+ * With `MD_RENDER_FLAG_SKIP_UTF8_BOM`, the HTML renderer now skips UTF-8 byte
+   order mark (BOM) if the input begins with it, before passing to the Markdown
+   parser.
+
+   `md2html` utility automatically enables the flag (unless it is custom-built
+   with `-DMD4C_USE_ASCII`).
+
+
 ## Version 0.4.3
 
 New features:

@@ -556,6 +556,15 @@ md_render_html(const MD_CHAR* input, MD_SIZE input_size,
             render.escape_map[i] |= NEED_URL_ESC_FLAG;
     }
 
+    /* Consider skipping UTF-8 byte order mark (BOM). */
+    if(renderer_flags & MD_RENDER_FLAG_SKIP_UTF8_BOM  &&  sizeof(MD_CHAR) == 1) {
+        static const MD_CHAR bom[3] = { 0xef, 0xbb, 0xbf };
+        if(input_size >= sizeof(bom)  &&  memcmp(input, bom, sizeof(bom)) == 0) {
+            input += sizeof(bom);
+            input_size -= sizeof(bom);
+        }
+    }
+
     return md_parse(input, input_size, &parser, (void*) &render);
 }
 
