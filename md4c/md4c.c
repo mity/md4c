@@ -2083,8 +2083,8 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
     OFF off;
     int line_index = 0;
     int tmp_line_index;
-    MD_REF_DEF* def;
-    int ret;
+    MD_REF_DEF* def = NULL;
+    int ret = 0;
 
     /* Link label. */
     if(!md_is_link_label(ctx, lines, n_lines, lines[0].beg,
@@ -2182,9 +2182,9 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 
 abort:
     /* Failure. */
-    if(label_is_multiline)
+    if(def != NULL  &&  def->label_needs_free)
         free(def->label);
-    if(title_is_multiline)
+    if(def != NULL  &&  def->title_needs_free)
         free(def->title);
     return ret;
 }
