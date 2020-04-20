@@ -36,9 +36,9 @@
 /* Global options. */
 static unsigned parser_flags = 0;
 #ifndef MD4C_USE_ASCII
-    static unsigned renderer_flags = MD_RENDER_FLAG_DEBUG | MD_RENDER_FLAG_SKIP_UTF8_BOM;
+    static unsigned renderer_flags = MD_HTML_FLAG_DEBUG | MD_HTML_FLAG_SKIP_UTF8_BOM;
 #else
-    static unsigned renderer_flags = MD_RENDER_FLAG_DEBUG;
+    static unsigned renderer_flags = MD_HTML_FLAG_DEBUG;
 #endif
 static int want_fullhtml = 0;
 static int want_stat = 0;

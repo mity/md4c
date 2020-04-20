@@ -557,7 +557,7 @@ md_html(const MD_CHAR* input, MD_SIZE input_size,
     }
 
     /* Consider skipping UTF-8 byte order mark (BOM). */
-    if(renderer_flags & MD_RENDER_FLAG_SKIP_UTF8_BOM  &&  sizeof(MD_CHAR) == 1) {
+    if(renderer_flags & MD_HTML_FLAG_SKIP_UTF8_BOM  &&  sizeof(MD_CHAR) == 1) {
         static const MD_CHAR bom[3] = { 0xef, 0xbb, 0xbf };
         if(input_size >= sizeof(bom)  &&  memcmp(input, bom, sizeof(bom)) == 0) {
             input += sizeof(bom);
