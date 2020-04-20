@@ -56,4 +56,4 @@ endif()
 include(GNUInstallDirs)
 
 add_subdirectory(src)
-
+add_subdirectory(md2html)

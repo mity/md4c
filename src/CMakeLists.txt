@@ -27,12 +27,6 @@ set_target_properties(md4c-html PROPERTIES
 target_link_libraries(md4c-html md4c)
 
 
-# Build rules for md2html command line utility
-
-add_executable(md2html cmdline.c cmdline.h md2html.c)
-target_link_libraries(md2html md4c-html)
-
-
 # Install rules
 
 install(
@@ -56,13 +50,4 @@ install(
 )
 install(FILES ${CMAKE_BINARY_DIR}/src/md4c-html.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
 install(EXPORT md4cHtmlConfig DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/md4c-html/)
-
-install(
-    TARGETS md2html
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
-install(FILES "md2html.1" DESTINATION "${CMAKE_INSTALL_MANDIR}/man1")
 
