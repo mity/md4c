@@ -59,9 +59,12 @@ MD4C is C Markdown parser with the following features:
 
 ## Using MD4C
 
-Application has to include the header `md4c.h` and link against MD4C library;
-or alternatively it may include `md4c.h` and `md4c.c` directly into its source
-base as the parser is only implemented in the single C source file.
+### Parsing Markdown
+
+If you need just to parse a Markdown document, you need to include `md4c.h`
+and link against MD4C library (`-lmd4c`); or alternatively add `md4c.[hc]`
+directly to your code base as the parser is only implemented in the single C
+source file.
 
 The main provided function is `md_parse()`. It takes a text in the Markdown
 syntax and a pointer to a structure which provides pointers to several callback
@@ -72,8 +75,19 @@ leaving any Markdown block or span; and when outputting any textual content of
 the document), allowing application to convert it into another format or render
 it onto the screen.
 
-An example implementation of simple renderer is available in the `md2html`
-directory which implements a conversion utility from Markdown to HTML.
+
+### Converting to HTML
+
+If you need to convert Markdown to HTML, include `md4c-html.h` and link against
+MD4C-HTML library (`-lmd4c-html`); or alternatively add the sources `md4c.[hc]`,
+`md4c-html.[hc]` and `entity.[hc]` into your code base.
+
+To convert a Markdown input, call `md_html()` function. It takes the Markdown
+input and calls the provided callback function which is repeatedly called with
+chunks of the converted HTML counterpart of the HTML input.
+
+Typical callback implementations appends the chunks in some buffer or writes
+them to a file.
 
 
 ## Markdown Extensions
@@ -194,18 +208,6 @@ details may be little-bit outdated.
 
 
 ## FAQ
-
-**Q: In my code, I need to convert Markdown to HTML. How?**
-
-**A:** Indeed the API, as provided by `md4c.h`, is just a SAX-like Markdown
-parser. Nothing more and nothing less.
-
-That said, there is a complete HTML generator built on top of the parser in the
-directory `md2html` (the files `render_html.[hc]` and `entity.[hc]`). At this
-time, you have to directly reuse that code in your project.
-
-There is [some discussion](https://github.com/mity/md4c/issues/82) whether this
-should be changed (and how) in the future.
 
 **Q: How does MD4C compare to a parser XY?**
 

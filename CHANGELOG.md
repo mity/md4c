@@ -6,6 +6,10 @@
 
 New features:
 
+ * The HTML renderer, developed originally as the heart of the `md2html`
+   utility, is now built as a standalone library, in order to simplify its
+   reuse in applications.
+
  * With `MD_RENDER_FLAG_SKIP_UTF8_BOM`, the HTML renderer now skips UTF-8 byte
    order mark (BOM) if the input begins with it, before passing to the Markdown
    parser.

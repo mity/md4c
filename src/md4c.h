@@ -23,8 +23,8 @@
  * IN THE SOFTWARE.
  */
 
-#ifndef MD4C_MARKDOWN_H
-#define MD4C_MARKDOWN_H
+#ifndef MD4C_H
+#define MD4C_H
 
 #ifdef __cplusplus
     extern "C" {
@@ -385,4 +385,4 @@ int md_parse(const MD_CHAR* text, MD_SIZE size, const MD_PARSER* parser, void* u
     }  /* extern "C" { */
 #endif
 
-#endif  /* MD4C_MARKDOWN_H */
+#endif  /* MD4C_H */
