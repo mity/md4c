@@ -276,6 +276,9 @@ Ports and bindings to other languages:
 * [markdown-wasm](https://github.com/rsms/markdown-wasm):
   Markdown parser and HTML generator for WebAssembly, based on MD4C.
 
+* [PyMD4C](https://github.com/dominickpastore/pymd4c):
+  Python bindings for MD4C
+
 Software using MD4C:
 
 * [QOwnNotes](https://www.qownnotes.org/):
