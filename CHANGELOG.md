@@ -17,6 +17,15 @@ New features:
    `md2html` utility automatically enables the flag (unless it is custom-built
    with `-DMD4C_USE_ASCII`).
 
+ * With `MD_RENDER_FLAG_XHTML`, The HTML renderer generates XHTML instead of
+   HTML.
+
+   This effectively means `<br />` instead of `<br>` and similarly `<hr />`
+   instead of `<hr>`.
+
+ * `md2html` utility now understands the flag `-x` or `--xhtml` to enable
+   the XHTML mode.
+
 
 ## Version 0.4.3
 

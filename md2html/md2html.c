@@ -41,6 +41,7 @@ static unsigned parser_flags = 0;
     static unsigned renderer_flags = MD_HTML_FLAG_DEBUG;
 #endif
 static int want_fullhtml = 0;
+static int want_xhtml = 0;
 static int want_stat = 0;
 
 
@@ -154,7 +155,7 @@ process_file(FILE* in, FILE* out)
         fprintf(out, "<html>\n");
         fprintf(out, "<head>\n");
         fprintf(out, "<title></title>\n");
-        fprintf(out, "<meta name=\"generator\" content=\"md2html\">\n");
+        fprintf(out, "<meta name=\"generator\" content=\"md2html\"%s>\n", want_xhtml ? " /" : "");
         fprintf(out, "</head>\n");
         fprintf(out, "<body>\n");
     }
@@ -190,6 +191,7 @@ out:
 static const CMDLINE_OPTION cmdline_options[] = {
     { 'o', "output",                        'o', CMDLINE_OPTFLAG_REQUIREDARG },
     { 'f', "full-html",                     'f', 0 },
+    { 'x', "xhtml",                         'x', 0 },
     { 's', "stat",                          's', 0 },
     { 'h', "help",                          'h', 0 },
     { 'v', "version",                       'v', 0 },
@@ -229,6 +231,7 @@ usage(void)
         "General options:\n"
         "  -o  --output=FILE    Output file (default is standard output)\n"
         "  -f, --full-html      Generate full HTML document, including header\n"
+        "  -x, --xhtml          Generate XHTML instead of HTML\n"
         "  -s, --stat           Measure time of input parsing\n"
         "  -h, --help           Display this help and exit\n"
         "  -v, --version        Display version and exit\n"
@@ -299,6 +302,7 @@ cmdline_callback(int opt, char const* value, void* data)
 
         case 'o':   output_path = value; break;
         case 'f':   want_fullhtml = 1; break;
+        case 'x':   want_xhtml = 1; renderer_flags |= MD_HTML_FLAG_XHTML; break;
         case 's':   want_stat = 1; break;
         case 'h':   usage(); exit(0); break;
         case 'v':   version(); exit(0); break;
