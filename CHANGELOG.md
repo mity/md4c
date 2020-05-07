@@ -4,6 +4,10 @@
 
 ## Next Version (Work in Progress)
 
+Changes:
+
+ * Make Unicode-specific code compliant to Unicode 13.0.
+
 New features:
 
  * The HTML renderer, developed originally as the heart of the `md2html`
