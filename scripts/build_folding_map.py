@@ -97,12 +97,12 @@ for mapping_len in range(1, 4):
             records.append("R(0x{:04x},0x{:04x})".format(codepoint_list[index0], codepoint_list[index1-1]))
             data_records.append(mapping_str(data_records, folding[codepoint_list[index0]]))
             data_records.append(mapping_str(data_records, folding[codepoint_list[index1-1]]))
+            index0 = index1
         else:
             # Single codepoint
             records.append("S(0x{:04x})".format(codepoint_list[index0]))
             data_records.append(mapping_str(data_records, folding[codepoint_list[index0]]))
-
-        index0 = index1
+            index0 += 1
 
     sys.stdout.write("static const unsigned FOLD_MAP_{}[] = {{\n".format(mapping_len))
     sys.stdout.write("\n".join(textwrap.wrap(", ".join(records), 110,
