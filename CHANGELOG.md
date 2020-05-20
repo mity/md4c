@@ -30,6 +30,17 @@ New features:
  * `md2html` utility now understands the flag `-x` or `--xhtml` to enable
    the XHTML mode.
 
+Fixes:
+
+ * [#113](https://github.com/mity/md4c/issues/113):
+   Add missing folding info data for the following Unicode characters:
+   `U+0184`, `U+018a`, `U+01b2`, `U+01b5`, `U+01f4`, `U+0372`, `U+038f`,
+   `U+1c84`, `U+1fb9`, `U+1fbb`, `U+1fd9`, `U+1fdb`, `U+1fe9`, `U+1feb`,
+   `U+1ff9`, `U+1ffb`, `U+2c7f`, `U+2ced`, `U+a77b`, `U+a792`, `U+a7c9`.
+
+   Due the bug, the link definition label matching did not work in the case
+   insensitive way for these characters.
+
 
 ## Version 0.4.3
 
