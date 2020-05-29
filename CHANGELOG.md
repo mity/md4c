@@ -27,8 +27,8 @@ New features:
    This effectively means `<br />` instead of `<br>`, `<hr />` instead of
    `<hr>`, and `<img ... />` instead of `<img ...>`.
 
- * `md2html` utility now understands the flag `-x` or `--xhtml` to enable
-   the XHTML mode.
+   `md2html` utility now understands the command line option `-x` or `--xhtml`
+   enabling the XHTML mode.
 
 Fixes:
 
