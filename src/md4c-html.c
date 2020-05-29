@@ -356,7 +356,7 @@ render_close_img_span(MD_HTML* r, const MD_SPAN_IMG_DETAIL* det)
         render_attribute(r, &det->title, render_html_escaped);
     }
 
-    RENDER_VERBATIM(r, "\">");
+    RENDER_VERBATIM(r, (r->flags & MD_HTML_FLAG_XHTML) ? "\" />" : "\">");
 
     r->image_nesting_level--;
 }
