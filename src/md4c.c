@@ -887,7 +887,7 @@ struct MD_UNICODE_FOLD_INFO_tag {
  * what the caller should allocate.)
  */
 static void
-md_merge_lines(MD_CTX* ctx, OFF beg, OFF end, const MD_LINE* lines, int n_lines,
+md_merge_lines(MD_CTX* ctx, OFF beg, OFF end, const MD_LINE* lines, int /*n_lines*/,
                CHAR line_break_replacement_char, CHAR* buffer, SZ* p_size)
 {
     CHAR* ptr = buffer;
@@ -1232,7 +1232,7 @@ md_is_html_any(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF max_
  ****************************/
 
 static int
-md_is_hex_entity_contents(MD_CTX* ctx, const CHAR* text, OFF beg, OFF max_end, OFF* p_end)
+md_is_hex_entity_contents(MD_CTX* /*ctx*/, const CHAR* text, OFF beg, OFF max_end, OFF* p_end)
 {
     OFF off = beg;
 
@@ -1248,7 +1248,7 @@ md_is_hex_entity_contents(MD_CTX* ctx, const CHAR* text, OFF beg, OFF max_end, O
 }
 
 static int
-md_is_dec_entity_contents(MD_CTX* ctx, const CHAR* text, OFF beg, OFF max_end, OFF* p_end)
+md_is_dec_entity_contents(MD_CTX* /*ctx*/, const CHAR* text, OFF beg, OFF max_end, OFF* p_end)
 {
     OFF off = beg;
 
@@ -1264,7 +1264,7 @@ md_is_dec_entity_contents(MD_CTX* ctx, const CHAR* text, OFF beg, OFF max_end, O
 }
 
 static int
-md_is_named_entity_contents(MD_CTX* ctx, const CHAR* text, OFF beg, OFF max_end, OFF* p_end)
+md_is_named_entity_contents(MD_CTX* /*ctx*/, const CHAR* text, OFF beg, OFF max_end, OFF* p_end)
 {
     OFF off = beg;
 
@@ -1370,7 +1370,7 @@ md_build_attr_append_substr(MD_CTX* ctx, MD_ATTRIBUTE_BUILD* build,
 }
 
 static void
-md_free_attribute(MD_CTX* ctx, MD_ATTRIBUTE_BUILD* build)
+md_free_attribute(MD_CTX* /*ctx*/, MD_ATTRIBUTE_BUILD* build)
 {
     if(build->substr_alloc > 0) {
         free(build->text);
@@ -3914,7 +3914,7 @@ md_analyze_permissive_email_autolink(MD_CTX* ctx, int mark_index)
 }
 
 static inline void
-md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
+md_analyze_marks(MD_CTX* ctx, const MD_LINE* /*lines*/, int /*n_lines*/,
                  int mark_beg, int mark_end, const CHAR* mark_chars)
 {
     int i = mark_beg;
