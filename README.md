@@ -33,11 +33,11 @@ MD4C is C Markdown parser with the following features:
 * **Extensions:** MD4C supports some commonly requested and accepted extensions.
   See below.
 
-* **Compactness:** MD4C is implemented in one source file and one header file.
-  There are no dependencies other then standard C library.
+* **Compactness:** MD4C parser is implemented in one source file and one header
+  file. There are no dependencies other then standard C library.
 
-* **Embedding:** MD4C is easy to reuse in other projects, its API is very
-  straightforward: There is actually just one function, `md_parse()`.
+* **Embedding:** MD4C parser is easy to reuse in other projects, its API is
+  very straightforward: There is actually just one function, `md_parse()`.
 
 * **Push model:** MD4C parses the complete document and calls few callback
   functions provided by the application to inform it about a start/end of
@@ -86,7 +86,7 @@ To convert a Markdown input, call `md_html()` function. It takes the Markdown
 input and calls the provided callback function which is repeatedly called with
 chunks of the converted HTML counterpart of the HTML input.
 
-Typical callback implementations appends the chunks in some buffer or writes
+Typical callback implementation just appends the chunks into a buffer or writes
 them to a file.
 
 
@@ -200,7 +200,8 @@ MD4C has to understand Unicode are handled as specified by the following rules:
 
 ## Documentation
 
-The API is quite well documented in the comments in the `md4c.h` header.
+The API of the parser is quite well documented in the comments in the `md4c.h`
+(parser). The markdown-to-html API is described in its header `md4c-html.h`.
 
 There is also [project wiki](http://github.com/mity/md4c/wiki) which provides
 some more comprehensive documentation. However note it is incomplete and some
