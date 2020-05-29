@@ -24,8 +24,8 @@ New features:
  * With `MD_HTML_FLAG_XHTML`, The HTML renderer generates XHTML instead of
    HTML.
 
-   This effectively means `<br />` instead of `<br>` and similarly `<hr />`
-   instead of `<hr>`.
+   This effectively means `<br />` instead of `<br>`, `<hr />` instead of
+   `<hr>`, and `<img ... />` instead of `<img ...>`.
 
  * `md2html` utility now understands the flag `-x` or `--xhtml` to enable
    the XHTML mode.
