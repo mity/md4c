@@ -207,7 +207,7 @@ render_entity(MD_HTML* r, const MD_CHAR* text, MD_SIZE size,
               void (*fn_append)(MD_HTML*, const MD_CHAR*, MD_SIZE))
 {
     if(r->flags & MD_HTML_FLAG_VERBATIM_ENTITIES) {
-        fn_append(r, text, size);
+        render_verbatim(r, text, size);
         return;
     }
 

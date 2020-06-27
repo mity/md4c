@@ -2,6 +2,15 @@
 # MD4C Change Log
 
 
+## Next Version (Work in Progress)
+
+Fixes:
+
+ * [#118](https://github.com/mity/md4c/issues/118):
+   Fix HTML renderer's `MD_HTML_FLAG_VERBATIM_ENTITIES` flag, exposed in the
+   `md2html` utility via `--fverbatim-entities`.
+
+
 ## Version 0.4.4
 
 Changes:
