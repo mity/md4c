@@ -200,8 +200,8 @@ MD4C has to understand Unicode are handled as specified by the following rules:
 
 ## Documentation
 
-The API of the parser is quite well documented in the comments in the `md4c.h`
-(parser). The markdown-to-html API is described in its header `md4c-html.h`.
+The API of the parser is quite well documented in the comments in the `md4c.h`.
+The markdown-to-html API is described in its header `md4c-html.h`.
 
 There is also [project wiki](http://github.com/mity/md4c/wiki) which provides
 some more comprehensive documentation. However note it is incomplete and some
@@ -252,14 +252,8 @@ MD4C takes this a step further. It sees any sequence of bytes as a valid input,
 following completely the GIGO philosophy (garbage in, garbage out).
 
 If you need to validate that the input is, say, a valid UTF-8 document, you
-have to do it on your own. You can simply validate the whole Markdown document
-before passing it to the MD4C parser.
-
-Alternatively, you may perform the validation on the fly during the parsing,
-in the `MD_PARSER::text()` callback. (Given how MD4C works internally, it will
-never break a sequence of bytes into multiple calls of `MD_PARSER::text()`,
-unless that sequence is already broken to multiple pieces in the input by some
-whitespace, new line character(s) and/or any Markdown syntax construction.)
+have to do it on your own. The easiest way how to do this is to simply validate
+the whole Markdown document before passing it to the MD4C parser.
 
 
 ## License
