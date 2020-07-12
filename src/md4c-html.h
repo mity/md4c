@@ -43,7 +43,7 @@
 /* Render Markdown into HTML.
  *
  * Note only contents of <body> tag is generated. Caller must generate
- * HTML header/footer manually before/after calling md_render_html().
+ * HTML header/footer manually before/after calling md_html().
  *
  * Params input and input_size specify the Markdown input.
  * Callback process_output() gets called with chunks of HTML output.
