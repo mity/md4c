@@ -242,18 +242,23 @@ as a bug.)
 
 **A:** No.
 
-CommonMark specification declares that any sequence of (Unicode) characters is
-a valid Markdown document; i.e. that it does not matter whether some Markdown
-syntax is in some way broken or not. If it is broken, it will simply not be
-recognized and the parser should see the broken syntax construction just as a
-verbatim text.
+CommonMark specification states that any sequence of Unicode characters is
+a valid Markdown document. (In practice, this more or less always means UTF-8
+encoding is assumed.)
 
-MD4C takes this a step further. It sees any sequence of bytes as a valid input,
-following completely the GIGO philosophy (garbage in, garbage out).
+In other words, according to the specification, it does not matter whether some
+Markdown syntax construction is in some way broken or not. If it is broken, it
+will simply not be recognized and the parser should see it just as a verbatim
+text.
 
-If you need to validate that the input is, say, a valid UTF-8 document, you
-have to do it on your own. The easiest way how to do this is to simply validate
-the whole Markdown document before passing it to the MD4C parser.
+MD4C takes this a step further: It sees any sequence of bytes as a valid input,
+following completely the GIGO philosophy (garbage in, garbage out). I.e. any
+ill-formed UTF-8 byte sequence will propagate to the respective callback as
+a part of the text.
+
+If you need to validate that the input is, say, a well-formed UTF-8 document,
+you have to do it on your own. The easiest way how to do this is to simply
+validate the whole Markdown document before passing it to the MD4C parser.
 
 
 ## License
