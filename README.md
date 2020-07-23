@@ -83,11 +83,9 @@ MD4C-HTML library (`-lmd4c-html`); or alternatively add the sources `md4c.[hc]`,
 `md4c-html.[hc]` and `entity.[hc]` into your code base.
 
 To convert a Markdown input, call `md_html()` function. It takes the Markdown
-input and calls the provided callback function which is repeatedly called with
-chunks of the converted HTML counterpart of the HTML input.
-
-Typical callback implementation just appends the chunks into a buffer or writes
-them to a file.
+input and calls the provided callback function. The callback is fed with
+chunks of the HTML output. Typical callback implementation just appends the
+chunks into a buffer or writes them to a file.
 
 
 ## Markdown Extensions
