@@ -119,7 +119,7 @@ typedef enum MD_SPANTYPE {
      * Detail: Structure MD_SPAN_IMG_DETAIL.
      * Note: Image text can contain nested spans and even nested images.
      * If rendered into ALT attribute of HTML <IMG> tag, it's responsibility
-     * of the renderer to deal with it.
+     * of the parser to deal with it.
      */
     MD_SPAN_IMG,
 
@@ -171,7 +171,7 @@ typedef enum MD_TEXTTYPE {
      * (c) Hexadecimal entity, e.g. &#x12AB;
      *
      * As MD4C is mostly encoding agnostic, application gets the verbatim
-     * entity text into the MD_RENDERER::text_callback(). */
+     * entity text into the MD_PARSER::text_callback(). */
     MD_TEXT_ENTITY,
 
     /* Text in a code block (inside MD_BLOCK_CODE) or inlined code (`code`).
@@ -284,7 +284,7 @@ typedef struct MD_SPAN_WIKILINK {
 
 /* Flags specifying extensions/deviations from CommonMark specification.
  *
- * By default (when MD_RENDERER::flags == 0), we follow CommonMark specification.
+ * By default (when MD_PARSER::flags == 0), we follow CommonMark specification.
  * The following flags may allow some extensions or deviations from it.
  */
 #define MD_FLAG_COLLAPSEWHITESPACE          0x0001  /* In MD_TEXT_NORMAL, collapse non-trivial whitespace into single ' ' */
@@ -317,7 +317,7 @@ typedef struct MD_SPAN_WIKILINK {
 #define MD_DIALECT_COMMONMARK               0
 #define MD_DIALECT_GITHUB                   (MD_FLAG_PERMISSIVEAUTOLINKS | MD_FLAG_TABLES | MD_FLAG_STRIKETHROUGH | MD_FLAG_TASKLISTS)
 
-/* Renderer structure.
+/* Parser structure.
  */
 typedef struct MD_PARSER {
     /* Reserved. Set to zero.
@@ -370,7 +370,7 @@ typedef MD_PARSER MD_RENDERER;
 
 
 /* Parse the Markdown document stored in the string 'text' of size 'size'.
- * The renderer provides callbacks to be called during the parsing so the
+ * The parser provides callbacks to be called during the parsing so the
  * caller can render the document on the screen or convert the Markdown
  * to another format.
  *
