@@ -34,7 +34,7 @@ MD4C is C Markdown parser with the following features:
   See below.
 
 * **Compactness:** MD4C parser is implemented in one source file and one header
-  file. There are no dependencies other then standard C library.
+  file. There are no dependencies other than standard C library.
 
 * **Embedding:** MD4C parser is easy to reuse in other projects, its API is
   very straightforward: There is actually just one function, `md_parse()`.
