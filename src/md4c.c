@@ -2725,7 +2725,7 @@ md_build_mark_char_map(MD_CTX* ctx)
     }
 }
 
-/* We limit code span marks to lower then 32 backticks. This solves the
+/* We limit code span marks to lower than 32 backticks. This solves the
  * pathologic case of too many openers, each of different length: Their
  * resolving would be then O(n^2). */
 #define CODESPAN_MARK_MAXLEN    32
@@ -3444,7 +3444,7 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 
             is_link = TRUE;
 
-            /* We don't allow destination to be longer then 100 characters.
+            /* We don't allow destination to be longer than 100 characters.
              * Lets scan to see whether there is '|'. (If not then the whole
              * wiki-link has to be below the 100 characters.) */
             delim_index = opener_index + 1;
@@ -5808,7 +5808,7 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
     #if 1
             /* This is 2nd half of the hack. If the flag is set (that is there
              * were 2nd blank line at the start of the list item) and we would also
-             * belonging to such list item, then interrupt the list. */
+             * belonging to such list item, than interrupt the list. */
             ctx->last_line_has_list_loosening_effect = FALSE;
             if(ctx->last_list_item_starts_with_two_blank_lines) {
                 if(n_parents > 0  &&  ctx->containers[n_parents-1].ch != _T('>')  &&

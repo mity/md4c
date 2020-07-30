@@ -2,7 +2,7 @@
 # Underline
 
 With the flag `MD_FLAG_UNDERLINE`, MD4C sees underscore `_` rather as a mark
-denoting an underlined span rather then an ordinary emphasis (or a strong
+denoting an underlined span rather than an ordinary emphasis (or a strong
 emphasis).
 
 ```````````````````````````````` example

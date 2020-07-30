@@ -58,7 +58,7 @@ Fixes:
 New features:
 
  * With `MD_FLAG_UNDERLINE`, spans enclosed in underscore (`_foo_`) are seen
-   as underline (`MD_SPAN_UNDERLINE`) rather then an ordinary emphasis or
+   as underline (`MD_SPAN_UNDERLINE`) rather than an ordinary emphasis or
    strong emphasis.
 
 Changes:
@@ -159,7 +159,7 @@ Changes:
 Fixes:
 
  * [#94](https://github.com/mity/md4c/issues/94):
-   `md_build_ref_def_hashtable()`: Do not allocate more memory then strictly
+   `md_build_ref_def_hashtable()`: Do not allocate more memory than strictly
    needed.
 
  * [#95](https://github.com/mity/md4c/issues/95):

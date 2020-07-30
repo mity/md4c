@@ -115,7 +115,7 @@ bar
 baz</x-wikilink></p>
 ````````````````````````````````
 
-Wiki-links have higher priority then links.
+Wiki-links have higher priority than links.
 
 ```````````````````````````````` example
 [[foo]](foo.jpg)
