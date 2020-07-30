@@ -266,6 +266,24 @@ foo
 ````````````````````````````````
 
 
+### [Issue 124](https://github.com/mity/md4c/issues/124)
+
+```````````````````````````````` example
+~~~
+                x
+~~~
+
+~~~
+                 x
+~~~
+.
+<pre><code>                x
+</code></pre>
+<pre><code>                 x
+</code></pre>
+````````````````````````````````
+
+
 ## Code coverage
 
 ### `md_is_unicode_whitespace__()`

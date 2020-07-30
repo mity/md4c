@@ -4579,9 +4579,9 @@ md_process_verbatim_block_contents(MD_CTX* ctx, MD_TEXTTYPE text_type, const MD_
         MD_ASSERT(indent >= 0);
 
         /* Output code indentation. */
-        while(indent > (int) SIZEOF_ARRAY(indent_chunk_str)) {
+        while(indent > (int) indent_chunk_size) {
             MD_TEXT(text_type, indent_chunk_str, indent_chunk_size);
-            indent -= SIZEOF_ARRAY(indent_chunk_str);
+            indent -= indent_chunk_size;
         }
         if(indent > 0)
             MD_TEXT(text_type, indent_chunk_str, indent);

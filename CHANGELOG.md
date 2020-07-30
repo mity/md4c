@@ -10,6 +10,8 @@ Fixes:
    Fix HTML renderer's `MD_HTML_FLAG_VERBATIM_ENTITIES` flag, exposed in the
    `md2html` utility via `--fverbatim-entities`.
 
+ * [#124](https://github.com/mity/md4c/issues/124):
+   Fix handling of indentation of 16 or more spaces in the fenced code blocks.
 
 ## Version 0.4.4
 
