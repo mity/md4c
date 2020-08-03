@@ -24,14 +24,16 @@ The following resources can explain more if you are unfamiliar with it:
 
 ## What is MD4C
 
-MD4C is C Markdown parser with the following features:
+MD4C is Markdown parser implementation in C, with the following features:
 
-* **Compliance:** Generally MD4C aims to be compliant to the latest version of
+* **Compliance:** Generally, MD4C aims to be compliant to the latest version of
   [CommonMark specification](http://spec.commonmark.org/). Currently, we are
   fully compliant to CommonMark 0.29.
 
 * **Extensions:** MD4C supports some commonly requested and accepted extensions.
   See below.
+
+* **Performance:** MD4C is [very fast](https://talk.commonmark.org/t/2520).
 
 * **Compactness:** MD4C parser is implemented in one source file and one header
   file. There are no dependencies other than standard C library.
@@ -48,13 +50,12 @@ MD4C is C Markdown parser with the following features:
   long as the platform provides C standard library, including a heap memory
   management.)
 
-* **Encoding:** MD4C can be compiled to recognize ASCII-only control characters,
-  UTF-8 and, on Windows, also UTF-16 (i.e. what is on Windows commonly called
-  just "Unicode"). See more details below.
+* **Encoding:** MD4C by default expects UTF-8 encoding of the input document.
+  But it can be compiled to recognize ASCII-only control characters (i.e. to
+  disable all Unicode-specific code), or (on Windows) to expect UTF-16 (i.e.
+  what is on Windows commonly called just "Unicode"). See more details below.
 
-* **Permissive license:** MD4C is available under the MIT license.
-
-* **Performance:** MD4C is [very fast](https://talk.commonmark.org/t/2520).
+* **Permissive license:** MD4C is available under the [MIT license](LICENSE.md).
 
 
 ## Using MD4C
@@ -93,8 +94,8 @@ chunks into a buffer or writes them to a file.
 The default behavior is to recognize only Markdown syntax defined by the
 [CommonMark specification](http://spec.commonmark.org/).
 
-However with appropriate flags, the behavior can be tuned to enable some
-additional extensions:
+However, with appropriate flags, the behavior can be tuned to enable some
+extensions:
 
 * With the flag `MD_FLAG_COLLAPSEWHITESPACE`, a non-trivial whitespace is
   collapsed into a single space.
@@ -128,7 +129,7 @@ additional extensions:
   instead of an ordinary emphasis or strong emphasis.
 
 Few features of CommonMark (those some people see as mis-features) may be
-disabled:
+disabled with the following flags:
 
 * With the flag `MD_FLAG_NOHTMLSPANS` or `MD_FLAG_NOHTMLBLOCKS`, raw inline
   HTML or raw HTML blocks respectively are disabled.
@@ -139,9 +140,11 @@ disabled:
 
 ## Input/Output Encoding
 
-The CommonMark specification generally assumes UTF-8 input, but under closer
-inspection, Unicode plays any role in few very specific situations when parsing
-Markdown documents:
+The CommonMark specification declares that any sequence of Unicode code points
+is a valid CommonMark document.
+
+But, under a closer inspection, Unicode plays any role in few very specific
+situations when parsing Markdown documents:
 
 1. For detection of word boundaries when processing emphasis and strong
    emphasis, some classification of Unicode characters (whether it is
@@ -153,22 +156,23 @@ Markdown documents:
 3. For translating HTML entities (e.g. `&amp;`) and numeric character
    references (e.g. `&#35;` or `&#xcab;`) into their Unicode equivalents.
 
-   However MD4C leaves this translation on the renderer/application; as the
-   renderer is supposed to really know output encoding and whether it really
-   needs to perform this kind of translation. (For example, when the renderer
-   outputs HTML, it may leave the entities untranslated and defer the work to
-   a web browser.)
+   However note MD4C leaves this translation on the renderer/application; as
+   the renderer is supposed to really know output encoding and whether it
+   really needs to perform this kind of translation. (For example, when the
+   renderer outputs HTML, it may leave the entities untranslated and defer the
+   work to a web browser.)
 
 MD4C relies on this property of the CommonMark and the implementation is, to
 a large degree, encoding-agnostic. Most of MD4C code only assumes that the
-encoding of your choice is compatible with ASCII, i.e. that the codepoints
+encoding of your choice is compatible with ASCII. I.e. that the codepoints
 below 128 have the same numeric values as ASCII.
 
 Any input MD4C does not understand is simply seen as part of the document text
 and sent to the renderer's callback functions unchanged.
 
 The two situations (word boundary detection and link reference matching) where
-MD4C has to understand Unicode are handled as specified by the following rules:
+MD4C has to understand Unicode are handled as specified by the following
+preprocessor macros (as specified at the time MD4C is being built):
 
 * If preprocessor macro `MD4C_USE_UTF8` is defined, MD4C assumes UTF-8 for the
   word boundary detection and for the case-insensitive matching of link labels.
@@ -199,11 +203,11 @@ MD4C has to understand Unicode are handled as specified by the following rules:
 ## Documentation
 
 The API of the parser is quite well documented in the comments in the `md4c.h`.
-The markdown-to-html API is described in its header `md4c-html.h`.
+Similarly, the markdown-to-html API is described in its header `md4c-html.h`.
 
 There is also [project wiki](http://github.com/mity/md4c/wiki) which provides
 some more comprehensive documentation. However note it is incomplete and some
-details may be little-bit outdated.
+details may be somewhat outdated.
 
 
 ## FAQ
@@ -212,8 +216,8 @@ details may be little-bit outdated.
 
 **A:** Some other implementations combine Markdown parser and HTML generator
 into a single entangled code hidden behind an interface which just allows the
-conversion from Markdown to HTML, and they are unusable if you want to process
-the input in any other way.
+conversion from Markdown to HTML. They are often unusable if you want to
+process the input in any other way.
 
 Even when the parsing is available as a standalone feature, most parsers (if
 not all of them; at least within the scope of C/C++ language) are full DOM-like
@@ -221,8 +225,8 @@ parsers: They construct abstract syntax tree (AST) representation of the whole
 Markdown document. That takes time and it leads to bigger memory footprint.
 
 It's completely fine as long as you really need it. If you don't need the full
-AST, there is very high chance that using MD4C will be faster and much less
-memory-hungry.
+AST, there is a very high chance that using MD4C will be substantially faster
+and less hungry in terms of memory consumption.
 
 Last but not least, some Markdown parsers are implemented in a naive way. When
 fed with a [smartly crafted input pattern](test/pathological_tests.py), they
@@ -238,11 +242,11 @@ as a bug.)
 
 **Q: Does MD4C perform any input validation?**
 
-**A:** No.
+**A:** No. And we are proud of it. :-)
 
 CommonMark specification states that any sequence of Unicode characters is
 a valid Markdown document. (In practice, this more or less always means UTF-8
-encoding is assumed.)
+encoding.)
 
 In other words, according to the specification, it does not matter whether some
 Markdown syntax construction is in some way broken or not. If it is broken, it
@@ -256,7 +260,7 @@ a part of the text.
 
 If you need to validate that the input is, say, a well-formed UTF-8 document,
 you have to do it on your own. The easiest way how to do this is to simply
-validate the whole Markdown document before passing it to the MD4C parser.
+validate the whole document before passing it to the MD4C parser.
 
 
 ## License
@@ -272,7 +276,7 @@ Ports and bindings to other languages:
   Port of MD4C to D language.
 
 * [markdown-wasm](https://github.com/rsms/markdown-wasm):
-  Markdown parser and HTML generator for WebAssembly, based on MD4C.
+  Port of MD4C to WebAssembly.
 
 * [PyMD4C](https://github.com/dominickpastore/pymd4c):
   Python bindings for MD4C
