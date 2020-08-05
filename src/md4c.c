@@ -137,19 +137,19 @@ struct MD_CTX_tag {
 
     /* For resolving of inline spans. */
     MD_MARKCHAIN mark_chains[13];
-#define PTR_CHAIN                               ctx->mark_chains[0]
-#define TABLECELLBOUNDARIES                     ctx->mark_chains[1]
-#define ASTERISK_OPENERS_extraword_mod3_0       ctx->mark_chains[2]
-#define ASTERISK_OPENERS_extraword_mod3_1       ctx->mark_chains[3]
-#define ASTERISK_OPENERS_extraword_mod3_2       ctx->mark_chains[4]
-#define ASTERISK_OPENERS_intraword_mod3_0       ctx->mark_chains[5]
-#define ASTERISK_OPENERS_intraword_mod3_1       ctx->mark_chains[6]
-#define ASTERISK_OPENERS_intraword_mod3_2       ctx->mark_chains[7]
-#define UNDERSCORE_OPENERS                      ctx->mark_chains[8]
-#define TILDE_OPENERS_1                         ctx->mark_chains[9]
-#define TILDE_OPENERS_2                         ctx->mark_chains[10]
-#define BRACKET_OPENERS                         ctx->mark_chains[11]
-#define DOLLAR_OPENERS                          ctx->mark_chains[12]
+#define PTR_CHAIN                               (ctx->mark_chains[0])
+#define TABLECELLBOUNDARIES                     (ctx->mark_chains[1])
+#define ASTERISK_OPENERS_extraword_mod3_0       (ctx->mark_chains[2])
+#define ASTERISK_OPENERS_extraword_mod3_1       (ctx->mark_chains[3])
+#define ASTERISK_OPENERS_extraword_mod3_2       (ctx->mark_chains[4])
+#define ASTERISK_OPENERS_intraword_mod3_0       (ctx->mark_chains[5])
+#define ASTERISK_OPENERS_intraword_mod3_1       (ctx->mark_chains[6])
+#define ASTERISK_OPENERS_intraword_mod3_2       (ctx->mark_chains[7])
+#define UNDERSCORE_OPENERS                      (ctx->mark_chains[8])
+#define TILDE_OPENERS_1                         (ctx->mark_chains[9])
+#define TILDE_OPENERS_2                         (ctx->mark_chains[10])
+#define BRACKET_OPENERS                         (ctx->mark_chains[11])
+#define DOLLAR_OPENERS                          (ctx->mark_chains[12])
 #define OPENERS_CHAIN_FIRST                     2
 #define OPENERS_CHAIN_LAST                      12
 
