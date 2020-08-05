@@ -1577,8 +1577,8 @@ md_link_label_cmp(const CHAR* a_label, SZ a_size, const CHAR* b_label, SZ b_size
     OFF b_off;
     int a_reached_end = FALSE;
     int b_reached_end = FALSE;
-    MD_UNICODE_FOLD_INFO a_fi = { 0 };
-    MD_UNICODE_FOLD_INFO b_fi = { 0 };
+    MD_UNICODE_FOLD_INFO a_fi = { { 0 }, 0 };
+    MD_UNICODE_FOLD_INFO b_fi = { { 0 }, 0 };
     OFF a_fi_off = 0;
     OFF b_fi_off = 0;
     int cmp;
