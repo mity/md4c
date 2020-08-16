@@ -2,7 +2,7 @@
 # MD4C Change Log
 
 
-## Next Version (Work in Progress)
+## Version 0.4.5
 
 Fixes:
 
@@ -12,6 +12,7 @@ Fixes:
 
  * [#124](https://github.com/mity/md4c/issues/124):
    Fix handling of indentation of 16 or more spaces in the fenced code blocks.
+
 
 ## Version 0.4.4
 
