@@ -206,8 +206,13 @@ typedef enum MD_ALIGN {
  * propagated within various detailed structures, but which still may contain
  * string portions of different types like e.g. entities.
  *
- * So, for example, lets consider an image has a title attribute string
- * set to "foo &quot; bar". (Note the string size is 14.)
+ * So, for example, lets consider this image:
+ *
+ *     ![image alt text](http://example.org/image.png 'foo &quot; bar')
+ *
+ * The image alt text is propagated as a normal text via the MD_PARSER::text()
+ * callback. However, the image title ('foo &quot; bar') is propagated as
+ * MD_ATTRIBUTE in MD_SPAN_IMG_DETAIL::title.
  *
  * Then the attribute MD_SPAN_IMG_DETAIL::title shall provide the following:
  *  -- [0]: "foo "   (substr_types[0] == MD_TEXT_NORMAL; substr_offsets[0] == 0)
@@ -215,10 +220,12 @@ typedef enum MD_ALIGN {
  *  -- [2]: " bar"   (substr_types[2] == MD_TEXT_NORMAL; substr_offsets[2] == 10)
  *  -- [3]: (n/a)    (n/a                              ; substr_offsets[3] == 14)
  *
- * Note that these conditions are guaranteed:
+ * Note that these invariants are always guaranteed:
  *  -- substr_offsets[0] == 0
  *  -- substr_offsets[LAST+1] == size
- *  -- Only MD_TEXT_NORMAL, MD_TEXT_ENTITY, MD_TEXT_NULLCHAR substrings can appear.
+ *  -- Currently, only MD_TEXT_NORMAL, MD_TEXT_ENTITY, MD_TEXT_NULLCHAR
+ *     substrings can appear. This could change only of the specification
+ *     changes.
  */
 typedef struct MD_ATTRIBUTE {
     const MD_CHAR* text;
@@ -338,9 +345,10 @@ typedef struct MD_PARSER {
      *
      * Note any strings provided to the callbacks as their arguments or as
      * members of any detail structure are generally not zero-terminated.
-     * Application has take the respective size information into account.
+     * Application has to take the respective size information into account.
      *
-     * Callbacks may abort further parsing of the document by returning non-zero.
+     * Any rendering callback may abort further parsing of the document by
+     * returning non-zero.
      */
     int (*enter_block)(MD_BLOCKTYPE /*type*/, void* /*detail*/, void* /*userdata*/);
     int (*leave_block)(MD_BLOCKTYPE /*type*/, void* /*detail*/, void* /*userdata*/);
@@ -365,7 +373,8 @@ typedef struct MD_PARSER {
 } MD_PARSER;
 
 
-/* For backward compatibility. Do not use in new code. */
+/* For backward compatibility. Do not use in new code.
+ */
 typedef MD_PARSER MD_RENDERER;
 
 
@@ -376,7 +385,7 @@ typedef MD_PARSER MD_RENDERER;
  *
  * Zero is returned on success. If a runtime error occurs (e.g. a memory
  * fails), -1 is returned. If the processing is aborted due any callback
- * returning non-zero, md_parse() the return value of the callback is returned.
+ * returning non-zero, the return value of the callback is returned.
  */
 int md_parse(const MD_CHAR* text, MD_SIZE size, const MD_PARSER* parser, void* userdata);
 
