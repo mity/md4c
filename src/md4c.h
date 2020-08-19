@@ -31,7 +31,7 @@
 #endif
 
 #if defined MD4C_USE_UTF16
-    /* Magic to support UTF-16. Not that in order to use it, you have to define
+    /* Magic to support UTF-16. Note that in order to use it, you have to define
      * the macro MD4C_USE_UTF16 both when building MD4C as well as when
      * including this header in your code. */
     #ifdef _WIN32
