@@ -2202,7 +2202,7 @@ md_is_link_reference(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
     const MD_LINE* end_line;
     CHAR* label;
     SZ label_size;
-    int ret;
+    int ret = 0;
 
     MD_ASSERT(CH(beg) == _T('[') || CH(beg) == _T('!'));
     MD_ASSERT(CH(end-1) == _T(']'));
@@ -3963,7 +3963,7 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
 static int
 md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
 {
-    int ret;
+    int ret = 0;
 
     /* Reset the previously collected stack of marks. */
     ctx->n_marks = 0;
@@ -4548,7 +4548,7 @@ static int
 md_process_normal_block_contents(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 {
     int i;
-    int ret;
+    int ret = 0;
 
     MD_CHECK(md_analyze_inlines(ctx, lines, n_lines, FALSE));
     MD_CHECK(md_process_inlines(ctx, lines, n_lines));
@@ -6265,7 +6265,7 @@ md_parse(const MD_CHAR* text, MD_SIZE size, const MD_PARSER* parser, void* userd
 {
     MD_CTX ctx;
     int i;
-    int ret;
+    int ret = 0;
 
     if(parser->abi_version != 0) {
         if(parser->debug_log != NULL)
