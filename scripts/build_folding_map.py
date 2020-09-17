@@ -35,20 +35,22 @@ for line in f:
 f.close()
 
 
-# If we assume that range (index0 ... index-1) makes a range, check that index
-# is compatible with it too.
+# If we assume that (index0 ... index-1) makes a range (as defined below),
+# check that the newly provided index is compatible with the range too; i.e.
+# verify that the range can be extended without breaking its properties.
 #
-# We are capable to handle ranges which:
+# Currently, we can handle ranges which:
 #
 # (1) either form consecutive sequence of codepoints and which map that range
-#     to other consecutive range of codepoints;
+#     to other consecutive range of codepoints (of the same length);
 #
-# (2) or consecutive range of codepoints with step 2 where each codepoint
-#     CP is mapped to the next codepoint CP+1
-#     (e.g. 0x1234 -> 0x1235; 0x1236 -> 0x1238; ...).
+# (2) or a consecutive sequence of codepoints with step 2 where each codepoint
+#     CP is mapped to the codepoint CP+1
+#     (e.g. 0x1234 -> 0x1235; 0x1236 -> 0x1237; 0x1238 -> 0x1239; ...).
 #
-# (If the mappings have multiple codepoints, only the 1st mapped codepoint is
-# considered and all the other ones have to be the same for the whole range.)
+# Note: When the codepoints in the range are mapped to multiple codepoints,
+# only the 1st mapped codepoint is considered. All the other ones have to be
+# shared by all the mappings covered by the range.
 def is_range_compatible(folding, codepoint_list, index0, index):
     N = index - index0
     codepoint0 = codepoint_list[index0]
