@@ -2,6 +2,16 @@
 # MD4C Change Log
 
 
+## Next Version (Work in Progress)
+
+Fixes:
+
+* [#130](https://github.com/mity/md4c/issues/130):
+  Fix `ISANYOF` macro, which could provide unexpected results when encountering
+  zero byte in the input text; in some cases leading to broken internal state
+  of the parser.
+
+
 ## Version 0.4.5
 
 Fixes:

@@ -276,7 +276,7 @@ struct MD_VERBATIMLINE_tag {
 /* Character classification.
  * Note we assume ASCII compatibility of code points < 128 here. */
 #define ISIN_(ch, ch_min, ch_max)       ((ch_min) <= (unsigned)(ch) && (unsigned)(ch) <= (ch_max))
-#define ISANYOF_(ch, palette)           (md_strchr((palette), (ch)) != NULL)
+#define ISANYOF_(ch, palette)           ((ch) != _T('\0')  &&  md_strchr((palette), (ch)) != NULL)
 #define ISANYOF2_(ch, ch1, ch2)         ((ch) == (ch1) || (ch) == (ch2))
 #define ISANYOF3_(ch, ch1, ch2, ch3)    ((ch) == (ch1) || (ch) == (ch2) || (ch) == (ch3))
 #define ISASCII_(ch)                    ((unsigned)(ch) <= 127)
