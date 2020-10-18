@@ -44,6 +44,12 @@ static int want_fullhtml = 0;
 static int want_xhtml = 0;
 static int want_stat = 0;
 
+/* MD_UNUSED macro for telling the compiler about intentionally unused arguments */
+#if defined(__has_attribute) && __has_attribute(unused)
+    #define MD_UNUSED __attribute__((unused))
+#else
+    #define MD_UNUSED
+#endif
 
 /*********************************
  ***  Simple grow-able buffer  ***
@@ -288,7 +294,7 @@ static const char* input_path = NULL;
 static const char* output_path = NULL;
 
 static int
-cmdline_callback(int opt, char const* value, void* data)
+cmdline_callback(int opt, char const* value, MD_UNUSED void* data)
 {
     switch(opt) {
         case 0:
