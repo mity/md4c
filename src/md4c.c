@@ -4510,7 +4510,7 @@ md_process_table_block_contents(MD_CTX* ctx, int col_count, const MD_LINE* lines
     MD_ENTER_BLOCK(MD_BLOCK_TBODY, NULL);
     for(i = 2; i < n_lines; i++) {
         MD_CHECK(md_process_table_row(ctx, MD_BLOCK_TD,
-                        lines[i].beg, lines[i].end, align, col_count));
+                 lines[i].beg, lines[i].end, align, col_count));
     }
     MD_LEAVE_BLOCK(MD_BLOCK_TBODY, NULL);
 
@@ -4681,6 +4681,7 @@ md_process_leaf_block(MD_CTX* ctx, const MD_BLOCK* block)
     union {
         MD_BLOCK_H_DETAIL header;
         MD_BLOCK_CODE_DETAIL code;
+        MD_BLOCK_TABLE_DETAIL table;
     } det;
     MD_ATTRIBUTE_BUILD info_build;
     MD_ATTRIBUTE_BUILD lang_build;
@@ -4707,6 +4708,12 @@ md_process_leaf_block(MD_CTX* ctx, const MD_BLOCK* block)
                 clean_fence_code_detail = TRUE;
                 MD_CHECK(md_setup_fenced_code_detail(ctx, block, &det.code, &info_build, &lang_build));
             }
+            break;
+
+        case MD_BLOCK_TABLE:
+            det.table.col_count = block->data;
+            det.table.head_row_count = 1;
+            det.table.body_row_count = block->n_lines - 2;
             break;
 
         default:

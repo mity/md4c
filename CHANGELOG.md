@@ -4,27 +4,33 @@
 
 ## Next Version (Work in Progress)
 
+Changes:
+
+ * Add `MD_TABLE_DETAIL` structure into the API. The structure describes column
+   count and row count of the table, and pointer to it is passed into the
+   application-provided block callback with the `MD_BLOCK_TABLE` block type.
+
 Fixes:
 
-* [#131](https://github.com/mity/md4c/issues/131):
-  Fix handling of a reference image nested in a reference link.
+ * [#131](https://github.com/mity/md4c/issues/131):
+   Fix handling of a reference image nested in a reference link.
 
-* [#135](https://github.com/mity/md4c/issues/135):
-  Handle unmatched parenthesis pairs inside a permissive URL and WWW auto-links
-  in a way more compatible with the GFM.
+ * [#135](https://github.com/mity/md4c/issues/135):
+   Handle unmatched parenthesis pairs inside a permissive URL and WWW auto-links
+   in a way more compatible with the GFM.
 
 
 ## Version 0.4.6
 
 Fixes:
 
-* [#130](https://github.com/mity/md4c/issues/130):
-  Fix `ISANYOF` macro, which could provide unexpected results when encountering
-  zero byte in the input text; in some cases leading to broken internal state
-  of the parser.
+ * [#130](https://github.com/mity/md4c/issues/130):
+   Fix `ISANYOF` macro, which could provide unexpected results when encountering
+   zero byte in the input text; in some cases leading to broken internal state
+   of the parser.
 
-  The bug could result in denial of service and possibly also to other security
-  implications. Applications are advised to update to 0.4.6.
+   The bug could result in denial of service and possibly also to other security
+   implications. Applications are advised to update to 0.4.6.
 
 
 ## Version 0.4.5
