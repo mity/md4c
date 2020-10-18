@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -eo pipefail
 cd "$(dirname "$0")/.."
-PROG=$0
+PROG=${0##*/}
 
 function usage {
   echo "Usage: $PROG [options]"
@@ -10,6 +10,7 @@ function usage {
   echo "  -lib=shared  Build dynamic shared library"
   echo "  -lib=static  Build static library"
   echo "  -clean       Recreate build directory and build from scratch"
+  echo "  -w, -watch   Watch source files for changes and rebuild"
   echo "  -h, -help    Show help on stdout and exit"
   echo "Note on -lib:"
   echo "  If -lib is not provided, static library is built on Windows and"
@@ -20,6 +21,7 @@ function usage {
 
 OPT_LIB=
 OPT_CLEAN=false
+OPT_WATCH=false
 BUILD_DIR=build/release
 CMAKE_ARGS=()
 export CMAKE_BUILD_TYPE=release
@@ -39,6 +41,10 @@ while [[ $# -gt 0 ]]; do
     ;;
   -clean|--clean)
     OPT_CLEAN=true
+    shift
+    ;;
+  -w|-watch|--watch)
+    OPT_WATCH=true
     shift
     ;;
   -lib=shared|--lib=shared)
@@ -68,13 +74,12 @@ if $OPT_CLEAN; then
 fi
 
 SRCDIR=$PWD
+BUILD_CMD=make
 
 if [ -d "$BUILD_DIR" ]; then
   cd "$BUILD_DIR"
   if [ -f build.ninja ]; then
-    ninja
-  else
-    make
+    BUILD_CMD=ninja
   fi
 else
   CC=$CC
@@ -92,12 +97,37 @@ else
 
   if (which ninja >/dev/null); then
     cmake -G Ninja "$SRCDIR"
-    ninja
+    BUILD_CMD=ninja
   elif (which make >/dev/null); then
     cmake -G "Unix Makefiles" "$SRCDIR"
-    make
   else
     echo "Could not find ninja nor make in PATH" >&2
     exit 1
   fi
+fi
+
+$BUILD_CMD
+
+if $OPT_WATCH; then
+  if ! (which fswatch >/dev/null); then
+    echo "fswatch not found in PATH (needed with -watch option)" >&2
+    echo "See http://emcrisostomo.github.io/fswatch/" >&2
+    if (which brew >/dev/null); then
+      echo "  brew info fswatch"
+    fi
+    if (which apt >/dev/null); then
+      echo "  apt install fswatch"
+    fi
+    exit 1
+  fi
+  trap 'echo -en "\r"' EXIT  # reset line on ^C
+  trap exit SIGINT  # make sure we can ctrl-c in the while loop
+  while true; do
+    echo "$PROG: Watching source files for changes..."
+    pushd "$SRCDIR" >/dev/null
+    fswatch --one-event --latency=0.2 src/*.c src/*.h
+    popd >/dev/null
+    echo -e "\x1bc"
+    $BUILD_CMD
+  done
 fi
