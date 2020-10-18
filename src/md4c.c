@@ -472,7 +472,7 @@ md_text_with_null_replacement(MD_CTX* ctx, MD_TEXTTYPE type, const CHAR* str, SZ
 typedef struct MD_UNICODE_FOLD_INFO_tag MD_UNICODE_FOLD_INFO;
 struct MD_UNICODE_FOLD_INFO_tag {
     unsigned codepoints[3];
-    int n_codepoints;
+    unsigned n_codepoints;
 };
 
 
@@ -676,7 +676,7 @@ struct MD_UNICODE_FOLD_INFO_tag {
             const unsigned* map;
             const unsigned* data;
             size_t map_size;
-            int n_codepoints;
+            unsigned n_codepoints;
         } FOLD_MAP_LIST[] = {
             { FOLD_MAP_1, FOLD_MAP_1_DATA, SIZEOF_ARRAY(FOLD_MAP_1), 1 },
             { FOLD_MAP_2, FOLD_MAP_2_DATA, SIZEOF_ARRAY(FOLD_MAP_2), 2 },
@@ -696,12 +696,12 @@ struct MD_UNICODE_FOLD_INFO_tag {
 
         /* Try to locate the codepoint in any of the maps. */
         for(i = 0; i < (int) SIZEOF_ARRAY(FOLD_MAP_LIST); i++) {
-            int index;
+            unsigned index;
 
             index = md_unicode_bsearch__(codepoint, FOLD_MAP_LIST[i].map, FOLD_MAP_LIST[i].map_size);
             if(index >= 0) {
                 /* Found the mapping. */
-                int n_codepoints = FOLD_MAP_LIST[i].n_codepoints;
+                unsigned n_codepoints = FOLD_MAP_LIST[i].n_codepoints;
                 const unsigned* map = FOLD_MAP_LIST[i].map;
                 const unsigned* codepoints = FOLD_MAP_LIST[i].data + (index * n_codepoints);
 
