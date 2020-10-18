@@ -3683,7 +3683,7 @@ md_analyze_emph(MD_CTX* ctx, int mark_index)
     /* If we can be a closer, try to resolve with the preceding opener. */
     if(mark->flags & MD_MARK_POTENTIAL_CLOSER) {
         MD_MARK* opener = NULL;
-        int opener_index;
+        int opener_index = 0;
 
         if(mark->ch == _T('*')) {
             MD_MARKCHAIN* opener_chains[6];
