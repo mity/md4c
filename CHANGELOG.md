@@ -2,6 +2,14 @@
 # MD4C Change Log
 
 
+## Next Version (Work in Progress)
+
+Fixes:
+
+* [#131](https://github.com/mity/md4c/issues/131):
+  Fix handling of a reference image nested in a reference link.
+
+
 ## Version 0.4.6
 
 Fixes:

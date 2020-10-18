@@ -284,6 +284,18 @@ foo
 ````````````````````````````````
 
 
+### [Issue 131](https://github.com/mity/md4c/issues/131)
+
+```````````````````````````````` example
+[![alt][img]][link]
+
+[img]: img_url
+[link]: link_url
+.
+<p><a href="link_url"><img src="img_url" alt="alt"></a></p>
+````````````````````````````````
+
+
 ## Code coverage
 
 ### `md_is_unicode_whitespace__()`

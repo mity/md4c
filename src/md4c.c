@@ -3524,6 +3524,10 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             if(is_link) {
                 /* Eat the 2nd "[...]". */
                 closer->end = next_closer->end;
+
+                /* Do not analyze the label as a standalone link in the next
+                 * iteration. */
+                next_index = ctx->marks[next_index].prev;
             }
         } else {
             if(closer->end < ctx->size  &&  CH(closer->end) == _T('(')) {
