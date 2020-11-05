@@ -1,6 +1,8 @@
 # YAML definition for travis-ci.com continuous integration.
 # See https://docs.travis-ci.com/user/languages/c
-
+arch:
+    - amd64
+    - ppc64le
 language: c
 dist: bionic
 
