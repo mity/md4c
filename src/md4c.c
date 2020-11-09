@@ -5790,12 +5790,14 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
     #if 1
                 /* See https://github.com/mity/md4c/issues/6
                  *
-                 * This ugly checking tests we are in (yet empty) list item but not
-                 * its very first line (with the list item mark).
+                 * This ugly checking tests we are in (yet empty) list item but
+                 * not its very first line (i.e. not the line with the list
+                 * item mark).
                  *
-                 * If we are such blank line, then any following non-blank line
-                 * which would be part of this list item actually ends the list
-                 * because "a list item can begin with at most one blank line."
+                 * If we are such a blank line, then any following non-blank
+                 * line which would be part of the list item actually has to
+                 * end the list because according to the specification, "a list
+                 * item can begin with at most one blank line."
                  */
                 if(n_parents > 0  &&  ctx->containers[n_parents-1].ch != _T('>')  &&
                    n_brothers + n_children == 0  &&  ctx->current_block == NULL  &&
@@ -5810,9 +5812,10 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
             break;
         } else {
     #if 1
-            /* This is 2nd half of the hack. If the flag is set (that is there
-             * were 2nd blank line at the start of the list item) and we would also
-             * belonging to such list item, than interrupt the list. */
+            /* This is the 2nd half of the hack. If the flag is set (i.e. there
+             * was a 2nd blank line at the beginning of the list item) and if
+             * we would otherwise still belong to the list item, we enforce
+             * the end of the list. */
             ctx->last_line_has_list_loosening_effect = FALSE;
             if(ctx->last_list_item_starts_with_two_blank_lines) {
                 if(n_parents > 0  &&  ctx->containers[n_parents-1].ch != _T('>')  &&
