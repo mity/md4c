@@ -5,7 +5,7 @@ With the flag `MD_FLAG_PERMISSIVEURLAUTOLINKS`, MD4C enables more permissive rec
 of URLs and transform them to autolinks, even if they do not exactly follow the syntax
 of autolink as specified in CommonMark specification.
 
-This is standard CommonMark autolink:
+This is a standard CommonMark autolink:
 
 ```````````````````````````````` example
 Homepage: <https://github.com/mity/md4c>

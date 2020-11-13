@@ -3810,6 +3810,7 @@ md_analyze_permissive_url_autolink(MD_CTX* ctx, int mark_index)
     int has_underscore_in_last_seg = FALSE;
     int has_underscore_in_next_to_last_seg = FALSE;
     int n_opened_parenthesis = 0;
+    int n_excess_parenthesis = 0;
 
     /* Check for domain. */
     while(off < ctx->size) {
@@ -3848,17 +3849,28 @@ md_analyze_permissive_url_autolink(MD_CTX* ctx, int mark_index)
             if(n_opened_parenthesis > 0)
                 n_opened_parenthesis--;
             else
-                break;
+                n_excess_parenthesis++;
         }
 
         off++;
     }
-    /* These cannot be last char In such case they are more likely normal
-     * punctuation. */
-    if(ISANYOF(off-1, _T("?!.,:*_~")))
-        off--;
 
-    /* Ok. Lets call it auto-link. Adapt opener and create closer to zero
+    /* Trim a trailing punctuation from the end. */
+    while(TRUE) {
+        if(ISANYOF(off-1, _T("?!.,:*_~"))) {
+            off--;
+        } else if(CH(off-1) == ')'  &&  n_excess_parenthesis > 0) {
+            /* Unmatched ')' can be in an interior of the path but not at the
+             * of it, so the auto-link may be safely nested in a parenthesis
+             * pair. */
+            off--;
+            n_excess_parenthesis--;
+        } else {
+            break;
+        }
+    }
+
+    /* Ok. Lets call it an auto-link. Adapt opener and create closer to zero
      * length so all the contents becomes the link text. */
     MD_ASSERT(closer->ch == 'D');
     opener->end = opener->beg;

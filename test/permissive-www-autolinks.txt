@@ -8,11 +8,11 @@ of autolink as specified in CommonMark specification.
 These do not have to be enclosed in `<` and `>`, and they even do not need
 any preceding scheme specification.
 
-The WWW autolink will be recognized when a valid domain is found.
-
-A valid domain consists of the text `www.`, followed by alphanumeric characters,
-nderscores (`_`), hyphens (`-`) and periods (`.`). There must be at least one
-period, and no underscores may be present in the last two segments of the domain.
+The WWW autolink will be recognized when the text `www.` is found followed by a
+valid domain. A valid domain consists of segments of alphanumeric characters,
+underscores (`_`) and hyphens (`-`) separated by periods (`.`). There must be
+at least one period, and no underscores may be present in the last two segments
+of the domain.
 
 The scheme `http` will be inserted automatically:
 
@@ -64,9 +64,9 @@ the only parentheses are in the interior of the autolink, no special rules are
 applied:
 
 ```````````````````````````````` example
-www.google.com/search?q=(business)+ok
+www.google.com/search?q=(business))+ok
 .
-<p><a href="http://www.google.com/search?q=(business)+ok">www.google.com/search?q=(business)+ok</a></p>
+<p><a href="http://www.google.com/search?q=(business))+ok">www.google.com/search?q=(business))+ok</a></p>
 ````````````````````````````````
 
 If an autolink ends in a semicolon (`;`), we check to see if it appears to

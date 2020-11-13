@@ -9,6 +9,10 @@ Fixes:
 * [#131](https://github.com/mity/md4c/issues/131):
   Fix handling of a reference image nested in a reference link.
 
+* [#135](https://github.com/mity/md4c/issues/135):
+  Handle unmatched parenthesis pairs inside a permissive URL and WWW auto-links
+  in a way more compatible with the GFM.
+
 
 ## Version 0.4.6
 
