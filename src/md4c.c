@@ -4507,12 +4507,14 @@ md_process_table_block_contents(MD_CTX* ctx, int col_count, const MD_LINE* lines
                         lines[0].beg, lines[0].end, align, col_count));
     MD_LEAVE_BLOCK(MD_BLOCK_THEAD, NULL);
 
-    MD_ENTER_BLOCK(MD_BLOCK_TBODY, NULL);
-    for(i = 2; i < n_lines; i++) {
-        MD_CHECK(md_process_table_row(ctx, MD_BLOCK_TD,
-                 lines[i].beg, lines[i].end, align, col_count));
+    if(n_lines > 2) {
+        MD_ENTER_BLOCK(MD_BLOCK_TBODY, NULL);
+        for(i = 2; i < n_lines; i++) {
+            MD_CHECK(md_process_table_row(ctx, MD_BLOCK_TD,
+                     lines[i].beg, lines[i].end, align, col_count));
+        }
+        MD_LEAVE_BLOCK(MD_BLOCK_TBODY, NULL);
     }
-    MD_LEAVE_BLOCK(MD_BLOCK_TBODY, NULL);
 
 abort:
     free(align);

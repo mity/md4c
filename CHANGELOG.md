@@ -19,6 +19,10 @@ Fixes:
    Handle unmatched parenthesis pairs inside a permissive URL and WWW auto-links
    in a way more compatible with the GFM.
 
+ * [#138](https://github.com/mity/md4c/issues/138):
+   The tag `<tbody></tbody>` is suppressed whenever the table has zero body
+   rows.
+
 
 ## Version 0.4.6
 
