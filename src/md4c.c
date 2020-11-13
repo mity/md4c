@@ -3227,7 +3227,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                         /* Push a dummy as a reserve for a closer. */
                         PUSH_MARK('D', off, off, 0);
                         off += 1 + suffix_size;
-                        continue;
+                        break;
                     }
                 }
 
