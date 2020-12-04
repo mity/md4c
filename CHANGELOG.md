@@ -23,6 +23,9 @@ Fixes:
    The tag `<tbody></tbody>` is suppressed whenever the table has zero body
    rows.
 
+ * [#139](https://github.com/mity/md4c/issues/139):
+   Recognize a list item mark even when EOF follows it.
+
 
 ## Version 0.4.6
 

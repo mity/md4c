@@ -5611,11 +5611,11 @@ md_is_container_mark(MD_CTX* ctx, unsigned indent, OFF beg, OFF* p_end, MD_CONTA
     OFF off = beg;
     OFF max_end;
 
-    if(indent >= ctx->code_indent_offset)
+    if(off >= ctx->size  ||  indent >= ctx->code_indent_offset)
         return FALSE;
 
     /* Check for block quote mark. */
-    if(off < ctx->size  &&  CH(off) == _T('>')) {
+    if(CH(off) == _T('>')) {
         off++;
         p_container->ch = _T('>');
         p_container->is_loose = FALSE;
@@ -5627,13 +5627,13 @@ md_is_container_mark(MD_CTX* ctx, unsigned indent, OFF beg, OFF* p_end, MD_CONTA
     }
 
     /* Check for list item bullet mark. */
-    if(off+1 < ctx->size  &&  ISANYOF(off, _T("-+*"))  &&  (ISBLANK(off+1) || ISNEWLINE(off+1))) {
+    if(ISANYOF(off, _T("-+*"))  &&  (off+1 >= ctx->size || ISBLANK(off+1) || ISNEWLINE(off+1))) {
         p_container->ch = CH(off);
         p_container->is_loose = FALSE;
         p_container->is_task = FALSE;
         p_container->mark_indent = indent;
         p_container->contents_indent = indent + 1;
-        *p_end = off + 1;
+        *p_end = off+1;
         return TRUE;
     }
 
@@ -5646,16 +5646,16 @@ md_is_container_mark(MD_CTX* ctx, unsigned indent, OFF beg, OFF* p_end, MD_CONTA
         p_container->start = p_container->start * 10 + CH(off) - _T('0');
         off++;
     }
-    if(off > beg  &&  off+1 < ctx->size  &&
+    if(off > beg  &&
        (CH(off) == _T('.') || CH(off) == _T(')'))  &&
-       (ISBLANK(off+1) || ISNEWLINE(off+1)))
+       (off+1 >= ctx->size || ISBLANK(off+1) || ISNEWLINE(off+1)))
     {
         p_container->ch = CH(off);
         p_container->is_loose = FALSE;
         p_container->is_task = FALSE;
         p_container->mark_indent = indent;
         p_container->contents_indent = indent + off - beg + 1;
-        *p_end = off + 1;
+        *p_end = off+1;
         return TRUE;
     }
 
