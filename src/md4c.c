@@ -89,6 +89,9 @@
     #define MD4C_FALLTHROUGH() ((void)0)
 #endif
 
+/* Suppress "unused parameter" warnings. */
+#define MD4C_UNUSED(x) ((void)x)
+
 
 /************************
  ***  Internal Types  ***
@@ -911,6 +914,8 @@ md_merge_lines(MD_CTX* ctx, OFF beg, OFF end, const MD_LINE* lines, int n_lines,
     int line_index = 0;
     OFF off = beg;
 
+    MD4C_UNUSED(n_lines);
+
     while(1) {
         const MD_LINE* line = &lines[line_index];
         OFF line_end = line->end;
@@ -1252,6 +1257,7 @@ static int
 md_is_hex_entity_contents(MD_CTX* ctx, const CHAR* text, OFF beg, OFF max_end, OFF* p_end)
 {
     OFF off = beg;
+    MD4C_UNUSED(ctx);
 
     while(off < max_end  &&  ISXDIGIT_(text[off])  &&  off - beg <= 8)
         off++;
@@ -1268,6 +1274,7 @@ static int
 md_is_dec_entity_contents(MD_CTX* ctx, const CHAR* text, OFF beg, OFF max_end, OFF* p_end)
 {
     OFF off = beg;
+    MD4C_UNUSED(ctx);
 
     while(off < max_end  &&  ISDIGIT_(text[off])  &&  off - beg <= 8)
         off++;
@@ -1284,6 +1291,7 @@ static int
 md_is_named_entity_contents(MD_CTX* ctx, const CHAR* text, OFF beg, OFF max_end, OFF* p_end)
 {
     OFF off = beg;
+    MD4C_UNUSED(ctx);
 
     if(off < max_end  &&  ISALPHA_(text[off]))
         off++;
@@ -1389,6 +1397,8 @@ md_build_attr_append_substr(MD_CTX* ctx, MD_ATTRIBUTE_BUILD* build,
 static void
 md_free_attribute(MD_CTX* ctx, MD_ATTRIBUTE_BUILD* build)
 {
+    MD4C_UNUSED(ctx);
+
     if(build->substr_alloc > 0) {
         free(build->text);
         free(build->substr_types);
@@ -3951,6 +3961,8 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
                  int mark_beg, int mark_end, const CHAR* mark_chars)
 {
     int i = mark_beg;
+    MD4C_UNUSED(lines);
+    MD4C_UNUSED(n_lines);
 
     while(i < mark_end) {
         MD_MARK* mark = &ctx->marks[i];
