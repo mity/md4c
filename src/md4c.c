@@ -72,25 +72,47 @@
     #define FALSE           0
 #endif
 
-/* For falling through case labels in switch statements. */
-#if defined __clang__
-    #if __clang_major__ >= 12
-        #define MD4C_FALLTHROUGH() __attribute__((fallthrough))
-    #else
-        #define MD4C_FALLTHROUGH() ((void)0)
-    #endif
-#elif defined __GNUC__
-    #if __GNUC__ >= 7
-        #define MD4C_FALLTHROUGH() __attribute__((fallthrough))
-    #else
-        #define MD4C_FALLTHROUGH() ((void)0)
-    #endif
+#define MD_LOG(msg)                                                     \
+    do {                                                                \
+        if(ctx->parser.debug_log != NULL)                               \
+            ctx->parser.debug_log((msg), ctx->userdata);                \
+    } while(0)
+
+#ifdef DEBUG
+    #define MD_ASSERT(cond)                                             \
+            do {                                                        \
+                if(!(cond)) {                                           \
+                    MD_LOG(__FILE__ ":" STRINGIZE(__LINE__) ": "        \
+                           "Assertion '" STRINGIZE(cond) "' failed.");  \
+                    exit(1);                                            \
+                }                                                       \
+            } while(0)
+
+    #define MD_UNREACHABLE()        MD_ASSERT(1 == 0)
 #else
-    #define MD4C_FALLTHROUGH() ((void)0)
+    #ifdef __GNUC__
+        #define MD_ASSERT(cond)     do { if(!(cond)) __builtin_unreachable(); } while(0)
+        #define MD_UNREACHABLE()    do { __builtin_unreachable(); } while(0)
+    #elif defined _MSC_VER  &&  _MSC_VER > 120
+        #define MD_ASSERT(cond)     do { __assume(cond); } while(0)
+        #define MD_UNREACHABLE()    do { __assume(0); } while(0)
+    #else
+        #define MD_ASSERT(cond)     do {} while(0)
+        #define MD_UNREACHABLE()    do {} while(0)
+    #endif
+#endif
+
+/* For falling through case labels in switch statements. */
+#if defined __clang__ && __clang_major__ >= 12
+    #define MD_FALLTHROUGH()        __attribute__((fallthrough))
+#elif defined __GNUC__ && __GNUC__ >= 7
+    #define MD_FALLTHROUGH()        __attribute__((fallthrough))
+#else
+    #define MD_FALLTHROUGH()        ((void)0)
 #endif
 
 /* Suppress "unused parameter" warnings. */
-#define MD4C_UNUSED(x) ((void)x)
+#define MD_UNUSED(x)                ((void)x)
 
 
 /************************
@@ -248,41 +270,6 @@ struct MD_VERBATIMLINE_tag {
     OFF end;
     OFF indent;
 };
-
-
-/*******************
- ***  Debugging  ***
- *******************/
-
-#define MD_LOG(msg)                                                     \
-    do {                                                                \
-        if(ctx->parser.debug_log != NULL)                               \
-            ctx->parser.debug_log((msg), ctx->userdata);                \
-    } while(0)
-
-#ifdef DEBUG
-    #define MD_ASSERT(cond)                                             \
-            do {                                                        \
-                if(!(cond)) {                                           \
-                    MD_LOG(__FILE__ ":" STRINGIZE(__LINE__) ": "        \
-                           "Assertion '" STRINGIZE(cond) "' failed.");  \
-                    exit(1);                                            \
-                }                                                       \
-            } while(0)
-
-    #define MD_UNREACHABLE()        MD_ASSERT(1 == 0)
-#else
-    #ifdef __GNUC__
-        #define MD_ASSERT(cond)     do { if(!(cond)) __builtin_unreachable(); } while(0)
-        #define MD_UNREACHABLE()    do { __builtin_unreachable(); } while(0)
-    #elif defined _MSC_VER  &&  _MSC_VER > 120
-        #define MD_ASSERT(cond)     do { __assume(cond); } while(0)
-        #define MD_UNREACHABLE()    do { __assume(0); } while(0)
-    #else
-        #define MD_ASSERT(cond)     do {} while(0)
-        #define MD_UNREACHABLE()    do {} while(0)
-    #endif
-#endif
 
 
 /*****************
@@ -914,7 +901,7 @@ md_merge_lines(MD_CTX* ctx, OFF beg, OFF end, const MD_LINE* lines, int n_lines,
     int line_index = 0;
     OFF off = beg;
 
-    MD4C_UNUSED(n_lines);
+    MD_UNUSED(n_lines);
 
     while(1) {
         const MD_LINE* line = &lines[line_index];
@@ -1257,7 +1244,7 @@ static int
 md_is_hex_entity_contents(MD_CTX* ctx, const CHAR* text, OFF beg, OFF max_end, OFF* p_end)
 {
     OFF off = beg;
-    MD4C_UNUSED(ctx);
+    MD_UNUSED(ctx);
 
     while(off < max_end  &&  ISXDIGIT_(text[off])  &&  off - beg <= 8)
         off++;
@@ -1274,7 +1261,7 @@ static int
 md_is_dec_entity_contents(MD_CTX* ctx, const CHAR* text, OFF beg, OFF max_end, OFF* p_end)
 {
     OFF off = beg;
-    MD4C_UNUSED(ctx);
+    MD_UNUSED(ctx);
 
     while(off < max_end  &&  ISDIGIT_(text[off])  &&  off - beg <= 8)
         off++;
@@ -1291,7 +1278,7 @@ static int
 md_is_named_entity_contents(MD_CTX* ctx, const CHAR* text, OFF beg, OFF max_end, OFF* p_end)
 {
     OFF off = beg;
-    MD4C_UNUSED(ctx);
+    MD_UNUSED(ctx);
 
     if(off < max_end  &&  ISALPHA_(text[off]))
         off++;
@@ -1397,7 +1384,7 @@ md_build_attr_append_substr(MD_CTX* ctx, MD_ATTRIBUTE_BUILD* build,
 static void
 md_free_attribute(MD_CTX* ctx, MD_ATTRIBUTE_BUILD* build)
 {
-    MD4C_UNUSED(ctx);
+    MD_UNUSED(ctx);
 
     if(build->substr_alloc > 0) {
         free(build->text);
@@ -2698,7 +2685,7 @@ md_rollback(MD_CTX* ctx, int opener_index, int closer_index, int how)
                     mark_index = mark->prev;
                     break;
                 }
-                MD4C_FALLTHROUGH();
+                MD_FALLTHROUGH();
             default:
                 mark_index--;
                 break;
@@ -3961,8 +3948,8 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
                  int mark_beg, int mark_end, const CHAR* mark_chars)
 {
     int i = mark_beg;
-    MD4C_UNUSED(lines);
-    MD4C_UNUSED(n_lines);
+    MD_UNUSED(lines);
+    MD_UNUSED(n_lines);
 
     while(i < mark_end) {
         MD_MARK* mark = &ctx->marks[i];
@@ -4181,7 +4168,7 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                         }
                         break;
                     }
-                    MD4C_FALLTHROUGH();
+                    MD_FALLTHROUGH();
 
                 case '*':       /* Emphasis, strong emphasis. */
                     if(mark->flags & MD_MARK_OPENER) {
@@ -4280,7 +4267,7 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                         break;
                     }
                     /* Pass through, if auto-link. */
-                    MD4C_FALLTHROUGH();
+                    MD_FALLTHROUGH();
 
                 case '@':       /* Permissive e-mail autolink. */
                 case ':':       /* Permissive URL autolink. */
@@ -5559,7 +5546,7 @@ md_enter_child_containers(MD_CTX* ctx, int n_children, unsigned data)
             case _T(')'):
             case _T('.'):
                 is_ordered_list = TRUE;
-                MD4C_FALLTHROUGH();
+                MD_FALLTHROUGH();
 
             case _T('-'):
             case _T('+'):
@@ -5605,7 +5592,7 @@ md_leave_child_containers(MD_CTX* ctx, int n_keep)
             case _T(')'):
             case _T('.'):
                 is_ordered_list = TRUE;
-                MD4C_FALLTHROUGH();
+                MD_FALLTHROUGH();
 
             case _T('-'):
             case _T('+'):
