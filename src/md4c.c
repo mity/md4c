@@ -1561,12 +1561,6 @@ md_link_label_cmp_load_fold_info(const CHAR* label, OFF off, SZ size,
         goto whitespace;
     }
 
-    if(ISNEWLINE_(label[off])) {
-        /* Treat new lines as a whitespace. */
-        off++;
-        goto whitespace;
-    }
-
     codepoint = md_decode_unicode(label, off, size, &char_size);
     off += char_size;
     if(ISUNICODEWHITESPACE_(codepoint)) {
