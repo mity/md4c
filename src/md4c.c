@@ -72,6 +72,23 @@
     #define FALSE           0
 #endif
 
+/* For falling through case labels in switch statements. */
+#if defined __clang__
+    #if __clang_major__ >= 12
+        #define MD4C_FALLTHROUGH() __attribute__((fallthrough))
+    #else
+        #define MD4C_FALLTHROUGH() ((void)0)
+    #endif
+#elif defined __GNUC__
+    #if __GNUC__ >= 7
+        #define MD4C_FALLTHROUGH() __attribute__((fallthrough))
+    #else
+        #define MD4C_FALLTHROUGH() ((void)0)
+    #endif
+#else
+    #define MD4C_FALLTHROUGH() ((void)0)
+#endif
+
 
 /************************
  ***  Internal Types  ***
@@ -2671,7 +2688,7 @@ md_rollback(MD_CTX* ctx, int opener_index, int closer_index, int how)
                     mark_index = mark->prev;
                     break;
                 }
-                /* Pass through. */
+                MD4C_FALLTHROUGH();
             default:
                 mark_index--;
                 break;
@@ -4152,7 +4169,7 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                         }
                         break;
                     }
-                    /* Fall though. */
+                    MD4C_FALLTHROUGH();
 
                 case '*':       /* Emphasis, strong emphasis. */
                     if(mark->flags & MD_MARK_OPENER) {
@@ -4251,6 +4268,7 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                         break;
                     }
                     /* Pass through, if auto-link. */
+                    MD4C_FALLTHROUGH();
 
                 case '@':       /* Permissive e-mail autolink. */
                 case ':':       /* Permissive URL autolink. */
@@ -5529,7 +5547,7 @@ md_enter_child_containers(MD_CTX* ctx, int n_children, unsigned data)
             case _T(')'):
             case _T('.'):
                 is_ordered_list = TRUE;
-                /* Pass through */
+                MD4C_FALLTHROUGH();
 
             case _T('-'):
             case _T('+'):
@@ -5575,7 +5593,7 @@ md_leave_child_containers(MD_CTX* ctx, int n_keep)
             case _T(')'):
             case _T('.'):
                 is_ordered_list = TRUE;
-                /* Pass through */
+                MD4C_FALLTHROUGH();
 
             case _T('-'):
             case _T('+'):
