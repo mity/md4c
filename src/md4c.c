@@ -486,7 +486,7 @@ md_text_with_null_replacement(MD_CTX* ctx, MD_TEXTTYPE type, const CHAR* str, SZ
 typedef struct MD_UNICODE_FOLD_INFO_tag MD_UNICODE_FOLD_INFO;
 struct MD_UNICODE_FOLD_INFO_tag {
     unsigned codepoints[3];
-    int n_codepoints;
+    unsigned n_codepoints;
 };
 
 
@@ -690,7 +690,7 @@ struct MD_UNICODE_FOLD_INFO_tag {
             const unsigned* map;
             const unsigned* data;
             size_t map_size;
-            int n_codepoints;
+            unsigned n_codepoints;
         } FOLD_MAP_LIST[] = {
             { FOLD_MAP_1, FOLD_MAP_1_DATA, SIZEOF_ARRAY(FOLD_MAP_1), 1 },
             { FOLD_MAP_2, FOLD_MAP_2_DATA, SIZEOF_ARRAY(FOLD_MAP_2), 2 },
@@ -715,7 +715,7 @@ struct MD_UNICODE_FOLD_INFO_tag {
             index = md_unicode_bsearch__(codepoint, FOLD_MAP_LIST[i].map, FOLD_MAP_LIST[i].map_size);
             if(index >= 0) {
                 /* Found the mapping. */
-                int n_codepoints = FOLD_MAP_LIST[i].n_codepoints;
+                unsigned n_codepoints = FOLD_MAP_LIST[i].n_codepoints;
                 const unsigned* map = FOLD_MAP_LIST[i].map;
                 const unsigned* codepoints = FOLD_MAP_LIST[i].data + (index * n_codepoints);
 
@@ -1614,12 +1614,12 @@ md_link_label_cmp(const CHAR* a_label, SZ a_size, const CHAR* b_label, SZ b_size
     b_off = md_skip_unicode_whitespace(b_label, 0, b_size);
     while(!a_reached_end  ||  !b_reached_end) {
         /* If needed, load fold info for next char. */
-        if(a_fi_off >= (OFF)a_fi.n_codepoints) {
+        if(a_fi_off >= a_fi.n_codepoints) {
             a_fi_off = 0;
             a_off = md_link_label_cmp_load_fold_info(a_label, a_off, a_size, &a_fi);
             a_reached_end = (a_off >= a_size);
         }
-        if(b_fi_off >= (OFF)b_fi.n_codepoints) {
+        if(b_fi_off >= b_fi.n_codepoints) {
             b_fi_off = 0;
             b_off = md_link_label_cmp_load_fold_info(b_label, b_off, b_size, &b_fi);
             b_reached_end = (b_off >= b_size);
