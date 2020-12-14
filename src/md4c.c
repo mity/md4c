@@ -1589,8 +1589,6 @@ md_link_label_cmp(const CHAR* a_label, SZ a_size, const CHAR* b_label, SZ b_size
 {
     OFF a_off;
     OFF b_off;
-    int a_reached_end = FALSE;
-    int b_reached_end = FALSE;
     MD_UNICODE_FOLD_INFO a_fi = { { 0 }, 0 };
     MD_UNICODE_FOLD_INFO b_fi = { { 0 }, 0 };
     OFF a_fi_off = 0;
@@ -1599,17 +1597,17 @@ md_link_label_cmp(const CHAR* a_label, SZ a_size, const CHAR* b_label, SZ b_size
 
     a_off = md_skip_unicode_whitespace(a_label, 0, a_size);
     b_off = md_skip_unicode_whitespace(b_label, 0, b_size);
-    while(!a_reached_end  ||  !b_reached_end) {
+    while(a_off < a_size || a_fi_off < a_fi.n_codepoints ||
+          b_off < b_size || b_fi_off < b_fi.n_codepoints)
+    {
         /* If needed, load fold info for next char. */
         if(a_fi_off >= a_fi.n_codepoints) {
             a_fi_off = 0;
             a_off = md_link_label_cmp_load_fold_info(a_label, a_off, a_size, &a_fi);
-            a_reached_end = (a_off >= a_size);
         }
         if(b_fi_off >= b_fi.n_codepoints) {
             b_fi_off = 0;
             b_off = md_link_label_cmp_load_fold_info(b_label, b_off, b_size, &b_fi);
-            b_reached_end = (b_off >= b_size);
         }
 
         cmp = b_fi.codepoints[b_fi_off] - a_fi.codepoints[a_fi_off];

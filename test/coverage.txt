@@ -296,6 +296,16 @@ foo
 ````````````````````````````````
 
 
+### [Issue 142](https://github.com/mity/md4c/issues/142)
+
+```````````````````````````````` example
+[fooﬗ]: /url
+[fooﬕ]
+.
+[fooﬕ]
+````````````````````````````````
+
+
 ## Code coverage
 
 ### `md_is_unicode_whitespace__()`

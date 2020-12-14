@@ -26,6 +26,10 @@ Fixes:
  * [#139](https://github.com/mity/md4c/issues/139):
    Recognize a list item mark even when EOF follows it.
 
+ * [#142](https://github.com/mity/md4c/issues/142):
+   Fix reference link definition label matching in a case when the label ends
+   with a Unicode character with non-trivial case folding mapping.
+
 
 ## Version 0.4.6
 
