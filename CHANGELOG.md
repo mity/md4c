@@ -2,7 +2,7 @@
 # MD4C Change Log
 
 
-## Next Version (Work in Progress)
+## Version 0.4.7
 
 Changes:
 
@@ -20,7 +20,7 @@ Fixes:
    in a way more compatible with the GFM.
 
  * [#138](https://github.com/mity/md4c/issues/138):
-   The tag `<tbody></tbody>` is suppressed whenever the table has zero body
+   The tag `<tbody></tbody>` is now suppressed whenever the table has zero body
    rows.
 
  * [#139](https://github.com/mity/md4c/issues/139):
