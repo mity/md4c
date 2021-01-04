@@ -16,7 +16,7 @@ set_target_properties(md4c PROPERTIES
     SOVERSION ${MD_VERSION_MAJOR}
     PUBLIC_HEADER md4c.h
 )
-
+add_library(md4c::md4c ALIAS md4c)
 
 # Build rules for HTML renderer library
 
@@ -27,7 +27,7 @@ set_target_properties(md4c-html PROPERTIES
     SOVERSION ${MD_VERSION_MAJOR}
     PUBLIC_HEADER md4c-html.h
 )
-target_link_libraries(md4c-html md4c)
+target_link_libraries(md4c-html md4c::md4c)
 
 
 # Install rules
@@ -39,18 +39,19 @@ install(
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 install(FILES ${CMAKE_BINARY_DIR}/src/md4c.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
-install(EXPORT md4cConfig DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/md4c/)
 
 install(
     TARGETS md4c-html
-    EXPORT md4cHtmlConfig
+    EXPORT md4cConfig
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 install(FILES ${CMAKE_BINARY_DIR}/src/md4c-html.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
-install(EXPORT md4cHtmlConfig DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/md4c-html/)
+
+install(EXPORT md4cConfig DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/md4c/ NAMESPACE md4c::)
 
