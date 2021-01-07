@@ -16,7 +16,6 @@ set_target_properties(md4c PROPERTIES
     SOVERSION ${MD_VERSION_MAJOR}
     PUBLIC_HEADER md4c.h
 )
-add_library(md4c::md4c ALIAS md4c)
 
 # Build rules for HTML renderer library
 
@@ -27,7 +26,7 @@ set_target_properties(md4c-html PROPERTIES
     SOVERSION ${MD_VERSION_MAJOR}
     PUBLIC_HEADER md4c-html.h
 )
-target_link_libraries(md4c-html md4c::md4c)
+target_link_libraries(md4c-html md4c)
 
 
 # Install rules
