@@ -278,6 +278,7 @@ typedef struct MD_BLOCK_TABLE_DETAIL {
 /* Detailed info for MD_BLOCK_TH and MD_BLOCK_TD. */
 typedef struct MD_BLOCK_TD_DETAIL {
     MD_ALIGN align;
+    int colspan;
 } MD_BLOCK_TD_DETAIL;
 
 /* Detailed info for MD_SPAN_A. */
@@ -316,6 +317,7 @@ typedef struct MD_SPAN_WIKILINK {
 #define MD_FLAG_LATEXMATHSPANS              0x1000  /* Enable $ and $$ containing LaTeX equations. */
 #define MD_FLAG_WIKILINKS                   0x2000  /* Enable wiki links extension. */
 #define MD_FLAG_UNDERLINE                   0x4000  /* Enable underline extension (and disables '_' for normal emphasis). */
+#define MD_FLAG_TABLES_COLSPAN              0x8000  /* Enable table colspan extension '|2> 2-colspan cell |'. */
 
 #define MD_FLAG_PERMISSIVEAUTOLINKS         (MD_FLAG_PERMISSIVEEMAILAUTOLINKS | MD_FLAG_PERMISSIVEURLAUTOLINKS | MD_FLAG_PERMISSIVEWWWAUTOLINKS)
 #define MD_FLAG_NOHTML                      (MD_FLAG_NOHTMLBLOCKS | MD_FLAG_NOHTMLSPANS)

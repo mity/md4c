@@ -4410,10 +4410,9 @@ md_analyze_table_alignment(MD_CTX* ctx, OFF beg, OFF end, MD_ALIGN* align, int n
 static int md_process_normal_block_contents(MD_CTX* ctx, const MD_LINE* lines, int n_lines);
 
 static int
-md_process_table_cell(MD_CTX* ctx, MD_BLOCKTYPE cell_type, MD_ALIGN align, OFF beg, OFF end)
+md_process_table_cell(MD_CTX* ctx, MD_BLOCKTYPE cell_type, MD_BLOCK_TD_DETAIL *det, OFF beg, OFF end)
 {
     MD_LINE line;
-    MD_BLOCK_TD_DETAIL det;
     int ret = 0;
 
     while(beg < end  &&  ISWHITESPACE(beg))
@@ -4421,13 +4420,12 @@ md_process_table_cell(MD_CTX* ctx, MD_BLOCKTYPE cell_type, MD_ALIGN align, OFF b
     while(end > beg  &&  ISWHITESPACE(end-1))
         end--;
 
-    det.align = align;
     line.beg = beg;
     line.end = end;
 
-    MD_ENTER_BLOCK(cell_type, &det);
+    MD_ENTER_BLOCK(cell_type, det);
     MD_CHECK(md_process_normal_block_contents(ctx, &line, 1));
-    MD_LEAVE_BLOCK(cell_type, &det);
+    MD_LEAVE_BLOCK(cell_type, det);
 
 abort:
     return ret;
@@ -4438,6 +4436,10 @@ md_process_table_row(MD_CTX* ctx, MD_BLOCKTYPE cell_type, OFF beg, OFF end,
                      const MD_ALIGN* align, int col_count)
 {
     MD_LINE line;
+    MD_LINE cell;
+    MD_BLOCK_TD_DETAIL det;
+
+    unsigned is_spans;
     OFF* pipe_offs = NULL;
     int i, j, k, n;
     int ret = 0;
@@ -4464,19 +4466,36 @@ md_process_table_row(MD_CTX* ctx, MD_BLOCKTYPE cell_type, OFF beg, OFF end,
         MD_MARK* mark = &ctx->marks[i];
         pipe_offs[j++] = mark->end;
     }
-    pipe_offs[j++] = end+1;
+    pipe_offs[j] = end+1;
 
+    is_spans = ctx->parser.flags & MD_FLAG_TABLES_COLSPAN;
     /* Process cells. */
     MD_ENTER_BLOCK(MD_BLOCK_TR, NULL);
     k = 0;
-    for(i = 0; i < j-1  &&  k < col_count; i++) {
-        if(pipe_offs[i] < pipe_offs[i+1]-1)
-            MD_CHECK(md_process_table_cell(ctx, cell_type, align[k++], pipe_offs[i], pipe_offs[i+1]-1));
+    for(i = 0; i < j  &&  k < col_count; i++) {
+        cell.beg = pipe_offs[i];
+        cell.end = pipe_offs[i+1]-1;
+
+        if(cell.beg < cell.end) {
+            det.colspan = 0;
+            if (is_spans && cell.end - cell.beg >= 2 &&
+                ISDIGIT(cell.beg) && CH(cell.beg+1) == '>') {
+                det.colspan = CH(cell.beg) - '0';
+                cell.beg += 2;
+            }
+            det.align = align[k++];
+            MD_CHECK(md_process_table_cell(ctx, cell_type, &det, cell.beg, cell.end));
+            if (is_spans && det.colspan > 1)
+                k += det.colspan - 1;
+        }
     }
     /* Make sure we call enough table cells even if the current table contains
      * too few of them. */
-    while(k < col_count)
-        MD_CHECK(md_process_table_cell(ctx, cell_type, align[k++], 0, 0));
+    det.colspan = 0;
+    while(k < col_count) {
+        det.align = align[k++];
+        MD_CHECK(md_process_table_cell(ctx, cell_type, &det, 0, 0));
+    }
     MD_LEAVE_BLOCK(MD_BLOCK_TR, NULL);
 
 abort:

@@ -312,15 +312,24 @@ render_open_code_block(MD_HTML* r, const MD_BLOCK_CODE_DETAIL* det)
 static void
 render_open_td_block(MD_HTML* r, const MD_CHAR* cell_type, const MD_BLOCK_TD_DETAIL* det)
 {
+    MD_CHAR tail[2];
+
     RENDER_VERBATIM(r, "<");
     RENDER_VERBATIM(r, cell_type);
 
     switch(det->align) {
-        case MD_ALIGN_LEFT:     RENDER_VERBATIM(r, " align=\"left\">"); break;
-        case MD_ALIGN_CENTER:   RENDER_VERBATIM(r, " align=\"center\">"); break;
-        case MD_ALIGN_RIGHT:    RENDER_VERBATIM(r, " align=\"right\">"); break;
-        default:                RENDER_VERBATIM(r, ">"); break;
+        case MD_ALIGN_LEFT:     RENDER_VERBATIM(r, " align=\"left\""); break;
+        case MD_ALIGN_CENTER:   RENDER_VERBATIM(r, " align=\"center\""); break;
+        case MD_ALIGN_RIGHT:    RENDER_VERBATIM(r, " align=\"right\""); break;
+        case MD_ALIGN_DEFAULT:  break;
     }
+    if (det->colspan > 1) {
+        RENDER_VERBATIM(r, " colspan=\"");
+        tail[0] = '0' + det->colspan;
+        tail[1] = '\"';
+        render_verbatim(r, tail, 2);
+    }
+    RENDER_VERBATIM(r, ">");
 }
 
 static void

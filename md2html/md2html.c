@@ -208,6 +208,7 @@ static const CMDLINE_OPTION cmdline_options[] = {
     {  0,  "fpermissive-www-autolinks",     '.', 0 },
     {  0,  "fstrikethrough",                'S', 0 },
     {  0,  "ftables",                       'T', 0 },
+    {  0,  "ftable-colspan",                'J', 0 },
     {  0,  "ftasklists",                    'X', 0 },
     {  0,  "funderline",                    '_', 0 },
     {  0,  "fverbatim-entities",            'E', 0 },
@@ -258,6 +259,7 @@ usage(void)
         "                       --fpermissive-email-autolinks\n"
         "      --fstrikethrough Enable strike-through spans\n"
         "      --ftables        Enable tables\n"
+        "      --ftable-colspan Enable table colspan extension ('|2> text |')\n"
         "      --ftasklists     Enable task lists\n"
         "      --funderline     Enable underline spans\n"
         "      --fwiki-links    Enable wiki links\n"
@@ -322,6 +324,7 @@ cmdline_callback(int opt, char const* value, void* data)
         case '@':   parser_flags |= MD_FLAG_PERMISSIVEEMAILAUTOLINKS; break;
         case 'V':   parser_flags |= MD_FLAG_PERMISSIVEAUTOLINKS; break;
         case 'T':   parser_flags |= MD_FLAG_TABLES; break;
+        case 'J':   parser_flags |= MD_FLAG_TABLES_COLSPAN; break;
         case 'S':   parser_flags |= MD_FLAG_STRIKETHROUGH; break;
         case 'L':   parser_flags |= MD_FLAG_LATEXMATHSPANS; break;
         case 'K':   parser_flags |= MD_FLAG_WIKILINKS; break;
