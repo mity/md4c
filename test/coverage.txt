@@ -306,6 +306,24 @@ foo
 ````````````````````````````````
 
 
+### [Issue 149](https://github.com/mity/md4c/issues/149)
+
+```````````````````````````````` example
+- <script>
+- foo
+bar
+</script>
+.
+<ul>
+<li><script>
+</li>
+<li>foo
+bar
+</script></li>
+</ul>
+````````````````````````````````
+
+
 ## Code coverage
 
 ### `md_is_unicode_whitespace__()`

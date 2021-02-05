@@ -5779,25 +5779,30 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
 
         /* Check whether we are HTML block continuation. */
         if(pivot_line->type == MD_LINE_HTML  &&  ctx->html_block_type > 0) {
-            int html_block_type;
-
-            html_block_type = md_is_html_block_end_condition(ctx, off, &off);
-            if(html_block_type > 0) {
-                MD_ASSERT(html_block_type == ctx->html_block_type);
-
-                /* Make sure this is the last line of the block. */
+            if(n_parents < ctx->n_containers) {
+                /* HTML block is implicitly ended if the enclosing container
+                 * block ends. */
                 ctx->html_block_type = 0;
+            } else {
+                int html_block_type;
 
-                /* Some end conditions serve as blank lines at the same time. */
-                if(html_block_type == 6 || html_block_type == 7) {
-                    line->type = MD_LINE_BLANK;
-                    line->indent = 0;
-                    break;
+                html_block_type = md_is_html_block_end_condition(ctx, off, &off);
+                if(html_block_type > 0) {
+                    MD_ASSERT(html_block_type == ctx->html_block_type);
+
+                    /* Make sure this is the last line of the block. */
+                    ctx->html_block_type = 0;
+
+                    /* Some end conditions serve as blank lines at the same time. */
+                    if(html_block_type == 6 || html_block_type == 7) {
+                        line->type = MD_LINE_BLANK;
+                        line->indent = 0;
+                        break;
+                    }
                 }
-            }
 
-            if(n_parents == ctx->n_containers) {
                 line->type = MD_LINE_HTML;
+                n_parents = ctx->n_containers;
                 break;
             }
         }

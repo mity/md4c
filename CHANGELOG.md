@@ -2,6 +2,15 @@
 # MD4C Change Log
 
 
+## Next Version (Work in Progress)
+
+Fixes:
+
+ * [#149](https://github.com/mity/md4c/issues/149):
+   A HTML block started in a container block (and not explicitly finished in
+   the block) could eat 1 line of actual contents.
+
+
 ## Version 0.4.7
 
 Changes:
