@@ -152,7 +152,15 @@ process_file(FILE* in, FILE* out)
 
     /* Write down the document in the HTML format. */
     if(want_fullhtml) {
-        fprintf(out, "<html>\n");
+        if(want_xhtml) {
+            fprintf(out, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+            fprintf(out, "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1//EN\" "
+                            "\"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd\">\n");
+            fprintf(out, "<html xmlns=\"http://www.w3.org/1999/xhtml\">");
+        } else {
+            fprintf(out, "<!DOCTYPE html>\n");
+            fprintf(out, "<html>\n");
+        }
         fprintf(out, "<head>\n");
         fprintf(out, "<title></title>\n");
         fprintf(out, "<meta name=\"generator\" content=\"md2html\"%s>\n", want_xhtml ? " /" : "");
