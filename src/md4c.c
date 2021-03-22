@@ -5525,7 +5525,7 @@ md_push_container(MD_CTX* ctx, const MD_CONTAINER* container)
 }
 
 static int
-md_enter_child_containers(MD_CTX* ctx, int n_children, unsigned data)
+md_enter_child_containers(MD_CTX* ctx, int n_children)
 {
     int i;
     int ret = 0;
@@ -5550,7 +5550,7 @@ md_enter_child_containers(MD_CTX* ctx, int n_children, unsigned data)
 
                 MD_CHECK(md_push_container_bytes(ctx,
                                 (is_ordered_list ? MD_BLOCK_OL : MD_BLOCK_UL),
-                                c->start, data, MD_BLOCK_CONTAINER_OPENER));
+                                c->start, c->ch, MD_BLOCK_CONTAINER_OPENER));
                 MD_CHECK(md_push_container_bytes(ctx, MD_BLOCK_LI,
                                 c->task_mark_off,
                                 (c->is_task ? CH(c->task_mark_off) : 0),
@@ -6162,7 +6162,7 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
     }
 
     if(n_children > 0)
-        MD_CHECK(md_enter_child_containers(ctx, n_children, line->data));
+        MD_CHECK(md_enter_child_containers(ctx, n_children));
 
 abort:
     return ret;

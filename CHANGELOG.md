@@ -15,6 +15,12 @@ Fixes:
    command line options is used, accordingly to the expected output format
    (HTML or XHTML).
 
+ * [#153](https://github.com/mity/md4c/issues/153),
+   [#154](https://github.com/mity/md4c/issues/154):
+   Set `MD_BLOCK_UL_DETAIL::mark` and `MD_BLOCK_OL_DETAIL::mark_delimiter`
+   correctly, even when the blocks are nested at the same line in a complicated
+   ways.
+
 
 ## Version 0.4.7
 
