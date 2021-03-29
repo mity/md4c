@@ -5869,7 +5869,7 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
 
         /* Check whether we are Setext underline. */
         if(line->indent < ctx->code_indent_offset  &&  pivot_line->type == MD_LINE_TEXT
-            &&  (CH(off) == _T('=') || CH(off) == _T('-'))
+            &&  off < ctx->size  &&  ISANYOF2(off, _T('='), _T('-'))
             &&  (n_parents == ctx->n_containers))
         {
             unsigned level;
@@ -5882,7 +5882,10 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
         }
 
         /* Check for thematic break line. */
-        if(line->indent < ctx->code_indent_offset  &&  ISANYOF(off, _T("-_*"))  &&  off >= hr_killer) {
+        if(line->indent < ctx->code_indent_offset
+            &&  off < ctx->size  &&  off >= hr_killer
+            &&  ISANYOF(off, _T("-_*")))
+        {
             if(md_is_hr_line(ctx, off, &off, &hr_killer)) {
                 line->type = MD_LINE_HR;
                 break;
@@ -5946,7 +5949,7 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
             {
                 /* Noop. List mark followed by a blank line cannot interrupt a paragraph. */
             } else if(pivot_line->type == MD_LINE_TEXT  &&  n_parents == ctx->n_containers  &&
-                        (container.ch == _T('.') || container.ch == _T(')'))  &&  container.start != 1)
+                        ISANYOF2_(container.ch, _T('.'), _T(')'))  &&  container.start != 1)
             {
                 /* Noop. Ordered list cannot interrupt a paragraph unless the start index is 1. */
             } else {
@@ -5987,7 +5990,9 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
         }
 
         /* Check for ATX header. */
-        if(line->indent < ctx->code_indent_offset  &&  CH(off) == _T('#')) {
+        if(line->indent < ctx->code_indent_offset  &&
+                off < ctx->size  &&  CH(off) == _T('#'))
+        {
             unsigned level;
 
             if(md_is_atxheader_line(ctx, off, &line->beg, &off, &level)) {
@@ -5998,7 +6003,7 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
         }
 
         /* Check whether we are starting code fence. */
-        if(CH(off) == _T('`') || CH(off) == _T('~')) {
+        if(off < ctx->size  &&  ISANYOF2(off, _T('`'), _T('~'))) {
             if(md_is_opening_code_fence(ctx, off, &off)) {
                 line->type = MD_LINE_FENCEDCODE;
                 line->data = 1;
@@ -6007,7 +6012,8 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
         }
 
         /* Check for start of raw HTML block. */
-        if(CH(off) == _T('<')  &&  !(ctx->parser.flags & MD_FLAG_NOHTMLBLOCKS))
+        if(off < ctx->size  &&  CH(off) == _T('<')
+            &&  !(ctx->parser.flags & MD_FLAG_NOHTMLBLOCKS))
         {
             ctx->html_block_type = md_is_html_block_start_condition(ctx, off);
 
@@ -6028,9 +6034,9 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
         }
 
         /* Check for table underline. */
-        if((ctx->parser.flags & MD_FLAG_TABLES)  &&  pivot_line->type == MD_LINE_TEXT  &&
-           (CH(off) == _T('|') || CH(off) == _T('-') || CH(off) == _T(':'))  &&
-           n_parents == ctx->n_containers)
+        if((ctx->parser.flags & MD_FLAG_TABLES)  &&  pivot_line->type == MD_LINE_TEXT
+            &&  off < ctx->size  &&  ISANYOF3(off, _T('|'), _T('-'), _T(':'))
+            &&  n_parents == ctx->n_containers)
         {
             unsigned col_count;
 

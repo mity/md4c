@@ -21,6 +21,9 @@ Fixes:
    correctly, even when the blocks are nested at the same line in a complicated
    ways.
 
+ * [#155](https://github.com/mity/md4c/issues/155):
+   Avoid reading 1 character beyond the input size in some complex cases.
+
 
 ## Version 0.4.7
 
