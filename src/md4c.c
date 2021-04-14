@@ -3611,6 +3611,33 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             }
 
             md_analyze_link_contents(ctx, lines, n_lines, opener_index+1, closer_index);
+
+            /* If the link text is formed by nothing but permissive autolink,
+             * suppress the autolink.
+             * See https://github.com/mity/md4c/issues/152 for more info. */
+            if(ctx->parser.flags & MD_FLAG_PERMISSIVEAUTOLINKS) {
+                MD_MARK* first_nested;
+                MD_MARK* last_nested;
+
+                first_nested = opener + 1;
+                while(first_nested->ch == _T('D')  &&  first_nested < closer)
+                    first_nested++;
+
+                last_nested = closer - 1;
+                while(first_nested->ch == _T('D')  &&  last_nested > opener)
+                    last_nested--;
+
+                if((first_nested->flags & MD_MARK_RESOLVED)  &&
+                   first_nested->beg == opener->end  &&
+                   ISANYOF_(first_nested->ch, _T("@:."))  &&
+                   first_nested->next == (last_nested - ctx->marks))
+                {
+                    first_nested->ch = _T('D');
+                    first_nested->flags &= ~MD_MARK_RESOLVED;
+                    last_nested->ch = _T('D');
+                    last_nested->flags &= ~MD_MARK_RESOLVED;
+                }
+            }
         }
 
         opener_index = next_index;

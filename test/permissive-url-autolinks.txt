@@ -90,3 +90,10 @@ This is [link](http://github.com/)X
 ````````````````````````````````
 
 
+## [Issue 152](https://github.com/mity/md4c/issues/152)
+
+```````````````````````````````` example
+[http://example.com](http://example.com)
+.
+<p><a href="http://example.com">http://example.com</a></p>
+````````````````````````````````
