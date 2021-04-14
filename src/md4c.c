@@ -3630,7 +3630,8 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 if((first_nested->flags & MD_MARK_RESOLVED)  &&
                    first_nested->beg == opener->end  &&
                    ISANYOF_(first_nested->ch, _T("@:."))  &&
-                   first_nested->next == (last_nested - ctx->marks))
+                   first_nested->next == (last_nested - ctx->marks)  &&
+                   last_nested->end == closer->beg)
                 {
                     first_nested->ch = _T('D');
                     first_nested->flags &= ~MD_MARK_RESOLVED;
