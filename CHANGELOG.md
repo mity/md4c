@@ -11,7 +11,7 @@ Fixes:
    the block) could eat 1 line of actual contents.
 
  * [#150](https://github.com/mity/md4c/issues/150):
-   Fix md2html utility to output proper DOCTYPE and HTML tags when `full-html`
+   Fix md2html utility to output proper DOCTYPE and HTML tags when `--full-html`
    command line options is used, accordingly to the expected output format
    (HTML or XHTML).
 
