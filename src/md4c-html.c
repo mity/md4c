@@ -195,7 +195,7 @@ render_utf8_codepoint(MD_HTML* r, unsigned codepoint,
     }
 
     if(0 < codepoint  &&  codepoint <= 0x10ffff)
-        fn_append(r, (char*)utf8, n);
+        fn_append(r, (char*)utf8, (MD_SIZE)n);
     else
         fn_append(r, utf8_replacement_char, 3);
 }

@@ -40,7 +40,7 @@ if(${CMAKE_C_COMPILER_ID} MATCHES GNU|Clang)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 elseif(MSVC)
     # Disable warnings about the so-called unsecured functions:
-    add_definitions(/D_CRT_SECURE_NO_WARNINGS)
+    add_definitions(/D_CRT_SECURE_NO_WARNINGS /W3)
 
     # Specify proper C runtime library:
     string(REGEX REPLACE "/M[DT]d?" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
