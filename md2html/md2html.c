@@ -114,7 +114,7 @@ process_output(const MD_CHAR* text, MD_SIZE size, void* userdata)
 static int
 process_file(FILE* in, FILE* out)
 {
-    MD_SIZE n;
+    size_t n;
     struct membuffer buf_in = {0};
     struct membuffer buf_out = {0};
     int ret = -1;
@@ -135,13 +135,13 @@ process_file(FILE* in, FILE* out)
 
     /* Input size is good estimation of output size. Add some more reserve to
      * deal with the HTML header/footer and tags. */
-    membuf_init(&buf_out, buf_in.size + buf_in.size/8 + 64);
+    membuf_init(&buf_out, (MD_SIZE)(buf_in.size + buf_in.size/8 + 64));
 
     /* Parse the document. This shall call our callbacks provided via the
      * md_renderer_t structure. */
     t0 = clock();
 
-    ret = md_html(buf_in.data, buf_in.size, process_output, (void*) &buf_out,
+    ret = md_html(buf_in.data, (MD_SIZE)buf_in.size, process_output, (void*) &buf_out,
                     parser_flags, renderer_flags);
 
     t1 = clock();
