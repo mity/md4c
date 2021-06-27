@@ -2,6 +2,29 @@
 # MD4C Change Log
 
 
+## Next Version (Work in Progress)
+
+Changes:
+
+ * Changes mandated by CommonMark specification 0.30.
+
+   Actually there are only very minor changes to recognition of HTML blocks:
+
+   - The tag `<textarea>` now triggers HTML block (of type 1 as per the
+     specification).
+
+   - HTML declaration (HTML block type 4) is not required to begin with an
+     upper-case ASCII character after the `<!`. Any ASCII character is now
+     allowed.
+
+   Other than that, the newest specification mainly improves test coverage and
+   clarifies its wording in some cases, without affecting the implementation.
+
+   Refer to [CommonMark
+   0.30 notes](https://github.com/commonmark/commonmark-spec/releases/tag/0.30)
+   for more info.
+
+
 ## Version 0.4.8
 
 Fixes:
