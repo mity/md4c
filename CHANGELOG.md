@@ -25,6 +25,17 @@ Changes:
    for more info.
 
 
+Fixes:
+
+ * [#163](https://github.com/mity/md4c/issues/163):
+   Make HTML renderer to emit `'\n'` after the root tag when in the XHTML mode.
+
+ * [#165](https://github.com/mity/md4c/issues/165):
+   Make HTML renderer not to percent-encode `'~'` in URLs. Although it does
+   work, it's not needed, and it can actually be confusing with URLs such as
+   `http://www.example.com/~johndoe/`.
+
+
 ## Version 0.4.8
 
 Fixes:
