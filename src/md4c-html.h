@@ -49,7 +49,7 @@
  * Callback process_output() gets called with chunks of HTML output.
  * (Typical implementation may just output the bytes to a file or append to
  * some buffer).
- * Param userdata is just propgated back to process_output() callback.
+ * Param userdata is just propagated back to process_output() callback.
  * Param parser_flags are flags from md4c.h propagated to md_parse().
  * Param render_flags is bitmask of MD_HTML_FLAG_xxxx.
  *
