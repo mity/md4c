@@ -555,7 +555,7 @@ md_html(const MD_CHAR* input, MD_SIZE input_size,
         if(strchr("\"&<>", ch) != NULL)
             render.escape_map[i] |= NEED_HTML_ESC_FLAG;
 
-        if(!ISALNUM(ch)  &&  strchr("-_.+!*(),%#@?=;:/,+$", ch) == NULL)
+        if(!ISALNUM(ch)  &&  strchr("~-_.+!*(),%#@?=;:/,+$", ch) == NULL)
             render.escape_map[i] |= NEED_URL_ESC_FLAG;
     }
 
