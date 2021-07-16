@@ -1,0 +1,68 @@
+
+# Table colspan extension
+
+With the flag `MD_FLAG_TABLES_COLSPAN`, MD4C enables extension for recognition
+of table colspan's.
+
+Basic table example of a table with colspan:
+
+```````````````````````````````` example
+| Column 1 | Column 2 |
+|----------|----------|
+|   foo    | bar      |
+|2> baz               |
+|   quux   | quuz     |
+.
+<table>
+<thead>
+<tr><th>Column 1</th><th>Column 2</th></tr>
+</thead>
+<tbody>
+<tr><td>foo</td><td>bar</td></tr>
+<tr><td colspan="2">baz</td></tr>
+<tr><td>quux</td><td>quuz</td></tr>
+</tbody>
+</table>
+````````````````````````````````
+
+Only one digit are allowed:
+
+```````````````````````````````` example
+| Column 1 | Column 2 |
+|----------|----------|
+|   foo    | bar      |
+|22> baz              |
+|   quux   | quuz     |
+.
+<table>
+<thead>
+<tr><th>Column 1</th><th>Column 2</th></tr>
+</thead>
+<tbody>
+<tr><td>foo</td><td>bar</td></tr>
+<tr><td>22&gt; baz</td><td></td></tr>
+<tr><td>quux</td><td>quuz</td></tr>
+</tbody>
+</table>
+````````````````````````````````
+
+The arrow character must follow without spaces:
+
+```````````````````````````````` example
+| Column 1 | Column 2 |
+|----------|----------|
+|   foo    | bar      |
+| 2 > baz             |
+|   quux   | quuz     |
+.
+<table>
+<thead>
+<tr><th>Column 1</th><th>Column 2</th></tr>
+</thead>
+<tbody>
+<tr><td>foo</td><td>bar</td></tr>
+<tr><td>2 &gt; baz</td><td></td></tr>
+<tr><td>quux</td><td>quuz</td></tr>
+</tbody>
+</table>
+````````````````````````````````

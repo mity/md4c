@@ -102,6 +102,9 @@ extensions:
 
 * With the flag `MD_FLAG_TABLES`, GitHub-style tables are supported.
 
+* With the flag `MD_FLAG_TABLES_COLSPAN`, wiky-style ('|2> text |') table
+  colspan are supported.
+
 * With the flag `MD_FLAG_TASKLISTS`, GitHub-style task lists are supported.
 
 * With the flag `MD_FLAG_STRIKETHROUGH`, strike-through spans are enabled
