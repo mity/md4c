@@ -2275,7 +2275,7 @@ md_is_inline_link_spec(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
     /* Optional white space with up to one line break. */
     while(off < lines[line_index].end  &&  ISWHITESPACE(off))
         off++;
-    if(off >= lines[line_index].end  &&  ISNEWLINE(off)) {
+    if(off >= lines[line_index].end  &&  (off >= ctx->size  ||  ISNEWLINE(off))) {
         line_index++;
         if(line_index >= n_lines)
             return FALSE;
