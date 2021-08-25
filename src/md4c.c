@@ -5685,6 +5685,7 @@ md_is_container_mark(MD_CTX* ctx, unsigned indent, OFF beg, OFF* p_end, MD_CONTA
         off++;
     }
     if(off > beg  &&
+       off < ctx->size  &&
        (CH(off) == _T('.') || CH(off) == _T(')'))  &&
        (off+1 >= ctx->size || ISBLANK(off+1) || ISNEWLINE(off+1)))
     {
