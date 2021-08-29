@@ -2340,7 +2340,11 @@ md_is_inline_link_spec(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
     /* Optional whitespace followed with final ')'. */
     while(off < lines[line_index].end  &&  ISWHITESPACE(off))
         off++;
+<<<<<<< HEAD
     if (off >= lines[line_index].end  &&  (off >= ctx->size || ISNEWLINE(off))) {
+=======
+    if(off >= lines[line_index].end  &&  (off >= ctx->size || ISNEWLINE(off))) {
+>>>>>>> c85694b (Fix buffer overflow on input found with fuzzying.)
         line_index++;
         if(line_index >= n_lines)
             return FALSE;
