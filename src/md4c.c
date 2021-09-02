@@ -3928,7 +3928,7 @@ md_analyze_permissive_email_autolink(MD_CTX* ctx, int mark_index)
     OFF end = opener->end;
     int dot_count = 0;
 
-    MD_ASSERT(CH(beg) == _T('@'));
+    MD_ASSERT(opener->ch == _T('@'));
 
     /* Scan for name before '@'. */
     while(beg > 0  &&  (ISALNUM(beg-1) || ISANYOF(beg-1, _T(".-_+"))))
