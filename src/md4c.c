@@ -5507,7 +5507,7 @@ md_is_html_block_end_condition(MD_CTX* ctx, OFF beg, OFF* p_end)
         case 6:     /* Pass through */
         case 7:
             *p_end = beg;
-            return (ISNEWLINE(beg) ? ctx->html_block_type : FALSE);
+            return (beg >= ctx->size || ISNEWLINE(beg) ? ctx->html_block_type : FALSE);
 
         default:
             MD_UNREACHABLE();
