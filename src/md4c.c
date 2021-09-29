@@ -6101,8 +6101,9 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
                 task_container->is_task = TRUE;
                 task_container->task_mark_off = tmp + 1;
                 off = tmp + 3;
-                while(ISWHITESPACE(off))
+                while(off < ctx->size && ISWHITESPACE(off))
                     off++;
+                if (off == ctx->size) break;
                 line->beg = off;
             }
         }
