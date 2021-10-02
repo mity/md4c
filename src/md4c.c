@@ -5470,17 +5470,20 @@ md_is_html_block_end_condition(MD_CTX* ctx, OFF beg, OFF* p_end)
 
             while(off < ctx->size  &&  !ISNEWLINE(off)) {
                 if(CH(off) == _T('<')) {
-                    if(md_ascii_case_eq(STR(off), _T("</script>"), 9)) {
+                    if(off + 9 <= ctx->size &&
+                       md_ascii_case_eq(STR(off), _T("</script>"), 9)) {
                         *p_end = off + 9;
                         return TRUE;
                     }
 
-                    if(md_ascii_case_eq(STR(off), _T("</style>"), 8)) {
+                    if(off + 8 <= ctx->size &&
+                       md_ascii_case_eq(STR(off), _T("</style>"), 8)) {
                         *p_end = off + 8;
                         return TRUE;
                     }
 
-                    if(md_ascii_case_eq(STR(off), _T("</pre>"), 6)) {
+                    if(off + 6 <= ctx->size &&
+                       md_ascii_case_eq(STR(off), _T("</pre>"), 6)) {
                         *p_end = off + 6;
                         return TRUE;
                     }
