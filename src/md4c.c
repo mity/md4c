@@ -2275,7 +2275,7 @@ md_is_inline_link_spec(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
     /* Optional white space with up to one line break. */
     while(off < lines[line_index].end  &&  ISWHITESPACE(off))
         off++;
-    if(off >= lines[line_index].end  &&  ISNEWLINE(off)) {
+    if(off >= lines[line_index].end  &&  (off >= ctx->size  ||  ISNEWLINE(off))) {
         line_index++;
         if(line_index >= n_lines)
             return FALSE;
@@ -2559,9 +2559,8 @@ static inline void
 md_mark_store_ptr(MD_CTX* ctx, int mark_index, void* ptr)
 {
     MD_MARK* mark = &ctx->marks[mark_index];
-    MD_ASSERT(closer->ch == 'D' ||
-              (ctx->parser.flags & MD_FLAG_PERMISSIVEWWWAUTOLINKS &&
-               (closer->ch == '.' || closer->ch == ':' || closer->ch == '@')));
+    MD_ASSERT(mark->ch == 'D');
+
     /* Check only members beg and end are misused for this. */
     MD_ASSERT(sizeof(void*) <= 2 * sizeof(OFF));
     memcpy(mark, &ptr, sizeof(void*));
@@ -3908,7 +3907,9 @@ md_analyze_permissive_url_autolink(MD_CTX* ctx, int mark_index)
 
     /* Ok. Lets call it an auto-link. Adapt opener and create closer to zero
      * length so all the contents becomes the link text. */
-    MD_ASSERT(closer->ch == 'D');
+    MD_ASSERT(closer->ch == 'D' ||
+              (ctx->parser.flags & MD_FLAG_PERMISSIVEWWWAUTOLINKS &&
+               (closer->ch == '.' || closer->ch == ':' || closer->ch == '@')));
     opener->end = opener->beg;
     closer->ch = opener->ch;
     closer->beg = off;
@@ -5472,23 +5473,16 @@ md_is_html_block_end_condition(MD_CTX* ctx, OFF beg, OFF* p_end)
 
             while(off < ctx->size  &&  !ISNEWLINE(off)) {
                 if(CH(off) == _T('<')) {
-                    if(off + 9 <= ctx->size &&
-                       md_ascii_case_eq(STR(off), _T("</script>"), 9)) {
-                        *p_end = off + 9;
-                        return TRUE;
+                  #define FIND_TAG_END(string, length) \
+                    if(off + length <= ctx->size && \
+                       md_ascii_case_eq(STR(off), _T(string), length)) { \
+                        *p_end = off + length; \
+                        return TRUE; \
                     }
-
-                    if(off + 8 <= ctx->size &&
-                       md_ascii_case_eq(STR(off), _T("</style>"), 8)) {
-                        *p_end = off + 8;
-                        return TRUE;
-                    }
-
-                    if(off + 6 <= ctx->size &&
-                       md_ascii_case_eq(STR(off), _T("</pre>"), 6)) {
-                        *p_end = off + 6;
-                        return TRUE;
-                    }
+                  FIND_TAG_END("</script>", 9)
+                  FIND_TAG_END("</style>", 8)
+                  FIND_TAG_END("</pre>", 6)
+                  #undef FIND_TAG_END
                 }
 
                 off++;
@@ -5690,6 +5684,7 @@ md_is_container_mark(MD_CTX* ctx, unsigned indent, OFF beg, OFF* p_end, MD_CONTA
         off++;
     }
     if(off > beg  &&
+       off < ctx->size  &&
        (CH(off) == _T('.') || CH(off) == _T(')'))  &&
        (off+1 >= ctx->size || ISBLANK(off+1) || ISNEWLINE(off+1)))
     {
