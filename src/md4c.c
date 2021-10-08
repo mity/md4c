@@ -4307,21 +4307,21 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 case ':':       /* Permissive URL autolink. */
                 case '.':       /* Permissive WWW autolink. */
                 {
-                	MD_SPAN_MENTION_DETAIL det;
+                    MD_MARK* opener = ((mark->flags & MD_MARK_OPENER) ? mark : &ctx->marks[mark->prev]);
+                    MD_MARK* closer = &ctx->marks[opener->next];
+                    const CHAR* dest = STR(opener->end);
+                    SZ dest_size = closer->beg - opener->end;
+
+                    MD_SPAN_MENTION_DETAIL det;
                     if (CH(mark->beg) == '@')
                     {
-                        det.text = ctx->text + mark->beg + 1;
+                        det.text = (char *) ctx->text + mark->beg + 1;
                         det.size = mark->end - mark->beg - 1;
                         MD_ENTER_SPAN(MD_SPAN_MENTION, &det);
                         MD_TEXT(text_type, STR(mark->beg), mark->end - mark->beg);
                         MD_LEAVE_SPAN(MD_SPAN_MENTION, &det);
                         break;
                     }
-
-                    MD_MARK* opener = ((mark->flags & MD_MARK_OPENER) ? mark : &ctx->marks[mark->prev]);
-                    MD_MARK* closer = &ctx->marks[opener->next];
-                    const CHAR* dest = STR(opener->end);
-                    SZ dest_size = closer->beg - opener->end;
 
                     /* For permissive auto-links we do not know closer mark
                      * position at the time of md_collect_marks(), therefore
