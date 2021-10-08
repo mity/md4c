@@ -71,5 +71,9 @@ echo "Underline extension:"
 $PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/underline.txt" -p "$PROGRAM --funderline"
 
 echo
+echo "Mention links extension:"
+$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/mention-links.txt" -p "$PROGRAM --fmention-links"
+
+echo
 echo "Pathological input:"
 $PYTHON "$TEST_DIR/pathological_tests.py" -p "$PROGRAM"
