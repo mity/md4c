@@ -3190,6 +3190,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                 continue;
             }
 
+            /* A potential mention link. */
             /* A potential permissive e-mail autolink. */
             if(ch == _T('@')) {
                 if(line->beg == off || (CH(off-1) == _T(' ')))
