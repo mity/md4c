@@ -503,7 +503,7 @@ leave_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
         case MD_SPAN_LATEXMATH:         /*fall through*/
         case MD_SPAN_LATEXMATH_DISPLAY: RENDER_VERBATIM(r, "</x-equation>"); break;
         case MD_SPAN_WIKILINK:          RENDER_VERBATIM(r, "</x-wikilink>"); break;
-        case MD_SPAN_MENTION:   		RENDER_VERBATIM(r, "</a>"); break;
+        case MD_SPAN_MENTION:           RENDER_VERBATIM(r, "</x-mention>"); break;
     }
 
     return 0;
