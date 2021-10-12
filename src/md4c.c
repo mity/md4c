@@ -3193,7 +3193,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
             /* A potential mention link. */
             /* A potential permissive e-mail autolink. */
             if(ch == _T('@')) {
-                if(line->beg == off || (CH(off-1) == _T(' ')))
+                if( (ctx->parser.flags & MD_FLAG_MENTIONS) && (line->beg == off || (CH(off-1) == _T(' '))) )
                 {
                     OFF index = off + 1;
                     while (index <= line->end)
