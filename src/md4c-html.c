@@ -473,7 +473,7 @@ enter_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
         case MD_SPAN_LATEXMATH:         RENDER_VERBATIM(r, "<x-equation>"); break;
         case MD_SPAN_LATEXMATH_DISPLAY: RENDER_VERBATIM(r, "<x-equation type=\"display\">"); break;
         case MD_SPAN_WIKILINK:          render_open_wikilink_span(r, (MD_SPAN_WIKILINK_DETAIL*) detail); break;
-        case MD_SPAN_MENTION:   		render_mention_link(r, (MD_SPAN_MENTION_DETAIL*) detail); break;
+        case MD_SPAN_MENTION:           render_mention_link(r, (MD_SPAN_MENTION_DETAIL*) detail); break;
     }
 
     return 0;
