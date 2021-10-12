@@ -3196,6 +3196,10 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                 if( (ctx->parser.flags & MD_FLAG_MENTIONS) && (line->beg == off || (CH(off-1) == _T(' '))) )
                 {
                     OFF index = off + 1;
+                    if (index == line->end || CH(index) == ' ') {
+                        off++;
+                        continue;
+                    }
                     while (index <= line->end)
                     {
                         if (!(ISALNUM(index) || (CH(index) == '_')))

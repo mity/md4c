@@ -15,3 +15,15 @@ someone said @me said such and such.
 .
 <p><x-mention data-target="me">@me</x-mention> said such and such.</p>
 ````````````````````````````````
+
+```````````````````````````````` example
+An empty at character is not recognized as a mention:
+
+@ 
+
+@
+.
+<p>An empty at character is not recognized as a mention:</p>
+<p>@</p>
+<p>@</p>
+````````````````````````````````
