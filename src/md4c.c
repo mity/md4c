@@ -2318,7 +2318,7 @@ md_is_inline_link_spec(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
     /* Optional whitespace followed with final ')'. */
     while(off < lines[line_index].end  &&  ISWHITESPACE(off))
         off++;
-    if(off >= lines[line_index].end  &&  (off >= ctx->size || ISNEWLINE(off))) {
+    if (off >= lines[line_index].end  &&  (off >= ctx->size || ISNEWLINE(off))) {
         line_index++;
         if(line_index >= n_lines)
             return FALSE;
@@ -2631,8 +2631,11 @@ md_rollback(MD_CTX* ctx, int opener_index, int closer_index, int how)
     for(i = OPENERS_CHAIN_FIRST; i < OPENERS_CHAIN_LAST+1; i++) {
         MD_MARKCHAIN* chain = &ctx->mark_chains[i];
 
-        while(chain->tail >= opener_index)
+        while(chain->tail >= opener_index) {
+            int same = chain->tail == opener_index;
             chain->tail = ctx->marks[chain->tail].prev;
+            if (same) break;
+        }
 
         if(chain->tail >= 0)
             ctx->marks[chain->tail].next = -1;
@@ -3956,7 +3959,7 @@ md_analyze_permissive_email_autolink(MD_CTX* ctx, int mark_index)
      * length so all the contents becomes the link text. */
     closer_index = mark_index + 1;
     closer = &ctx->marks[closer_index];
-    MD_ASSERT(closer->ch == 'D');
+    if (closer->ch != 'D') return;
 
     opener->beg = beg;
     opener->end = beg;
@@ -4263,7 +4266,7 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                     dest_mark = opener+1;
                     MD_ASSERT(dest_mark->ch == 'D');
                     title_mark = opener+2;
-                    MD_ASSERT(title_mark->ch == 'D');
+                    if (title_mark->ch != 'D') break;
 
                     MD_CHECK(md_enter_leave_span_a(ctx, (mark->ch != ']'),
                                 (opener->ch == '!' ? MD_SPAN_IMG : MD_SPAN_A),
