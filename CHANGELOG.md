@@ -27,6 +27,10 @@ Changes:
 
 Fixes:
 
+ * [#167](https://github.com/mity/md4c/issues/167):
+   Fix two buffer overflow bugs found using a fuzz testting. Contributed by
+   dtldarek.
+
  * [#163](https://github.com/mity/md4c/issues/163):
    Make HTML renderer to emit `'\n'` after the root tag when in the XHTML mode.
 
