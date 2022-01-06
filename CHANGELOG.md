@@ -26,10 +26,6 @@ Changes:
 
 Fixes:
 
- * [#167](https://github.com/mity/md4c/issues/167):
-   Fix two buffer overflow bugs found using a fuzz testting. Contributed by
-   dtldarek.
-
  * [#163](https://github.com/mity/md4c/issues/163):
    Make HTML renderer to emit `'\n'` after the root tag when in the XHTML mode.
 
@@ -37,6 +33,12 @@ Fixes:
    Make HTML renderer not to percent-encode `'~'` in URLs. Although it does
    work, it's not needed, and it can actually be confusing with URLs such as
    `http://www.example.com/~johndoe/`.
+
+ * [#167](https://github.com/mity/md4c/issues/167):
+   [#168](https://github.com/mity/md4c/issues/168):
+   Fix multiple instances of various buffer overflow bugs, found mostly using
+   a fuzz testing. Contributed by [dtldarek](https://github.com/dtldarek) and
+   [Thierry Coppey](https://github.com/TCKnet).
 
  * [#169](https://github.com/mity/md4c/issues/169):
    Table underline now does not require 3 characters per table column anymore.
