@@ -2318,7 +2318,7 @@ md_is_inline_link_spec(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
     /* Optional whitespace followed with final ')'. */
     while(off < lines[line_index].end  &&  ISWHITESPACE(off))
         off++;
-    if(off >= lines[line_index].end  &&  ISNEWLINE(off)) {
+    if (off >= lines[line_index].end  &&  (off >= ctx->size || ISNEWLINE(off))) {
         line_index++;
         if(line_index >= n_lines)
             return FALSE;
@@ -2490,6 +2490,7 @@ md_mark_chain(MD_CTX* ctx, int mark_index)
         case _T('*'):   return md_asterisk_chain(ctx, mark->flags);
         case _T('_'):   return &UNDERSCORE_OPENERS;
         case _T('~'):   return (mark->end - mark->beg == 1) ? &TILDE_OPENERS_1 : &TILDE_OPENERS_2;
+        case _T('!'):   MD_FALLTHROUGH();
         case _T('['):   return &BRACKET_OPENERS;
         case _T('|'):   return &TABLECELLBOUNDARIES;
         default:        return NULL;
@@ -2630,8 +2631,11 @@ md_rollback(MD_CTX* ctx, int opener_index, int closer_index, int how)
     for(i = OPENERS_CHAIN_FIRST; i < OPENERS_CHAIN_LAST+1; i++) {
         MD_MARKCHAIN* chain = &ctx->mark_chains[i];
 
-        while(chain->tail >= opener_index)
+        while(chain->tail >= opener_index) {
+            int same = chain->tail == opener_index;
             chain->tail = ctx->marks[chain->tail].prev;
+            if (same) break;
+        }
 
         if(chain->tail >= 0)
             ctx->marks[chain->tail].next = -1;
@@ -3906,7 +3910,9 @@ md_analyze_permissive_url_autolink(MD_CTX* ctx, int mark_index)
 
     /* Ok. Lets call it an auto-link. Adapt opener and create closer to zero
      * length so all the contents becomes the link text. */
-    MD_ASSERT(closer->ch == 'D');
+    MD_ASSERT(closer->ch == 'D' ||
+              (ctx->parser.flags & MD_FLAG_PERMISSIVEWWWAUTOLINKS &&
+               (closer->ch == '.' || closer->ch == ':' || closer->ch == '@')));
     opener->end = opener->beg;
     closer->ch = opener->ch;
     closer->beg = off;
@@ -3928,7 +3934,7 @@ md_analyze_permissive_email_autolink(MD_CTX* ctx, int mark_index)
     OFF end = opener->end;
     int dot_count = 0;
 
-    MD_ASSERT(CH(beg) == _T('@'));
+    MD_ASSERT(opener->ch == _T('@'));
 
     /* Scan for name before '@'. */
     while(beg > 0  &&  (ISALNUM(beg-1) || ISANYOF(beg-1, _T(".-_+"))))
@@ -3953,7 +3959,7 @@ md_analyze_permissive_email_autolink(MD_CTX* ctx, int mark_index)
      * length so all the contents becomes the link text. */
     closer_index = mark_index + 1;
     closer = &ctx->marks[closer_index];
-    MD_ASSERT(closer->ch == 'D');
+    if (closer->ch != 'D') return;
 
     opener->beg = beg;
     opener->end = beg;
@@ -4260,7 +4266,7 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                     dest_mark = opener+1;
                     MD_ASSERT(dest_mark->ch == 'D');
                     title_mark = opener+2;
-                    MD_ASSERT(title_mark->ch == 'D');
+                    if (title_mark->ch != 'D') break;
 
                     MD_CHECK(md_enter_leave_span_a(ctx, (mark->ch != ']'),
                                 (opener->ch == '!' ? MD_SPAN_IMG : MD_SPAN_A),
@@ -5468,20 +5474,16 @@ md_is_html_block_end_condition(MD_CTX* ctx, OFF beg, OFF* p_end)
 
             while(off < ctx->size  &&  !ISNEWLINE(off)) {
                 if(CH(off) == _T('<')) {
-                    if(md_ascii_case_eq(STR(off), _T("</script>"), 9)) {
-                        *p_end = off + 9;
-                        return TRUE;
+                  #define FIND_TAG_END(string, length) \
+                    if(off + length <= ctx->size && \
+                       md_ascii_case_eq(STR(off), _T(string), length)) { \
+                        *p_end = off + length; \
+                        return TRUE; \
                     }
-
-                    if(md_ascii_case_eq(STR(off), _T("</style>"), 8)) {
-                        *p_end = off + 8;
-                        return TRUE;
-                    }
-
-                    if(md_ascii_case_eq(STR(off), _T("</pre>"), 6)) {
-                        *p_end = off + 6;
-                        return TRUE;
-                    }
+                  FIND_TAG_END("</script>", 9)
+                  FIND_TAG_END("</style>", 8)
+                  FIND_TAG_END("</pre>", 6)
+                  #undef FIND_TAG_END
                 }
 
                 off++;
@@ -5505,7 +5507,7 @@ md_is_html_block_end_condition(MD_CTX* ctx, OFF beg, OFF* p_end)
         case 6:     /* Pass through */
         case 7:
             *p_end = beg;
-            return (ISNEWLINE(beg) ? ctx->html_block_type : FALSE);
+            return (beg >= ctx->size || ISNEWLINE(beg) ? ctx->html_block_type : FALSE);
 
         default:
             MD_UNREACHABLE();
@@ -6100,8 +6102,9 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
                 task_container->is_task = TRUE;
                 task_container->task_mark_off = tmp + 1;
                 off = tmp + 3;
-                while(ISWHITESPACE(off))
+                while(off < ctx->size && ISWHITESPACE(off))
                     off++;
+                if (off == ctx->size) break;
                 line->beg = off;
             }
         }
