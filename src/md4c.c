@@ -5212,19 +5212,17 @@ md_is_table_underline(MD_CTX* ctx, OFF beg, OFF* p_end, unsigned* p_col_count)
     }
 
     while(1) {
-        OFF cell_beg;
         int delimited = FALSE;
 
         /* Cell underline ("-----", ":----", "----:" or ":----:") */
-        cell_beg = off;
         if(off < ctx->size  &&  CH(off) == _T(':'))
             off++;
+        if(off < ctx->size  &&  CH(off) != _T('-'))
+            return FALSE;
         while(off < ctx->size  &&  CH(off) == _T('-'))
             off++;
         if(off < ctx->size  &&  CH(off) == _T(':'))
             off++;
-        if(off - cell_beg < 3)
-            return FALSE;
 
         col_count++;
 

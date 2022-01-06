@@ -24,7 +24,6 @@ Changes:
    0.30 notes](https://github.com/commonmark/commonmark-spec/releases/tag/0.30)
    for more info.
 
-
 Fixes:
 
  * [#163](https://github.com/mity/md4c/issues/163):
@@ -34,6 +33,11 @@ Fixes:
    Make HTML renderer not to percent-encode `'~'` in URLs. Although it does
    work, it's not needed, and it can actually be confusing with URLs such as
    `http://www.example.com/~johndoe/`.
+
+ * [#169](https://github.com/mity/md4c/issues/169):
+   Table underline now does not require 3 characters per table column anymore.
+   One dash (optionally with a leading or tailing `:` appended or prepended)
+   is now sufficient. This improves compatibility with the GFM.
 
 
 ## Version 0.4.8

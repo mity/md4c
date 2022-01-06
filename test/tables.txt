@@ -165,27 +165,6 @@ Lorem ipsum dolor sit amet.
 </table>
 ````````````````````````````````
 
-The underline of the table is crucial for recognition of the table, count of
-its columns and their alignment: The line has to contain at least one pipe,
-and it has provide at least three dash (`-`) characters for every column in
-the table.
-
-Thus this is not a table because there are too few dashes for Column 2.
-
-```````````````````````````````` example
-| Column 1 | Column 2
-| ---------|--
-| foo      | bar
-| baz      | qux
-| quux     | quuz
-.
-<p>| Column 1 | Column 2
-| ---------|--
-| foo      | bar
-| baz      | qux
-| quux     | quuz</p>
-````````````````````````````````
-
 The first, the last or both the first and the last dash in each column
 underline can be replaced with a colon (`:`) to request left, right or middle
 alignment of the respective column:
