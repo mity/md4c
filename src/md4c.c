@@ -2487,6 +2487,7 @@ struct MD_MARK_tag {
 #define MD_MARK_EMPH_MOD3_MASK              (0x40 | 0x80)
 #define MD_MARK_AUTOLINK                    0x20  /* Distinguisher for '<', '>'. */
 #define MD_MARK_VALIDPERMISSIVEAUTOLINK     0x20  /* For permissive autolinks. */
+#define MD_MARK_HASNESTEDBRACKETS           0x20  /* For '[' to rule out invalid link labels early */
 
 static MD_MARKCHAIN*
 md_asterisk_chain(MD_CTX* ctx, unsigned flags)
@@ -3367,17 +3368,20 @@ md_analyze_bracket(MD_CTX* ctx, int mark_index)
      * or enclosing pair of brackets (if the inner is the link, the outer
      * one cannot be.)
      *
-     * Therefore we here only construct a list of resolved '[' ']' pairs
-     * ordered by position of the closer. This allows ur to analyze what is
-     * or is not link in the right order, from inside to outside in case
-     * of nested brackets.
+     * Therefore we here only construct a list of '[' ']' pairs ordered by
+     * position of the closer. This allows us to analyze what is or is not
+     * link in the right order, from inside to outside in case of nested
+     * brackets.
      *
-     * The resolving itself is deferred into md_resolve_links().
+     * The resolving itself is deferred to md_resolve_links().
      */
 
     MD_MARK* mark = &ctx->marks[mark_index];
 
     if(mark->flags & MD_MARK_POTENTIAL_OPENER) {
+        if(BRACKET_OPENERS.head != -1)
+            ctx->marks[BRACKET_OPENERS.tail].flags |= MD_MARK_HASNESTEDBRACKETS;
+
         md_mark_chain_append(ctx, &BRACKET_OPENERS, mark_index);
         return;
     }
@@ -3542,10 +3546,12 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
         if(next_opener != NULL  &&  next_opener->beg == closer->end) {
             if(next_closer->beg > closer->end + 1) {
                 /* Might be full reference link. */
-                is_link = md_is_link_reference(ctx, lines, n_lines, next_opener->beg, next_closer->end, &attr);
+                if(!(next_opener->flags & MD_MARK_HASNESTEDBRACKETS))
+                    is_link = md_is_link_reference(ctx, lines, n_lines, next_opener->beg, next_closer->end, &attr);
             } else {
                 /* Might be shortcut reference link. */
-                is_link = md_is_link_reference(ctx, lines, n_lines, opener->beg, closer->end, &attr);
+                if(!(opener->flags & MD_MARK_HASNESTEDBRACKETS))
+                    is_link = md_is_link_reference(ctx, lines, n_lines, opener->beg, closer->end, &attr);
             }
 
             if(is_link < 0)
@@ -3602,7 +3608,8 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 
             if(!is_link) {
                 /* Might be collapsed reference link. */
-                is_link = md_is_link_reference(ctx, lines, n_lines, opener->beg, closer->end, &attr);
+                if(!(opener->flags & MD_MARK_HASNESTEDBRACKETS))
+                    is_link = md_is_link_reference(ctx, lines, n_lines, opener->beg, closer->end, &attr);
                 if(is_link < 0)
                     return -1;
             }

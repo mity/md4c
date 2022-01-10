@@ -92,7 +92,10 @@ pathological = {
             re.compile("(\[ \(\]\(){50000}")),
     "broken thematic break":
             (("* " * 50000 + "a"),
-            re.compile("<ul>\r?\n(<li><ul>\r?\n){49999}<li>a</li>\r?\n</ul>\r?\n(</li>\r?\n</ul>\r?\n){49999}"))
+            re.compile("<ul>\r?\n(<li><ul>\r?\n){49999}<li>a</li>\r?\n</ul>\r?\n(</li>\r?\n</ul>\r?\n){49999}")),
+    "nested invalid link references":
+            (("[" * 50000 + "]" * 50000 + "\n\n[a]: /b"),
+            re.compile("\[{50000}\]{50000}"))
 }
 
 whitespace_re = re.compile('/s+/')

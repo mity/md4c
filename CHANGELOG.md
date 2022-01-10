@@ -45,6 +45,10 @@ Fixes:
    One dash (optionally with a leading or tailing `:` appended or prepended)
    is now sufficient. This improves compatibility with the GFM.
 
+ * [#172](https://github.com/mity/md4c/issues/172):
+   Fix quadratic time behavior caused by unnecessary lookup for link reference
+   definition even if the potential label contains nested brackets.
+
 
 ## Version 0.4.8
 
