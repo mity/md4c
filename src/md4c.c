@@ -5250,7 +5250,7 @@ md_is_table_underline(MD_CTX* ctx, OFF beg, OFF* p_end, unsigned* p_col_count)
         /* Cell underline ("-----", ":----", "----:" or ":----:") */
         if(off < ctx->size  &&  CH(off) == _T(':'))
             off++;
-        if(off < ctx->size  &&  CH(off) != _T('-'))
+        if(off >= ctx->size  ||  CH(off) != _T('-'))
             return FALSE;
         while(off < ctx->size  &&  CH(off) == _T('-'))
             off++;
