@@ -465,6 +465,35 @@ md_text_with_null_replacement(MD_CTX* ctx, MD_TEXTTYPE type, const CHAR* str, SZ
     } while(0)
 
 
+static const MD_LINE*
+md_lookup_line(OFF off, const MD_LINE* lines, int n_lines)
+{
+    int lo, hi;
+    int pivot;
+    const MD_LINE* line;
+
+    lo = 0;
+    hi = n_lines - 1;
+    while(lo <= hi) {
+        pivot = (lo + hi) / 2;
+        line = &lines[pivot];
+
+        if(off < line->beg) {
+            hi = pivot - 1;
+            if(hi < 0  ||  lines[hi].end <= off)
+                return NULL;
+        } else if(off > line->end) {
+            lo = pivot + 1;
+            if(lo > n_lines  ||  lines[lo].beg > off)
+                return NULL;
+        } else {
+            return line;
+        }
+    }
+
+    return NULL;
+}
+
 
 /*************************
  ***  Unicode Support  ***
@@ -2205,7 +2234,7 @@ md_is_link_reference(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
 {
     const MD_REF_DEF* def;
     const MD_LINE* beg_line;
-    const MD_LINE* end_line;
+    int is_multiline;
     CHAR* label;
     SZ label_size;
     int ret;
@@ -2217,17 +2246,10 @@ md_is_link_reference(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
     end--;
 
     /* Find lines corresponding to the beg and end positions. */
-    MD_ASSERT(lines[0].beg <= beg);
-    beg_line = lines;
-    while(beg >= beg_line->end)
-        beg_line++;
+    beg_line = md_lookup_line(beg, lines, n_lines);
+    is_multiline = (end > beg_line->end);
 
-    MD_ASSERT(end <= lines[n_lines-1].end);
-    end_line = beg_line;
-    while(end >= end_line->end)
-        end_line++;
-
-    if(beg_line != end_line) {
+    if(is_multiline) {
         MD_CHECK(md_merge_lines_alloc(ctx, beg, end, beg_line,
                  (int)(n_lines - (beg_line - lines)), _T(' '), &label, &label_size));
     } else {
@@ -2244,7 +2266,7 @@ md_is_link_reference(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
         attr->title_needs_free = FALSE;
     }
 
-    if(beg_line != end_line)
+    if(is_multiline)
         free(label);
 
     ret = (def != NULL);
@@ -2967,14 +2989,14 @@ md_is_autolink(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end, int* p_missing_mai
 static int
 md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
 {
-    int i;
+    const MD_LINE* line_term = lines + n_lines;
+    const MD_LINE* line;
     int ret = 0;
     MD_MARK* mark;
     OFF codespan_last_potential_closers[CODESPAN_MARK_MAXLEN] = { 0 };
     int codespan_scanned_till_paragraph_end = FALSE;
 
-    for(i = 0; i < n_lines; i++) {
-        const MD_LINE* line = &lines[i];
+    for(line = lines; line < line_term; line++) {
         OFF off = line->beg;
         OFF line_end = line->end;
 
@@ -3007,7 +3029,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
              * line to form a hard break. */
             if(ch == _T('\\')  &&  off+1 < ctx->size  &&  (ISPUNCT(off+1) || ISNEWLINE(off+1))) {
                 /* Hard-break cannot be on the last line of the block. */
-                if(!ISNEWLINE(off+1)  ||  i+1 < n_lines)
+                if(!ISNEWLINE(off+1)  ||  line+1 < line_term)
                     PUSH_MARK(ch, off, off+2, MD_MARK_RESOLVED);
                 off += 2;
                 continue;
@@ -3086,7 +3108,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                 OFF closer_beg, closer_end;
                 int is_code_span;
 
-                is_code_span = md_is_code_span(ctx, lines + i, n_lines - i, off,
+                is_code_span = md_is_code_span(ctx, line, line_term - line, off,
                                     &opener_beg, &opener_end, &closer_beg, &closer_end,
                                     codespan_last_potential_closers,
                                     &codespan_scanned_till_paragraph_end);
@@ -3099,9 +3121,8 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                     off = closer_end;
 
                     /* Advance the current line accordingly. */
-                    while(off > line_end) {
-                        i++;
-                        line++;
+                    if(off > line_end) {
+                        line = md_lookup_line(off, line, line_term - line);
                         line_end = line->end;
                     }
                     continue;
@@ -3141,7 +3162,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                     /* Given the nature of the raw HTML, we have to recognize
                      * it here. Doing so later in md_analyze_lt_gt() could
                      * open can of worms of quadratic complexity. */
-                    is_html = md_is_html_any(ctx, lines + i, n_lines - i, off,
+                    is_html = md_is_html_any(ctx, line, line_term - line, off,
                                     lines[n_lines-1].end, &html_end);
                     if(is_html) {
                         PUSH_MARK(_T('<'), off, off, MD_MARK_OPENER | MD_MARK_RESOLVED);
@@ -3151,9 +3172,8 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                         off = html_end;
 
                         /* Advance the current line accordingly. */
-                        while(off > line_end) {
-                            i++;
-                            line++;
+                        if(off > line_end) {
+                            line = md_lookup_line(off, line, line_term - line);
                             line_end = line->end;
                         }
                         continue;
