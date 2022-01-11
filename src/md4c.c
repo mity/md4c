@@ -3853,14 +3853,11 @@ md_analyze_dollar(MD_CTX* ctx, int mark_index)
         if (open->end - open->beg == close->end - close->beg) {
             /* We are the matching closer */
             md_resolve_range(ctx, &DOLLAR_OPENERS, opener_index, mark_index);
-        } else {
-            /* We don't match the opener, so discard old opener and insert as opener */
-            md_mark_chain_append(ctx, &DOLLAR_OPENERS, mark_index);
+            return;
         }
-    } else {
-        /* No unmatched openers, so we are opener */
-        md_mark_chain_append(ctx, &DOLLAR_OPENERS, mark_index);
     }
+
+    md_mark_chain_append(ctx, &DOLLAR_OPENERS, mark_index);
 }
 
 static void
