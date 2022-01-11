@@ -465,6 +465,8 @@ md_text_with_null_replacement(MD_CTX* ctx, MD_TEXTTYPE type, const CHAR* str, SZ
     } while(0)
 
 
+/* If the offset falls into a gap between line, we return the following
+ * line. */
 static const MD_LINE*
 md_lookup_line(OFF off, const MD_LINE* lines, int n_lines)
 {
@@ -481,11 +483,9 @@ md_lookup_line(OFF off, const MD_LINE* lines, int n_lines)
         if(off < line->beg) {
             hi = pivot - 1;
             if(hi < 0  ||  lines[hi].end <= off)
-                return NULL;
+                return line;
         } else if(off > line->end) {
             lo = pivot + 1;
-            if(lo > n_lines  ||  lines[lo].beg > off)
-                return NULL;
         } else {
             return line;
         }
