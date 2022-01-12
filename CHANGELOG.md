@@ -49,6 +49,10 @@ Fixes:
    Fix quadratic time behavior caused by unnecessary lookup for link reference
    definition even if the potential label contains nested brackets.
 
+ * [#173](https://github.com/mity/md4c/issues/173):
+   Fix broken internal state invoked by devilish combination of syntax
+   constructions.
+
 
 ## Version 0.4.8
 

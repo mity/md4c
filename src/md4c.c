@@ -2692,8 +2692,12 @@ md_rollback(MD_CTX* ctx, int opener_index, int closer_index, int how)
         }
 
         /* And reset our flags. */
-        if(discard_flag)
+        if(discard_flag) {
             mark->flags &= ~(MD_MARK_OPENER | MD_MARK_CLOSER | MD_MARK_RESOLVED);
+            /* Make zero-length closer a dummy mark as that's how it was born */
+            if((mark->flags & MD_MARK_CLOSER)  &&  mark->beg == mark->end)
+                mark->ch = 'D';
+        }
 
         /* Jump as far as we can over unresolved or non-interesting marks. */
         switch(how) {
@@ -3511,9 +3515,13 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             if(is_link) {
                 if(delim != NULL) {
                     if(delim->end < closer->beg) {
+                        md_rollback(ctx, opener_index, delim_index, MD_ROLLBACK_ALL);
+                        md_rollback(ctx, delim_index, closer_index, MD_ROLLBACK_CROSSING);
+                        delim->flags |= MD_MARK_RESOLVED;
                         opener->end = delim->beg;
                     } else {
                         /* The pipe is just before the closer: [[foo|]] */
+                        md_rollback(ctx, opener_index, closer_index, MD_ROLLBACK_ALL);
                         closer->beg = delim->beg;
                         delim = NULL;
                     }
@@ -3530,13 +3538,8 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 last_link_beg = opener->beg;
                 last_link_end = closer->end;
 
-                if(delim != NULL) {
-                    delim->flags |= MD_MARK_RESOLVED;
-                    md_rollback(ctx, opener_index, delim_index, MD_ROLLBACK_ALL);
-                    md_analyze_link_contents(ctx, lines, n_lines, opener_index+1, closer_index);
-                } else {
-                    md_rollback(ctx, opener_index, closer_index, MD_ROLLBACK_ALL);
-                }
+                if(delim != NULL)
+                    md_analyze_link_contents(ctx, lines, n_lines, delim_index+1, closer_index);
 
                 opener_index = next_opener->prev;
                 continue;
@@ -4053,11 +4056,7 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mod
     /* Collect all marks. */
     MD_CHECK(md_collect_marks(ctx, lines, n_lines, table_mode));
 
-    /* We analyze marks in few groups to handle their precedence. */
-    /* (1) Entities; code spans; autolinks; raw HTML. */
-    md_analyze_marks(ctx, lines, n_lines, 0, ctx->n_marks, _T("&"));
-
-    /* (2) Links. */
+    /* (1) Links. */
     md_analyze_marks(ctx, lines, n_lines, 0, ctx->n_marks, _T("[]!"));
     MD_CHECK(md_resolve_links(ctx, lines, n_lines));
     BRACKET_OPENERS.head = -1;
@@ -4066,7 +4065,7 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mod
     ctx->unresolved_link_tail = -1;
 
     if(table_mode) {
-        /* (3) Analyze table cell boundaries.
+        /* (2) Analyze table cell boundaries.
          * Note we reset TABLECELLBOUNDARIES chain prior to the call md_analyze_marks(),
          * not after, because caller may need it. */
         MD_ASSERT(n_lines == 1);
@@ -4077,7 +4076,7 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mod
         return ret;
     }
 
-    /* (4) Emphasis and strong emphasis; permissive autolinks. */
+    /* (3) Emphasis and strong emphasis; permissive autolinks. */
     md_analyze_link_contents(ctx, lines, n_lines, 0, ctx->n_marks);
 
 abort:
@@ -4090,6 +4089,7 @@ md_analyze_link_contents(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
 {
     int i;
 
+    md_analyze_marks(ctx, lines, n_lines, mark_beg, mark_end, _T("&"));
     md_analyze_marks(ctx, lines, n_lines, mark_beg, mark_end, _T("*_~$@:."));
 
     for(i = OPENERS_CHAIN_FIRST; i <= OPENERS_CHAIN_LAST; i++) {
