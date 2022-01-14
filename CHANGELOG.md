@@ -51,7 +51,8 @@ Fixes:
 
  * [#173](https://github.com/mity/md4c/issues/173),
    [#174](https://github.com/mity/md4c/issues/174):
-   Multiple bugs identified with oss-fuzz were fixed.
+   Multiple bugs identified with [OSS-Fuzz](https://github.com/google/oss-fuzz)
+   were fixed.
 
 
 ## Version 0.4.8
