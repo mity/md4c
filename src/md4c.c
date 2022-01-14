@@ -2693,10 +2693,11 @@ md_rollback(MD_CTX* ctx, int opener_index, int closer_index, int how)
 
         /* And reset our flags. */
         if(discard_flag) {
-            mark->flags &= ~(MD_MARK_OPENER | MD_MARK_CLOSER | MD_MARK_RESOLVED);
             /* Make zero-length closer a dummy mark as that's how it was born */
             if((mark->flags & MD_MARK_CLOSER)  &&  mark->beg == mark->end)
                 mark->ch = 'D';
+
+            mark->flags &= ~(MD_MARK_OPENER | MD_MARK_CLOSER | MD_MARK_RESOLVED);
         }
 
         /* Jump as far as we can over unresolved or non-interesting marks. */
@@ -3938,7 +3939,7 @@ md_analyze_permissive_url_autolink(MD_CTX* ctx, int mark_index)
     /* Ok. Lets call it an auto-link. Adapt opener and create closer to zero
      * length so all the contents becomes the link text. */
     MD_ASSERT(closer->ch == 'D' ||
-              (ctx->parser.flags & MD_FLAG_PERMISSIVEWWWAUTOLINKS &&
+              ((ctx->parser.flags & MD_FLAG_PERMISSIVEWWWAUTOLINKS) &&
                (closer->ch == '.' || closer->ch == ':' || closer->ch == '@')));
     opener->end = opener->beg;
     closer->ch = opener->ch;
