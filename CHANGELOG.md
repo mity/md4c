@@ -34,7 +34,7 @@ Fixes:
    work, it's not needed, and it can actually be confusing with URLs such as
    `http://www.example.com/~johndoe/`.
 
- * [#167](https://github.com/mity/md4c/issues/167):
+ * [#167](https://github.com/mity/md4c/issues/167),
    [#168](https://github.com/mity/md4c/issues/168):
    Fix multiple instances of various buffer overflow bugs, found mostly using
    a fuzz testing. Contributed by [dtldarek](https://github.com/dtldarek) and
