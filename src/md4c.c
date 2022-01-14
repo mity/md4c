@@ -2650,10 +2650,6 @@ md_rollback(MD_CTX* ctx, int opener_index, int closer_index, int how)
     int i;
     int mark_index;
 
-    fprintf(stderr, "md_rollback: %d ... %d [%s]\n",
-            ctx->marks[opener_index].beg, ctx->marks[closer_index].beg,
-            (how == MD_ROLLBACK_ALL ? "all" : "crossing"));
-
     /* Cut all unresolved openers at the mark index. */
     for(i = OPENERS_CHAIN_FIRST; i < OPENERS_CHAIN_LAST+1; i++) {
         MD_MARKCHAIN* chain = &ctx->mark_chains[i];
@@ -3442,8 +3438,6 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
         MD_MARK* next_closer;
         MD_LINK_ATTR attr;
         int is_link = FALSE;
-
-        fprintf(stderr, "md_resolve_links: %d ... %d\n", opener->beg, closer->beg);
 
         if(next_index >= 0) {
             next_opener = &ctx->marks[next_index];
