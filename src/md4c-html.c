@@ -310,6 +310,20 @@ render_open_code_block(MD_HTML* r, const MD_BLOCK_CODE_DETAIL* det)
 }
 
 static void
+render_header_block(MD_HTML* r, const MD_BLOCK_H_DETAIL* det)
+{
+    static const MD_CHAR* head[6] = { "<h1", "<h2", "<h3", "<h4", "<h5", "<h6" };
+
+    RENDER_VERBATIM(r, head[det->level- 1]);
+    if(det->identifier.text != NULL) {
+        RENDER_VERBATIM(r, " id=\"");
+        render_attribute(r, &det->identifier, render_html_escaped);
+        RENDER_VERBATIM(r, "\"");
+    } 
+    RENDER_VERBATIM(r, ">");
+}
+
+static void
 render_open_td_block(MD_HTML* r, const MD_CHAR* cell_type, const MD_BLOCK_TD_DETAIL* det)
 {
     RENDER_VERBATIM(r, "<");
@@ -378,7 +392,6 @@ render_open_wikilink_span(MD_HTML* r, const MD_SPAN_WIKILINK_DETAIL* det)
 static int
 enter_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
 {
-    static const MD_CHAR* head[6] = { "<h1>", "<h2>", "<h3>", "<h4>", "<h5>", "<h6>" };
     MD_HTML* r = (MD_HTML*) userdata;
 
     switch(type) {
@@ -388,7 +401,7 @@ enter_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
         case MD_BLOCK_OL:       render_open_ol_block(r, (const MD_BLOCK_OL_DETAIL*)detail); break;
         case MD_BLOCK_LI:       render_open_li_block(r, (const MD_BLOCK_LI_DETAIL*)detail); break;
         case MD_BLOCK_HR:       RENDER_VERBATIM(r, (r->flags & MD_HTML_FLAG_XHTML) ? "<hr />\n" : "<hr>\n"); break;
-        case MD_BLOCK_H:        RENDER_VERBATIM(r, head[((MD_BLOCK_H_DETAIL*)detail)->level - 1]); break;
+        case MD_BLOCK_H:        render_header_block(r, (const MD_BLOCK_H_DETAIL*)detail); break;
         case MD_BLOCK_CODE:     render_open_code_block(r, (const MD_BLOCK_CODE_DETAIL*) detail); break;
         case MD_BLOCK_HTML:     /* noop */ break;
         case MD_BLOCK_P:        RENDER_VERBATIM(r, "<p>"); break;

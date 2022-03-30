@@ -4747,6 +4747,31 @@ abort:
 }
 
 static int
+md_setup_H_identifier(MD_CTX* ctx, const MD_BLOCK* block, MD_BLOCK_H_DETAIL* det,
+                            MD_ATTRIBUTE_BUILD* id_build)
+{
+    const MD_LINE* header_line = (const MD_LINE*)(block + 1);
+    OFF beg = header_line->beg;
+    OFF end = header_line->end;
+
+    int ret = 0;
+
+    /* Trim initial spaces. */
+    while(beg < ctx->size  &&  CH(beg) == _T(' '))
+        beg++;
+
+    /* Trim trailing spaces. */
+    while(end > beg  &&  CH(end-1) == _T(' '))
+        end--;
+
+    /* Build info string attribute. */
+    MD_CHECK(md_build_attribute(ctx, STR(beg), end - beg, 0, &det->identifier, id_build));
+
+abort:
+    return ret;
+}
+
+static int
 md_process_leaf_block(MD_CTX* ctx, const MD_BLOCK* block)
 {
     union {
@@ -4754,6 +4779,8 @@ md_process_leaf_block(MD_CTX* ctx, const MD_BLOCK* block)
         MD_BLOCK_CODE_DETAIL code;
         MD_BLOCK_TABLE_DETAIL table;
     } det;
+    MD_ATTRIBUTE_BUILD identifier_build;
+    int clean_header_detail = FALSE;
     MD_ATTRIBUTE_BUILD info_build;
     MD_ATTRIBUTE_BUILD lang_build;
     int is_in_tight_list;
@@ -4770,7 +4797,11 @@ md_process_leaf_block(MD_CTX* ctx, const MD_BLOCK* block)
     switch(block->type) {
         case MD_BLOCK_H:
             det.header.level = block->data;
-            break;
+            if (ctx->parser.flags & MD_FLAG_HEADINGAUTOID){ 
+                clean_header_detail = TRUE;
+                MD_CHECK(md_setup_H_identifier(ctx, block, &det.header, &identifier_build ));
+            } 
+        break;
 
         case MD_BLOCK_CODE:
             /* For fenced code block, we may need to set the info string. */
@@ -4826,6 +4857,9 @@ md_process_leaf_block(MD_CTX* ctx, const MD_BLOCK* block)
         MD_LEAVE_BLOCK(block->type, (void*) &det);
 
 abort:
+    if(clean_header_detail) {
+        md_free_attribute(ctx, &identifier_build);
+    }
     if(clean_fence_code_detail) {
         md_free_attribute(ctx, &info_build);
         md_free_attribute(ctx, &lang_build);

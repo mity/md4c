@@ -220,6 +220,7 @@ static const CMDLINE_OPTION cmdline_options[] = {
     {  0,  "funderline",                    '_', 0 },
     {  0,  "fverbatim-entities",            'E', 0 },
     {  0,  "fwiki-links",                   'K', 0 },
+    {  0,  "fheading-auto-id",              '#', 0 },
 
     {  0,  "fno-html-blocks",               'F', 0 },
     {  0,  "fno-html-spans",                'G', 0 },
@@ -269,6 +270,8 @@ usage(void)
         "      --ftasklists     Enable task lists\n"
         "      --funderline     Enable underline spans\n"
         "      --fwiki-links    Enable wiki links\n"
+        "      --fheading-auto-id\n"
+        "                       Enable heading auto identifier\n"
         "\n"
         "Markdown suppression options:\n"
         "      --fno-html-blocks\n"
@@ -335,6 +338,7 @@ cmdline_callback(int opt, char const* value, void* data)
         case 'K':   parser_flags |= MD_FLAG_WIKILINKS; break;
         case 'X':   parser_flags |= MD_FLAG_TASKLISTS; break;
         case '_':   parser_flags |= MD_FLAG_UNDERLINE; break;
+        case '#':   parser_flags |= MD_FLAG_HEADINGAUTOID; break;
 
         default:
             fprintf(stderr, "Illegal option: %s\n", value);

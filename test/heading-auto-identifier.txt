@@ -1,0 +1,11 @@
+
+# Heading auto identifiers
+
+With the flag `MD_FLAG_HEADINGAUTOID`, MD4C generate an identifier for a heading.
+
+```````````````````````````````` example
+# heading
+.
+<h1 id="heading">heading</h1>
+````````````````````````````````
+

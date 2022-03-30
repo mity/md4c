@@ -71,5 +71,9 @@ echo "Underline extension:"
 $PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/underline.txt" -p "$PROGRAM --funderline"
 
 echo
+echo "Heading auto identifiers extension:"
+$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/heading-auto-identifier.txt" -p "$PROGRAM --fheading-auto-id"
+
+echo
 echo "Pathological input:"
 $PYTHON "$TEST_DIR/pathological_tests.py" -p "$PROGRAM"
