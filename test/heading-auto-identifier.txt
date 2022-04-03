@@ -9,3 +9,38 @@ With the flag `MD_FLAG_HEADINGAUTOID`, MD4C generate an identifier for a heading
 <h1 id="heading">heading</h1>
 ````````````````````````````````
 
+Spaces are replaced by `-` and upercase are replaced by lower case 
+
+```````````````````````````````` example
+# The Heading
+.
+<h1 id="the-heading">The Heading</h1>
+````````````````````````````````
+
+The non-alphanumeric characters are discarded except for `-.
+
+```````````````````````````````` example
+# The %@!= stupid _ heading !
+.
+<h1 id="the--stupid--heading-">The %@!= stupid _ heading !</h1>
+````````````````````````````````
+
+As a result, you can get some empty heading with no identifier.
+
+```````````````````````````````` example
+# !
+.
+<h1>!</h1>
+````````````````````````````````
+
+Heading srting with number are not treated differently
+
+```````````````````````````````` example
+# 1.1 The start
+.
+<h1 id="11-the-start">1.1 The start</h1>
+````````````````````````````````
+
+
+
+
