@@ -1521,7 +1521,7 @@ abort:
  *********************************************/
 
 struct MD_HEADING_DEF_tag {
-    CHAR* identifier;
+    OFF ident_beg;
     SZ ident_size;
 };
 
@@ -1566,7 +1566,7 @@ md_alloc_identifiers(MD_CTX *ctx, MD_HEADING_DEF* def)
         ctx->identifiers = new_identifiers;
     }
     
-    def->identifier = &ctx->identifiers[ctx->identifiers_size];
+    def->ident_beg = ctx->identifiers_size;
     return 0;
 }
 
@@ -1593,7 +1593,7 @@ md_heading_build_ident(MD_CTX* ctx, MD_HEADING_DEF* def, MD_LINE* lines, int n_l
    
     /* copy the ident and transform as needed */
     OFF off = beg; 
-    CHAR* ptr = def->identifier;
+    CHAR* ptr = &ctx->identifiers[def->ident_beg];
 
     while(1) {
         const MD_LINE* line = &lines[line_index];
@@ -1618,7 +1618,7 @@ md_heading_build_ident(MD_CTX* ctx, MD_HEADING_DEF* def, MD_LINE* lines, int n_l
 
         if(off >= end) {
             // update real identifier size
-            def->ident_size = (MD_SIZE)(ptr - def->identifier);
+            def->ident_size = (MD_SIZE)(ptr - &ctx->identifiers[def->ident_beg]);
             break;
         }
 
@@ -4907,7 +4907,7 @@ md_setup_H_identifier(MD_CTX* ctx, const MD_BLOCK* block, MD_BLOCK_H_DETAIL* det
     /* Build info string attribute. */
 
     MD_HEADING_DEF * heading = &ctx->heading_defs[block->heading_def];
-    MD_CHECK(md_build_attribute(ctx, heading->identifier, heading->ident_size, 0, &det->identifier, id_build));
+    MD_CHECK(md_build_attribute(ctx, &ctx->identifiers[heading->ident_beg], heading->ident_size, 0, &det->identifier, id_build));
 
 abort:
     return ret;
