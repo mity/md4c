@@ -1579,15 +1579,6 @@ md_heading_build_ident(MD_CTX* ctx, MD_HEADING_DEF* def, MD_LINE* lines, int n_l
     OFF beg = lines[0].beg;
     OFF end = lines[n_lines-1].end;
     
-    /* Trim initial spaces. */
-    while(beg < ctx->size  &&  CH(beg) == _T(' '))
-        beg++;
-
-    /* Trim trailing spaces. */
-    while(end > beg  &&  CH(end-1) == _T(' '))
-        end--;
-
-
     def->ident_size = end - beg; 
     MD_CHECK(md_alloc_identifiers(ctx, def));
    
@@ -4896,14 +4887,6 @@ md_setup_H_identifier(MD_CTX* ctx, const MD_BLOCK* block, MD_BLOCK_H_DETAIL* det
 
     int ret = 0;
 
-    /* Trim initial spaces. */
-    while(beg < ctx->size  &&  CH(beg) == _T(' '))
-        beg++;
-
-    /* Trim trailing spaces. */
-    while(end > beg  &&  CH(end-1) == _T(' '))
-        end--;
-
     /* Build info string attribute. */
 
     MD_HEADING_DEF * heading = &ctx->heading_defs[block->heading_def];
@@ -5246,7 +5229,7 @@ md_make_heading(MD_CTX* ctx)
     def = &ctx->heading_defs[ctx->n_heading_defs];
     memset(def, 0, sizeof(MD_HEADING_DEF));
 
-    // remplissage de la ref def    
+    // filling of the heading def    
     MD_CHECK(md_heading_build_ident(ctx, def, lines, block->n_lines));
     block->heading_def = ctx->n_heading_defs;
     ctx->n_heading_defs++;
