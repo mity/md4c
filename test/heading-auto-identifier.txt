@@ -17,6 +17,15 @@ Spaces are replaced by `-` and upercase are replaced by lower case
 <h1 id="the-heading">The Heading</h1>
 ````````````````````````````````
 
+Unicode characters can also be put lower case
+
+```````````````````````````````` example
+# ĀĄŁŇŢŰŽבあИЯ
+.
+<h1 id="āąłňţűžבあия">ĀĄŁŇŢŰŽבあИЯ</h1>
+````````````````````````````````
+
+
 The non-alphanumeric characters are discarded except for `-.
 
 ```````````````````````````````` example
@@ -33,7 +42,7 @@ As a result, you can get some empty heading with no identifier.
 <h1>!</h1>
 ````````````````````````````````
 
-Heading srting with number are not treated differently
+Heading starting with numbers are not treated differently
 
 ```````````````````````````````` example
 # 1.1 The start

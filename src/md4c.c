@@ -859,6 +859,36 @@ struct MD_UNICODE_FOLD_INFO_tag {
         return (unsigned) str[0];
     }
 
+/*
+ * encode a codepoint into the corresponding utf8 byte sequence
+ * the string buffer passed must be large enough  
+ * return the number of bytes written to the buffer
+ */
+    static unsigned
+    md_encode_utf8__(unsigned codepoint, CHAR* str )
+    {
+        if(codepoint <= 0x7f){
+            *str++ = (char)codepoint;
+            return 1;
+        } else if (codepoint <=  0x7FF){
+            *str++ = 0xc0 |  (codepoint >> 6);   
+            *str++ = 0x80 | ((codepoint >> 0) & 0x3f);
+            return 2;
+        } else if ( codepoint <= 0xFFFF) {
+            *str++ = 0xe0 |  (codepoint >> 12);   
+            *str++ = 0x80 | ((codepoint >> 6 ) & 0x3f);  
+            *str++ = 0x80 | ((codepoint >> 0 ) & 0x3f);
+            return 3;
+        } else if ( codepoint <= 0x10FFFF) {
+            *str++ = 0xf0 |  (codepoint >> 18);   
+            *str++ = 0x80 | ((codepoint >> 12) & 0x3f); 
+            *str++ = 0x80 | ((codepoint >> 6 ) & 0x3f);  
+            *str++ = 0x80 | ((codepoint >> 0 ) & 0x3f);
+            return 4;
+        }
+        return 0;
+    }
+
     static unsigned
     md_decode_utf8_before__(MD_CTX* ctx, OFF off)
     {
@@ -886,6 +916,7 @@ struct MD_UNICODE_FOLD_INFO_tag {
     #define ISUNICODEWHITESPACE(off)        md_is_unicode_whitespace__(md_decode_utf8__(STR(off), ctx->size - (off), NULL))
     #define ISUNICODEWHITESPACEBEFORE(off)  md_is_unicode_whitespace__(md_decode_utf8_before__(ctx, off))
 
+    #define ISUNICODEPUNCT_(codepoint)      md_is_unicode_punct__(codepoint)
     #define ISUNICODEPUNCT(off)             md_is_unicode_punct__(md_decode_utf8__(STR(off), ctx->size - (off), NULL))
     #define ISUNICODEPUNCTBEFORE(off)       md_is_unicode_punct__(md_decode_utf8_before__(ctx, off))
 
@@ -894,11 +925,18 @@ struct MD_UNICODE_FOLD_INFO_tag {
     {
         return md_decode_utf8__(str+off, str_size-off, p_char_size);
     }
+
+    static inline unsigned
+    md_encode_unicode(unsigned codepoint, CHAR* str )
+    {
+        return md_encode_utf8__(codepoint, str);
+    }
 #else
     #define ISUNICODEWHITESPACE_(codepoint) ISWHITESPACE_(codepoint)
     #define ISUNICODEWHITESPACE(off)        ISWHITESPACE(off)
     #define ISUNICODEWHITESPACEBEFORE(off)  ISWHITESPACE((off)-1)
 
+    #define ISUNICODEPUNCT_(codepoint)      ISPUNCT(codepoint)
     #define ISUNICODEPUNCT(off)             ISPUNCT(off)
     #define ISUNICODEPUNCTBEFORE(off)       ISPUNCT((off)-1)
 
@@ -909,6 +947,13 @@ struct MD_UNICODE_FOLD_INFO_tag {
         if(ISUPPER_(codepoint))
             info->codepoints[0] += 'a' - 'A';
         info->n_codepoints = 1;
+    }
+
+    static unsigned
+    md_encode_unicode(unsigned codepoint, CHAR* str )
+    {
+     *str = codepoint;
+     return 1;
     }
 
     static inline unsigned
@@ -1593,18 +1638,30 @@ md_heading_build_ident(MD_CTX* ctx, MD_HEADING_DEF* def, MD_LINE* lines, int n_l
             line_end = end;
 
         while(off < line_end) {
-            if(ISUNICODEWHITESPACE(off) || CH(off) == _T('-') ){   // space and '-' are replaced by a '-'
-                *ptr = _T('-');
-            } else if (ISUNICODEPUNCT(off)) {
+            if( CH(off) == _T('-') ){   // '-' are not replaced
+                *ptr++ = _T('-');
                 off++;
                 continue;
-            } else if(ISUPPER(off)){                // make uppercase lower
-                *ptr = CH(off)+('a'-'A');
-            } else {
-                *ptr = CH(off);
             }
-            ptr++;
-            off++;
+            unsigned codepoint;
+            SZ char_size;
+
+            codepoint = md_decode_unicode(ctx->text, off, line_end, &char_size);
+            if(ISUNICODEWHITESPACE_(codepoint) || ISNEWLINE(off)) {// replace white spaces by '-'
+                *ptr++ = _T('-');       
+                off = md_skip_unicode_whitespace(ctx->text, off, line_end);
+            } else if (ISUNICODEPUNCT_(codepoint)) {    // skip ponctuation
+                off += char_size;
+                continue;
+            } else {                // make lower case
+                MD_UNICODE_FOLD_INFO fold_info;
+                md_get_unicode_fold_info(codepoint, &fold_info);
+                for (unsigned i = 0; i < fold_info.n_codepoints; i++) {
+                    SZ n = md_encode_unicode(fold_info.codepoints[i], ptr);
+                    ptr += n;
+                } 
+                off += char_size;
+            }
         }
 
         if(off >= end) {
