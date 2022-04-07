@@ -171,6 +171,8 @@ struct MD_CTX_tag {
     CHAR* identifiers;
     SZ identifiers_size;
     SZ alloc_identifiers;
+    /* postfix identifier book keeping */
+    SZ max_postfix;
 
     /* Stack of inline/span markers.
      * This is only used for parsing a single block contents but by storing it
@@ -1477,6 +1479,77 @@ md_free_attribute(MD_CTX* ctx, MD_ATTRIBUTE_BUILD* build)
 }
 
 static int
+md_build_trivial_attribute(MD_CTX* ctx, const CHAR* raw_text, SZ raw_size,
+                           MD_ATTRIBUTE* attr, MD_ATTRIBUTE_BUILD* build)
+{
+    MD_UNUSED(ctx);
+    memset(build, 0, sizeof(MD_ATTRIBUTE_BUILD));
+    build->substr_types = build->trivial_types;
+    build->substr_offsets = build->trivial_offsets;
+    build->substr_count = 1;
+    build->substr_alloc = 0;
+    build->trivial_types[0] = MD_TEXT_NORMAL;
+    build->trivial_offsets[0] = 0;
+    build->trivial_offsets[1] = raw_size;
+
+    attr->text = (CHAR*) (raw_size ? raw_text : NULL);
+    attr->size = raw_size;
+    attr->substr_offsets = build->substr_offsets;
+    attr->substr_types = build->substr_types;
+    return 0;
+}
+
+static int
+int_to_str( unsigned postfix,   CHAR* dest){
+    return snprintf(dest, 6,"%u", postfix);
+}
+
+static int
+md_build_attribute_postfix(MD_CTX* ctx, const CHAR* raw_text, SZ raw_size,
+                   unsigned postfix, MD_ATTRIBUTE* attr, MD_ATTRIBUTE_BUILD* build)
+{
+    OFF off;
+   
+    memset(build, 0, sizeof(MD_ATTRIBUTE_BUILD));
+
+   
+    build->substr_types = build->trivial_types;
+    build->substr_offsets = build->trivial_offsets;
+    build->substr_count = 1;
+    build->substr_alloc = 0;
+    build->trivial_types[0] = MD_TEXT_NORMAL;
+    build->trivial_offsets[0] = 0;
+    off = raw_size;
+    if (postfix > 0xffff ){
+        // postfix is not allowed to be bigger than 65535 (2^16) , so maximum 5+1 char     
+        postfix  = 0xffff;
+    }
+    const SZ MAX_POSTFIX_SIZE= 6; 
+    build->text = (CHAR*) malloc((raw_size + MAX_POSTFIX_SIZE) * sizeof(CHAR));
+    if(build->text == NULL) {
+        MD_LOG("malloc() failed.");
+        goto abort;
+    }
+
+    // copy original text 
+    memcpy(build->text, raw_text, raw_size);
+    // append postfix
+    build->text[off++] = _T('-');
+    off+= int_to_str(postfix, &build->text[off]);    
+
+    attr->text = build->text;
+    build->trivial_offsets[1] = off; 
+    attr->size = off;
+    attr->substr_offsets = build->substr_offsets;
+    attr->substr_types = build->substr_types;
+    return 0;
+
+abort:
+    md_free_attribute(ctx, build);
+    return -1;
+}
+
+static int
 md_build_attribute(MD_CTX* ctx, const CHAR* raw_text, SZ raw_size,
                    unsigned flags, MD_ATTRIBUTE* attr, MD_ATTRIBUTE_BUILD* build)
 {
@@ -1559,137 +1632,6 @@ md_build_attribute(MD_CTX* ctx, const CHAR* raw_text, SZ raw_size,
 abort:
     md_free_attribute(ctx, build);
     return -1;
-}
-
-/*********************************************
- ***  Dictionary of Heading Definitions  ***
- *********************************************/
-
-struct MD_HEADING_DEF_tag {
-    OFF ident_beg;
-    SZ ident_size;
-};
-
-static int 
-md_push_heading_def(MD_CTX* ctx)
-{
-    if(ctx->n_heading_defs >= ctx->alloc_heading_defs) {
-        MD_HEADING_DEF* new_defs;
-
-        ctx->alloc_heading_defs = (ctx->alloc_heading_defs > 0
-                ? ctx->alloc_heading_defs + ctx->alloc_heading_defs / 2
-                : 16);
-        new_defs = (MD_HEADING_DEF*) realloc(ctx->heading_defs, ctx->alloc_heading_defs * sizeof(MD_HEADING_DEF));
-        if(new_defs == NULL) {
-            MD_LOG("realloc() failed.");
-        return -1;
-        }
-
-        ctx->heading_defs = new_defs;
-    }
-    return 0;
-}
-
-static int
-md_alloc_identifiers(MD_CTX *ctx, MD_HEADING_DEF* def)
-{
-    if (ctx->identifiers_size + def->ident_size >= ctx->alloc_identifiers)
-    {
-        CHAR *new_identifiers;
-
-        ctx->alloc_identifiers = (ctx->alloc_identifiers > 0
-                ? ctx->alloc_identifiers + ctx->alloc_identifiers / 2
-                : 512);
-
-        new_identifiers = (CHAR *)realloc(ctx->identifiers, sizeof(CHAR) * ctx->alloc_identifiers);
-        if (new_identifiers == NULL)
-        {
-            MD_LOG("realloc() failed.");
-            return -1;
-        }
-
-        ctx->identifiers = new_identifiers;
-    }
-    
-    def->ident_beg = ctx->identifiers_size;
-    return 0;
-}
-
-static int
-md_heading_build_ident(MD_CTX* ctx, MD_HEADING_DEF* def, MD_LINE* lines, int n_lines)
-{
-    int ret = 0;
-     
-    int line_index = 0;
-    OFF beg = lines[0].beg;
-    OFF end = lines[n_lines-1].end;
-    
-    def->ident_size = end - beg; 
-    MD_CHECK(md_alloc_identifiers(ctx, def));
-   
-    /* copy the ident and transform as needed */
-    OFF off = beg; 
-    CHAR* ptr = &ctx->identifiers[def->ident_beg];
-
-    while(1) {
-        const MD_LINE* line = &lines[line_index];
-        OFF line_end = line->end;
-        if(end < line_end)
-            line_end = end;
-
-        while(off < line_end) {
-            if( CH(off) == _T('-') ){   // '-' are not replaced
-                *ptr++ = _T('-');
-                off++;
-                continue;
-            }
-            unsigned codepoint;
-            SZ char_size;
-
-            codepoint = md_decode_unicode(ctx->text, off, line_end, &char_size);
-            if(ISUNICODEWHITESPACE_(codepoint) || ISNEWLINE(off)) {// replace white spaces by '-'
-                *ptr++ = _T('-');       
-                off = md_skip_unicode_whitespace(ctx->text, off, line_end);
-            } else if (ISUNICODEPUNCT_(codepoint)) {    // skip ponctuation
-                off += char_size;
-                continue;
-            } else {                // make lower case
-                MD_UNICODE_FOLD_INFO fold_info;
-                md_get_unicode_fold_info(codepoint, &fold_info);
-                for (unsigned i = 0; i < fold_info.n_codepoints; i++) {
-                    SZ n = md_encode_unicode(fold_info.codepoints[i], ptr);
-                    ptr += n;
-                } 
-                off += char_size;
-            }
-        }
-
-        if(off >= end) {
-            // update real identifier size
-            def->ident_size = (MD_SIZE)(ptr - &ctx->identifiers[def->ident_beg]);
-            break;
-        }
-
-        *ptr = _T('-'); // end of line 
-        ptr++;
-
-        line_index++;
-        off = lines[line_index].beg;
-    }
-
-    // update used identifier buffer size
-    ctx->identifiers_size += def->ident_size; 
- 
-    return 0;
-abort:
-    
-    return -1;
-}
-
-static void
-md_free_heading_defs(MD_CTX* ctx)
-{
-    free(ctx->heading_defs);
 }
 
 /*********************************************
@@ -2573,6 +2515,178 @@ md_free_ref_defs(MD_CTX* ctx)
     free(ctx->ref_defs);
 }
 
+/*********************************************
+ ***  Dictionary of Heading Definitions  ***
+ *********************************************/
+
+struct MD_HEADING_DEF_tag {
+    unsigned hash;
+    OFF ident_beg;
+    SZ ident_size;
+    unsigned postfix;
+};
+
+struct MD_POSTFIX_DEF_tag {
+    OFF ident_beg;
+    SZ ident_size;
+};
+
+static int 
+md_push_heading_def(MD_CTX* ctx)
+{
+    if(ctx->n_heading_defs >= ctx->alloc_heading_defs) {
+        MD_HEADING_DEF* new_defs;
+
+        ctx->alloc_heading_defs = (ctx->alloc_heading_defs > 0
+                ? ctx->alloc_heading_defs + ctx->alloc_heading_defs / 2
+                : 16);
+        new_defs = (MD_HEADING_DEF*) realloc(ctx->heading_defs, ctx->alloc_heading_defs * sizeof(MD_HEADING_DEF));
+        if(new_defs == NULL) {
+            MD_LOG("realloc() failed.");
+        return -1;
+        }
+
+        ctx->heading_defs = new_defs;
+    }
+    return 0;
+}
+
+static int
+md_alloc_identifiers(MD_CTX *ctx, MD_HEADING_DEF* def)
+{
+    if (ctx->identifiers_size + def->ident_size >= ctx->alloc_identifiers)
+    {
+        CHAR *new_identifiers;
+
+        ctx->alloc_identifiers = (ctx->alloc_identifiers > 0
+                ? ctx->alloc_identifiers + ctx->alloc_identifiers / 2
+                : 512);
+
+        new_identifiers = (CHAR *)realloc(ctx->identifiers, sizeof(CHAR) * ctx->alloc_identifiers);
+        if (new_identifiers == NULL)
+        {
+            MD_LOG("realloc() failed.");
+            return -1;
+        }
+
+        ctx->identifiers = new_identifiers;
+    }
+    
+    def->ident_beg = ctx->identifiers_size;
+    return 0;
+}
+
+static int
+md_heading_build_ident(MD_CTX* ctx, MD_HEADING_DEF* def, MD_LINE* lines, int n_lines)
+{
+    int ret = 0;
+     
+    int line_index = 0;
+    OFF beg = lines[0].beg;
+    OFF end = lines[n_lines-1].end;
+
+    def->ident_size = end - beg; 
+    MD_CHECK(md_alloc_identifiers(ctx, def));
+   
+    /* copy the ident and transform as needed */
+    OFF off = beg; 
+    CHAR* ptr = &ctx->identifiers[def->ident_beg];
+
+    while(1) {
+        const MD_LINE* line = &lines[line_index];
+        OFF line_end = line->end;
+        if(end < line_end)
+            line_end = end;
+
+        while(off < line_end) {
+            if( CH(off) == _T('-') ){   // '-' are not replaced
+                *ptr++ = _T('-');
+                off++;
+                continue;
+            }
+            unsigned codepoint;
+            SZ char_size;
+
+            codepoint = md_decode_unicode(ctx->text, off, line_end, &char_size);
+            if(ISUNICODEWHITESPACE_(codepoint) || ISNEWLINE(off)) {// replace white spaces by '-'
+                *ptr++ = _T('-');       
+                off = md_skip_unicode_whitespace(ctx->text, off, line_end);
+            } else if (ISUNICODEPUNCT_(codepoint)) {    // skip ponctuation
+                off += char_size;
+                continue;
+            } else {                // make lower case
+                MD_UNICODE_FOLD_INFO fold_info;
+                md_get_unicode_fold_info(codepoint, &fold_info);
+                for (unsigned i = 0; i < fold_info.n_codepoints; i++) {
+                    SZ n = md_encode_unicode(fold_info.codepoints[i], ptr);
+                    ptr += n;
+                } 
+                off += char_size;
+            }
+        }
+
+        if(off >= end) {
+            // update real identifier size
+            def->ident_size = (MD_SIZE)(ptr - &ctx->identifiers[def->ident_beg]);
+            break;
+        }
+
+        *ptr = _T('-'); // end of line 
+        ptr++;
+
+        line_index++;
+        off = lines[line_index].beg;
+    }
+    // compute identifier hash reusing the link label function
+    def->hash = md_link_label_hash(&ctx->identifiers[def->ident_beg], def->ident_size);
+
+    // update used identifier buffer size
+    ctx->identifiers_size += def->ident_size; 
+ 
+    return 0;
+abort:
+    
+    return -1;
+}
+
+static int
+md_check_duplicate_identifier(MD_CTX* ctx)
+{
+    int i, j;
+
+    if(ctx->n_heading_defs == 0)
+        return 0;
+
+    // TODO: change this on purpose quadratic algo for now...
+     
+    for(i = 0; i < ctx->n_heading_defs; i++) {
+        MD_HEADING_DEF* defi= &ctx->heading_defs[i];
+        for(j = i+1 ; j < ctx->n_heading_defs; j++) {
+            MD_HEADING_DEF* defj = &ctx->heading_defs[j];
+            if ( defi->hash == defj->hash){
+                // same hash, check for identifiers
+                MD_CHAR* defi_ident = &ctx->identifiers[defi->ident_beg];
+                MD_CHAR* defj_ident = &ctx->identifiers[defj->ident_beg];
+                 
+                if(md_link_label_cmp(defi_ident, defi->ident_size, defj_ident, defj->ident_size) == 0) {
+                    /* Duplicate identifier: increment counter */
+                    defj->postfix++;
+                   // break;
+                   if(defj->postfix > ctx->max_postfix) {
+                       ctx->max_postfix = defj->postfix; 
+                   }
+                }
+            }
+        }
+    }
+   return 0;
+}
+
+static void
+md_free_heading_defs(MD_CTX* ctx)
+{
+      free(ctx->heading_defs);
+}
 
 /******************************************
  ***  Processing Inlines (a.k.a Spans)  ***
@@ -4938,17 +5052,19 @@ static int
 md_setup_H_identifier(MD_CTX* ctx, const MD_BLOCK* block, MD_BLOCK_H_DETAIL* det,
                             MD_ATTRIBUTE_BUILD* id_build)
 {
-    const MD_LINE* header_line = (const MD_LINE*)(block + 1);
-    OFF beg = header_line->beg;
-    OFF end = header_line->end;
 
     int ret = 0;
 
     /* Build info string attribute. */
 
     MD_HEADING_DEF * heading = &ctx->heading_defs[block->heading_def];
-    MD_CHECK(md_build_attribute(ctx, &ctx->identifiers[heading->ident_beg], heading->ident_size, 0, &det->identifier, id_build));
-
+    if(heading->postfix == 0) {
+        MD_CHECK(md_build_trivial_attribute(ctx, &ctx->identifiers[heading->ident_beg],
+            heading->ident_size, &det->identifier, id_build));
+    }       else { 
+        MD_CHECK(md_build_attribute_postfix(ctx, &ctx->identifiers[heading->ident_beg],
+        heading->ident_size, heading->postfix, &det->identifier, id_build));
+    }
 abort:
     return ret;
 }
