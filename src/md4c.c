@@ -1499,9 +1499,33 @@ md_build_trivial_attribute(MD_CTX* ctx, const CHAR* raw_text, SZ raw_size,
     return 0;
 }
 
+/* Convert a 16 bits unsigned word to a string
+* the dest buffer must be at least 5 char long
+* It does not nul terminat the string
+* Return the number of characters used by the string
+*/
 static int
-int_to_str( unsigned postfix,   CHAR* dest){
-    return snprintf(dest, 6,"%u", postfix);
+md_int16_to_str(unsigned short n, CHAR* dest){
+    char count = 5;
+
+    if(n <10 ){
+       static const CHAR numbers[] = _T("0123456789");
+       *dest = numbers[n];
+       return 1;
+    }    
+    while(1){
+        if(n< 100){ count = 2; break;}
+        if(n< 1000){ count = 3; break;}
+        if(n< 10000){ count = 4; break;}
+       break;
+    }
+    // start from end
+    dest += count;
+    while (n) {
+        *--dest = '0' + ( n % 10);
+        n /= 10;
+    }
+    return count;
 }
 
 static int
@@ -1520,11 +1544,11 @@ md_build_attribute_postfix(MD_CTX* ctx, const CHAR* raw_text, SZ raw_size,
     build->trivial_types[0] = MD_TEXT_NORMAL;
     build->trivial_offsets[0] = 0;
     off = raw_size;
-    if (postfix > 0xffff ){
-        // postfix is not allowed to be bigger than 65535 (2^16) , so maximum 5+1 char     
+    if (postfix > 0xffff) {
+        // postfix is not allowed to be bigger than 65535 (2^16) , so maximum 5  char     
         postfix  = 0xffff;
     }
-    const SZ MAX_POSTFIX_SIZE= 6; 
+    const SZ MAX_POSTFIX_SIZE= 5; 
     build->text = (CHAR*) malloc((raw_size + MAX_POSTFIX_SIZE) * sizeof(CHAR));
     if(build->text == NULL) {
         MD_LOG("malloc() failed.");
@@ -1535,7 +1559,7 @@ md_build_attribute_postfix(MD_CTX* ctx, const CHAR* raw_text, SZ raw_size,
     memcpy(build->text, raw_text, raw_size);
     // append postfix
     build->text[off++] = _T('-');
-    off+= int_to_str(postfix, &build->text[off]);    
+    off+= md_int16_to_str(postfix, &build->text[off]);    
 
     attr->text = build->text;
     build->trivial_offsets[1] = off; 
@@ -5061,7 +5085,7 @@ md_setup_H_identifier(MD_CTX* ctx, const MD_BLOCK* block, MD_BLOCK_H_DETAIL* det
     if(heading->postfix == 0) {
         MD_CHECK(md_build_trivial_attribute(ctx, &ctx->identifiers[heading->ident_beg],
             heading->ident_size, &det->identifier, id_build));
-    }       else { 
+    } else { 
         MD_CHECK(md_build_attribute_postfix(ctx, &ctx->identifiers[heading->ident_beg],
         heading->ident_size, heading->postfix, &det->identifier, id_build));
     }
@@ -6686,6 +6710,7 @@ md_process_doc(MD_CTX *ctx)
 
     md_end_current_block(ctx);
 
+    MD_CHECK(md_check_duplicate_identifier(ctx));
     MD_CHECK(md_build_ref_def_hashtable(ctx));
 
     /* Process all blocks. */
