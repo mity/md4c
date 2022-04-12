@@ -5537,7 +5537,7 @@ md_end_current_block(MD_CTX* ctx)
         }
     }
 
-    if(ctx->current_block->type == MD_BLOCK_H){
+    if(ctx->current_block->type == MD_BLOCK_H && (ctx->parser.flags & MD_FLAG_HEADINGAUTOID)){
         MD_CHECK(md_make_heading(ctx));
     }
 
@@ -6908,7 +6908,9 @@ md_process_doc(MD_CTX *ctx)
 
     md_end_current_block(ctx);
 
+    if(ctx->parser.flags & MD_FLAG_HEADINGAUTOID) {
     MD_CHECK(md_build_heading_def_hashtable(ctx));
+    }
     MD_CHECK(md_build_ref_def_hashtable(ctx));
 
     /* Process all blocks. */
