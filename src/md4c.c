@@ -2603,75 +2603,9 @@ md_alloc_identifiers(MD_CTX *ctx, MD_HEADING_DEF* def)
     return 0;
 }
 
+/** forward declaration */
 static int
-md_heading_build_ident(MD_CTX* ctx, MD_HEADING_DEF* def, MD_LINE* lines, int n_lines)
-{
-    int ret = 0;
-     
-    int line_index = 0;
-    OFF beg = lines[0].beg;
-    OFF end = lines[n_lines-1].end;
-
-    def->ident_size = end - beg; 
-    MD_CHECK(md_alloc_identifiers(ctx, def));
-   
-    /* copy the ident and transform as needed */
-    OFF off = beg; 
-    CHAR* ptr = &ctx->identifiers[def->ident_beg];
-
-    while(1) {
-        const MD_LINE* line = &lines[line_index];
-        OFF line_end = line->end;
-        if(end < line_end)
-            line_end = end;
-
-        while(off < line_end) {
-            if( CH(off) == _T('-') ){   // '-' are not replaced
-                *ptr++ = _T('-');
-                off++;
-                continue;
-            }
-            unsigned codepoint;
-            SZ char_size;
-
-            codepoint = md_decode_unicode(ctx->text, off, line_end, &char_size);
-            if(ISUNICODEWHITESPACE_(codepoint) || ISNEWLINE(off)) {// replace white spaces by '-'
-                *ptr++ = _T('-');       
-                off = md_skip_unicode_whitespace(ctx->text, off, line_end);
-            } else if (ISUNICODEPUNCT_(codepoint)) {    // skip ponctuation
-                off += char_size;
-                continue;
-            } else {                // make lower case
-                MD_UNICODE_FOLD_INFO fold_info;
-                md_get_unicode_fold_info(codepoint, &fold_info);
-                for (unsigned i = 0; i < fold_info.n_codepoints; i++) {
-                    SZ n = md_encode_unicode(fold_info.codepoints[i], ptr);
-                    ptr += n;
-                } 
-                off += char_size;
-            }
-        }
-
-        if(off >= end) {
-            // update real identifier size
-            def->ident_size = (MD_SIZE)(ptr - &ctx->identifiers[def->ident_beg]);
-            break;
-        }
-
-        *ptr = _T('-'); // end of line 
-        ptr++;
-
-        line_index++;
-        off = lines[line_index].beg;
-    }
-    // update used identifier buffer size
-    ctx->identifiers_size += def->ident_size; 
- 
-    return 0;
-abort:
-    
-    return -1;
-}
+md_heading_build_ident(MD_CTX* ctx, MD_HEADING_DEF* def, MD_LINE* lines, int n_lines);
 
 typedef struct MD_HEADING_DEF_LIST_tag MD_HEADING_DEF_LIST;
 struct MD_HEADING_DEF_LIST_tag {
@@ -6241,6 +6175,139 @@ md_is_container_mark(MD_CTX* ctx, unsigned indent, OFF beg, OFF* p_end, MD_CONTA
     }
 
     return FALSE;
+}
+
+static int
+md_heading_build_ident(MD_CTX* ctx, MD_HEADING_DEF* def, MD_LINE* lines, int n_lines)
+{
+    int ret = 0;
+     
+    const MD_LINE* line = lines;
+    MD_MARK* mark; 
+    OFF beg = lines[0].beg;
+    OFF end = lines[n_lines-1].end;
+
+    /* Reset the previously collected stack of marks. */
+    ctx->n_marks = 0;
+ 
+    MD_CHECK(md_analyze_inlines(ctx, lines, n_lines, FALSE));
+
+    /* Find first resolved mark. Note there is always at least one resolved
+     * mark,  the dummy last one after the end of the latest line we actually
+     * never really reach. This saves us of a lot of special checks and cases
+     * in this function. */
+    mark = ctx->marks;
+    while(!(mark->flags & MD_MARK_RESOLVED))
+        mark++;
+
+    def->ident_size = end - beg; 
+    MD_CHECK(md_alloc_identifiers(ctx, def));
+   
+    /* copy the ident and transform as needed */
+    OFF off = beg; 
+    CHAR* ptr = &ctx->identifiers[def->ident_beg];
+
+    while(1) {
+        
+        OFF line_end = line->end;
+        if(end < line_end)
+            line_end = end;
+        /* Process the text up to the next mark or end-of-line. */
+        OFF tmp = (line->end < mark->beg ? line->end : mark->beg);
+
+        while(off < tmp) {
+            if( CH(off) == _T('-') ){   // '-' are not replaced
+                *ptr++ = _T('-');
+                off++;
+                continue;
+            }
+            unsigned codepoint;
+            SZ char_size;
+
+            codepoint = md_decode_unicode(ctx->text, off, line_end, &char_size);
+            if(ISUNICODEWHITESPACE_(codepoint) || ISNEWLINE(off)) {// replace white spaces by '-'
+                *ptr++ = _T('-');       
+                off = md_skip_unicode_whitespace(ctx->text, off, line_end);
+            } else if (ISUNICODEPUNCT_(codepoint)) {    // skip ponctuation
+                off += char_size;
+                continue;
+            } else {                // make lower case
+                MD_UNICODE_FOLD_INFO fold_info;
+                md_get_unicode_fold_info(codepoint, &fold_info);
+                for (unsigned i = 0; i < fold_info.n_codepoints; i++) {
+                    SZ n = md_encode_unicode(fold_info.codepoints[i], ptr);
+                    ptr += n;
+                } 
+                off += char_size;
+            }
+        }
+        /* If reached the mark, process it and move to next one. */
+        if(off >= mark->beg) {
+            switch(mark->ch) {
+
+                case '[':       /* Link, wiki link, image. */
+                case '!':
+                case ']':
+                {
+                    const MD_MARK* opener = (mark->ch != ']' ? mark : &ctx->marks[mark->prev]);
+                    const MD_MARK* closer = &ctx->marks[opener->next];
+                    const MD_MARK* dest_mark;
+                    const MD_MARK* title_mark;
+
+                    if ((opener->ch == '[' && closer->ch == ']') &&
+                        opener->end - opener->beg >= 2 &&
+                        closer->end - closer->beg >= 2)
+                    {
+                        break;
+                    }
+
+                    dest_mark = opener+1;
+                    MD_ASSERT(dest_mark->ch == 'D');
+                    title_mark = opener+2;
+                    if (title_mark->ch != 'D') break;
+   
+                    /* link/image closer may span multiple lines. */
+                    if(mark->ch == ']') {
+                        while(mark->end > line->end)
+                            line++;
+                    }
+
+                    break;
+                }
+            }
+            
+            off = mark->end;
+
+            /* Move to next resolved mark. */
+            mark++;
+            while(!(mark->flags & MD_MARK_RESOLVED)  ||  mark->beg < off)
+                mark++;
+        }
+
+        /* If reached end of line, move to next one. */
+        if(off >= line->end) {
+            /* If it is the last line, we are done. */
+            if(off >= end) {
+                // update real identifier size
+                def->ident_size = (MD_SIZE)(ptr - &ctx->identifiers[def->ident_beg]);
+                break;
+            }
+
+            *ptr = _T('-'); // end of line 
+            ptr++;
+
+            /* Move to the next line. */
+            line++;
+            off = line->beg;
+        }
+    }
+    // update used identifier buffer size
+    ctx->identifiers_size += def->ident_size; 
+ 
+    return 0;
+abort:
+    
+    return -1;
 }
 
 static unsigned

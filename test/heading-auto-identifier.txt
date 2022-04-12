@@ -50,6 +50,30 @@ Heading starting with numbers are not treated differently
 <h1 id="11-the-start">1.1 The start</h1>
 ````````````````````````````````
 
+Heading can contain link inside
+
+```````````````````````````````` example
+# Title with a [link](hidden) inside  
+.
+<h1 id="title-with-a-link-inside">Title with a <a href="hidden">link</a> inside</h1>
+````````````````````````````````
+
+Heading can contain wiki link inside but requiere the MD_FLAG_WIKILINKS  
+
+```````````````````````````````` example
+# Title with a [[hidden-wiki|link]] inside  
+.
+<h1 id="title-with-a-hidden-wikilink-inside">Title with a [[hidden-wiki|link]] inside</h1>
+````````````````````````````````
+
+Heading can contain formatting
+
+```````````````````````````````` example
+# Title with *emphasis* inside 
+.
+<h1 id="title-with-emphasis-inside">Title with <em>emphasis</em> inside</h1>
+````````````````````````````````
+
 
 
 
