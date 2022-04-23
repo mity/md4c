@@ -98,3 +98,33 @@ But unicode emoji characters are stripped
 <h1 id="the--sign">the + sign</h1>
 ````````````````````````````````
 
+Same heading get a suffix number. 
+
+```````````````````````````````` example 
+# title
+# title
+## title
+### title
+# Title
+# title
+# ti!tle
+# title
+# title
+# title
+# title
+# title
+.
+<h1 id="title">title</h1>
+<h1 id="title-1">title</h1>
+<h2 id="title-2">title</h2>
+<h3 id="title-3">title</h3>
+<h1 id="title-4">Title</h1>
+<h1 id="title-5">title</h1>
+<h1 id="title-6">ti!tle</h1>
+<h1 id="title-7">title</h1>
+<h1 id="title-8">title</h1>
+<h1 id="title-9">title</h1>
+<h1 id="title-10">title</h1>
+<h1 id="title-11">title</h1>
+````````````````````````````````
+
