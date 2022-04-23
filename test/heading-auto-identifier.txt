@@ -74,6 +74,27 @@ Heading can contain formatting
 <h1 id="title-with-emphasis-inside">Title with <em>emphasis</em> inside</h1>
 ````````````````````````````````
 
+Heading can contain some emoji code like :emoji:, they are treated as normal text
 
+```````````````````````````````` example
+# emoji1 :+1:
+# emoji2 :-1:
+# emoji3 :100:
+.
+<h1 id="emoji1-1">emoji1 :+1:</h1>
+<h1 id="emoji2--1">emoji2 :-1:</h1>
+<h1 id="emoji3-100">emoji3 :100:</h1>
+````````````````````````````````
 
+But unicode emoji characters are stripped 
+
+```````````````````````````````` example
+# emoji4 👍
+# emoji5 💯
+# the + sign
+.
+<h1 id="emoji4-">emoji4 👍</h1>
+<h1 id="emoji5-">emoji5 💯</h1>
+<h1 id="the--sign">the + sign</h1>
+````````````````````````````````
 
