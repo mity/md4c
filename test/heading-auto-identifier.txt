@@ -128,3 +128,28 @@ Same heading get a suffix number.
 <h1 id="title-11">title</h1>
 ````````````````````````````````
 
+# Coverage
+
+additional test to improve test coverage.
+
+No heading in a document
+
+```````````````````````````````` example 
+no heading
+.
+<p>no heading</p>
+````````````````````````````````
+
+Multi line heading require a link so it can contain a new line.
+
+```````````````````````````````` example 
+Title with a [multi 
+line
+link](link) inside 
+======================
+.
+<h1 id="title-with-a-multi-line-link-inside">Title with a <a href="link">multi
+line
+link</a> inside</h1>
+
+````````````````````````````````
