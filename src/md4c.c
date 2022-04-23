@@ -1601,6 +1601,7 @@ md_build_attribute_postfix(MD_CTX* ctx, const CHAR* raw_text, SZ raw_size,
                    unsigned postfix, MD_ATTRIBUTE* attr, MD_ATTRIBUTE_BUILD* build)
 {
     OFF off;
+    const SZ MAX_POSTFIX_SIZE = 5; // but also add 1 for the '-'  
    
     memset(build, 0, sizeof(MD_ATTRIBUTE_BUILD));
     build->substr_types = build->trivial_types;
@@ -1614,7 +1615,7 @@ md_build_attribute_postfix(MD_CTX* ctx, const CHAR* raw_text, SZ raw_size,
         // postfix is not allowed to be bigger than 65535 (2^16) , so maximum 5 char     
         postfix  = 0xffff;
     }
-    const SZ MAX_POSTFIX_SIZE= 5; // but also add 1 for the '-'
+
         build->text = (CHAR*) malloc((raw_size + MAX_POSTFIX_SIZE+1) * sizeof(CHAR));
     if(build->text == NULL) {
         MD_LOG("malloc() failed.");
@@ -6186,8 +6187,9 @@ abort:
 static int
 md_is_container_mark(MD_CTX* ctx, unsigned indent, OFF beg, OFF* p_end, MD_CONTAINER* p_container)
 {
-    OFF off = beg;
     OFF max_end;
+    OFF off = beg;
+
 
     if(off >= ctx->size  ||  indent >= ctx->code_indent_offset)
         return FALSE;
@@ -6244,11 +6246,13 @@ md_is_container_mark(MD_CTX* ctx, unsigned indent, OFF beg, OFF* p_end, MD_CONTA
 static int
 md_heading_build_ident(MD_CTX* ctx, MD_HEADING_DEF* def, MD_LINE* lines, int n_lines)
 {
+    MD_MARK* mark;
+    CHAR* ptr;
     int ret = 0;
      
     const MD_LINE* line = lines;
-    MD_MARK* mark; 
     OFF beg = lines[0].beg;
+    OFF off = beg; 
     OFF end = lines[n_lines-1].end;
 
     /* Reset the previously collected stack of marks. */
@@ -6268,25 +6272,25 @@ md_heading_build_ident(MD_CTX* ctx, MD_HEADING_DEF* def, MD_LINE* lines, int n_l
     MD_CHECK(md_alloc_identifiers(ctx, def));
    
     /* copy the ident and transform as needed */
-    OFF off = beg; 
-    CHAR* ptr = &ctx->identifiers[def->ident_beg];
+    ptr = &ctx->identifiers[def->ident_beg];
 
     while(1) {
         
         OFF line_end = line->end;
-        if(end < line_end)
-            line_end = end;
         /* Process the text up to the next mark or end-of-line. */
         OFF tmp = (line->end < mark->beg ? line->end : mark->beg);
+        if(end < line_end)
+            line_end = end;
 
         while(off < tmp) {
+            unsigned codepoint;
+            SZ char_size;
+            
             if( CH(off) == _T('-') ){   // '-' are not replaced
                 *ptr++ = _T('-');
                 off++;
                 continue;
             }
-            unsigned codepoint;
-            SZ char_size;
 
             codepoint = md_decode_unicode(ctx->text, off, line_end, &char_size);
             if(ISUNICODEWHITESPACE_(codepoint) || ISNEWLINE(off)) {// replace white spaces by '-'
