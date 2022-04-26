@@ -2618,6 +2618,8 @@ md_free_ref_defs(MD_CTX* ctx)
  *********************************************/
 
 struct MD_HEADING_DEF_tag {
+    CHAR* heading;
+    SZ heading_size;
     CHAR* identifier; // only valid after all heading are known 
     unsigned hash;
     OFF ident_beg;
@@ -6257,6 +6259,10 @@ md_heading_build_ident(MD_CTX* ctx, MD_HEADING_DEF* def, MD_LINE* lines, int n_l
     OFF beg = lines[0].beg;
     OFF off = beg; 
     OFF end = lines[n_lines-1].end;
+
+    /* store the heading */
+    def->heading = (CHAR*)STR(beg);
+    def->heading_size = end-beg;
 
     /* Reset the previously collected stack of marks. */
     ctx->n_marks = 0;
