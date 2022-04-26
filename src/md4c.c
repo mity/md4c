@@ -2841,7 +2841,7 @@ md_free_heading_def_hashtable(MD_CTX* ctx)
 static void
 md_free_heading_defs(MD_CTX* ctx)
 {
-      free(ctx->heading_defs);
+    free(ctx->heading_defs);
 }
 
 /******************************************
@@ -5216,11 +5216,11 @@ md_setup_H_identifier(MD_CTX* ctx, const MD_BLOCK* block, MD_BLOCK_H_DETAIL* det
 
     MD_HEADING_DEF * heading = &ctx->heading_defs[block->heading_def];
     if(heading->postfix == 0) {
-        MD_CHECK(md_build_trivial_attribute(ctx, &ctx->identifiers[heading->ident_beg],
-            heading->ident_size, &det->identifier, id_build));
+        MD_CHECK(md_build_trivial_attribute(ctx, &ctx->identifiers[heading->ident_beg]+1,
+            heading->ident_size-1, &det->identifier, id_build));
     } else { 
-        MD_CHECK(md_build_attribute_postfix(ctx, &ctx->identifiers[heading->ident_beg],
-        heading->ident_size, heading->postfix, &det->identifier, id_build));
+        MD_CHECK(md_build_attribute_postfix(ctx, &ctx->identifiers[heading->ident_beg]+1,
+            heading->ident_size-1, heading->postfix, &det->identifier, id_build));
     }
 abort:
     return ret;
@@ -6271,12 +6271,13 @@ md_heading_build_ident(MD_CTX* ctx, MD_HEADING_DEF* def, MD_LINE* lines, int n_l
     while(!(mark->flags & MD_MARK_RESOLVED))
         mark++;
 
-    def->ident_size = end - beg; 
+    /* The identifier will not be bigger than the heading + '#' */
+    def->ident_size = end - beg + 1; 
     MD_CHECK(md_alloc_identifiers(ctx, def));
    
     /* copy the ident and transform as needed */
     ptr = &ctx->identifiers[def->ident_beg];
-
+    *ptr++ = _T('#'); // start with a '#'
     while(1) {
         
         OFF line_end = line->end;
