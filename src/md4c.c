@@ -1751,11 +1751,11 @@ md_fnv1a(unsigned base, const void* data, size_t n)
 struct MD_REF_DEF_tag {
     CHAR* label;
     CHAR* title;
+    CHAR* dest;
     unsigned hash;
     SZ label_size;
     SZ title_size;
-    OFF dest_beg;
-    OFF dest_end;
+    SZ dest_size;
     unsigned char label_needs_free : 1;
     unsigned char title_needs_free : 1;
 };
@@ -2089,8 +2089,8 @@ md_lookup_ref_def(MD_CTX* ctx, const CHAR* label, SZ label_size)
 
 typedef struct MD_LINK_ATTR_tag MD_LINK_ATTR;
 struct MD_LINK_ATTR_tag {
-    OFF dest_beg;
-    OFF dest_end;
+    CHAR* dest;
+    SZ dest_size;
 
     CHAR* title;
     SZ title_size;
@@ -2172,7 +2172,7 @@ md_is_link_label(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
 
 static int
 md_is_link_destination_A(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end,
-                         OFF* p_contents_beg, OFF* p_contents_end)
+                         CHAR** p_contents, SZ* p_contents_size)
 {
     OFF off = beg;
 
@@ -2191,8 +2191,8 @@ md_is_link_destination_A(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end,
 
         if(CH(off) == _T('>')) {
             /* Success. */
-            *p_contents_beg = beg+1;
-            *p_contents_end = off;
+            *p_contents = (CHAR*)STR(beg+1);
+            *p_contents_size = off - (beg+1);
             *p_end = off+1;
             return TRUE;
         }
@@ -2205,7 +2205,7 @@ md_is_link_destination_A(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end,
 
 static int
 md_is_link_destination_B(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end,
-                         OFF* p_contents_beg, OFF* p_contents_end)
+                         CHAR** p_contents, SZ* p_contents_size)
 {
     OFF off = beg;
     int parenthesis_level = 0;
@@ -2239,20 +2239,20 @@ md_is_link_destination_B(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end,
         return FALSE;
 
     /* Success. */
-    *p_contents_beg = beg;
-    *p_contents_end = off;
+    *p_contents = (CHAR*)STR(beg);
+    *p_contents_size = off - beg;
     *p_end = off;
     return TRUE;
 }
 
 static inline int
 md_is_link_destination(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end,
-                       OFF* p_contents_beg, OFF* p_contents_end)
+                       CHAR** p_contents, SZ* p_contents_size)
 {
     if(CH(beg) == _T('<'))
-        return md_is_link_destination_A(ctx, beg, max_end, p_end, p_contents_beg, p_contents_end);
+        return md_is_link_destination_A(ctx, beg, max_end, p_end, p_contents, p_contents_size);
     else
-        return md_is_link_destination_B(ctx, beg, max_end, p_end, p_contents_beg, p_contents_end);
+        return md_is_link_destination_B(ctx, beg, max_end, p_end, p_contents, p_contents_size);
 }
 
 static int
@@ -2330,8 +2330,8 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
     OFF label_contents_end;
     int label_contents_line_index = -1;
     int label_is_multiline = FALSE;
-    OFF dest_contents_beg;
-    OFF dest_contents_end;
+    CHAR* dest_contents;
+    SZ dest_contents_size;
     OFF title_contents_beg;
     OFF title_contents_end;
     int title_contents_line_index;
@@ -2366,7 +2366,7 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 
     /* Link destination. */
     if(!md_is_link_destination(ctx, off, lines[line_index].end,
-                &off, &dest_contents_beg, &dest_contents_end))
+                &off, &dest_contents, &dest_contents_size))
         return FALSE;
 
     /* (Optional) title. Note we interpret it as an title only if nothing
@@ -2429,8 +2429,8 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
         def->title_size = title_contents_end - title_contents_beg;
     }
 
-    def->dest_beg = dest_contents_beg;
-    def->dest_end = dest_contents_end;
+    def->dest = dest_contents;
+    def->dest_size = dest_contents_size;
 
     /* Success. */
     ctx->n_ref_defs++;
@@ -2476,8 +2476,8 @@ md_is_link_reference(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
 
     def = md_lookup_ref_def(ctx, label, label_size);
     if(def != NULL) {
-        attr->dest_beg = def->dest_beg;
-        attr->dest_end = def->dest_end;
+        attr->dest = def->dest;
+        attr->dest_size = def->dest_size;
         attr->title = def->title;
         attr->title_size = def->title_size;
         attr->title_needs_free = FALSE;
@@ -2523,8 +2523,8 @@ md_is_inline_link_spec(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
 
     /* Link destination may be omitted, but only when not also having a title. */
     if(off < ctx->size  &&  CH(off) == _T(')')) {
-        attr->dest_beg = off;
-        attr->dest_end = off;
+        attr->dest = (CHAR*)STR(off);
+        attr->dest_size = 0;
         attr->title = NULL;
         attr->title_size = 0;
         attr->title_needs_free = FALSE;
@@ -2535,7 +2535,7 @@ md_is_inline_link_spec(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
 
     /* Link destination. */
     if(!md_is_link_destination(ctx, off, lines[line_index].end,
-                        &off, &attr->dest_beg, &attr->dest_end))
+                        &off, &attr->dest, &attr->dest_size))
         return FALSE;
 
     /* (Optional) title. */
@@ -4074,8 +4074,8 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             /* If it is a link, we store the destination and title in the two
              * dummy marks after the opener. */
             MD_ASSERT(ctx->marks[opener_index+1].ch == 'D');
-            ctx->marks[opener_index+1].beg = attr.dest_beg;
-            ctx->marks[opener_index+1].end = attr.dest_end;
+            md_mark_store_ptr(ctx, opener_index+1, attr.dest);
+            ctx->marks[opener_index+1].prev = attr.dest_size;
 
             MD_ASSERT(ctx->marks[opener_index+2].ch == 'D');
             md_mark_store_ptr(ctx, opener_index+2, attr.title);
@@ -4742,7 +4742,8 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 
                     MD_CHECK(md_enter_leave_span_a(ctx, (mark->ch != ']'),
                                 (opener->ch == '!' ? MD_SPAN_IMG : MD_SPAN_A),
-                                STR(dest_mark->beg), dest_mark->end - dest_mark->beg, FALSE,
+                                md_mark_get_ptr(ctx, (int)(dest_mark - ctx->marks)),
+                                dest_mark->prev, FALSE,
                                 md_mark_get_ptr(ctx, (int)(title_mark - ctx->marks)),
 								title_mark->prev));
 
