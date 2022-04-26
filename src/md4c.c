@@ -2315,6 +2315,26 @@ md_is_link_title(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
     return FALSE;
 }
 
+static int 
+md_push_ref_def(MD_CTX* ctx)
+{
+    if(ctx->n_ref_defs >= ctx->alloc_ref_defs) {
+        MD_REF_DEF* new_defs;
+
+        ctx->alloc_ref_defs = (ctx->alloc_ref_defs > 0
+                ? ctx->alloc_ref_defs + ctx->alloc_ref_defs / 2
+                : 16);
+        new_defs = (MD_REF_DEF*) realloc(ctx->ref_defs, ctx->alloc_ref_defs * sizeof(MD_REF_DEF));
+        if(new_defs == NULL) {
+            MD_LOG("realloc() failed.");
+        return -1;
+        }
+
+        ctx->ref_defs = new_defs;
+    }
+    return 0;
+}
+
 /* Returns 0 if it is not a reference definition.
  *
  * Returns N > 0 if it is a reference definition. N then corresponds to the
@@ -2392,20 +2412,7 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
         return FALSE;
 
     /* So, it _is_ a reference definition. Remember it. */
-    if(ctx->n_ref_defs >= ctx->alloc_ref_defs) {
-        MD_REF_DEF* new_defs;
-
-        ctx->alloc_ref_defs = (ctx->alloc_ref_defs > 0
-                ? ctx->alloc_ref_defs + ctx->alloc_ref_defs / 2
-                : 16);
-        new_defs = (MD_REF_DEF*) realloc(ctx->ref_defs, ctx->alloc_ref_defs * sizeof(MD_REF_DEF));
-        if(new_defs == NULL) {
-            MD_LOG("realloc() failed.");
-            goto abort;
-        }
-
-        ctx->ref_defs = new_defs;
-    }
+    MD_CHECK(md_push_ref_def(ctx));
     def = &ctx->ref_defs[ctx->n_ref_defs];
     memset(def, 0, sizeof(MD_REF_DEF));
 
