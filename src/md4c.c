@@ -1540,9 +1540,9 @@ md_free_attribute(MD_CTX* ctx, MD_ATTRIBUTE_BUILD* build)
     if(build->substr_alloc > 0) {
         free(build->text);
         if( build->substr_types != build->trivial_types)
-        free(build->substr_types);
+            free(build->substr_types);
         if( build->substr_offsets != build->trivial_offsets)
-        free(build->substr_offsets);
+            free(build->substr_offsets);
     }
 }
 
@@ -1602,8 +1602,8 @@ md_build_attribute_postfix(MD_CTX* ctx, const CHAR* raw_text, SZ raw_size,
 {
     OFF off;
     const SZ MAX_POSTFIX_SIZE = 5; // but also add 1 for the '-'  
-   
-    memset(build, 0, sizeof(MD_ATTRIBUTE_BUILD));
+
+    memset(build, 0, sizeof(MD_ATTRIBUTE_BUILD));   
     build->substr_types = build->trivial_types;
     build->substr_offsets = build->trivial_offsets;
     build->substr_count = 1;
@@ -1616,7 +1616,7 @@ md_build_attribute_postfix(MD_CTX* ctx, const CHAR* raw_text, SZ raw_size,
         postfix  = 0xffff;
     }
 
-        build->text = (CHAR*) malloc((raw_size + MAX_POSTFIX_SIZE+1) * sizeof(CHAR));
+    build->text = (CHAR*) malloc((raw_size + MAX_POSTFIX_SIZE+1) * sizeof(CHAR));
     if(build->text == NULL) {
         MD_LOG("malloc() failed.");
         goto abort;
@@ -2618,11 +2618,6 @@ struct MD_HEADING_DEF_tag {
     unsigned postfix;
 };
 
-struct MD_POSTFIX_DEF_tag {
-    OFF ident_beg;
-    SZ ident_size;
-};
-
 static int 
 md_push_heading_def(MD_CTX* ctx)
 {
@@ -2732,7 +2727,7 @@ md_build_heading_def_hashtable(MD_CTX* ctx)
         goto abort;
     }
     memset(ctx->heading_def_hashtable, 0, ctx->heading_def_hashtable_size * sizeof(void*));
-     
+
     /* Each member of ctx->heading_def_hashtable[] can be:
      *  -- NULL,
      *  -- pointer to the MD_HEADING_DEF in ctx->heading_defs[], or
@@ -2772,7 +2767,7 @@ md_build_heading_def_hashtable(MD_CTX* ctx)
             ctx->heading_def_hashtable[def->hash % ctx->heading_def_hashtable_size] = list;
             continue;
         }
-                 
+
         /* Append the def to the complex bucket list. */
         list = (MD_HEADING_DEF_LIST*) bucket;
         if(list->n_heading_defs >= list->alloc_heading_defs) {
@@ -2782,15 +2777,15 @@ md_build_heading_def_hashtable(MD_CTX* ctx)
             if(list_tmp == NULL) {
                 MD_LOG("realloc() failed.");
                 goto abort;
-                   }
+            }
             list = list_tmp;
             list->alloc_heading_defs = alloc_heading_defs;
             ctx->heading_def_hashtable[def->hash % ctx->heading_def_hashtable_size] = list;
-                }
+        }
 
         list->heading_defs[list->n_heading_defs] = def;
         list->n_heading_defs++;
-            }
+    }
 
     /* Sort the complex buckets so we can use bsearch() with them. */
     for(i = 0; i < ctx->heading_def_hashtable_size; i++) {
@@ -2811,7 +2806,7 @@ md_build_heading_def_hashtable(MD_CTX* ctx)
         }
     }
 
-   return 0;
+    return 0;
 
 abort:
     return -1;
@@ -6370,8 +6365,8 @@ md_heading_build_ident(MD_CTX* ctx, MD_HEADING_DEF* def, MD_LINE* lines, int n_l
         }
     }
     // update used identifier buffer size
-    ctx->identifiers_size += def->ident_size; 
- 
+    ctx->identifiers_size += def->ident_size;
+
     return 0;
 abort:
     
@@ -6977,7 +6972,7 @@ md_process_doc(MD_CTX *ctx)
     md_end_current_block(ctx);
 
     if(ctx->parser.flags & MD_FLAG_HEADINGAUTOID) {
-    MD_CHECK(md_build_heading_def_hashtable(ctx));
+        MD_CHECK(md_build_heading_def_hashtable(ctx));
     }
     MD_CHECK(md_build_ref_def_hashtable(ctx));
 
