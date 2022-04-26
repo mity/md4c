@@ -1002,7 +1002,7 @@ struct MD_UNICODE_FOLD_INFO_tag {
     #define ISUNICODEWHITESPACE(off)        ISWHITESPACE(off)
     #define ISUNICODEWHITESPACEBEFORE(off)  ISWHITESPACE((off)-1)
 
-    #define ISUNICODEPUNCT_(codepoint)      ISPUNCT(codepoint)
+    #define ISUNICODEPUNCT_(codepoint)      ISPUNCT_(codepoint)
     #define ISUNICODEPUNCT(off)             ISPUNCT(off)
     #define ISUNICODEPUNCTBEFORE(off)       ISPUNCT((off)-1)
 
