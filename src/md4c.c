@@ -4101,7 +4101,7 @@ md_analyze_link_contents(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
 
 static int
 md_enter_leave_span_a(MD_CTX* ctx, int enter, MD_SPANTYPE type,
-                      const CHAR* dest, SZ dest_size, int prohibit_escapes_in_dest,
+                      const CHAR* dest, SZ dest_size, int is_autolink,
                       const CHAR* title, SZ title_size)
 {
     MD_ATTRIBUTE_BUILD href_build = { 0 };
@@ -4113,10 +4113,10 @@ md_enter_leave_span_a(MD_CTX* ctx, int enter, MD_SPANTYPE type,
      * MD_SPAN_IMG_DETAIL are binary-compatible. */
     memset(&det, 0, sizeof(MD_SPAN_A_DETAIL));
     MD_CHECK(md_build_attribute(ctx, dest, dest_size,
-                    (prohibit_escapes_in_dest ? MD_BUILD_ATTR_NO_ESCAPES : 0),
+                    (is_autolink ? MD_BUILD_ATTR_NO_ESCAPES : 0),
                     &det.href, &href_build));
     MD_CHECK(md_build_attribute(ctx, title, title_size, 0, &det.title, &title_build));
-
+    det.is_autolink = is_autolink;
     if(enter)
         MD_ENTER_SPAN(type, &det);
     else
