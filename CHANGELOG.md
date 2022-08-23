@@ -24,7 +24,6 @@ Changes:
    0.30 notes](https://github.com/commonmark/commonmark-spec/releases/tag/0.30)
    for more info.
 
-
 Fixes:
 
  * [#163](https://github.com/mity/md4c/issues/163):
@@ -34,6 +33,26 @@ Fixes:
    Make HTML renderer not to percent-encode `'~'` in URLs. Although it does
    work, it's not needed, and it can actually be confusing with URLs such as
    `http://www.example.com/~johndoe/`.
+
+ * [#167](https://github.com/mity/md4c/issues/167),
+   [#168](https://github.com/mity/md4c/issues/168):
+   Fix multiple instances of various buffer overflow bugs, found mostly using
+   a fuzz testing. Contributed by [dtldarek](https://github.com/dtldarek) and
+   [Thierry Coppey](https://github.com/TCKnet).
+
+ * [#169](https://github.com/mity/md4c/issues/169):
+   Table underline now does not require 3 characters per table column anymore.
+   One dash (optionally with a leading or tailing `:` appended or prepended)
+   is now sufficient. This improves compatibility with the GFM.
+
+ * [#172](https://github.com/mity/md4c/issues/172):
+   Fix quadratic time behavior caused by unnecessary lookup for link reference
+   definition even if the potential label contains nested brackets.
+
+ * [#173](https://github.com/mity/md4c/issues/173),
+   [#174](https://github.com/mity/md4c/issues/174):
+   Multiple bugs identified with [OSS-Fuzz](https://github.com/google/oss-fuzz)
+   were fixed.
 
 
 ## Version 0.4.8
