@@ -2633,8 +2633,9 @@ md_rollback(MD_CTX* ctx, int opener_index, int closer_index, int how)
 
         while(chain->tail >= opener_index) {
             int same = chain->tail == opener_index;
+            int old_tail = chain->tail;
             chain->tail = ctx->marks[chain->tail].prev;
-            if (same) break;
+            if (same || chain->tail == old_tail) break;
         }
 
         if(chain->tail >= 0)
@@ -3910,9 +3911,11 @@ md_analyze_permissive_url_autolink(MD_CTX* ctx, int mark_index)
 
     /* Ok. Lets call it an auto-link. Adapt opener and create closer to zero
      * length so all the contents becomes the link text. */
-    MD_ASSERT(closer->ch == 'D' ||
-              (ctx->parser.flags & MD_FLAG_PERMISSIVEWWWAUTOLINKS &&
-               (closer->ch == '.' || closer->ch == ':' || closer->ch == '@')));
+    if (closer->ch != 'D' &&
+        (ctx->parser.flags & MD_FLAG_PERMISSIVEWWWAUTOLINKS) &&
+        (closer->ch != '.' && closer->ch != ':' && closer->ch != '@')) {
+        return;
+    }
     opener->end = opener->beg;
     closer->ch = opener->ch;
     closer->beg = off;
@@ -4264,7 +4267,7 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                     }
 
                     dest_mark = opener+1;
-                    MD_ASSERT(dest_mark->ch == 'D');
+                    if (dest_mark->ch != 'D') break;
                     title_mark = opener+2;
                     if (title_mark->ch != 'D') break;
 
@@ -4357,12 +4360,13 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             if(off >= end)
                 break;
 
-            if(text_type == MD_TEXT_CODE || text_type == MD_TEXT_LATEXMATH) {
+            if((text_type == MD_TEXT_CODE || text_type == MD_TEXT_LATEXMATH) &&
+               ISANYOF2_(mark->ch, '`', '$')) {
                 OFF tmp;
 
                 MD_ASSERT(prev_mark != NULL);
                 MD_ASSERT(ISANYOF2_(prev_mark->ch, '`', '$')  &&  (prev_mark->flags & MD_MARK_OPENER));
-                MD_ASSERT(ISANYOF2_(mark->ch, '`', '$')  &&  (mark->flags & MD_MARK_CLOSER));
+                MD_ASSERT(mark->flags & MD_MARK_CLOSER);
 
                 /* Inside a code span, trailing line whitespace has to be
                  * outputted. */
