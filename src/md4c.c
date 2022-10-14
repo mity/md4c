@@ -5557,6 +5557,7 @@ md_make_heading(MD_CTX* ctx)
     MD_LINE* lines = (MD_LINE*) (ctx->current_block + 1);
 
     MD_HEADING_DEF * def = NULL;
+    MD_REF_DEF * rdef = NULL;
     MD_CHECK(md_push_heading_def(ctx));
     def = &ctx->heading_defs[ctx->n_heading_defs];
     memset(def, 0, sizeof(MD_HEADING_DEF));
@@ -5565,6 +5566,20 @@ md_make_heading(MD_CTX* ctx)
     MD_CHECK(md_heading_build_ident(ctx, def, lines, block->n_lines));
     block->heading_def = ctx->n_heading_defs;
     ctx->n_heading_defs++;
+
+    // remember the heading as a reference definition
+    MD_CHECK(md_push_ref_def(ctx));
+    rdef = &ctx->ref_defs[ctx->n_ref_defs];
+    memset(rdef, 0, sizeof(MD_REF_DEF));
+    rdef->label = def->heading;
+    rdef->label_size = def->heading_size;
+ 
+    rdef->dest = &ctx->identifiers[def->ident_beg];
+    rdef->dest_size = def->ident_size;
+
+
+    /* Success. */
+    ctx->n_ref_defs++;
 
 abort:
     return ret;
