@@ -2664,7 +2664,17 @@ md_alloc_identifiers(MD_CTX *ctx, MD_HEADING_DEF* def)
             MD_LOG("realloc() failed.");
             return -1;
         }
-
+        if (ctx->identifiers != new_identifiers){
+            // rebuild all ref_def pointing to identifiers
+            int i;
+            for(i = 0; i < ctx->n_ref_defs; i++) {
+                MD_REF_DEF* def = &ctx->ref_defs[i];
+                if (def->dest > ctx->identifiers 
+                && def->dest <= ctx->identifiers+ctx->identifiers_size ){
+                    def->dest = new_identifiers + (def->dest - ctx->identifiers);
+                }
+            }  
+        } 
         ctx->identifiers = new_identifiers;
     }
     
