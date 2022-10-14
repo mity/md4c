@@ -9,7 +9,7 @@ With the flag `MD_FLAG_HEADINGAUTOID`, MD4C generate an identifier for a heading
 <h1 id="heading">heading</h1>
 ````````````````````````````````
 
-Spaces are replaced by `-` and upercase are replaced by lower case 
+Spaces are replaced by `-` and uppercase are replaced by lower case 
 
 ```````````````````````````````` example
 # The Heading
