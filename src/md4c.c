@@ -2625,6 +2625,7 @@ struct MD_HEADING_DEF_tag {
     OFF ident_beg;
     SZ ident_size;
     unsigned postfix;
+    unsigned level:8;
 };
 
 static int 
@@ -2684,7 +2685,7 @@ md_alloc_identifiers(MD_CTX *ctx, MD_HEADING_DEF* def)
 
 /** forward declaration */
 static int
-md_heading_build_ident(MD_CTX* ctx, MD_HEADING_DEF* def, MD_LINE* lines, int n_lines);
+md_heading_build_ident(MD_CTX* ctx, MD_HEADING_DEF* def, MD_LINE* lines, int n_lines, int level);
 
 typedef struct MD_HEADING_DEF_LIST_tag MD_HEADING_DEF_LIST;
 struct MD_HEADING_DEF_LIST_tag {
@@ -5573,7 +5574,7 @@ md_make_heading(MD_CTX* ctx)
     memset(def, 0, sizeof(MD_HEADING_DEF));
 
     // filling of the heading def    
-    MD_CHECK(md_heading_build_ident(ctx, def, lines, block->n_lines));
+    MD_CHECK(md_heading_build_ident(ctx, def, lines, block->n_lines, block->data));
     block->heading_def = ctx->n_heading_defs;
     ctx->n_heading_defs++;
 
@@ -6274,7 +6275,7 @@ md_is_container_mark(MD_CTX* ctx, unsigned indent, OFF beg, OFF* p_end, MD_CONTA
 }
 
 static int
-md_heading_build_ident(MD_CTX* ctx, MD_HEADING_DEF* def, MD_LINE* lines, int n_lines)
+md_heading_build_ident(MD_CTX* ctx, MD_HEADING_DEF* def, MD_LINE* lines, int n_lines, int level)
 {
     MD_MARK* mark;
     CHAR* ptr;
@@ -6288,6 +6289,8 @@ md_heading_build_ident(MD_CTX* ctx, MD_HEADING_DEF* def, MD_LINE* lines, int n_l
     /* store the heading */
     def->heading = (CHAR*)STR(beg);
     def->heading_size = end-beg;
+    /* store the heading level */
+    def->level = level;
 
     /* Reset the previously collected stack of marks. */
     ctx->n_marks = 0;
