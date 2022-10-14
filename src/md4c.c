@@ -6994,6 +6994,67 @@ abort:
 }
 
 static int
+md_output_toc(MD_CTX *ctx)
+{
+    MD_HEADING_DEF *hd;
+    MD_BLOCK_LI_DETAIL li_det;
+
+    MD_ATTRIBUTE_BUILD href_build = {0};
+    MD_ATTRIBUTE_BUILD title_build = {0};
+    MD_SPAN_A_DETAIL a_det;
+    li_det.is_task = FALSE;
+    int ret = 0;
+    int level = 0;
+    int i;
+
+    MD_ENTER_BLOCK(MD_BLOCK_NAV, NULL);
+
+    for (i = 0; i < ctx->n_heading_defs; ++i){
+        hd = &ctx->heading_defs[i];
+        while (hd->level > level){
+            MD_ENTER_BLOCK(MD_BLOCK_UL, NULL);
+            ++level;
+        }
+        while (hd->level < level){
+            MD_LEAVE_BLOCK(MD_BLOCK_UL, NULL);
+            --level;
+        }
+
+        MD_ENTER_BLOCK(MD_BLOCK_LI, &li_det);
+        memset(&a_det, 0, sizeof(MD_SPAN_A_DETAIL));
+        if (hd->postfix == 0){
+            MD_CHECK(md_build_attribute(ctx, hd->identifier, hd->ident_size,
+                                        MD_BUILD_ATTR_NO_ESCAPES,
+                                        &a_det.href, &href_build));
+        } else {
+            MD_CHECK(md_build_attribute_postfix(ctx,
+                                                hd->identifier, hd->ident_size,
+                                                hd->postfix, &a_det.href, &href_build));
+        }
+
+        MD_CHECK(md_build_attribute(ctx, NULL, 0, 0, &a_det.title, &title_build));
+
+        MD_ENTER_SPAN(MD_SPAN_A, &a_det);
+
+        MD_TEXT(MD_TEXT_NORMAL, hd->heading, hd->heading_size);
+        MD_LEAVE_SPAN(MD_SPAN_A, NULL);
+        MD_LEAVE_BLOCK(MD_BLOCK_LI, NULL);
+    }
+
+    // close remaining opened level
+    while (level > 0){
+        MD_LEAVE_BLOCK(MD_BLOCK_UL, NULL);
+        --level;
+    }
+    MD_LEAVE_BLOCK(MD_BLOCK_NAV, NULL);
+
+abort:
+    md_free_attribute(ctx, &href_build);
+    md_free_attribute(ctx, &title_build);
+    return ret;
+}
+
+static int
 md_process_doc(MD_CTX *ctx)
 {
     const MD_LINE_ANALYSIS* pivot_line = &md_dummy_blank_line;
@@ -7018,6 +7079,9 @@ md_process_doc(MD_CTX *ctx)
         MD_CHECK(md_build_heading_def_hashtable(ctx));
     }
     MD_CHECK(md_build_ref_def_hashtable(ctx));
+
+    /* Output the TOC */
+    MD_CHECK(md_output_toc(ctx));
 
     /* Process all blocks. */
     MD_CHECK(md_leave_child_containers(ctx, 0));

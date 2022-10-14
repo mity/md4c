@@ -99,7 +99,8 @@ typedef enum MD_BLOCKTYPE {
     MD_BLOCK_TBODY,
     MD_BLOCK_TR,
     MD_BLOCK_TH,
-    MD_BLOCK_TD
+    MD_BLOCK_TD,
+    MD_BLOCK_NAV
 } MD_BLOCKTYPE;
 
 /* Span represents an in-line piece of a document which should be rendered with
