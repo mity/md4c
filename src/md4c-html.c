@@ -546,13 +546,14 @@ debug_log_callback(const char* msg, void* userdata)
 int
 md_html(const MD_CHAR* input, MD_SIZE input_size,
         void (*process_output)(const MD_CHAR*, MD_SIZE, void*),
-        void* userdata, unsigned parser_flags, unsigned renderer_flags)
+        void* userdata, unsigned parser_flags, unsigned renderer_flags,
+        MD_TOC_OPTIONS* toc_options)
 {
     MD_HTML render = { process_output, userdata, renderer_flags, 0, { 0 } };
     int i;
 
     MD_PARSER parser = {
-        0,
+        1,
         parser_flags,
         enter_block_callback,
         leave_block_callback,
@@ -560,6 +561,7 @@ md_html(const MD_CHAR* input, MD_SIZE input_size,
         leave_span_callback,
         text_callback,
         debug_log_callback,
+        *toc_options,
         NULL
     };
 

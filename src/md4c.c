@@ -7012,33 +7012,38 @@ md_output_toc(MD_CTX *ctx)
     for (i = 0; i < ctx->n_heading_defs; ++i){
         hd = &ctx->heading_defs[i];
         while (hd->level > level){
-            MD_ENTER_BLOCK(MD_BLOCK_UL, NULL);
+            if (level <= ctx->parser.toc_options.depth)
+                MD_ENTER_BLOCK(MD_BLOCK_UL, NULL);
             ++level;
         }
         while (hd->level < level){
-            MD_LEAVE_BLOCK(MD_BLOCK_UL, NULL);
+            if (level <= ctx->parser.toc_options.depth)
+                MD_LEAVE_BLOCK(MD_BLOCK_UL, NULL);
             --level;
         }
 
-        MD_ENTER_BLOCK(MD_BLOCK_LI, &li_det);
-        memset(&a_det, 0, sizeof(MD_SPAN_A_DETAIL));
-        if (hd->postfix == 0){
-            MD_CHECK(md_build_attribute(ctx, hd->identifier, hd->ident_size,
-                                        MD_BUILD_ATTR_NO_ESCAPES,
-                                        &a_det.href, &href_build));
-        } else {
-            MD_CHECK(md_build_attribute_postfix(ctx,
-                                                hd->identifier, hd->ident_size,
-                                                hd->postfix, &a_det.href, &href_build));
+        if (level <= ctx->parser.toc_options.depth){
+            MD_ENTER_BLOCK(MD_BLOCK_LI, &li_det);
+            memset(&a_det, 0, sizeof(MD_SPAN_A_DETAIL));
+            if (hd->postfix == 0){
+                MD_CHECK(md_build_attribute(ctx, hd->identifier, hd->ident_size,
+                                            MD_BUILD_ATTR_NO_ESCAPES,
+                                            &a_det.href, &href_build));
+            } else {
+                MD_CHECK(md_build_attribute_postfix(ctx,
+                                                    hd->identifier, hd->ident_size,
+                                                    hd->postfix, &a_det.href, &href_build));
+            }
+
+            MD_CHECK(md_build_attribute(ctx, NULL, 0, 0, &a_det.title, &title_build));
+
+            MD_ENTER_SPAN(MD_SPAN_A, &a_det);
+
+            MD_TEXT(MD_TEXT_NORMAL, hd->heading, hd->heading_size);
+            MD_LEAVE_SPAN(MD_SPAN_A, NULL);
+            MD_LEAVE_BLOCK(MD_BLOCK_LI, NULL);
         }
-
-        MD_CHECK(md_build_attribute(ctx, NULL, 0, 0, &a_det.title, &title_build));
-
-        MD_ENTER_SPAN(MD_SPAN_A, &a_det);
-
-        MD_TEXT(MD_TEXT_NORMAL, hd->heading, hd->heading_size);
-        MD_LEAVE_SPAN(MD_SPAN_A, NULL);
-        MD_LEAVE_BLOCK(MD_BLOCK_LI, NULL);
+      
     }
 
     // close remaining opened level
@@ -7081,7 +7086,8 @@ md_process_doc(MD_CTX *ctx)
     MD_CHECK(md_build_ref_def_hashtable(ctx));
 
     /* Output the TOC */
-    MD_CHECK(md_output_toc(ctx));
+    if(ctx->parser.toc_options.depth > 0)
+        MD_CHECK(md_output_toc(ctx));
 
     /* Process all blocks. */
     MD_CHECK(md_leave_child_containers(ctx, 0));
@@ -7141,7 +7147,7 @@ md_parse(const MD_CHAR* text, MD_SIZE size, const MD_PARSER* parser, void* userd
     int i;
     int ret;
 
-    if(parser->abi_version != 0) {
+    if(parser->abi_version != 1) {
         if(parser->debug_log != NULL)
             parser->debug_log("Unsupported abi_version.", userdata);
         return -1;

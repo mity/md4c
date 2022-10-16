@@ -42,8 +42,10 @@ static unsigned parser_flags = 0;
 #endif
 static int want_fullhtml = 0;
 static int want_xhtml = 0;
+static int want_toc = 0;
 static int want_stat = 0;
 
+MD_TOC_OPTIONS toc_options = { 3, NULL};
 
 /*********************************
  ***  Simple grow-able buffer  ***
@@ -142,7 +144,7 @@ process_file(FILE* in, FILE* out)
     t0 = clock();
 
     ret = md_html(buf_in.data, (MD_SIZE)buf_in.size, process_output, (void*) &buf_out,
-                    parser_flags, renderer_flags);
+                    parser_flags, renderer_flags, &toc_options);
 
     t1 = clock();
     if(ret != 0) {
@@ -200,6 +202,8 @@ static const CMDLINE_OPTION cmdline_options[] = {
     { 'o', "output",                        'o', CMDLINE_OPTFLAG_REQUIREDARG },
     { 'f', "full-html",                     'f', 0 },
     { 'x', "xhtml",                         'x', 0 },
+    { 't', "table-of-content",              't', 0 },   
+    {  0, "toc-depth",                      'd', CMDLINE_OPTFLAG_REQUIREDARG },
     { 's', "stat",                          's', 0 },
     { 'h', "help",                          'h', 0 },
     { 'v', "version",                       'v', 0 },
@@ -241,6 +245,10 @@ usage(void)
         "  -o  --output=FILE    Output file (default is standard output)\n"
         "  -f, --full-html      Generate full HTML document, including header\n"
         "  -x, --xhtml          Generate XHTML instead of HTML\n"
+        "  -t, --table-of-content\n"
+        "                       Generate a table of content at start\n"
+        "      --toc-depth=3    set the maximum level of heading in the table\n" 
+        "                       of content. 1 to 6. Default is 3\n"
         "  -s, --stat           Measure time of input parsing\n"
         "  -h, --help           Display this help and exit\n"
         "  -v, --version        Display version and exit\n"
@@ -298,6 +306,15 @@ version(void)
 static const char* input_path = NULL;
 static const char* output_path = NULL;
 
+static int parse_toc_depth(char const* value){
+    int depth = -1;
+    depth = *value - '0';
+    if(depth<0 || depth > 6){
+        depth = -1;
+    } 
+    return depth;
+}
+
 static int
 cmdline_callback(int opt, char const* value, void* data)
 {
@@ -314,6 +331,8 @@ cmdline_callback(int opt, char const* value, void* data)
         case 'o':   output_path = value; break;
         case 'f':   want_fullhtml = 1; break;
         case 'x':   want_xhtml = 1; renderer_flags |= MD_HTML_FLAG_XHTML; break;
+        case 't':   want_toc = 1;  parser_flags |= MD_FLAG_HEADINGAUTOID; break;
+        case 'd':   toc_options.depth = parse_toc_depth(value); break;
         case 's':   want_stat = 1; break;
         case 'h':   usage(); exit(0); break;
         case 'v':   version(); exit(0); break;

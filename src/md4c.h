@@ -335,10 +335,26 @@ typedef struct MD_SPAN_WIKILINK {
 #define MD_DIALECT_COMMONMARK               0
 #define MD_DIALECT_GITHUB                   (MD_FLAG_PERMISSIVEAUTOLINKS | MD_FLAG_TABLES | MD_FLAG_STRIKETHROUGH | MD_FLAG_TASKLISTS | MD_FLAG_HEADINGAUTOID)
 
+/* Table of content option structure
+ */
+typedef struct MD_TOC_OPTIONS {
+  /* Specify the maximum level of heading to include in the table of contents. 
+   * a value of 0 disable Table of content generation
+   */
+  int depth;
+
+  /* Specify a table of content placeholder.
+   * 
+   * Providing a empty or NULL placeholder will output the TOC at document start. 
+   */
+  const MD_CHAR* toc_placeholder;
+
+} MD_TOC_OPTIONS;
+
 /* Parser structure.
  */
 typedef struct MD_PARSER {
-    /* Reserved. Set to zero.
+    /* Reserved. Set to 1.
      */
     unsigned abi_version;
 
@@ -377,6 +393,12 @@ typedef struct MD_PARSER {
      * end user.
      */
     void (*debug_log)(const char* /*msg*/, void* /*userdata*/);
+
+    /* Table of content parameters
+     *  
+     * 
+     */
+    MD_TOC_OPTIONS toc_options;
 
     /* Reserved. Set to NULL.
      */
