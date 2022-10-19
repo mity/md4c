@@ -45,7 +45,7 @@ static int want_xhtml = 0;
 static int want_toc = 0;
 static int want_stat = 0;
 
-MD_TOC_OPTIONS toc_options = { 3, NULL};
+MD_TOC_OPTIONS toc_options = { 0, NULL};
 
 /*********************************
  ***  Simple grow-able buffer  ***
@@ -334,6 +334,8 @@ cmdline_callback(int opt, char const* value, void* data)
             want_toc = 1;
             parser_flags |= MD_FLAG_HEADINGAUTOID; 
             toc_options.toc_placeholder = value;
+            if(toc_options.depth == 0) 
+                toc_options.depth = 3;
             break;
         case 'd':   
             if(!parse_toc_depth(value)){
