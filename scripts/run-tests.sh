@@ -85,3 +85,7 @@ $PYTHON "$TEST_DIR/pathological_auto_ident_tests.py" -p "$PROGRAM --fheading-aut
 echo
 echo "Table of content extension:"
 $PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/toc.txt" -p "$PROGRAM --table-of-content"
+
+echo
+echo "Table of content placement extension :"
+$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/toc-mark.txt" -p "$PROGRAM --table-of-content=[[__TOC__]]"
