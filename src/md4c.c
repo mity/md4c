@@ -7058,9 +7058,9 @@ md_output_toc(MD_CTX *ctx)
     for (i = 0; i < ctx->n_heading_defs; ++i){
         hd = &ctx->heading_defs[i];
         while (hd->level > level){
+            ++level;
             if (level <= ctx->parser.toc_options.depth)
                 MD_ENTER_BLOCK(MD_BLOCK_UL, NULL);
-            ++level;
         }
         while (hd->level < level){
             if (level <= ctx->parser.toc_options.depth)
@@ -7094,7 +7094,8 @@ md_output_toc(MD_CTX *ctx)
 
     // close remaining opened level
     while (level > 0){
-        MD_LEAVE_BLOCK(MD_BLOCK_UL, NULL);
+        if (level <= ctx->parser.toc_options.depth)
+            MD_LEAVE_BLOCK(MD_BLOCK_UL, NULL);
         --level;
     }
 
