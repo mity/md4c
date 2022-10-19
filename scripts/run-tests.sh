@@ -81,3 +81,7 @@ $PYTHON "$TEST_DIR/pathological_tests.py" -p "$PROGRAM"
 echo
 echo "Heading auto identifiers pathological input:"
 $PYTHON "$TEST_DIR/pathological_auto_ident_tests.py" -p "$PROGRAM --fheading-auto-id"
+
+echo
+echo "Table of content extension:"
+$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/toc.txt" -p "$PROGRAM --table-of-content"
