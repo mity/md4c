@@ -5847,6 +5847,7 @@ static int
 md_is_toc_line(MD_CTX* ctx, OFF beg, OFF* p_beg, OFF* p_end)
 {
     OFF off = beg;
+    const CHAR * toc = ctx->parser.toc_options.toc_placeholder;    
 
     // allow for blank chars before the TOC mark
     while(off < ctx->size  &&  ISBLANK(off))
@@ -5854,8 +5855,6 @@ md_is_toc_line(MD_CTX* ctx, OFF beg, OFF* p_beg, OFF* p_end)
 
     if(off < ctx->size  &&  ISNEWLINE(off))
         return FALSE;
-
-    const CHAR * toc = ctx->parser.toc_options.toc_placeholder;    
 
     while(off < ctx->size  &&  '\0' != *toc){
         if(CH(off) != *toc)
@@ -7045,12 +7044,11 @@ static int
 md_output_toc(MD_CTX *ctx)
 {
     MD_HEADING_DEF *hd;
-    MD_BLOCK_LI_DETAIL li_det;
+    MD_BLOCK_LI_DETAIL li_det = {0};
 
     MD_ATTRIBUTE_BUILD href_build = {0};
     MD_ATTRIBUTE_BUILD title_build = {0};
     MD_SPAN_A_DETAIL a_det;
-    li_det.is_task = FALSE;
     int ret = 0;
     int level = 0;
     int i;
