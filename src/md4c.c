@@ -6422,10 +6422,14 @@ md_heading_build_ident(MD_CTX* ctx, MD_HEADING_DEF* def, MD_LINE* lines, int n_l
             
             off = mark->end;
 
-            /* Move to next resolved mark. */
-            mark++;
-            while(!(mark->flags & MD_MARK_RESOLVED)  ||  mark->beg < off)
+            /* Move to next resolved mark. But not past the last mark */
+            if(mark < &ctx->marks[ctx->n_marks])
                 mark++;
+            while((mark < &ctx->marks[ctx->n_marks])  &&
+                ( !(mark->flags & MD_MARK_RESOLVED)  ||  mark->beg < off))
+            {
+                mark++;
+            }
         }
 
         /* If reached end of line, move to next one. */
