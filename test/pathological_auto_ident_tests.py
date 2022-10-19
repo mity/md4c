@@ -24,7 +24,13 @@ pathological = {
 
     "many identical heading":
             (("# a\n" * (50000+1)),
-            re.compile("^<h1 id=\"a\">a</h1>\n(<h1 id=\"a-\d+\">a</h1>\n){50000}$"))
+            re.compile("^<h1 id=\"a\">a</h1>\n(<h1 id=\"a-\d+\">a</h1>\n){50000}$")),
+    "too many identical heading":
+            (("# a\n" * (70000+2)),
+            re.compile("^<h1 id=\"a\">a</h1>\n(<h1 id=\"a-\d+\">a</h1>\n){70000}(<h1 id=\"a-65535\">a</h1>\n)$")),
+    "heading realocation":
+            (("# A long title to trigger a reallocation\n"*(300+1)),
+            re.compile("^<h1 id=\"a-long-title-to-trigger-a-reallocation\">A long title to trigger a reallocation</h1>\n(<h1 id=\"a-long-title-to-trigger-a-reallocation-\d+\">A long title to trigger a reallocation</h1>\n){300}$"))      
 }
 
 whitespace_re = re.compile('/s+/')
