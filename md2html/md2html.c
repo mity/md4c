@@ -202,8 +202,9 @@ static const CMDLINE_OPTION cmdline_options[] = {
     { 'o', "output",                        'o', CMDLINE_OPTFLAG_REQUIREDARG },
     { 'f', "full-html",                     'f', 0 },
     { 'x', "xhtml",                         'x', 0 },
-    { 't', "table-of-content",              't', 0 },   
-    {  0, "toc-depth",                      'd', CMDLINE_OPTFLAG_REQUIREDARG },
+    { 't', "table-of-content",              't', CMDLINE_OPTFLAG_OPTIONALARG },   
+    {   0, "toc",                           't', CMDLINE_OPTFLAG_OPTIONALARG },   
+    {   0, "toc-depth",                     'd', CMDLINE_OPTFLAG_REQUIREDARG },
     { 's', "stat",                          's', 0 },
     { 'h', "help",                          'h', 0 },
     { 'v', "version",                       'v', 0 },
@@ -245,9 +246,10 @@ usage(void)
         "  -o  --output=FILE    Output file (default is standard output)\n"
         "  -f, --full-html      Generate full HTML document, including header\n"
         "  -x, --xhtml          Generate XHTML instead of HTML\n"
-        "  -t, --table-of-content\n"
-        "                       Generate a table of content at start\n"
-        "      --toc-depth=3    set the maximum level of heading in the table\n" 
+        "  -t, --table-of-content=MARK, --toc=MARK\n"
+        "                       Generate a table of content in place of MARK line\n"
+        "                       If no MARK is given, the toc is generated at start\n"
+        "      --toc-depth=D    Set the maximum level of heading in the table\n" 
         "                       of content. 1 to 6. Default is 3\n"
         "  -s, --stat           Measure time of input parsing\n"
         "  -h, --help           Display this help and exit\n"
@@ -307,12 +309,9 @@ static const char* input_path = NULL;
 static const char* output_path = NULL;
 
 static int parse_toc_depth(char const* value){
-    int depth = -1;
-    depth = *value - '0';
-    if(depth<0 || depth > 6){
-        depth = -1;
-    } 
-    return depth;
+    toc_options.depth = -1;
+    toc_options.depth = *value - '0';
+    return (toc_options.depth>0 && toc_options.depth <= 6);
 }
 
 static int
@@ -331,8 +330,18 @@ cmdline_callback(int opt, char const* value, void* data)
         case 'o':   output_path = value; break;
         case 'f':   want_fullhtml = 1; break;
         case 'x':   want_xhtml = 1; renderer_flags |= MD_HTML_FLAG_XHTML; break;
-        case 't':   want_toc = 1;  parser_flags |= MD_FLAG_HEADINGAUTOID; break;
-        case 'd':   toc_options.depth = parse_toc_depth(value); break;
+        case 't':  
+            want_toc = 1;
+            parser_flags |= MD_FLAG_HEADINGAUTOID; 
+            toc_options.toc_placeholder = value;
+            break;
+        case 'd':   
+            if(!parse_toc_depth(value)){
+                fprintf(stderr, "Invalid toc-depth: %s\n", value);
+                fprintf(stderr, "Must be a number in the range 1-6\n");
+                exit(1);
+            }
+            break;
         case 's':   want_stat = 1; break;
         case 'h':   usage(); exit(0); break;
         case 'v':   version(); exit(0); break;

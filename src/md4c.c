@@ -174,7 +174,8 @@ struct MD_CTX_tag {
     SZ identifiers_size;
     SZ alloc_identifiers;
 
-
+    /* Toc informations */
+    int toc_found;
 
     /* Stack of inline/span markers.
      * This is only used for parsing a single block contents but by storing it
@@ -258,7 +259,8 @@ enum MD_LINETYPE_tag {
     MD_LINE_HTML,
     MD_LINE_TEXT,
     MD_LINE_TABLE,
-    MD_LINE_TABLEUNDERLINE
+    MD_LINE_TABLEUNDERLINE,
+    MD_LINE_TOC
 };
 typedef enum MD_LINETYPE_tag MD_LINETYPE;
 
@@ -4615,6 +4617,8 @@ abort:
     return ret;
 }
 
+/** forward declaration */
+static int md_output_toc(MD_CTX *ctx);
 
 /* Render the output, accordingly to the analyzed ctx->marks. */
 static int
@@ -5315,6 +5319,10 @@ md_process_leaf_block(MD_CTX* ctx, const MD_BLOCK* block)
                             (const MD_LINE*)(block + 1), block->n_lines));
             break;
 
+        case MD_BLOCK_NAV:
+            MD_CHECK(md_output_toc(ctx));
+            break;
+
         default:
             MD_CHECK(md_process_normal_block_contents(ctx,
                             (const MD_LINE*)(block + 1), block->n_lines));
@@ -5486,6 +5494,10 @@ md_start_new_block(MD_CTX* ctx, const MD_LINE_ANALYSIS* line)
 
         case MD_LINE_HTML:
             block->type = MD_BLOCK_HTML;
+            break;
+
+        case MD_LINE_TOC:
+            block->type = MD_BLOCK_NAV;
             break;
 
         case MD_LINE_BLANK:
@@ -5829,6 +5841,33 @@ md_is_table_underline(MD_CTX* ctx, OFF beg, OFF* p_end, unsigned* p_col_count)
     *p_end = off;
     *p_col_count = col_count;
     return TRUE;
+}
+
+static int
+md_is_toc_line(MD_CTX* ctx, OFF beg, OFF* p_beg, OFF* p_end)
+{
+    OFF off = beg;
+
+    // allow for blank chars before the TOC mark
+    while(off < ctx->size  &&  ISBLANK(off))
+        off++;
+
+    if(off < ctx->size  &&  ISNEWLINE(off))
+        return FALSE;
+
+    const CHAR * toc = ctx->parser.toc_options.toc_placeholder;    
+
+    while(off < ctx->size  &&  '\0' != *toc){
+        if(CH(off) != *toc)
+            return FALSE; 
+        toc++;
+        off++;   
+    }
+    if('\0' == *toc){
+        *p_beg = off; 
+        *p_end = off;
+    }
+    return '\0' == *toc;
 }
 
 static int
@@ -6794,6 +6833,15 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
             }
         }
 
+        /* check for TOC mark */
+        if(ctx->parser.toc_options.toc_placeholder != NULL  &&  !ctx->toc_found  &&
+            md_is_toc_line(ctx, off, &line->beg, &off)) 
+        {
+                line->type = MD_LINE_TOC;
+                ctx->toc_found = TRUE;
+                break;
+        }
+
         /* By default, we are normal text line. */
         line->type = MD_LINE_TEXT;
         if(pivot_line->type == MD_LINE_TEXT  &&  n_brothers + n_children == 0) {
@@ -7007,8 +7055,6 @@ md_output_toc(MD_CTX *ctx)
     int level = 0;
     int i;
 
-    MD_ENTER_BLOCK(MD_BLOCK_NAV, NULL);
-
     for (i = 0; i < ctx->n_heading_defs; ++i){
         hd = &ctx->heading_defs[i];
         while (hd->level > level){
@@ -7051,7 +7097,6 @@ md_output_toc(MD_CTX *ctx)
         MD_LEAVE_BLOCK(MD_BLOCK_UL, NULL);
         --level;
     }
-    MD_LEAVE_BLOCK(MD_BLOCK_NAV, NULL);
 
 abort:
     md_free_attribute(ctx, &href_build);
@@ -7086,8 +7131,11 @@ md_process_doc(MD_CTX *ctx)
     MD_CHECK(md_build_ref_def_hashtable(ctx));
 
     /* Output the TOC */
-    if(ctx->parser.toc_options.depth > 0)
+    if(ctx->parser.toc_options.depth > 0 && !ctx->toc_found) {
+        MD_ENTER_BLOCK(MD_BLOCK_NAV, NULL);
         MD_CHECK(md_output_toc(ctx));
+        MD_LEAVE_BLOCK(MD_BLOCK_NAV, NULL);
+    }
 
     /* Process all blocks. */
     MD_CHECK(md_leave_child_containers(ctx, 0));
