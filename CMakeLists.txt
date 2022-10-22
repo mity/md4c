@@ -1,5 +1,8 @@
 
 cmake_minimum_required(VERSION 3.4)
+
+option(BUILD_MD2HTML_EXECUTABLE "Whether to compile the md2html executable" ON)
+
 project(MD4C C)
 
 set(MD_VERSION_MAJOR 0)
@@ -56,4 +59,6 @@ endif()
 include(GNUInstallDirs)
 
 add_subdirectory(src)
-add_subdirectory(md2html)
+if (BUILD_MD2HTML_EXECUTABLE)
+    add_subdirectory(md2html)
+endif ()
