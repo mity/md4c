@@ -74,3 +74,31 @@ The toc can skip some level
 <h5 id="title-level-5">title level 5</h5>
 <h3 id="title-level-3-again">title level 3 again</h3> 
 ````````````````````````````````
+
+# Coverage
+
+Additional test to improve test coverage.
+
+This sample will output TOC with heading suffix numbers. 
+
+
+```````````````````````````````` example
+# title
+## title
+### title
+.
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#title">title</a></li>
+<ul>
+<li><a href="#title-1">title</a></li>
+<ul>
+<li><a href="#title-2">title</a></li>
+</ul>
+</ul>
+</ul>
+</nav>
+<h1 id="title">title</h1>
+<h2 id="title-1">title</h2>
+<h3 id="title-2">title</h3>
+````````````````````````````````

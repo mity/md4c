@@ -20,9 +20,9 @@ Spaces are replaced by `-` and uppercase are replaced by lower case
 Unicode characters can also be put lower case
 
 ```````````````````````````````` example
-# ĀĄŁŇŢŰŽבあИЯ
+# ĀĄŁŇŢŰŽבあИЯ𐒰
 .
-<h1 id="āąłňţűžבあия">ĀĄŁŇŢŰŽבあИЯ</h1>
+<h1 id="āąłňţűžבあия𐓘">ĀĄŁŇŢŰŽבあИЯ𐒰</h1>
 ````````````````````````````````
 
 

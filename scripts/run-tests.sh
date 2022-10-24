@@ -87,5 +87,5 @@ echo "Table of content extension:"
 $PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/toc.txt" -p "$PROGRAM --table-of-content"
 
 echo
-echo "Table of content placement extension :"
+echo "Table of content placement extension:"
 $PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/toc-mark.txt" -p "$PROGRAM --table-of-content=[[__TOC__]]"
