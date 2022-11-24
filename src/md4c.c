@@ -5503,11 +5503,30 @@ md_is_html_block_end_condition(MD_CTX* ctx, OFF beg, OFF* p_end)
 
             while(off < ctx->size  &&  !ISNEWLINE(off)) {
                 if(CH(off) == _T('<')) {
+<<<<<<< HEAD
                   #define FIND_TAG_END(string, length) \
                     if(off + length <= ctx->size && \
                        md_ascii_case_eq(STR(off), _T(string), length)) { \
                         *p_end = off + length; \
                         return TRUE; \
+=======
+                    if(off + 9 <= ctx->size &&
+                       md_ascii_case_eq(STR(off), _T("</script>"), 9)) {
+                        *p_end = off + 9;
+                        return TRUE;
+                    }
+
+                    if(off + 8 <= ctx->size &&
+                       md_ascii_case_eq(STR(off), _T("</style>"), 8)) {
+                        *p_end = off + 8;
+                        return TRUE;
+                    }
+
+                    if(off + 6 <= ctx->size &&
+                       md_ascii_case_eq(STR(off), _T("</pre>"), 6)) {
+                        *p_end = off + 6;
+                        return TRUE;
+>>>>>>> dc1124b (Update md4c.c)
                     }
                   FIND_TAG_END("</script>", 9)
                   FIND_TAG_END("</style>", 8)
