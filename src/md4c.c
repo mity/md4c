@@ -4325,6 +4325,7 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 case ':':       /* Permissive URL autolink. */
                 case '.':       /* Permissive WWW autolink. */
                 {
+                    if (mark->prev == -1) goto abort;
                     MD_MARK* opener = ((mark->flags & MD_MARK_OPENER) ? mark : &ctx->marks[mark->prev]);
                     MD_MARK* closer = &ctx->marks[opener->next];
                     const CHAR* dest = STR(opener->end);
