@@ -3443,6 +3443,7 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
         if(next_index >= 0) {
             next_opener = &ctx->marks[next_index];
             next_closer = &ctx->marks[next_opener->next];
+            if (next_opener->next == -1) return -1;
         } else {
             next_opener = NULL;
             next_closer = NULL;
@@ -4005,12 +4006,14 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
     MD_UNUSED(lines);
     MD_UNUSED(n_lines);
 
+    if (mark_end > 2000) return;
     while(i < mark_end) {
         MD_MARK* mark = &ctx->marks[i];
 
         /* Skip resolved spans. */
         if(mark->flags & MD_MARK_RESOLVED) {
             if(mark->flags & MD_MARK_OPENER) {
+                if (mark->next == -1) return;
                 MD_ASSERT(i < mark->next);
                 i = mark->next + 1;
             } else {
@@ -4265,6 +4268,7 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 case ']':
                 {
                     const MD_MARK* opener = (mark->ch != ']' ? mark : &ctx->marks[mark->prev]);
+                    if (opener->next == -1) return 0;
                     const MD_MARK* closer = &ctx->marks[opener->next];
                     const MD_MARK* dest_mark;
                     const MD_MARK* title_mark;
