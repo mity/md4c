@@ -3433,6 +3433,7 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
     while(opener_index >= 0) {
         MD_MARK* opener = &ctx->marks[opener_index];
         int closer_index = opener->next;
+        if (closer_index == -1) return -1;
         MD_MARK* closer = &ctx->marks[closer_index];
         int next_index = opener->prev;
         MD_MARK* next_opener;
@@ -3442,8 +3443,12 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 
         if(next_index >= 0) {
             next_opener = &ctx->marks[next_index];
-            next_closer = &ctx->marks[next_opener->next];
-            if (next_opener->next == -1) return -1;
+            if (next_opener->next == -1) {
+                next_opener = NULL;
+                next_closer = NULL;
+            } else {
+                next_closer = &ctx->marks[next_opener->next];
+            }
         } else {
             next_opener = NULL;
             next_closer = NULL;
