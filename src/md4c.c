@@ -4415,7 +4415,9 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                 MD_TEXTTYPE break_type = MD_TEXT_SOFTBR;
 
                 if(text_type == MD_TEXT_NORMAL) {
-                    if(enforce_hardbreak)
+                    if(ctx->parser.flags & MD_FLAG_HARD_SOFT_BREAKS)
+                        break_type = MD_TEXT_BR;
+                    else if(enforce_hardbreak)
                         break_type = MD_TEXT_BR;
                     else if((CH(line->end) == _T(' ') && CH(line->end+1) == _T(' ')))
                         break_type = MD_TEXT_BR;

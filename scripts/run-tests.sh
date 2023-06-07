@@ -47,6 +47,10 @@ echo "WWW autolinks extension:"
 $PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/permissive-www-autolinks.txt" -p "$PROGRAM --fpermissive-www-autolinks"
 
 echo
+echo "Hard soft breaks extension:"
+$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/hard-soft-breaks.txt" -p "$PROGRAM --fhard-soft-breaks"
+
+echo
 echo "Tables extension:"
 $PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/tables.txt" -p "$PROGRAM --ftables"
 
