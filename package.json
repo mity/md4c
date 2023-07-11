@@ -1,7 +1,7 @@
 {
   "name": "md4c",
   "version": "0.4.8",
-  "repo": "mity/md4c",
+  "repo": "phoenixpinpoint/md4c",
   "description": "Markdown Parser and HTML Generator for C. Ported from github.com/mity.",
   "keywords": ["md", "markdown", "html", "util", "utils"],
   "license": "MIT",
