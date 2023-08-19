@@ -295,3 +295,6 @@ Software using MD4C:
 
 * [8th](https://8th-dev.com/):
   Cross-platform concatenative programming language.
+
+* [MarkDown Monolith Assembler](https://github.com/1Hyena/mdma):
+  A command line tool for building browser-based books.
