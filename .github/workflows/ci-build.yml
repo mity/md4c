@@ -36,7 +36,7 @@ jobs:
       - name: Configure
         run: cmake -DCMAKE_BUILD_TYPE=Release -G "Visual Studio 17 2022" -A Win32 .
       - name: Build
-        run: msbuild.exe md4c.sln.sln /p:Configuration=Release /p:Platform=Win32
+        run: msbuild.exe md4c.sln /p:Configuration=Release /p:Platform=Win32
 
   windows-64:
     runs-on: windows-latest
