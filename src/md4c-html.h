@@ -52,13 +52,16 @@
  * Param userdata is just propagated back to process_output() callback.
  * Param parser_flags are flags from md4c.h propagated to md_parse().
  * Param render_flags is bitmask of MD_HTML_FLAG_xxxx.
+ * Param toc_options is a pointer to toc options from md4c.h propagated to md_parse().
  *
  * Returns -1 on error (if md_parse() fails.)
  * Returns 0 on success.
  */
 int md_html(const MD_CHAR* input, MD_SIZE input_size,
             void (*process_output)(const MD_CHAR*, MD_SIZE, void*),
-            void* userdata, unsigned parser_flags, unsigned renderer_flags);
+            void* userdata, unsigned parser_flags, unsigned renderer_flags,
+            MD_TOC_OPTIONS* toc_options 
+            );
 
 
 #ifdef __cplusplus

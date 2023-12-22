@@ -1,0 +1,163 @@
+
+# Heading auto identifiers
+
+With the flag `MD_FLAG_HEADINGAUTOID`, MD4C generate an identifier for a heading.
+
+```````````````````````````````` example
+# heading
+.
+<h1 id="heading">heading</h1>
+````````````````````````````````
+
+Spaces are replaced by `-` and uppercase are replaced by lower case 
+
+```````````````````````````````` example
+# The Heading
+.
+<h1 id="the-heading">The Heading</h1>
+````````````````````````````````
+
+Unicode characters can also be put lower case
+
+```````````````````````````````` example
+# ĀĄŁŇŢŰŽבあИЯ𐒰
+.
+<h1 id="āąłňţűžבあия𐓘">ĀĄŁŇŢŰŽבあИЯ𐒰</h1>
+````````````````````````````````
+
+
+The non-alphanumeric characters are discarded except for `-.
+
+```````````````````````````````` example
+# The %@!= stupid _ heading !
+.
+<h1 id="the--stupid--heading-">The %@!= stupid _ heading !</h1>
+````````````````````````````````
+
+As a result, you can get some empty heading with no identifier.
+
+```````````````````````````````` example
+# !
+.
+<h1>!</h1>
+````````````````````````````````
+
+Heading starting with numbers are not treated differently
+
+```````````````````````````````` example
+# 1.1 The start
+.
+<h1 id="11-the-start">1.1 The start</h1>
+````````````````````````````````
+
+Heading can contain link inside
+
+```````````````````````````````` example
+# Title with a [link](hidden) inside  
+.
+<h1 id="title-with-a-link-inside">Title with a <a href="hidden">link</a> inside</h1>
+````````````````````````````````
+
+Heading can contain wiki link inside but requiere the MD_FLAG_WIKILINKS  
+
+```````````````````````````````` example
+# Title with a [[hidden-wiki|link]] inside  
+.
+<h1 id="title-with-a-hidden-wikilink-inside">Title with a [[hidden-wiki|link]] inside</h1>
+````````````````````````````````
+
+Heading can contain formatting
+
+```````````````````````````````` example
+# Title with *emphasis* inside 
+.
+<h1 id="title-with-emphasis-inside">Title with <em>emphasis</em> inside</h1>
+````````````````````````````````
+
+Heading can contain some emoji code like :emoji:, they are treated as normal text
+
+```````````````````````````````` example
+# emoji1 :+1:
+# emoji2 :-1:
+# emoji3 :100:
+.
+<h1 id="emoji1-1">emoji1 :+1:</h1>
+<h1 id="emoji2--1">emoji2 :-1:</h1>
+<h1 id="emoji3-100">emoji3 :100:</h1>
+````````````````````````````````
+
+But unicode emoji characters are stripped 
+
+```````````````````````````````` example
+# emoji4 👍
+# emoji5 💯
+# the + sign
+.
+<h1 id="emoji4-">emoji4 👍</h1>
+<h1 id="emoji5-">emoji5 💯</h1>
+<h1 id="the--sign">the + sign</h1>
+````````````````````````````````
+
+Same heading get a suffix number. 
+
+```````````````````````````````` example 
+# title
+# title
+## title
+### title
+# Title
+# title
+# ti!tle
+# title
+# title
+# title
+# title
+# title
+.
+<h1 id="title">title</h1>
+<h1 id="title-1">title</h1>
+<h2 id="title-2">title</h2>
+<h3 id="title-3">title</h3>
+<h1 id="title-4">Title</h1>
+<h1 id="title-5">title</h1>
+<h1 id="title-6">ti!tle</h1>
+<h1 id="title-7">title</h1>
+<h1 id="title-8">title</h1>
+<h1 id="title-9">title</h1>
+<h1 id="title-10">title</h1>
+<h1 id="title-11">title</h1>
+````````````````````````````````
+
+# Coverage
+
+additional test to improve test coverage.
+
+No heading in a document
+
+```````````````````````````````` example 
+no heading
+.
+<p>no heading</p>
+````````````````````````````````
+
+Multi line heading require a link so it can contain a new line.
+
+```````````````````````````````` example 
+Title with a [multi 
+line
+link](link) inside 
+======================
+.
+<h1 id="title-with-a-multi-line-link-inside">Title with a <a href="link">multi
+line
+link</a> inside</h1>
+
+````````````````````````````````
+
+We need to be able to parse empty title
+```````````````````````````````` example 
+#
+.
+<h1></h1>
+````````````````````````````````
+

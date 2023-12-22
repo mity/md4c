@@ -1,0 +1,85 @@
+# Table of content mark
+
+The TOC mark allow to place the toc where you need it.
+Run the example with --toc=[[__TOC__]]
+
+```````````````````````````````` example
+# title
+# table of content
+[[__TOC__]]
+# some chapter
+.
+<h1 id="title">title</h1>
+<h1 id="table-of-content">table of content</h1>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#title">title</a></li>
+<li><a href="#table-of-content">table of content</a></li>
+<li><a href="#some-chapter">some chapter</a></li>
+</ul>
+</nav>
+<h1 id="some-chapter">some chapter</h1>
+````````````````````````````````
+
+Only the first mark is replaced by the TOC
+
+ 
+
+```````````````````````````````` example
+# title 
+[[__TOC__]]
+[[__TOC__]]
+.
+<h1 id="title">title</h1>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#title">title</a></li>
+</ul>
+</nav>
+<p>[[<strong>TOC</strong>]]</p>
+````````````````````````````````
+  
+The TOC mark must be alone at start of a line or it is invalid:
+
+```````````````````````````````` example
+# title 
+invalid [[__TOC__]] mark 
+.
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#title">title</a></li>
+</ul>
+</nav>
+<h1 id="title">title</h1>
+<p>invalid [[<strong>TOC</strong>]] mark </p>
+
+````````````````````````````````
+
+But you can have space at start of a line:
+
+```````````````````````````````` example
+# title 
+  [[__TOC__]] mark 
+.
+<h1 id="title">title</h1>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#title">title</a></li>
+</ul>
+</nav>
+````````````````````````````````
+  
+The text after the TOC mark is discarded:
+
+```````````````````````````````` example
+# title 
+[[__TOC__]] discarded text 
+.
+<h1 id="title">title</h1>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#title">title</a></li>
+</ul>
+</nav>
+````````````````````````````````
+

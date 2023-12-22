@@ -1,0 +1,104 @@
+# Table of content
+
+With the option `--table-of-content`, MD4C enables extension for output of
+toc.
+
+Basic toc may look as follows:
+
+```````````````````````````````` example
+# title
+.
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#title">title</a></li>
+</ul>
+</nav>
+<h1 id="title">title</h1>
+````````````````````````````````
+
+By default, the toc-depth is limited to heading of level 3
+
+```````````````````````````````` example
+# title level 1
+## title level 2
+### title level 3
+#### title level 4
+##### title level 5
+.
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#title-level-1">title level 1</a></li>
+<ul>
+<li><a href="#title-level-2">title level 2</a></li>
+<ul>
+<li><a href="#title-level-3">title level 3</a></li>
+</ul>
+</ul>
+</ul>
+</nav>
+<h1 id="title-level-1">title level 1</h1>
+<h2 id="title-level-2">title level 2</h2>
+<h3 id="title-level-3">title level 3</h3>
+<h4 id="title-level-4">title level 4</h4>
+<h5 id="title-level-5">title level 5</h5>
+````````````````````````````````
+
+The toc can skip some level 
+
+```````````````````````````````` example
+### title level 3
+# title level 1
+## title level 2
+##### title level 5
+### title level 3 again
+.
+<nav id="TOC" role="doc-toc">
+<ul>
+<ul>
+<ul>
+<li><a href="#title-level-3">title level 3</a></li>
+</ul>
+</ul>
+<li><a href="#title-level-1">title level 1</a></li>
+<ul>
+<li><a href="#title-level-2">title level 2</a></li>
+<ul>
+<li><a href="#title-level-3-again">title level 3 again</a></li>
+</ul>
+</ul>
+</ul>
+</nav>
+<h3 id="title-level-3">title level 3</h3>
+<h1 id="title-level-1">title level 1</h1>
+<h2 id="title-level-2">title level 2</h2>
+<h5 id="title-level-5">title level 5</h5>
+<h3 id="title-level-3-again">title level 3 again</h3> 
+````````````````````````````````
+
+# Coverage
+
+Additional test to improve test coverage.
+
+This sample will output TOC with heading suffix numbers. 
+
+
+```````````````````````````````` example
+# title
+## title
+### title
+.
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#title">title</a></li>
+<ul>
+<li><a href="#title-1">title</a></li>
+<ul>
+<li><a href="#title-2">title</a></li>
+</ul>
+</ul>
+</ul>
+</nav>
+<h1 id="title">title</h1>
+<h2 id="title-1">title</h2>
+<h3 id="title-2">title</h3>
+````````````````````````````````

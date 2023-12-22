@@ -310,6 +310,20 @@ render_open_code_block(MD_HTML* r, const MD_BLOCK_CODE_DETAIL* det)
 }
 
 static void
+render_header_block(MD_HTML* r, const MD_BLOCK_H_DETAIL* det)
+{
+    static const MD_CHAR* head[6] = { "<h1", "<h2", "<h3", "<h4", "<h5", "<h6" };
+
+    RENDER_VERBATIM(r, head[det->level- 1]);
+    if(det->identifier.text != NULL) {
+        RENDER_VERBATIM(r, " id=\"");
+        render_attribute(r, &det->identifier, render_html_escaped);
+        RENDER_VERBATIM(r, "\"");
+    } 
+    RENDER_VERBATIM(r, ">");
+}
+
+static void
 render_open_td_block(MD_HTML* r, const MD_CHAR* cell_type, const MD_BLOCK_TD_DETAIL* det)
 {
     RENDER_VERBATIM(r, "<");
@@ -378,7 +392,6 @@ render_open_wikilink_span(MD_HTML* r, const MD_SPAN_WIKILINK_DETAIL* det)
 static int
 enter_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
 {
-    static const MD_CHAR* head[6] = { "<h1>", "<h2>", "<h3>", "<h4>", "<h5>", "<h6>" };
     MD_HTML* r = (MD_HTML*) userdata;
 
     switch(type) {
@@ -388,7 +401,7 @@ enter_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
         case MD_BLOCK_OL:       render_open_ol_block(r, (const MD_BLOCK_OL_DETAIL*)detail); break;
         case MD_BLOCK_LI:       render_open_li_block(r, (const MD_BLOCK_LI_DETAIL*)detail); break;
         case MD_BLOCK_HR:       RENDER_VERBATIM(r, (r->flags & MD_HTML_FLAG_XHTML) ? "<hr />\n" : "<hr>\n"); break;
-        case MD_BLOCK_H:        RENDER_VERBATIM(r, head[((MD_BLOCK_H_DETAIL*)detail)->level - 1]); break;
+        case MD_BLOCK_H:        render_header_block(r, (const MD_BLOCK_H_DETAIL*)detail); break;
         case MD_BLOCK_CODE:     render_open_code_block(r, (const MD_BLOCK_CODE_DETAIL*) detail); break;
         case MD_BLOCK_HTML:     /* noop */ break;
         case MD_BLOCK_P:        RENDER_VERBATIM(r, "<p>"); break;
@@ -398,6 +411,7 @@ enter_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
         case MD_BLOCK_TR:       RENDER_VERBATIM(r, "<tr>\n"); break;
         case MD_BLOCK_TH:       render_open_td_block(r, "th", (MD_BLOCK_TD_DETAIL*)detail); break;
         case MD_BLOCK_TD:       render_open_td_block(r, "td", (MD_BLOCK_TD_DETAIL*)detail); break;
+        case MD_BLOCK_NAV:      RENDER_VERBATIM(r, "<nav id=\"TOC\" role=\"doc-toc\">\n"); break;
     }
 
     return 0;
@@ -426,6 +440,7 @@ leave_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
         case MD_BLOCK_TR:       RENDER_VERBATIM(r, "</tr>\n"); break;
         case MD_BLOCK_TH:       RENDER_VERBATIM(r, "</th>\n"); break;
         case MD_BLOCK_TD:       RENDER_VERBATIM(r, "</td>\n"); break;
+        case MD_BLOCK_NAV:      RENDER_VERBATIM(r, "</nav>\n"); break;
     }
 
     return 0;
@@ -531,13 +546,14 @@ debug_log_callback(const char* msg, void* userdata)
 int
 md_html(const MD_CHAR* input, MD_SIZE input_size,
         void (*process_output)(const MD_CHAR*, MD_SIZE, void*),
-        void* userdata, unsigned parser_flags, unsigned renderer_flags)
+        void* userdata, unsigned parser_flags, unsigned renderer_flags,
+        MD_TOC_OPTIONS* toc_options)
 {
     MD_HTML render = { process_output, userdata, renderer_flags, 0, { 0 } };
     int i;
 
     MD_PARSER parser = {
-        0,
+        1,
         parser_flags,
         enter_block_callback,
         leave_block_callback,
@@ -545,6 +561,7 @@ md_html(const MD_CHAR* input, MD_SIZE input_size,
         leave_span_callback,
         text_callback,
         debug_log_callback,
+        *toc_options,
         NULL
     };
 

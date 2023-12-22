@@ -123,6 +123,10 @@ extensions:
 * With the flag `MD_FLAG_UNDERLINE`, underscore (`_`) denotes an underline
   instead of an ordinary emphasis or strong emphasis.
 
+* With the flag `MD_FLAG_HEADINGAUTOID`, unique identifiers are generated for
+  headings. The HTML render output them as `id` in the heading tag. For example
+  `<h1 id="title">Title</h1>`.
+
 Few features of CommonMark (those some people see as mis-features) may be
 disabled with the following flags:
 
