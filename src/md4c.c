@@ -2741,7 +2741,7 @@ md_build_mark_char_map(MD_CTX* ctx)
     if(ctx->parser.flags & MD_FLAG_LATEXMATHSPANS)
         ctx->mark_char_map['$'] = 1;
 
-    if(ctx->parser.flags & MD_FLAG_PERMISSIVEEMAILAUTOLINKS)
+    if ((ctx->parser.flags & MD_FLAG_MENTIONS) || (ctx->parser.flags & MD_FLAG_PERMISSIVEEMAILAUTOLINKS))
         ctx->mark_char_map['@'] = 1;
 
     if(ctx->parser.flags & MD_FLAG_PERMISSIVEURLAUTOLINKS)
@@ -3220,9 +3220,26 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                 continue;
             }
 
+            /* A potential mention link. */
             /* A potential permissive e-mail autolink. */
             if(ch == _T('@')) {
-                if(line->beg + 1 <= off  &&  ISALNUM(off-1)  &&
+                if( (ctx->parser.flags & MD_FLAG_MENTIONS) && (line->beg == off || (CH(off-1) == _T(' '))) )
+                {
+                    OFF index = off + 1;
+                    if (index == line->end || CH(index) == ' ') {
+                        off++;
+                        continue;
+                    }
+                    while (index <= line->end)
+                    {
+                        if (!(ISALNUM(index) || (CH(index) == '_')))
+                            break;
+                        index++;
+                    }
+                    PUSH_MARK('@', off, index, MD_MARK_RESOLVED);
+                    off = index;
+                }
+                else if(line->beg + 1 <= off  &&  ISALNUM(off-1)  &&
                     off + 3 < line->end  &&  ISALNUM(off+1))
                 {
                     PUSH_MARK(ch, off, off+1, MD_MARK_POTENTIAL_OPENER);
@@ -4322,6 +4339,7 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                     MD_FALLTHROUGH();
 
                 case '@':       /* Permissive e-mail autolink. */
+                                /* Mention link */
                 case ':':       /* Permissive URL autolink. */
                 case '.':       /* Permissive WWW autolink. */
                 {
@@ -4329,6 +4347,17 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                     MD_MARK* closer = &ctx->marks[opener->next];
                     const CHAR* dest = STR(opener->end);
                     SZ dest_size = closer->beg - opener->end;
+
+                    MD_SPAN_MENTION_DETAIL det;
+                    if (CH(mark->beg) == '@')
+                    {
+                        det.text = (char *) ctx->text + mark->beg + 1;
+                        det.size = mark->end - mark->beg - 1;
+                        MD_ENTER_SPAN(MD_SPAN_MENTION, &det);
+                        MD_TEXT(text_type, STR(mark->beg), mark->end - mark->beg);
+                        MD_LEAVE_SPAN(MD_SPAN_MENTION, &det);
+                        break;
+                    }
 
                     /* For permissive auto-links we do not know closer mark
                      * position at the time of md_collect_marks(), therefore

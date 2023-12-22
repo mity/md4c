@@ -265,6 +265,13 @@ render_attribute(MD_HTML* r, const MD_ATTRIBUTE* attr,
     }
 }
 
+static void
+render_mention_link(MD_HTML* r, const MD_SPAN_MENTION_DETAIL* det)
+{
+    RENDER_VERBATIM(r, "<x-mention data-target=\"");
+    render_entity(r, det->text, det->size, render_html_escaped);
+    RENDER_VERBATIM(r, "\">");
+}
 
 static void
 render_open_ol_block(MD_HTML* r, const MD_BLOCK_OL_DETAIL* det)
@@ -466,6 +473,7 @@ enter_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
         case MD_SPAN_LATEXMATH:         RENDER_VERBATIM(r, "<x-equation>"); break;
         case MD_SPAN_LATEXMATH_DISPLAY: RENDER_VERBATIM(r, "<x-equation type=\"display\">"); break;
         case MD_SPAN_WIKILINK:          render_open_wikilink_span(r, (MD_SPAN_WIKILINK_DETAIL*) detail); break;
+        case MD_SPAN_MENTION:           render_mention_link(r, (MD_SPAN_MENTION_DETAIL*) detail); break;
     }
 
     return 0;
@@ -495,6 +503,7 @@ leave_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
         case MD_SPAN_LATEXMATH:         /*fall through*/
         case MD_SPAN_LATEXMATH_DISPLAY: RENDER_VERBATIM(r, "</x-equation>"); break;
         case MD_SPAN_WIKILINK:          RENDER_VERBATIM(r, "</x-wikilink>"); break;
+        case MD_SPAN_MENTION:           RENDER_VERBATIM(r, "</x-mention>"); break;
     }
 
     return 0;

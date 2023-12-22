@@ -145,7 +145,9 @@ typedef enum MD_SPANTYPE {
 
     /* <u>...</u>
      * Note: Recognized only when MD_FLAG_UNDERLINE is enabled. */
-    MD_SPAN_U
+    MD_SPAN_U,
+
+    MD_SPAN_MENTION
 } MD_SPANTYPE;
 
 /* Text is the actual textual contents of span. */
@@ -297,6 +299,12 @@ typedef struct MD_SPAN_WIKILINK {
     MD_ATTRIBUTE target;
 } MD_SPAN_WIKILINK_DETAIL;
 
+/* Detailed info for MD_SPAN_MENTION. */
+typedef struct MD_SPAN_MENTION {
+    unsigned char size; 
+    MD_CHAR* text;
+} MD_SPAN_MENTION_DETAIL;
+
 /* Flags specifying extensions/deviations from CommonMark specification.
  *
  * By default (when MD_PARSER::flags == 0), we follow CommonMark specification.
@@ -316,6 +324,7 @@ typedef struct MD_SPAN_WIKILINK {
 #define MD_FLAG_LATEXMATHSPANS              0x1000  /* Enable $ and $$ containing LaTeX equations. */
 #define MD_FLAG_WIKILINKS                   0x2000  /* Enable wiki links extension. */
 #define MD_FLAG_UNDERLINE                   0x4000  /* Enable underline extension (and disables '_' for normal emphasis). */
+#define MD_FLAG_MENTIONS                    0x8000  /* Enable mention links extension. */
 
 #define MD_FLAG_PERMISSIVEAUTOLINKS         (MD_FLAG_PERMISSIVEEMAILAUTOLINKS | MD_FLAG_PERMISSIVEURLAUTOLINKS | MD_FLAG_PERMISSIVEWWWAUTOLINKS)
 #define MD_FLAG_NOHTML                      (MD_FLAG_NOHTMLBLOCKS | MD_FLAG_NOHTMLSPANS)

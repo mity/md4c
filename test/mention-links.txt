@@ -1,0 +1,29 @@
+# Mention links
+
+With the flag `MD_FLAG_MENTIONS`, MD4C enables extension for recognition of mention (@) style links.
+
+A link ends when a non-alphanumeric character is hit. The only such character allowed is an underscore.
+
+```````````````````````````````` example
+someone said @me said such and such.
+.
+<p>someone said <x-mention data-target="me">@me</x-mention> said such and such.</p>
+````````````````````````````````
+
+```````````````````````````````` example
+@me said such and such.
+.
+<p><x-mention data-target="me">@me</x-mention> said such and such.</p>
+````````````````````````````````
+
+```````````````````````````````` example
+An empty at character is not recognized as a mention:
+
+@ 
+
+@
+.
+<p>An empty at character is not recognized as a mention:</p>
+<p>@</p>
+<p>@</p>
+````````````````````````````````
