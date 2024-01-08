@@ -6080,7 +6080,7 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
                 /* The line itself also may immediately close the block. */
                 if(md_is_html_block_end_condition(ctx, off, &off) == ctx->html_block_type) {
                     /* Make sure this is the last line of the block. */
-                    ctx->html_block_type = 0;
+                    ctx->html_block_type *= -1;
                 }
 
                 line->type = MD_LINE_HTML;
@@ -6244,7 +6244,11 @@ md_process_line(MD_CTX* ctx, const MD_LINE_ANALYSIS** p_pivot_line, MD_LINE_ANAL
     }
 
     /* Some line types form block on their own. */
-    if(line->type == MD_LINE_HR || line->type == MD_LINE_ATXHEADER) {
+    #define ONELINE_HTML_BLOCK_TYPE2 \
+      (line->type == MD_LINE_HTML && \
+       ctx->html_block_type == -2)
+    if(line->type == MD_LINE_HR || line->type == MD_LINE_ATXHEADER || ONELINE_HTML_BLOCK_TYPE2) {
+        #undef ONELINE_HTML_BLOCK_TYPE2
         MD_CHECK(md_end_current_block(ctx));
 
         /* Add our single-line block. */
