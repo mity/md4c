@@ -251,8 +251,9 @@ typedef enum MD_LINETYPE_tag MD_LINETYPE;
 
 typedef struct MD_LINE_ANALYSIS_tag MD_LINE_ANALYSIS;
 struct MD_LINE_ANALYSIS_tag {
-    MD_LINETYPE type    : 16;
-    unsigned data       : 16;
+    MD_LINETYPE type;
+    unsigned data;
+    int enforce_new_block;
     OFF beg;
     OFF end;
     unsigned indent;        /* Indentation level. */
@@ -5746,7 +5747,7 @@ md_line_indentation(MD_CTX* ctx, unsigned total_indent, OFF beg, OFF* p_end)
     return indent - total_indent;
 }
 
-static const MD_LINE_ANALYSIS md_dummy_blank_line = { MD_LINE_BLANK, 0, 0, 0, 0 };
+static const MD_LINE_ANALYSIS md_dummy_blank_line = { MD_LINE_BLANK, 0, 0, 0, 0, 0 };
 
 /* Analyze type of the line and find some its properties. This serves as a
  * main input for determining type and boundaries of a block. */
@@ -5767,6 +5768,7 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
     line->indent = md_line_indentation(ctx, total_indent, off, &off);
     total_indent += line->indent;
     line->beg = off;
+    line->enforce_new_block = FALSE;
 
     /* Given the indentation and block quote marks '>', determine how many of
      * the current containers are our parents. */
@@ -6068,6 +6070,7 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
             if(md_is_opening_code_fence(ctx, off, &off)) {
                 line->type = MD_LINE_FENCEDCODE;
                 line->data = 1;
+                line->enforce_new_block = TRUE;
                 break;
             }
         }
@@ -6089,6 +6092,7 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
                     ctx->html_block_type = 0;
                 }
 
+                line->enforce_new_block = TRUE;
                 line->type = MD_LINE_HTML;
                 break;
             }
@@ -6248,6 +6252,9 @@ md_process_line(MD_CTX* ctx, const MD_LINE_ANALYSIS** p_pivot_line, MD_LINE_ANAL
         *p_pivot_line = &md_dummy_blank_line;
         return 0;
     }
+
+    if(line->enforce_new_block)
+        MD_CHECK(md_end_current_block(ctx));
 
     /* Some line types form block on their own. */
     if(line->type == MD_LINE_HR || line->type == MD_LINE_ATXHEADER) {
