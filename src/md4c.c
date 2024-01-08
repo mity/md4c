@@ -6058,7 +6058,7 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
         }
 
         /* Check whether we are starting code fence. */
-        if(off < ctx->size  &&  ISANYOF2(off, _T('`'), _T('~'))) {
+        if(off < ctx->size  && line->indent <= 3 &&  ISANYOF2(off, _T('`'), _T('~'))) {
             if(md_is_opening_code_fence(ctx, off, &off)) {
                 line->type = MD_LINE_FENCEDCODE;
                 line->data = 1;
