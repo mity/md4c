@@ -368,6 +368,30 @@ foo
 ````````````````````````````````
 
 
+### [Issue 207](https://github.com/mity/md4c/issues/207)
+
+```````````````````````````````` example
+<textarea>
+
+*foo*
+
+_bar_
+
+</textarea>
+
+baz
+.
+<textarea>
+
+*foo*
+
+_bar_
+
+</textarea>
+<p>baz</p>
+````````````````````````````````
+
+
 ## Code coverage
 
 ### `md_is_unicode_whitespace__()`

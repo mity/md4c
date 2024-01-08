@@ -5347,48 +5347,54 @@ out:
     return ret;
 }
 
+
+/* Helper data for md_is_html_block_start_condition() and
+ * md_is_html_block_end_condition() */
+typedef struct TAG_tag TAG;
+struct TAG_tag {
+    const CHAR* name;
+    unsigned len    : 8;
+};
+
+#ifdef X
+    #undef X
+#endif
+#define X(name)     { _T(name), (sizeof(name)-1) / sizeof(CHAR) }
+#define Xend        { NULL, 0 }
+
+static const TAG t1[] = { X("pre"), X("script"), X("style"), X("textarea"), Xend };
+
+static const TAG a6[] = { X("address"), X("article"), X("aside"), Xend };
+static const TAG b6[] = { X("base"), X("basefont"), X("blockquote"), X("body"), Xend };
+static const TAG c6[] = { X("caption"), X("center"), X("col"), X("colgroup"), Xend };
+static const TAG d6[] = { X("dd"), X("details"), X("dialog"), X("dir"),
+                          X("div"), X("dl"), X("dt"), Xend };
+static const TAG f6[] = { X("fieldset"), X("figcaption"), X("figure"), X("footer"),
+                          X("form"), X("frame"), X("frameset"), Xend };
+static const TAG h6[] = { X("h1"), X("head"), X("header"), X("hr"), X("html"), Xend };
+static const TAG i6[] = { X("iframe"), Xend };
+static const TAG l6[] = { X("legend"), X("li"), X("link"), Xend };
+static const TAG m6[] = { X("main"), X("menu"), X("menuitem"), Xend };
+static const TAG n6[] = { X("nav"), X("noframes"), Xend };
+static const TAG o6[] = { X("ol"), X("optgroup"), X("option"), Xend };
+static const TAG p6[] = { X("p"), X("param"), Xend };
+static const TAG s6[] = { X("section"), X("source"), X("summary"), Xend };
+static const TAG t6[] = { X("table"), X("tbody"), X("td"), X("tfoot"), X("th"),
+                          X("thead"), X("title"), X("tr"), X("track"), Xend };
+static const TAG u6[] = { X("ul"), Xend };
+static const TAG xx[] = { Xend };
+
+#undef X
+#undef Xend
+
 /* Returns type of the raw HTML block, or FALSE if it is not HTML block.
  * (Refer to CommonMark specification for details about the types.)
  */
 static int
 md_is_html_block_start_condition(MD_CTX* ctx, OFF beg)
 {
-    typedef struct TAG_tag TAG;
-    struct TAG_tag {
-        const CHAR* name;
-        unsigned len    : 8;
-    };
-
     /* Type 6 is started by a long list of allowed tags. We use two-level
      * tree to speed-up the search. */
-#ifdef X
-    #undef X
-#endif
-#define X(name)     { _T(name), (sizeof(name)-1) / sizeof(CHAR) }
-#define Xend        { NULL, 0 }
-    static const TAG t1[] = { X("pre"), X("script"), X("style"), X("textarea"), Xend };
-
-    static const TAG a6[] = { X("address"), X("article"), X("aside"), Xend };
-    static const TAG b6[] = { X("base"), X("basefont"), X("blockquote"), X("body"), Xend };
-    static const TAG c6[] = { X("caption"), X("center"), X("col"), X("colgroup"), Xend };
-    static const TAG d6[] = { X("dd"), X("details"), X("dialog"), X("dir"),
-                              X("div"), X("dl"), X("dt"), Xend };
-    static const TAG f6[] = { X("fieldset"), X("figcaption"), X("figure"), X("footer"),
-                              X("form"), X("frame"), X("frameset"), Xend };
-    static const TAG h6[] = { X("h1"), X("head"), X("header"), X("hr"), X("html"), Xend };
-    static const TAG i6[] = { X("iframe"), Xend };
-    static const TAG l6[] = { X("legend"), X("li"), X("link"), Xend };
-    static const TAG m6[] = { X("main"), X("menu"), X("menuitem"), Xend };
-    static const TAG n6[] = { X("nav"), X("noframes"), Xend };
-    static const TAG o6[] = { X("ol"), X("optgroup"), X("option"), Xend };
-    static const TAG p6[] = { X("p"), X("param"), Xend };
-    static const TAG s6[] = { X("section"), X("source"), X("summary"), Xend };
-    static const TAG t6[] = { X("table"), X("tbody"), X("td"), X("tfoot"), X("th"),
-                              X("thead"), X("title"), X("tr"), X("track"), Xend };
-    static const TAG u6[] = { X("ul"), Xend };
-    static const TAG xx[] = { Xend };
-#undef X
-
     static const TAG* map6[26] = {
         a6, b6, c6, d6, xx, f6, xx, h6, i6, xx, xx, l6, m6,
         n6, o6, p6, xx, xx, s6, t6, u6, xx, xx, xx, xx, xx
@@ -5499,21 +5505,21 @@ md_is_html_block_end_condition(MD_CTX* ctx, OFF beg, OFF* p_end)
         case 1:
         {
             OFF off = beg;
+            int i;
 
-            while(off < ctx->size  &&  !ISNEWLINE(off)) {
-                if(CH(off) == _T('<')) {
-                  #define FIND_TAG_END(string, length) \
-                    if(off + length <= ctx->size && \
-                       md_ascii_case_eq(STR(off), _T(string), length)) { \
-                        *p_end = off + length; \
-                        return TRUE; \
+            while(off+1 < ctx->size  &&  !ISNEWLINE(off)) {
+                if(CH(off) == _T('<')  &&  CH(off+1) == _T('/')) {
+                    for(i = 0; t1[i].name != NULL; i++) {
+                        if(off + 2 + t1[i].len < ctx->size) {
+                            if(md_ascii_case_eq(STR(off+2), t1[i].name, t1[i].len)  &&
+                               CH(off+2+t1[i].len) == _T('>'))
+                            {
+                                *p_end = off+2+t1[i].len+1;
+                                return TRUE;
+                            }
+                        }
                     }
-                  FIND_TAG_END("</script>", 9)
-                  FIND_TAG_END("</style>", 8)
-                  FIND_TAG_END("</pre>", 6)
-                  #undef FIND_TAG_END
                 }
-
                 off++;
             }
             *p_end = off;
