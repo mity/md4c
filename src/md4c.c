@@ -2513,7 +2513,7 @@ md_mark_chain(MD_CTX* ctx, int mark_index)
         case _T('*'):   return md_asterisk_chain(ctx, mark->flags);
         case _T('_'):   return &UNDERSCORE_OPENERS;
         case _T('~'):   return (mark->end - mark->beg == 1) ? &TILDE_OPENERS_1 : &TILDE_OPENERS_2;
-        case _T('!'):   MD_FALLTHROUGH();
+        case _T('!'):
         case _T('['):   return &BRACKET_OPENERS;
         case _T('|'):   return &TABLECELLBOUNDARIES;
         default:        return NULL;
@@ -5913,8 +5913,13 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
                    ctx->n_block_bytes > (int) sizeof(MD_BLOCK))
                 {
                     MD_BLOCK* top_block = (MD_BLOCK*) ((char*)ctx->block_bytes + ctx->n_block_bytes - sizeof(MD_BLOCK));
-                    if(top_block->type == MD_BLOCK_LI)
+                    if(top_block->type == MD_BLOCK_LI) {
                         n_parents--;
+
+                        line->indent = total_indent;
+                        if(n_parents > 0)
+                            line->indent -= ctx->containers[n_parents-1].contents_indent;
+                    }
                 }
 
                 ctx->last_list_item_starts_with_two_blank_lines = FALSE;
@@ -5985,11 +5990,8 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
 
         /* Check for indented code.
          * Note indented code block cannot interrupt a paragraph. */
-        if(line->indent >= ctx->code_indent_offset  &&
-            (pivot_line->type == MD_LINE_BLANK || pivot_line->type == MD_LINE_INDENTEDCODE))
-        {
+        if(line->indent >= ctx->code_indent_offset  &&  (pivot_line->type != MD_LINE_TEXT)) {
             line->type = MD_LINE_INDENTEDCODE;
-            MD_ASSERT(line->indent >= ctx->code_indent_offset);
             line->indent -= ctx->code_indent_offset;
             line->data = 0;
             break;
@@ -6058,7 +6060,9 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
         }
 
         /* Check whether we are starting code fence. */
-        if(off < ctx->size  &&  ISANYOF2(off, _T('`'), _T('~'))) {
+        if(line->indent < ctx->code_indent_offset  &&
+                off < ctx->size  &&  ISANYOF2(off, _T('`'), _T('~')))
+        {
             if(md_is_opening_code_fence(ctx, off, &off)) {
                 line->type = MD_LINE_FENCEDCODE;
                 line->data = 1;
