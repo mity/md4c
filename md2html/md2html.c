@@ -211,6 +211,7 @@ static const CMDLINE_OPTION cmdline_options[] = {
     {  0,  "flatex-math",                   'L', 0 },
     {  0,  "fpermissive-atx-headers",       'A', 0 },
     {  0,  "fpermissive-autolinks",         'V', 0 },
+    {  0,  "fhard-soft-breaks",             'B', 0 },
     {  0,  "fpermissive-email-autolinks",   '@', 0 },
     {  0,  "fpermissive-url-autolinks",     'U', 0 },
     {  0,  "fpermissive-www-autolinks",     '.', 0 },
@@ -264,6 +265,8 @@ usage(void)
         "      --fpermissive-autolinks\n"
         "                       Same as --fpermissive-url-autolinks --fpermissive-www-autolinks\n"
         "                       --fpermissive-email-autolinks\n"
+        "      --fhard-soft-breaks\n"
+        "                       Force all soft breaks to act as hard breaks\n"
         "      --fstrikethrough Enable strike-through spans\n"
         "      --ftables        Enable tables\n"
         "      --ftasklists     Enable task lists\n"
@@ -335,6 +338,7 @@ cmdline_callback(int opt, char const* value, void* data)
         case 'K':   parser_flags |= MD_FLAG_WIKILINKS; break;
         case 'X':   parser_flags |= MD_FLAG_TASKLISTS; break;
         case '_':   parser_flags |= MD_FLAG_UNDERLINE; break;
+        case 'B':   parser_flags |= MD_FLAG_HARD_SOFT_BREAKS; break;
 
         default:
             fprintf(stderr, "Illegal option: %s\n", value);
