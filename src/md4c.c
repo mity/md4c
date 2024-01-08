@@ -5990,11 +5990,8 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
 
         /* Check for indented code.
          * Note indented code block cannot interrupt a paragraph. */
-        if(line->indent >= ctx->code_indent_offset  &&
-            (pivot_line->type == MD_LINE_BLANK || pivot_line->type == MD_LINE_INDENTEDCODE))
-        {
+        if(line->indent >= ctx->code_indent_offset  &&  (pivot_line->type != MD_LINE_TEXT)) {
             line->type = MD_LINE_INDENTEDCODE;
-            MD_ASSERT(line->indent >= ctx->code_indent_offset);
             line->indent -= ctx->code_indent_offset;
             line->data = 0;
             break;
@@ -6063,7 +6060,9 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
         }
 
         /* Check whether we are starting code fence. */
-        if(off < ctx->size  &&  ISANYOF2(off, _T('`'), _T('~'))) {
+        if(line->indent < ctx->code_indent_offset  &&
+                off < ctx->size  &&  ISANYOF2(off, _T('`'), _T('~')))
+        {
             if(md_is_opening_code_fence(ctx, off, &off)) {
                 line->type = MD_LINE_FENCEDCODE;
                 line->data = 1;
