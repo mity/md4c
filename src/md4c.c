@@ -5913,8 +5913,13 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
                    ctx->n_block_bytes > (int) sizeof(MD_BLOCK))
                 {
                     MD_BLOCK* top_block = (MD_BLOCK*) ((char*)ctx->block_bytes + ctx->n_block_bytes - sizeof(MD_BLOCK));
-                    if(top_block->type == MD_BLOCK_LI)
+                    if(top_block->type == MD_BLOCK_LI) {
                         n_parents--;
+
+                        line->indent = total_indent;
+                        if(n_parents > 0)
+                            line->indent -= ctx->containers[n_parents-1].contents_indent;
+                    }
                 }
 
                 ctx->last_list_item_starts_with_two_blank_lines = FALSE;

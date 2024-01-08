@@ -324,6 +324,21 @@ bar
 ````````````````````````````````
 
 
+### [Issue 190](https://github.com/mity/md4c/issues/190)
+
+```````````````````````````````` example
+-
+
+    foo
+.
+<ul>
+<li></li>
+</ul>
+<pre><code>foo
+</code></pre>
+````````````````````````````````
+
+
 ## Code coverage
 
 ### `md_is_unicode_whitespace__()`
