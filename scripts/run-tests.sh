@@ -51,6 +51,10 @@ echo "Tables extension:"
 $PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/tables.txt" -p "$PROGRAM --ftables"
 
 echo
+echo "Table colspan extension:"
+$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/tables-colspan.txt" -p "$PROGRAM --ftables --ftable-colspan"
+
+echo
 echo "Strikethrough extension:"
 $PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/strikethrough.txt" -p "$PROGRAM --fstrikethrough"
 

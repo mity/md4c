@@ -110,6 +110,8 @@ Fixes:
    Fix reference link definition label matching in a case when the label ends
    with a Unicode character with non-trivial case folding mapping.
 
+ * [#29](https://github.com/mity/md4c/issues/29):
+   Implement Wiky-style ('|2> text |') table colspan extension.
 
 ## Version 0.4.6
 
