@@ -6182,7 +6182,7 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
     }
 
     /* Trim trailing spaces. */
-    if(line->type != MD_LINE_INDENTEDCODE  &&  line->type != MD_LINE_FENCEDCODE) {
+    if(line->type != MD_LINE_INDENTEDCODE  &&  line->type != MD_LINE_FENCEDCODE  && line->type != MD_LINE_HTML) {
         while(line->end > line->beg && CH(line->end-1) == _T(' '))
             line->end--;
     }
