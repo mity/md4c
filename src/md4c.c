@@ -5985,8 +5985,12 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
 
         /* Check for indented code.
          * Note indented code block cannot interrupt a paragraph. */
+        #define HTML_BLOCK_JUST_ENDED \
+        (pivot_line->type == MD_LINE_HTML && \
+         ctx->html_block_type <= 0)
         if(line->indent >= ctx->code_indent_offset  &&
-            (pivot_line->type == MD_LINE_BLANK || pivot_line->type == MD_LINE_INDENTEDCODE))
+            (pivot_line->type == MD_LINE_BLANK || pivot_line->type == MD_LINE_INDENTEDCODE || HTML_BLOCK_JUST_ENDED))
+            #undef HTML_BLOCK_JUST_ENDED
         {
             line->type = MD_LINE_INDENTEDCODE;
             MD_ASSERT(line->indent >= ctx->code_indent_offset);
