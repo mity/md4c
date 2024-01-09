@@ -44,6 +44,9 @@ static int want_fullhtml = 0;
 static int want_xhtml = 0;
 static int want_stat = 0;
 
+static const char* html_title = NULL;
+static const char* css_path = NULL;
+
 
 /*********************************
  ***  Simple grow-able buffer  ***
@@ -162,8 +165,11 @@ process_file(FILE* in, FILE* out)
             fprintf(out, "<html>\n");
         }
         fprintf(out, "<head>\n");
-        fprintf(out, "<title></title>\n");
+        fprintf(out, "<title>%s</title>\n", html_title ? html_title : "");
         fprintf(out, "<meta name=\"generator\" content=\"md2html\"%s>\n", want_xhtml ? " /" : "");
+        if(css_path != NULL) {
+            fprintf(out, "<link rel=\"stylesheet\" href=\"%s\"%s>\n", css_path, want_xhtml ? " /" : "");
+        }
         fprintf(out, "</head>\n");
         fprintf(out, "<body>\n");
     }
@@ -203,6 +209,9 @@ static const CMDLINE_OPTION cmdline_options[] = {
     { 's', "stat",                          's', 0 },
     { 'h', "help",                          'h', 0 },
     { 'v', "version",                       'v', 0 },
+
+    {  0,  "html-title",                    '1', CMDLINE_OPTFLAG_REQUIREDARG },
+    {  0,  "html-css",                      '2', CMDLINE_OPTFLAG_REQUIREDARG },
 
     {  0,  "commonmark",                    'c', 0 },
     {  0,  "github",                        'g', 0 },
@@ -285,6 +294,8 @@ usage(void)
         "HTML generator options:\n"
         "      --fverbatim-entities\n"
         "                       Do not translate entities\n"
+        "      --html-title=TITLE Sets the title of the document\n"
+        "      --html-css=URL   In full HTML or XHTML mode add a css link\n"
         "\n"
     );
 }
@@ -317,6 +328,9 @@ cmdline_callback(int opt, char const* value, void* data)
         case 's':   want_stat = 1; break;
         case 'h':   usage(); exit(0); break;
         case 'v':   version(); exit(0); break;
+
+        case '1':   html_title = value; break;
+        case '2':   css_path = value; break;
 
         case 'c':   parser_flags |= MD_DIALECT_COMMONMARK; break;
         case 'g':   parser_flags |= MD_DIALECT_GITHUB; break;
