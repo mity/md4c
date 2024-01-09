@@ -9,7 +9,6 @@ self_path = os.path.dirname(os.path.realpath(__file__));
 f = open(self_path + "/unicode/DerivedGeneralCategory.txt", "r")
 
 codepoint_list = []
-category_list = [ "Pc", "Pd", "Pe", "Pf", "Pi", "Po", "Ps" ]
 
 # Filter codepoints falling in the right category:
 for line in f:
@@ -24,7 +23,7 @@ for line in f:
     char_range = char_range.strip()
     category = category.strip()
 
-    if not category in category_list:
+    if category[0] != 'P' and category[0] != 'S':
         continue
 
     delim_off = char_range.find("..")
