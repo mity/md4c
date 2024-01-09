@@ -10,6 +10,10 @@ set(MD_VERSION "${MD_VERSION_MAJOR}.${MD_VERSION_MINOR}.${MD_VERSION_RELEASE}")
 set(PROJECT_VERSION "${MD_VERSION}")
 set(PROJECT_URL "https://github.com/mity/md4c")
 
+
+option(BUILD_MD2HTML_EXECUTABLE "Whether to compile the md2html executable" ON)
+
+
 if(WIN32)
     # On Windows, given there is no standard lib install dir etc., we rather
     # by default build static lib.
@@ -56,4 +60,6 @@ endif()
 include(GNUInstallDirs)
 
 add_subdirectory(src)
-add_subdirectory(md2html)
+if (BUILD_MD2HTML_EXECUTABLE)
+    add_subdirectory(md2html)
+endif ()
