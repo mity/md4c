@@ -284,6 +284,7 @@ typedef struct MD_BLOCK_TD_DETAIL {
 typedef struct MD_SPAN_A_DETAIL {
     MD_ATTRIBUTE href;
     MD_ATTRIBUTE title;
+    int is_autolink;            /* nonzero if this is an autolink */
 } MD_SPAN_A_DETAIL;
 
 /* Detailed info for MD_SPAN_IMG. */
