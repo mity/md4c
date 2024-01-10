@@ -2344,7 +2344,7 @@ md_is_inline_link_spec(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
     /* Optional whitespace followed with final ')'. */
     while(off < lines[line_index].end  &&  ISWHITESPACE(off))
         off++;
-    if (off >= lines[line_index].end  &&  (off >= ctx->size || ISNEWLINE(off))) {
+    if(off >= lines[line_index].end  &&  ISNEWLINE(off)) {
         line_index++;
         if(line_index >= n_lines)
             return FALSE;
@@ -2657,11 +2657,8 @@ md_rollback(MD_CTX* ctx, int opener_index, int closer_index, int how)
     for(i = OPENERS_CHAIN_FIRST; i < OPENERS_CHAIN_LAST+1; i++) {
         MD_MARKCHAIN* chain = &ctx->mark_chains[i];
 
-        while(chain->tail >= opener_index) {
-            int same = chain->tail == opener_index;
+        while(chain->tail >= opener_index)
             chain->tail = ctx->marks[chain->tail].prev;
-            if (same) break;
-        }
 
         if(chain->tail >= 0)
             ctx->marks[chain->tail].next = -1;
@@ -3965,7 +3962,7 @@ md_analyze_permissive_email_autolink(MD_CTX* ctx, int mark_index)
     OFF end = opener->end;
     int dot_count = 0;
 
-    MD_ASSERT(opener->ch == _T('@'));
+    MD_ASSERT(CH(beg) == _T('@'));
 
     /* Scan for name before '@'. */
     while(beg > 0  &&  (ISALNUM(beg-1) || ISANYOF(beg-1, _T(".-_+"))))
@@ -3990,7 +3987,7 @@ md_analyze_permissive_email_autolink(MD_CTX* ctx, int mark_index)
      * length so all the contents becomes the link text. */
     closer_index = mark_index + 1;
     closer = &ctx->marks[closer_index];
-    if (closer->ch != 'D') return;
+    MD_ASSERT(closer->ch == 'D');
 
     opener->beg = beg;
     opener->end = beg;
@@ -4290,7 +4287,7 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                     dest_mark = opener+1;
                     MD_ASSERT(dest_mark->ch == 'D');
                     title_mark = opener+2;
-                    if (title_mark->ch != 'D') break;
+                    MD_ASSERT(title_mark->ch == 'D');
 
                     MD_CHECK(md_enter_leave_span_a(ctx, (mark->ch != ']'),
                                 (opener->ch == '!' ? MD_SPAN_IMG : MD_SPAN_A),
@@ -5542,7 +5539,7 @@ md_is_html_block_end_condition(MD_CTX* ctx, OFF beg, OFF* p_end)
         case 6:     /* Pass through */
         case 7:
             *p_end = beg;
-            return (beg >= ctx->size || ISNEWLINE(beg) ? ctx->html_block_type : FALSE);
+            return (ISNEWLINE(beg) ? ctx->html_block_type : FALSE);
 
         default:
             MD_UNREACHABLE();
@@ -6144,9 +6141,8 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
                 task_container->is_task = TRUE;
                 task_container->task_mark_off = tmp + 1;
                 off = tmp + 3;
-                while(off < ctx->size && ISWHITESPACE(off))
+                while(ISWHITESPACE(off))
                     off++;
-                if (off == ctx->size) break;
                 line->beg = off;
             }
         }
