@@ -392,6 +392,15 @@ _bar_
 ````````````````````````````````
 
 
+### [Issue 210](https://github.com/mity/md4c/issues/210)
+
+```````````````````````````````` example
+![outer ![inner](img_inner "inner title")](img_outer "outer title")
+.
+<p><img src="img_outer" alt="outer inner" title="outer title"></p>
+````````````````````````````````
+
+
 ## Code coverage
 
 ### `md_is_unicode_whitespace__()`

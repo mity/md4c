@@ -344,8 +344,6 @@ render_open_img_span(MD_HTML* r, const MD_SPAN_IMG_DETAIL* det)
     render_attribute(r, &det->src, render_url_escaped);
 
     RENDER_VERBATIM(r, "\" alt=\"");
-
-    r->image_nesting_level++;
 }
 
 static void
@@ -357,8 +355,6 @@ render_close_img_span(MD_HTML* r, const MD_SPAN_IMG_DETAIL* det)
     }
 
     RENDER_VERBATIM(r, (r->flags & MD_HTML_FLAG_XHTML) ? "\" />" : "\">");
-
-    r->image_nesting_level--;
 }
 
 static void
@@ -435,25 +431,26 @@ static int
 enter_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
 {
     MD_HTML* r = (MD_HTML*) userdata;
+    int inside_img = (r->image_nesting_level > 0);
 
-    if(r->image_nesting_level > 0) {
-        /* We are inside a Markdown image label. Markdown allows to use any
-         * emphasis and other rich contents in that context similarly as in
-         * any link label.
-         *
-         * However, unlike in the case of links (where that contents becomes
-         * contents of the <a>...</a> tag), in the case of images the contents
-         * is supposed to fall into the attribute alt: <img alt="...">.
-         *
-         * In that context we naturally cannot output nested HTML tags. So lets
-         * suppress them and only output the plain text (i.e. what falls into
-         * text() callback).
-         *
-         * This make-it-a-plain-text approach is the recommended practice by
-         * CommonMark specification (for HTML output).
-         */
+    /* We are inside a Markdown image label. Markdown allows to use any emphasis
+     * and other rich contents in that context similarly as in any link label.
+     *
+     * However, unlike in the case of links (where that contents becomescontents
+     * of the <a>...</a> tag), in the case of images the contents is supposed to
+     * fall into the attribute alt: <img alt="...">.
+     *
+     * In that context we naturally cannot output nested HTML tags. So lets
+     * suppress them and only output the plain text (i.e. what falls into text()
+     * callback).
+     *
+     * CommonMark specification declares this a recommended practice for HTML
+     * output.
+     */
+    if(type == MD_SPAN_IMG)
+        r->image_nesting_level++;
+    if(inside_img)
         return 0;
-    }
 
     switch(type) {
         case MD_SPAN_EM:                RENDER_VERBATIM(r, "<em>"); break;
@@ -476,20 +473,17 @@ leave_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
 {
     MD_HTML* r = (MD_HTML*) userdata;
 
-    if(r->image_nesting_level > 0) {
-        /* Ditto as in enter_span_callback(), except we have to allow the
-         * end of the <img> tag. */
-        if(r->image_nesting_level == 1  &&  type == MD_SPAN_IMG)
-            render_close_img_span(r, (MD_SPAN_IMG_DETAIL*) detail);
+    if(type == MD_SPAN_IMG)
+        r->image_nesting_level--;
+    if(r->image_nesting_level > 0)
         return 0;
-    }
 
     switch(type) {
         case MD_SPAN_EM:                RENDER_VERBATIM(r, "</em>"); break;
         case MD_SPAN_STRONG:            RENDER_VERBATIM(r, "</strong>"); break;
         case MD_SPAN_U:                 RENDER_VERBATIM(r, "</u>"); break;
         case MD_SPAN_A:                 RENDER_VERBATIM(r, "</a>"); break;
-        case MD_SPAN_IMG:               /*noop, handled above*/ break;
+        case MD_SPAN_IMG:               render_close_img_span(r, (MD_SPAN_IMG_DETAIL*) detail); break;
         case MD_SPAN_CODE:              RENDER_VERBATIM(r, "</code>"); break;
         case MD_SPAN_DEL:               RENDER_VERBATIM(r, "</del>"); break;
         case MD_SPAN_LATEXMATH:         /*fall through*/
