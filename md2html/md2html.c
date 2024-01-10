@@ -43,6 +43,7 @@ static unsigned parser_flags = 0;
 static int want_fullhtml = 0;
 static int want_xhtml = 0;
 static int want_stat = 0;
+static int want_replay_fuzz = 0;
 
 static const char* html_title = NULL;
 static const char* css_path = NULL;
@@ -115,13 +116,15 @@ process_output(const MD_CHAR* text, MD_SIZE size, void* userdata)
 }
 
 static int
-process_file(FILE* in, FILE* out)
+process_file(const char* in_path, FILE* in, FILE* out)
 {
     size_t n;
     struct membuffer buf_in = {0};
     struct membuffer buf_out = {0};
     int ret = -1;
     clock_t t0, t1;
+    unsigned p_flags = parser_flags;
+    unsigned r_flags = renderer_flags;
 
     membuf_init(&buf_in, 32 * 1024);
 
@@ -140,12 +143,31 @@ process_file(FILE* in, FILE* out)
      * deal with the HTML header/footer and tags. */
     membuf_init(&buf_out, (MD_SIZE)(buf_in.size + buf_in.size/8 + 64));
 
+    /* Special mode for reproduce test case found with fuzzing a tool.
+     * We assume file format as produced by test/fuzzers/fuzz-mdhtml.c. */
+    if(want_replay_fuzz) {
+        if(buf_in.size < 2 * sizeof(unsigned)) {
+            fprintf(stderr, "File %s isn't valid fuzz test case.\n", in_path);
+            ret = -1;
+            goto out;
+        }
+
+        /* Override parser and renderer flags with those form the test case. */
+        p_flags = ((unsigned*)buf_in.data)[0];
+        r_flags = ((unsigned*)buf_in.data)[1];
+
+        /* And get rid of them from the text input to the parser. */
+        memmove(buf_in.data, buf_in.data + 2 * sizeof(unsigned),
+                    buf_in.size - 2 * sizeof(unsigned));
+        buf_in.size -= 2 * sizeof(unsigned);
+    }
+
     /* Parse the document. This shall call our callbacks provided via the
      * md_renderer_t structure. */
     t0 = clock();
 
-    ret = md_html(buf_in.data, (MD_SIZE)buf_in.size, process_output, (void*) &buf_out,
-                    parser_flags, renderer_flags);
+    ret = md_html(buf_in.data, (MD_SIZE)buf_in.size, process_output,
+                (void*) &buf_out, p_flags, r_flags);
 
     t1 = clock();
     if(ret != 0) {
@@ -235,6 +257,9 @@ static const CMDLINE_OPTION cmdline_options[] = {
     {  0,  "fno-html-spans",                'G', 0 },
     {  0,  "fno-html",                      'H', 0 },
     {  0,  "fno-indented-code",             'I', 0 },
+
+    /* Undocumented option for replaying test cases from fuzzers. */
+    {  0,  "replay-fuzz",                   'r', 0 },
 
     {  0,  NULL,                             0,  0 }
 };
@@ -326,6 +351,7 @@ cmdline_callback(int opt, char const* value, void* data)
         case 'f':   want_fullhtml = 1; break;
         case 'x':   want_xhtml = 1; renderer_flags |= MD_HTML_FLAG_XHTML; break;
         case 's':   want_stat = 1; break;
+        case 'r':   want_replay_fuzz = 1; break;
         case 'h':   usage(); exit(0); break;
         case 'v':   version(); exit(0); break;
 
@@ -391,7 +417,7 @@ main(int argc, char** argv)
         }
     }
 
-    ret = process_file(in, out);
+    ret = process_file((input_path != NULL) ? input_path : "<stdin>", in, out);
     if(in != stdin)
         fclose(in);
     if(out != stdout)
