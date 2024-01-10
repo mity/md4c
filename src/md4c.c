@@ -192,7 +192,7 @@ struct MD_CTX_tag {
 #define TILDE_OPENERS_2                         (ctx->mark_chains[10])
 #define BRACKET_OPENERS                         (ctx->mark_chains[11])
 #define DOLLAR_OPENERS                          (ctx->mark_chains[12])
-#define OPENERS_CHAIN_FIRST                     1
+#define OPENERS_CHAIN_FIRST                     2  /* [0] and [1] are special. */
 #define OPENERS_CHAIN_LAST                      12
 
     int n_table_cell_boundaries;

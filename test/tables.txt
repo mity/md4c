@@ -355,3 +355,25 @@ A | B
 </thead>
 </table>
 ````````````````````````````````
+
+
+### [Issue 212](https://github.com/mity/md4c/issues/212)
+
+```````````````````````````````` example
+x
+|-
+|[*x*]()
+.
+<table>
+<thead>
+<tr>
+<th>x</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href=""><em>x</em></a></td>
+</tr>
+</tbody>
+</table>
+````````````````````````````````
