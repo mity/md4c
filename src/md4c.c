@@ -2519,7 +2519,6 @@ md_mark_chain(MD_CTX* ctx, int mark_index)
         case _T('~'):   return (mark->end - mark->beg == 1) ? &TILDE_OPENERS_1 : &TILDE_OPENERS_2;
         case _T('!'):
         case _T('['):   return &BRACKET_OPENERS;
-        case _T('|'):   return &TABLECELLBOUNDARIES;
         default:        return NULL;
     }
 }
@@ -4070,12 +4069,8 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mod
     ctx->unresolved_link_tail = -1;
 
     if(table_mode) {
-        /* (2) Analyze table cell boundaries.
-         * Note we reset TABLECELLBOUNDARIES chain prior to the call md_analyze_marks(),
-         * not after, because caller may need it. */
+        /* (2) Analyze table cell boundaries. */
         MD_ASSERT(n_lines == 1);
-        TABLECELLBOUNDARIES.head = -1;
-        TABLECELLBOUNDARIES.tail = -1;
         ctx->n_table_cell_boundaries = 0;
         md_analyze_marks(ctx, lines, n_lines, 0, ctx->n_marks, _T("|"));
         return ret;
@@ -4553,6 +4548,9 @@ abort:
         free(md_mark_get_ptr(ctx, i));
     PTR_CHAIN.head = -1;
     PTR_CHAIN.tail = -1;
+
+    TABLECELLBOUNDARIES.head = -1;
+    TABLECELLBOUNDARIES.tail = -1;
 
     return ret;
 }
