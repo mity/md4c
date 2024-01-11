@@ -5541,7 +5541,7 @@ md_is_html_block_end_condition(MD_CTX* ctx, OFF beg, OFF* p_end)
             if(beg >= ctx->size  ||  ISNEWLINE(beg)) {
                 /* Blank line ends types 6 and 7. */
                 *p_end = beg;
-                return TRUE;
+                return ctx->html_block_type;
             }
             return FALSE;
 
