@@ -5069,7 +5069,7 @@ md_end_current_block(MD_CTX* ctx)
        (ctx->current_block->type == MD_BLOCK_H  &&  (ctx->current_block->flags & MD_BLOCK_SETEXT_HEADER)))
     {
         MD_LINE* lines = (MD_LINE*) (ctx->current_block + 1);
-        if(CH(lines[0].beg) == _T('[')) {
+        if(lines[0].beg < ctx->size  &&  CH(lines[0].beg) == _T('[')) {
             MD_CHECK(md_consume_link_reference_definitions(ctx));
             if(ctx->current_block == NULL)
                 return ret;
