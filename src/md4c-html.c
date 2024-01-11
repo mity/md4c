@@ -231,7 +231,7 @@ render_entity(MD_HTML* r, const MD_CHAR* text, MD_SIZE size,
         return;
     } else {
         /* Named entity (e.g. "&nbsp;"). */
-        const struct entity* ent;
+        const ENTITY* ent;
 
         ent = entity_lookup(text, size);
         if(ent != NULL) {

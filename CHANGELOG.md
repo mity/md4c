@@ -26,6 +26,9 @@ Changes:
 
  * Make Unicode-specific code compliant to Unicode 15.1.
 
+ * Update list of entities known to the HTML renderer from
+   https://html.spec.whatwg.org/entities.json.
+
 New Features:
 
  * Add extension allowing to treat all soft break as hard ones. It has to be
