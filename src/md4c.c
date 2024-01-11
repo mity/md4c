@@ -5438,7 +5438,7 @@ static const TAG m6[] = { X("main"), X("menu"), X("menuitem"), Xend };
 static const TAG n6[] = { X("nav"), X("noframes"), Xend };
 static const TAG o6[] = { X("ol"), X("optgroup"), X("option"), Xend };
 static const TAG p6[] = { X("p"), X("param"), Xend };
-static const TAG s6[] = { X("section"), X("source"), X("summary"), Xend };
+static const TAG s6[] = { X("search"), X("section"), X("summary"), Xend };
 static const TAG t6[] = { X("table"), X("tbody"), X("td"), X("tfoot"), X("th"),
                           X("thead"), X("title"), X("tr"), X("track"), Xend };
 static const TAG u6[] = { X("ul"), Xend };
