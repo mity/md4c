@@ -1,5 +1,9 @@
 name: Fuzz Test
-on: [pull_request]
+on:
+  pull_request:
+    paths:
+      - '**.c'
+      - '**.h'
 jobs:
   Fuzzing:
     runs-on: ubuntu-latest
@@ -11,11 +15,13 @@ jobs:
       uses: google/oss-fuzz/infra/cifuzz/actions/build_fuzzers@master
       with:
         oss-fuzz-project-name: 'md4c'
+        language: c
     - name: Run Fuzzers
       uses: google/oss-fuzz/infra/cifuzz/actions/run_fuzzers@master
       with:
         oss-fuzz-project-name: 'md4c'
         fuzz-seconds: 600
+        output-sarif: true
     - name: Upload Crash
       uses: actions/upload-artifact@v3
       if: failure() && steps.build.outcome == 'success'
@@ -23,8 +29,7 @@ jobs:
         name: artifacts
         path: ./out/artifacts   
     - name: Upload Sarif
-      if: false   # Disable: This step seems not to work.
-      #if: always() && steps.build.outcome == 'success'
+      if: always() && steps.build.outcome == 'success'
       uses: github/codeql-action/upload-sarif@v2
       with:
         # Path to SARIF file relative to the root of the repository
