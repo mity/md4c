@@ -5538,8 +5538,12 @@ md_is_html_block_end_condition(MD_CTX* ctx, OFF beg, OFF* p_end)
 
         case 6:     /* Pass through */
         case 7:
-            *p_end = beg;
-            return (ISNEWLINE(beg) ? ctx->html_block_type : FALSE);
+            if(beg >= ctx->size  ||  ISNEWLINE(beg)) {
+                /* Blank line ends types 6 and 7. */
+                *p_end = beg;
+                return TRUE;
+            }
+            return FALSE;
 
         default:
             MD_UNREACHABLE();
