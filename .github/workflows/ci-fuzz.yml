@@ -24,7 +24,7 @@ jobs:
         path: ./out/artifacts   
     - name: Upload Sarif
       if: false   # Disable: This step seems not to work.
-      if: always() && steps.build.outcome == 'success'
+      #if: always() && steps.build.outcome == 'success'
       uses: github/codeql-action/upload-sarif@v2
       with:
         # Path to SARIF file relative to the root of the repository
