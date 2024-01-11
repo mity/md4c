@@ -24,6 +24,24 @@ Changes:
    0.30 notes](https://github.com/commonmark/commonmark-spec/releases/tag/0.30)
    for more info.
 
+ * Make Unicode-specific code compliant to Unicode 15.1.
+
+New Features:
+
+ * Add extension allowing to treat all soft break as hard ones. It has to be
+   explicitly enabled with `MD_FLAG_HARD_SOFT_BREAKS`.
+
+   Contributed by [l-m](https://github.com/l1mey112).
+
+ * Structure `MD_SPAN_A_DETAIL` now has a new member `is_autolink`.
+
+   Contributed by [Jens Alfke](https://github.com/snej).
+
+ * `md2html` utility now supports command line options `--html-title` and
+   `--html-css`.
+
+   Contributed by [Andreas Baumann](https://github.com/andreasbaumann).
+
 Fixes:
 
  * [#163](https://github.com/mity/md4c/issues/163):
@@ -50,9 +68,29 @@ Fixes:
    definition even if the potential label contains nested brackets.
 
  * [#173](https://github.com/mity/md4c/issues/173),
-   [#174](https://github.com/mity/md4c/issues/174):
+   [#174](https://github.com/mity/md4c/issues/174),
+   [#212](https://github.com/mity/md4c/issues/212),
+   [#213](https://github.com/mity/md4c/issues/213):
    Multiple bugs identified with [OSS-Fuzz](https://github.com/google/oss-fuzz)
    were fixed.
+
+ * [#190](https://github.com/mity/md4c/issues/190),
+   [#200](https://github.com/mity/md4c/issues/200),
+   [#200](https://github.com/mity/md4c/issues/201):
+   Multiple fixes of incorrect interactions of indented code block with a
+   preceding block.
+
+ * [#202](https://github.com/mity/md4c/issues/202):
+   We were not correctly calling `enter_block()` and `leave_block()` callbacks
+   if multiple HTML blocks followed one after another; instead previously
+   such blocks were merged into one.
+
+   (This may likely impact only applications interested in Markdown's AST,
+   and not just converting Markdown to other formats like HTML.)
+
+ * [#210](https://github.com/mity/md4c/issues/210):
+   The `md2html` utility now handles nested images with optional titles
+   correctly.
 
 
 ## Version 0.4.8
@@ -64,7 +102,7 @@ Fixes:
    the block) could eat 1 line of actual contents.
 
  * [#150](https://github.com/mity/md4c/issues/150):
-   Fix md2html utility to output proper DOCTYPE and HTML tags when `--full-html`
+   Fix `md2html` to output proper DOCTYPE and HTML tags when `--full-html`
    command line options is used, accordingly to the expected output format
    (HTML or XHTML).
 
