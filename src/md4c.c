@@ -1229,8 +1229,6 @@ md_is_html_declaration(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, 
     off++;
     while(off < lines[0].end  &&  ISALPHA(off))
         off++;
-    if(off < lines[0].end  &&  !ISWHITESPACE(off))
-        return FALSE;
 
     return md_scan_for_html_closer(ctx, _T(">"), 1,
                 lines, n_lines, off, max_end, p_end, &ctx->html_decl_horizon);

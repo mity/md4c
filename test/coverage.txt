@@ -411,6 +411,15 @@ title
 ````````````````````````````````
 
 
+### [Issue 216](https://github.com/mity/md4c/issues/216)
+
+```````````````````````````````` example
+x <!A>
+.
+<p>x <!A></p>
+````````````````````````````````
+
+
 ## Code coverage
 
 ### `md_is_unicode_whitespace__()`

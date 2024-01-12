@@ -15,7 +15,7 @@ Changes:
 
    - HTML declaration (HTML block type 4) is not required to begin with an
      upper-case ASCII character after the `<!`. Any ASCII character is now
-     allowed.
+     allowed. Also it now doesn't require a whitespace before the closing `>`.
 
    Other than that, the newest specification mainly improves test coverage and
    clarifies its wording in some cases, without affecting the implementation.
