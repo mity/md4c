@@ -95,6 +95,9 @@ Fixes:
    The `md2html` utility now handles nested images with optional titles
    correctly.
 
+ * [#214](https://github.com/mity/md4c/issues/214):
+   Tags `<h2>` ... `<h6>` incorrectly did not trigger HTML block.
+
 
 ## Version 0.4.8
 

@@ -5369,7 +5369,8 @@ static const TAG d6[] = { X("dd"), X("details"), X("dialog"), X("dir"),
                           X("div"), X("dl"), X("dt"), Xend };
 static const TAG f6[] = { X("fieldset"), X("figcaption"), X("figure"), X("footer"),
                           X("form"), X("frame"), X("frameset"), Xend };
-static const TAG h6[] = { X("h1"), X("head"), X("header"), X("hr"), X("html"), Xend };
+static const TAG h6[] = { X("h1"), X("h2"), X("h3"), X("h4"), X("h5"), X("h6"),
+                          X("head"), X("header"), X("hr"), X("html"), Xend };
 static const TAG i6[] = { X("iframe"), Xend };
 static const TAG l6[] = { X("legend"), X("li"), X("link"), Xend };
 static const TAG m6[] = { X("main"), X("menu"), X("menuitem"), Xend };
