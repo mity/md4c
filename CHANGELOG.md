@@ -98,6 +98,10 @@ Fixes:
  * [#214](https://github.com/mity/md4c/issues/214):
    Tags `<h2>` ... `<h6>` incorrectly did not trigger HTML block.
 
+ * [#215](https://github.com/mity/md4c/issues/215):
+   The parser incorrectly did not accept optional tabs after setext header
+   underline.
+
 
 ## Version 0.4.8
 

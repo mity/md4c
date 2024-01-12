@@ -401,6 +401,16 @@ _bar_
 ````````````````````````````````
 
 
+### [Issue 215](https://github.com/mity/md4c/issues/215)
+
+```````````````````````````````` example
+title
+--→
+.
+<h2>title</h2>
+````````````````````````````````
+
+
 ## Code coverage
 
 ### `md_is_unicode_whitespace__()`
