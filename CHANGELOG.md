@@ -102,6 +102,10 @@ Fixes:
    The parser incorrectly did not accept optional tabs after setext header
    underline.
 
+ * [#217](https://github.com/mity/md4c/issues/217):
+   The parser incorrectly resolved emphasis in some situations, if the emphasis
+   marks were enclosed by punctuation characters.
+
 
 ## Version 0.4.8
 
