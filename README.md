@@ -277,6 +277,12 @@ Ports and bindings to other languages:
 
 Software using MD4C:
 
+* [imgui_md](https://github.com/mekhontsev/imgui_md):
+  Markdown renderer for [Dear ImGui](https://github.com/ocornut/imgui)
+
+* [MarkDown Monolith Assembler](https://github.com/1Hyena/mdma):
+  A command line tool for building browser-based books.
+
 * [QOwnNotes](https://www.qownnotes.org/):
   A plain-text file notepad and todo-list manager with markdown support and
   ownCloud / Nextcloud integration.
@@ -289,6 +295,3 @@ Software using MD4C:
 
 * [8th](https://8th-dev.com/):
   Cross-platform concatenative programming language.
-
-* [MarkDown Monolith Assembler](https://github.com/1Hyena/mdma):
-  A command line tool for building browser-based books.
