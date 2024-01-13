@@ -79,7 +79,7 @@ Fixes:
 
  * [#190](https://github.com/mity/md4c/issues/190),
    [#200](https://github.com/mity/md4c/issues/200),
-   [#200](https://github.com/mity/md4c/issues/201):
+   [#201](https://github.com/mity/md4c/issues/201):
    Multiple fixes of incorrect interactions of indented code block with a
    preceding block.
 
