@@ -2647,26 +2647,20 @@ md_resolve_range(MD_CTX* ctx, MD_MARKCHAIN* chain, int opener_index, int closer_
 }
 
 
-#define MD_ROLLBACK_ALL         0
-#define MD_ROLLBACK_CROSSING    1
-
-/* In the range ctx->marks[opener_index] ... [closer_index], undo some or all
- * resolvings accordingly to these rules:
+/* Inside the range ctx->marks[opener_index] ... [closer_index], undo some
+ * previous resolving accordingly to these rules:
  *
  * (1) All openers BEFORE the range corresponding to any closer inside the
  *     range are un-resolved and they are re-added to their respective chains
  *     of unresolved openers. This ensures we can reuse the opener for closers
  *     AFTER the range.
  *
- * (2) If 'how' is MD_ROLLBACK_ALL, then ALL resolved marks inside the range
- *     are discarded.
- *
- * (3) If 'how' is MD_ROLLBACK_CROSSING, only closers with openers handled
- *     in (1) are discarded. I.e. pairs of openers and closers which are both
- *     inside the range are retained as well as any unpaired marks.
+ * (2) Closers with openers handled in (1) are discarded. I.e. pairs of openers
+ *     and closers which are both inside the range are retained as well as any
+ *     unpaired marks.
  */
 static void
-md_rollback(MD_CTX* ctx, int opener_index, int closer_index, int how)
+md_rollback(MD_CTX* ctx, int opener_index, int closer_index)
 {
     int i;
     int mark_index;
@@ -2685,12 +2679,11 @@ md_rollback(MD_CTX* ctx, int opener_index, int closer_index, int how)
     }
 
     /* Go backwards so that unresolved openers are re-added into their
-     * respective chains, in the right order. */
+     * respective chains in the right order. */
     mark_index = closer_index - 1;
     while(mark_index > opener_index) {
         MD_MARK* mark = &ctx->marks[mark_index];
         int mark_flags = mark->flags;
-        int discard_flag = (how == MD_ROLLBACK_ALL);
 
         if(mark->flags & MD_MARK_CLOSER) {
             int mark_opener_index = mark->prev;
@@ -2702,36 +2695,19 @@ md_rollback(MD_CTX* ctx, int opener_index, int closer_index, int how)
 
                 mark_opener->flags &= ~(MD_MARK_OPENER | MD_MARK_CLOSER | MD_MARK_RESOLVED);
                 chain = md_mark_chain(ctx, opener_index);
-                if(chain != NULL) {
+                if(chain != NULL)
                     md_mark_chain_append(ctx, chain, mark_opener_index);
-                    discard_flag = 1;
-                }
             }
         }
 
-        /* And reset our flags. */
-        if(discard_flag) {
-            /* Make zero-length closer a dummy mark as that's how it was born */
-            if((mark->flags & MD_MARK_CLOSER)  &&  mark->beg == mark->end)
-                mark->ch = 'D';
-
-            mark->flags &= ~(MD_MARK_OPENER | MD_MARK_CLOSER | MD_MARK_RESOLVED);
-        }
-
         /* Jump as far as we can over unresolved or non-interesting marks. */
-        switch(how) {
-            case MD_ROLLBACK_CROSSING:
-                if((mark_flags & MD_MARK_CLOSER)  &&  mark->prev > opener_index) {
-                    /* If we are closer with opener INSIDE the range, there may
-                     * not be any other crosser inside the subrange. */
-                    mark_index = mark->prev;
-                    break;
-                }
-                MD_FALLTHROUGH();
-            default:
-                mark_index--;
-                break;
+        if((mark_flags & MD_MARK_CLOSER)  &&  mark->prev > opener_index) {
+            /* If we are closer with opener INSIDE the range, there may
+             * not be any other crosser inside the subrange. */
+            mark_index = mark->prev;
+            break;
         }
+        mark_index--;
     }
 }
 
@@ -3500,7 +3476,8 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 
             /* We don't allow destination to be longer than 100 characters.
              * Lets scan to see whether there is '|'. (If not then the whole
-             * wiki-link has to be below the 100 characters.) */
+             * wiki-link has to be below the 100 characters.)
+             */
             delim_index = opener_index + 1;
             while(delim_index < closer_index) {
                 MD_MARK* m = &ctx->marks[delim_index];
@@ -3536,13 +3513,10 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             if(is_link) {
                 if(delim != NULL) {
                     if(delim->end < closer->beg) {
-                        md_rollback(ctx, opener_index, delim_index, MD_ROLLBACK_ALL);
-                        md_rollback(ctx, delim_index, closer_index, MD_ROLLBACK_CROSSING);
                         delim->flags |= MD_MARK_RESOLVED;
                         opener->end = delim->beg;
                     } else {
                         /* The pipe is just before the closer: [[foo|]] */
-                        md_rollback(ctx, opener_index, closer_index, MD_ROLLBACK_ALL);
                         closer->beg = delim->beg;
                         delim = NULL;
                     }
@@ -3815,7 +3789,7 @@ md_analyze_emph(MD_CTX* ctx, int mark_index)
                 md_split_emph_mark(ctx, mark_index, closer_size - opener_size);
             }
 
-            md_rollback(ctx, opener_index, mark_index, MD_ROLLBACK_CROSSING);
+            md_rollback(ctx, opener_index, mark_index);
             md_resolve_range(ctx, opener_chain, opener_index, mark_index);
             return;
         }
@@ -3839,7 +3813,7 @@ md_analyze_tilde(MD_CTX* ctx, int mark_index)
     if((mark->flags & MD_MARK_POTENTIAL_CLOSER)  &&  chain->tail >= 0) {
         int opener_index = chain->tail;
 
-        md_rollback(ctx, opener_index, mark_index, MD_ROLLBACK_CROSSING);
+        md_rollback(ctx, opener_index, mark_index);
         md_resolve_range(ctx, chain, opener_index, mark_index);
         return;
     }
@@ -3866,7 +3840,7 @@ md_analyze_dollar(MD_CTX* ctx, int mark_index)
 
         if (open->end - open->beg == close->end - close->beg) {
             /* We are the matching closer */
-            md_rollback(ctx, opener_index, mark_index, MD_ROLLBACK_ALL);
+            md_rollback(ctx, opener_index, mark_index);
             md_resolve_range(ctx, &DOLLAR_OPENERS, opener_index, mark_index);
             return;
         }
