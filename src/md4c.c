@@ -67,6 +67,9 @@
 #define STRINGIZE_(x)       #x
 #define STRINGIZE(x)        STRINGIZE_(x)
 
+#define MAX(a,b)            ((a) > (b) ? (a) : (b))
+#define MIN(a,b)            ((a) < (b) ? (a) : (b))
+
 #ifndef TRUE
     #define TRUE            1
     #define FALSE           0
@@ -5925,9 +5928,9 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
              * was a 2nd blank line at the beginning of the list item) and if
              * we would otherwise still belong to the list item, we enforce
              * the end of the list. */
-            ctx->last_line_has_list_loosening_effect = FALSE;
             if(ctx->last_list_item_starts_with_two_blank_lines) {
-                if(n_parents > 0  &&  ctx->containers[n_parents-1].ch != _T('>')  &&
+                if(n_parents > 0  &&  n_parents == ctx->n_containers  &&
+                   ctx->containers[n_parents-1].ch != _T('>')  &&
                    n_brothers + n_children == 0  &&  ctx->current_block == NULL  &&
                    ctx->n_block_bytes > (int) sizeof(MD_BLOCK))
                 {
@@ -5937,13 +5940,14 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
 
                         line->indent = total_indent;
                         if(n_parents > 0)
-                            line->indent -= ctx->containers[n_parents-1].contents_indent;
+                            line->indent -= MIN(line->indent, ctx->containers[n_parents-1].contents_indent);
                     }
                 }
 
                 ctx->last_list_item_starts_with_two_blank_lines = FALSE;
             }
     #endif
+            ctx->last_line_has_list_loosening_effect = FALSE;
         }
 
         /* Check whether we are Setext underline. */
