@@ -28,56 +28,56 @@ fi
 
 echo
 echo "CommonMark specification:"
-$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/spec.txt" -p "$PROGRAM"
+$PYTHON "$TEST_DIR/run-testsuite.py" -s "$TEST_DIR/spec.txt" -p "$PROGRAM"
 
 echo
 echo "Permissive e-mail autolinks extension:"
-$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/permissive-email-autolinks.txt" -p "$PROGRAM"
+$PYTHON "$TEST_DIR/run-testsuite.py" -s "$TEST_DIR/spec-permissive-email-autolinks.txt" -p "$PROGRAM"
 
 echo
 echo "Permissive URL autolinks extension:"
-$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/permissive-url-autolinks.txt" -p "$PROGRAM"
+$PYTHON "$TEST_DIR/run-testsuite.py" -s "$TEST_DIR/spec-permissive-url-autolinks.txt" -p "$PROGRAM"
 
 echo
 echo "WWW autolinks extension:"
-$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/permissive-www-autolinks.txt" -p "$PROGRAM"
+$PYTHON "$TEST_DIR/run-testsuite.py" -s "$TEST_DIR/spec-permissive-www-autolinks.txt" -p "$PROGRAM"
 
 echo
 echo "Hard soft breaks extension:"
-$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/hard-soft-breaks.txt" -p "$PROGRAM"
+$PYTHON "$TEST_DIR/run-testsuite.py" -s "$TEST_DIR/spec-hard-soft-breaks.txt" -p "$PROGRAM"
 
 echo
 echo "Tables extension:"
-$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/tables.txt" -p "$PROGRAM"
+$PYTHON "$TEST_DIR/run-testsuite.py" -s "$TEST_DIR/spec-tables.txt" -p "$PROGRAM"
 
 echo
 echo "Strikethrough extension:"
-$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/strikethrough.txt" -p "$PROGRAM"
+$PYTHON "$TEST_DIR/run-testsuite.py" -s "$TEST_DIR/spec-strikethrough.txt" -p "$PROGRAM"
 
 echo
 echo "Task lists extension:"
-$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/tasklists.txt" -p "$PROGRAM"
+$PYTHON "$TEST_DIR/run-testsuite.py" -s "$TEST_DIR/spec-tasklists.txt" -p "$PROGRAM"
 
 echo
 echo "LaTeX extension:"
-$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/latex-math.txt" -p "$PROGRAM"
+$PYTHON "$TEST_DIR/run-testsuite.py" -s "$TEST_DIR/spec-latex-math.txt" -p "$PROGRAM"
 
 echo
 echo "Wiki links extension:"
-$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/wiki-links.txt" -p "$PROGRAM"
+$PYTHON "$TEST_DIR/run-testsuite.py" -s "$TEST_DIR/spec-wiki-links.txt" -p "$PROGRAM"
 
 echo
 echo "Underline extension:"
-$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/underline.txt" -p "$PROGRAM"
+$PYTHON "$TEST_DIR/run-testsuite.py" -s "$TEST_DIR/spec-underline.txt" -p "$PROGRAM"
 
 echo
 echo "Code coverage:"
-$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/coverage.txt" -p "$PROGRAM"
+$PYTHON "$TEST_DIR/run-testsuite.py" -s "$TEST_DIR/coverage.txt" -p "$PROGRAM"
 
 echo
 echo "Regressions:"
-$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/regressions.txt" -p "$PROGRAM"
+$PYTHON "$TEST_DIR/run-testsuite.py" -s "$TEST_DIR/regressions.txt" -p "$PROGRAM"
 
 echo
 echo "Pathological inputs:"
-$PYTHON "$TEST_DIR/pathological_tests.py" -p "$PROGRAM"
+$PYTHON "$TEST_DIR/pathological-tests.py" -p "$PROGRAM"
