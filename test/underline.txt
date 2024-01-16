@@ -9,6 +9,8 @@ emphasis).
 _foo_
 .
 <p><u>foo</u></p>
+.
+--funderline
 ````````````````````````````````
 
 In sequences of multiple underscores, each single one translates into an
@@ -18,6 +20,8 @@ underline span mark.
 ___foo___
 .
 <p><u><u><u>foo</u></u></u></p>
+.
+--funderline
 ````````````````````````````````
 
 Intra-word underscores are not recognized as underline marks:
@@ -26,6 +30,8 @@ Intra-word underscores are not recognized as underline marks:
 foo_bar_baz
 .
 <p>foo_bar_baz</p>
+.
+--funderline
 ````````````````````````````````
 
 Also the parser follows the standard understanding when the underscore can
@@ -36,4 +42,6 @@ example because no underline can be seen as a closing mark.
 _foo _bar
 .
 <p>_foo _bar</p>
+.
+--funderline
 ````````````````````````````````

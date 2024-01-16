@@ -24,6 +24,8 @@ counting the header) is as follows:
 <tr><td>quux</td><td>quuz</td></tr>
 </tbody>
 </table>
+.
+--ftables
 ````````````````````````````````
 
 The leading and succeeding pipe characters (`|`) on each line are optional:
@@ -45,6 +47,8 @@ quux     | quuz     |
 <tr><td>quux</td><td>quuz</td></tr>
 </tbody>
 </table>
+.
+--ftables
 ````````````````````````````````
 
 ```````````````````````````````` example
@@ -64,6 +68,8 @@ quux     | quuz     |
 <tr><td>quux</td><td>quuz</td></tr>
 </tbody>
 </table>
+.
+--ftables
 ````````````````````````````````
 
 ```````````````````````````````` example
@@ -83,6 +89,8 @@ quux     | quuz
 <tr><td>quux</td><td>quuz</td></tr>
 </tbody>
 </table>
+.
+--ftables
 ````````````````````````````````
 
 However for one-column table, at least one pipe has to be used in the table
@@ -100,6 +108,8 @@ quux
 <p>foo
 baz
 quux</p>
+.
+--ftables
 ````````````````````````````````
 
 Leading and trailing whitespace in a table cell is ignored and the columns do
@@ -122,6 +132,8 @@ quux|quuz
 <tr><td>quux</td><td>quuz</td></tr>
 </tbody>
 </table>
+.
+--ftables
 ````````````````````````````````
 
 The table cannot interrupt a paragraph.
@@ -163,6 +175,8 @@ Lorem ipsum dolor sit amet.
 <tr><td>Lorem ipsum dolor sit amet.</td><td></td></tr>
 </tbody>
 </table>
+.
+--ftables
 ````````````````````````````````
 
 The first, the last or both the first and the last dash in each column
@@ -182,6 +196,8 @@ alignment of the respective column:
 <tr><td>default</td><td align="left">left</td><td align="center">center</td><td align="right">right</td></tr>
 </tbody>
 </table>
+.
+--ftables
 ````````````````````````````````
 
 To include a literal pipe character in any cell, it has to be escaped.
@@ -203,6 +219,8 @@ quux     | quuz
 <tr><td>quux</td><td>quuz</td></tr>
 </tbody>
 </table>
+.
+--ftables
 ````````````````````````````````
 
 Contents of each cell is parsed as an inline text which may contents any
@@ -227,6 +245,8 @@ quux     | [quuz](/url2)
 <tr><td>quux</td><td><a href="/url2">quuz</a></td></tr>
 </tbody>
 </table>
+.
+--ftables
 ````````````````````````````````
 
 However pipes which are inside a code span are not recognized as cell
@@ -249,6 +269,8 @@ quux     | quuz
 <tr><td>quux</td><td>quuz</td></tr>
 </tbody>
 </table>
+.
+--ftables
 ````````````````````````````````
 
 
@@ -263,6 +285,8 @@ quux     | quuz
 <li>x|x
 ---|---</li>
 </ul>
+.
+--ftables
 ````````````````````````````````
 (Not a table, because the underline has wrong indentation and is not part of the
 list item.)
@@ -284,6 +308,8 @@ x|x
 </li>
 </ul>
 <p>x|x</p>
+.
+--ftables
 ````````````````````````````````
 (Here the underline has the right indentation so the table is detected.
 But the last line is not part of it due its indentation.)
@@ -313,6 +339,8 @@ But the last line is not part of it due its indentation.)
 </tr>
 </tbody>
 </table>
+.
+--ftables
 ````````````````````````````````
 
 
@@ -337,6 +365,8 @@ A | B
 </tr>
 </tbody>
 </table>
+.
+--ftables
 ````````````````````````````````
 
 
@@ -354,6 +384,8 @@ A | B
 </tr>
 </thead>
 </table>
+.
+--ftables
 ````````````````````````````````
 
 
@@ -376,4 +408,6 @@ x
 </tr>
 </tbody>
 </table>
+.
+--ftables
 ````````````````````````````````

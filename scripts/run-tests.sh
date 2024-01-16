@@ -36,43 +36,43 @@ $PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/coverage.txt" -p "$PROGRAM"
 
 echo
 echo "Permissive e-mail autolinks extension:"
-$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/permissive-email-autolinks.txt" -p "$PROGRAM --fpermissive-email-autolinks"
+$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/permissive-email-autolinks.txt" -p "$PROGRAM"
 
 echo
 echo "Permissive URL autolinks extension:"
-$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/permissive-url-autolinks.txt" -p "$PROGRAM --fpermissive-url-autolinks"
+$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/permissive-url-autolinks.txt" -p "$PROGRAM"
 
 echo
 echo "WWW autolinks extension:"
-$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/permissive-www-autolinks.txt" -p "$PROGRAM --fpermissive-www-autolinks"
+$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/permissive-www-autolinks.txt" -p "$PROGRAM"
 
 echo
 echo "Hard soft breaks extension:"
-$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/hard-soft-breaks.txt" -p "$PROGRAM --fhard-soft-breaks"
+$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/hard-soft-breaks.txt" -p "$PROGRAM"
 
 echo
 echo "Tables extension:"
-$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/tables.txt" -p "$PROGRAM --ftables"
+$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/tables.txt" -p "$PROGRAM"
 
 echo
 echo "Strikethrough extension:"
-$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/strikethrough.txt" -p "$PROGRAM --fstrikethrough"
+$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/strikethrough.txt" -p "$PROGRAM"
 
 echo
 echo "Task lists extension:"
-$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/tasklists.txt" -p "$PROGRAM --ftasklists"
+$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/tasklists.txt" -p "$PROGRAM"
 
 echo
 echo "LaTeX extension:"
-$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/latex-math.txt" -p "$PROGRAM --flatex-math"
+$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/latex-math.txt" -p "$PROGRAM"
 
 echo
 echo "Wiki links extension:"
-$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/wiki-links.txt" -p "$PROGRAM --fwiki-links --ftables"
+$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/wiki-links.txt" -p "$PROGRAM"
 
 echo
 echo "Underline extension:"
-$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/underline.txt" -p "$PROGRAM --funderline"
+$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/underline.txt" -p "$PROGRAM"
 
 echo
 echo "Pathological input:"

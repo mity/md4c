@@ -16,6 +16,8 @@ Basic task list may look as follows:
 <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled checked>bar</li>
 <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled>baz</li>
 </ul>
+.
+--ftasklists
 ````````````````````````````````
 
 Task lists can also be in ordered lists:
@@ -30,6 +32,8 @@ Task lists can also be in ordered lists:
 <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled checked>bar</li>
 <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled>baz</li>
 </ol>
+.
+--ftasklists
 ````````````````````````````````
 
 Task lists can also be nested in ordinary lists:
@@ -58,6 +62,8 @@ Task lists can also be nested in ordinary lists:
 <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled>quuz</li>
 </ul></li>
 </ul>
+.
+--ftasklists
 ````````````````````````````````
 
 Or in a parent task list:
@@ -86,6 +92,8 @@ Or in a parent task list:
 <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled>quuz</li>
 </ul></li>
 </ol>
+.
+--ftasklists
 ````````````````````````````````
 
 Also, ordinary lists can be nested in the task lists.
@@ -114,4 +122,6 @@ Also, ordinary lists can be nested in the task lists.
 <li>quuz</li>
 </ul></li>
 </ul>
+.
+--ftasklists
 ````````````````````````````````

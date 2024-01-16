@@ -11,6 +11,8 @@ This is a standard CommonMark autolink:
 Homepage: <https://github.com/mity/md4c>
 .
 <p>Homepage: <a href="https://github.com/mity/md4c">https://github.com/mity/md4c</a></p>
+.
+--fpermissive-url-autolinks
 ````````````````````````````````
 
 With the permissive autolinks enabled, this is sufficient:
@@ -19,6 +21,8 @@ With the permissive autolinks enabled, this is sufficient:
 Homepage: https://github.com/mity/md4c
 .
 <p>Homepage: <a href="https://github.com/mity/md4c">https://github.com/mity/md4c</a></p>
+.
+--fpermissive-url-autolinks
 ````````````````````````````````
 
 But this permissive autolink feature can work only for very widely used URL
@@ -30,6 +34,8 @@ That's why this is not a permissive autolink:
 ssh://root@example.com
 .
 <p>ssh://root@example.com</p>
+.
+--fpermissive-url-autolinks
 ````````````````````````````````
 
 The same rules for path validation as for permissivve WWW autolinks apply.
@@ -39,6 +45,8 @@ Therefore the final question mark here is not part of the autolink:
 Have you ever visited http://www.zombo.com?
 .
 <p>Have you ever visited <a href="http://www.zombo.com">http://www.zombo.com</a>?</p>
+.
+--fpermissive-url-autolinks
 ````````````````````````````````
 
 But in contrast, in this example it is:
@@ -47,6 +55,8 @@ But in contrast, in this example it is:
 http://www.bing.com/search?q=md4c
 .
 <p><a href="http://www.bing.com/search?q=md4c">http://www.bing.com/search?q=md4c</a></p>
+.
+--fpermissive-url-autolinks
 ````````````````````````````````
 
 And finally one complex example:
@@ -61,6 +71,8 @@ Anonymous FTP is available at ftp://foo.bar.baz.
 <p><a href="http://commonmark.org">http://commonmark.org</a></p>
 <p>(Visit <a href="https://encrypted.google.com/search?q=Markup+(business)">https://encrypted.google.com/search?q=Markup+(business)</a>)</p>
 <p>Anonymous FTP is available at <a href="ftp://foo.bar.baz">ftp://foo.bar.baz</a>.</p>
+.
+--fpermissive-url-autolinks
 ````````````````````````````````
 
 
@@ -72,12 +84,16 @@ Anonymous FTP is available at ftp://foo.bar.baz.
 This is [link](http://github.com/).
 .
 <p>This is <a href="http://github.com/">link</a>.</p>
+.
+--fpermissive-url-autolinks
 ````````````````````````````````
 
 ```````````````````````````````` example
 This is [link](http://github.com/)X
 .
 <p>This is <a href="http://github.com/">link</a>X</p>
+.
+--fpermissive-url-autolinks
 ````````````````````````````````
 
 
@@ -87,6 +103,8 @@ This is [link](http://github.com/)X
 *(http://example.com)*
 .
 <p><em>(<a href="http://example.com">http://example.com</a>)</em></p>
+.
+--fpermissive-url-autolinks
 ````````````````````````````````
 
 
@@ -96,4 +114,6 @@ This is [link](http://github.com/)X
 [http://example.com](http://example.com)
 .
 <p><a href="http://example.com">http://example.com</a></p>
+.
+--fpermissive-url-autolinks
 ````````````````````````````````
