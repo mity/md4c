@@ -5,18 +5,14 @@ import re
 import argparse
 import sys
 import platform
-from cmark import CMark
+from prog import Prog
 from timeit import default_timer as timer
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Run cmark tests.')
+    parser = argparse.ArgumentParser(description='Run Markdown tests.')
     parser.add_argument('-p', '--program', dest='program', nargs='?', default=None,
             help='program to test')
-    parser.add_argument('--library-dir', dest='library_dir', nargs='?',
-            default=None, help='directory containing dynamic library')
     args = parser.parse_args(sys.argv[1:])
-
-cmark = CMark(prog=args.program, library_dir=args.library_dir)
 
 # list of pairs consisting of input and a regex that must match the output.
 pathological = {
@@ -105,9 +101,15 @@ failed = 0
 
 #print("Testing pathological cases:")
 for description in pathological:
-    (inp, regex) = pathological[description]
+    if len(pathological[description]) == 2:
+        (inp, regex) = pathological[description]
+        prog = Prog(cmdline=args.program)
+    else:
+        (inp, regex, default_options) = pathological[description]
+        prog = Prog(cmdline=args.program, default_options=default_options)
+
     start = timer()
-    [rc, actual, err] = cmark.to_html(inp)
+    [rc, actual, err] = prog.to_html(inp)
     end = timer()
     if rc != 0:
         errored += 1

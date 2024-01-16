@@ -20,6 +20,8 @@ The scheme `http` will be inserted automatically:
 www.commonmark.org
 .
 <p><a href="http://www.commonmark.org">www.commonmark.org</a></p>
+.
+--fpermissive-www-autolinks
 ````````````````````````````````
 
 After a valid domain, zero or more non-space non-`<` characters may follow:
@@ -28,6 +30,8 @@ After a valid domain, zero or more non-space non-`<` characters may follow:
 Visit www.commonmark.org/help for more information.
 .
 <p>Visit <a href="http://www.commonmark.org/help">www.commonmark.org/help</a> for more information.</p>
+.
+--fpermissive-www-autolinks
 ````````````````````````````````
 
 We then apply extended autolink path validation as follows:
@@ -43,6 +47,8 @@ Visit www.commonmark.org/a.b.
 .
 <p>Visit <a href="http://www.commonmark.org">www.commonmark.org</a>.</p>
 <p>Visit <a href="http://www.commonmark.org/a.b">www.commonmark.org/a.b</a>.</p>
+.
+--fpermissive-www-autolinks
 ````````````````````````````````
 
 When an autolink ends in `)`, we scan the entire autolink for the total number
@@ -57,6 +63,8 @@ www.google.com/search?q=Markup+(business)
 .
 <p><a href="http://www.google.com/search?q=Markup+(business)">www.google.com/search?q=Markup+(business)</a></p>
 <p>(<a href="http://www.google.com/search?q=Markup+(business)">www.google.com/search?q=Markup+(business)</a>)</p>
+.
+--fpermissive-www-autolinks
 ````````````````````````````````
 
 This check is only done when the link ends in a closing parentheses `)`, so if
@@ -67,6 +75,8 @@ applied:
 www.google.com/search?q=(business))+ok
 .
 <p><a href="http://www.google.com/search?q=(business))+ok">www.google.com/search?q=(business))+ok</a></p>
+.
+--fpermissive-www-autolinks
 ````````````````````````````````
 
 If an autolink ends in a semicolon (`;`), we check to see if it appears to
@@ -81,6 +91,8 @@ www.google.com/search?q=commonmark&hl;
 .
 <p><a href="http://www.google.com/search?q=commonmark&amp;hl=en">www.google.com/search?q=commonmark&amp;hl=en</a></p>
 <p><a href="http://www.google.com/search?q=commonmark">www.google.com/search?q=commonmark</a>&amp;hl;</p>
+.
+--fpermissive-www-autolinks
 ````````````````````````````````
 
 `<` immediately ends an autolink.
@@ -89,19 +101,6 @@ www.google.com/search?q=commonmark&hl;
 www.commonmark.org/he<lp
 .
 <p><a href="http://www.commonmark.org/he">www.commonmark.org/he</a>&lt;lp</p>
-````````````````````````````````
-
-
-## GitHub Issues
-
-### [Issue 53](https://github.com/mity/md4c/issues/53)
-```````````````````````````````` example
-This is [link](www.github.com/).
 .
-<p>This is <a href="www.github.com/">link</a>.</p>
-````````````````````````````````
-```````````````````````````````` example
-This is [link](www.github.com/)X
-.
-<p>This is <a href="www.github.com/">link</a>X</p>
+--fpermissive-www-autolinks
 ````````````````````````````````

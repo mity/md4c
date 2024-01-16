@@ -11,6 +11,8 @@ A math span is is any text wrapped in dollars or double dollars (`$...$` or
 $a+b=c$ Hello, world!
 .
 <p><x-equation>a+b=c</x-equation> Hello, world!</p>
+.
+--flatex-math
 ````````````````````````````````
 
 If the double dollar sign is used, the math span is a display math span.
@@ -19,6 +21,8 @@ If the double dollar sign is used, the math span is a display math span.
 This is a display equation: $$\int_a^b x dx$$.
 .
 <p>This is a display equation: <x-equation type="display">\int_a^b x dx</x-equation>.</p>
+.
+--flatex-math
 ````````````````````````````````
 
 Math spans may span multiple lines as they are normal spans:
@@ -30,6 +34,8 @@ f(x) dx
 $$
 .
 <p><x-equation type="display">\int_a^b f(x) dx </x-equation></p>
+.
+--flatex-math
 ````````````````````````````````
 
 Note though that many (simple) renderers may output the math spans just as a
