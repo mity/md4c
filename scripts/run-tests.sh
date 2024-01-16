@@ -31,10 +31,6 @@ echo "CommonMark specification:"
 $PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/spec.txt" -p "$PROGRAM"
 
 echo
-echo "Code coverage & regressions:"
-$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/coverage.txt" -p "$PROGRAM"
-
-echo
 echo "Permissive e-mail autolinks extension:"
 $PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/permissive-email-autolinks.txt" -p "$PROGRAM"
 
@@ -75,5 +71,13 @@ echo "Underline extension:"
 $PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/underline.txt" -p "$PROGRAM"
 
 echo
-echo "Pathological input:"
+echo "Code coverage:"
+$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/coverage.txt" -p "$PROGRAM"
+
+echo
+echo "Regressions:"
+$PYTHON "$TEST_DIR/spec_tests.py" -s "$TEST_DIR/regressions.txt" -p "$PROGRAM"
+
+echo
+echo "Pathological inputs:"
 $PYTHON "$TEST_DIR/pathological_tests.py" -p "$PROGRAM"

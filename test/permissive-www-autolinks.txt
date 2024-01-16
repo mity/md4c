@@ -104,22 +104,3 @@ www.commonmark.org/he<lp
 .
 --fpermissive-www-autolinks
 ````````````````````````````````
-
-
-## GitHub Issues
-
-### [Issue 53](https://github.com/mity/md4c/issues/53)
-```````````````````````````````` example
-This is [link](www.github.com/).
-.
-<p>This is <a href="www.github.com/">link</a>.</p>
-.
---fpermissive-www-autolinks
-````````````````````````````````
-```````````````````````````````` example
-This is [link](www.github.com/)X
-.
-<p>This is <a href="www.github.com/">link</a>X</p>
-.
---fpermissive-www-autolinks
-````````````````````````````````
