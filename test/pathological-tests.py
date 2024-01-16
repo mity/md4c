@@ -91,7 +91,11 @@ pathological = {
             re.compile("<ul>\r?\n(<li><ul>\r?\n){49999}<li>a</li>\r?\n</ul>\r?\n(</li>\r?\n</ul>\r?\n){49999}")),
     "nested invalid link references":
             (("[" * 50000 + "]" * 50000 + "\n\n[a]: /b"),
-            re.compile("\[{50000}\]{50000}"))
+            re.compile("\[{50000}\]{50000}")),
+    "many broken permissive autolinks":
+            (("www._" * 50000 + "x"),
+            re.compile("<p>(www._){50000}x</p>"),
+            "--fpermissive-www-autolinks")
 }
 
 whitespace_re = re.compile('/s+/')
