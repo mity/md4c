@@ -4016,6 +4016,8 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
                  int mark_beg, int mark_end, const CHAR* mark_chars)
 {
     int i = mark_beg;
+    OFF last_end = lines[0].beg;
+
     MD_UNUSED(lines);
     MD_UNUSED(n_lines);
 
@@ -4039,6 +4041,12 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
             continue;
         }
 
+        /* The resolving in previous step could have expanded a mark. */
+        if(mark->beg < last_end) {
+            i++;
+            continue;
+        }
+
         /* Analyze the mark. */
         switch(mark->ch) {
             case '[':   /* Pass through. */
@@ -4053,6 +4061,13 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
             case '.':   /* Pass through. */
             case ':':   md_analyze_permissive_url_autolink(ctx, i); break;
             case '@':   md_analyze_permissive_email_autolink(ctx, i); break;
+        }
+
+        if(mark->flags & MD_MARK_RESOLVED) {
+            if(mark->flags & MD_MARK_OPENER)
+                last_end = ctx->marks[mark->next].end;
+            else
+                last_end = mark->end;
         }
 
         i++;
