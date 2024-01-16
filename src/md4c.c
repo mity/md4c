@@ -3511,10 +3511,15 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                     delim = m;
                     break;
                 }
-                if(m->ch != 'D'  &&  m->beg - opener->end > 100)
-                    break;
+                if(m->ch != 'D') {
+                    if(m->beg - opener->end > 100)
+                        break;
+                    if(m->ch != 'D'  &&  (m->flags & MD_MARK_OPENER))
+                        delim_index = m->next;
+                }
                 delim_index++;
             }
+
             dest_beg = opener->end;
             dest_end = (delim != NULL) ? delim->beg : closer->beg;
             if(dest_end - dest_beg == 0 || dest_end - dest_beg > 100)
