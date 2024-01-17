@@ -160,6 +160,10 @@ process_file(const char* in_path, FILE* in, FILE* out)
         memmove(buf_in.data, buf_in.data + 2 * sizeof(unsigned),
                     buf_in.size - 2 * sizeof(unsigned));
         buf_in.size -= 2 * sizeof(unsigned);
+
+        /* Zero the tail we have moved the contents from.
+         * It helps in debugging if make it actually a zero-terminated string. */
+        memset(buf_in.data + buf_in.size, 0, 2 * sizeof(unsigned));
     }
 
     /* Parse the document. This shall call our callbacks provided via the
