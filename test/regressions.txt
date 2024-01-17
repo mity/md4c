@@ -598,6 +598,33 @@ x
 ````````````````````````````````
 
 
+## [Issue 213](https://github.com/mity/md4c/issues/215)
+
+```````````````````````````````` example
+x
+|-
+[|
+
+[[ ]][[![|]()]]
+.
+<table>
+<thead>
+<tr>
+<th>x</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>[</td>
+</tr>
+</tbody>
+</table>
+<p><x-wikilink data-target=" "> </x-wikilink><x-wikilink data-target="![|]()"><img src="" alt="|"></x-wikilink></p>
+.
+--ftables --fwiki-links
+````````````````````````````````
+
+
 ## [Issue 215](https://github.com/mity/md4c/issues/215)
 
 ```````````````````````````````` example
