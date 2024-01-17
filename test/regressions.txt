@@ -672,3 +672,14 @@ _*xx-_-
 <p><em>*__-</em>-</p>
 <p><em>*xx-</em>-</p>
 ````````````````````````````````
+
+
+## [Issue 222](https://github.com/mity/md4c/issues/222)
+
+```````````````````````````````` example
+~foo ~bar baz~
+.
+<p>~foo <del>bar baz</del></p>
+.
+--fstrikethrough
+````````````````````````````````

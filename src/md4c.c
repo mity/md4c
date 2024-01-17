@@ -3836,8 +3836,8 @@ md_analyze_tilde(MD_CTX* ctx, int mark_index)
      * only tildes sequences of length 1 and 2, and the length of the opener
      * and closer has to match. */
 
-    if((mark->flags & MD_MARK_POTENTIAL_CLOSER)  &&  chain->head >= 0) {
-        int opener_index = chain->head;
+    if((mark->flags & MD_MARK_POTENTIAL_CLOSER)  &&  chain->tail >= 0) {
+        int opener_index = chain->tail;
 
         md_rollback(ctx, opener_index, mark_index, MD_ROLLBACK_CROSSING);
         md_resolve_range(ctx, chain, opener_index, mark_index);
