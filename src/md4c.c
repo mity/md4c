@@ -3862,11 +3862,11 @@ md_analyze_dollar(MD_CTX* ctx, int mark_index)
         /* If the potential closer has a non-matching number of $, discard */
         MD_MARK* open = &ctx->marks[DOLLAR_OPENERS.head];
         MD_MARK* close = &ctx->marks[mark_index];
-
         int opener_index = DOLLAR_OPENERS.head;
-        md_rollback(ctx, opener_index, mark_index, MD_ROLLBACK_ALL);
+
         if (open->end - open->beg == close->end - close->beg) {
             /* We are the matching closer */
+            md_rollback(ctx, opener_index, mark_index, MD_ROLLBACK_ALL);
             md_resolve_range(ctx, &DOLLAR_OPENERS, opener_index, mark_index);
             return;
         }
