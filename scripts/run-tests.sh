@@ -31,16 +31,8 @@ echo "CommonMark specification:"
 $PYTHON "$TEST_DIR/run-testsuite.py" -s "$TEST_DIR/spec.txt" -p "$PROGRAM"
 
 echo
-echo "Permissive e-mail autolinks extension:"
-$PYTHON "$TEST_DIR/run-testsuite.py" -s "$TEST_DIR/spec-permissive-email-autolinks.txt" -p "$PROGRAM"
-
-echo
-echo "Permissive URL autolinks extension:"
-$PYTHON "$TEST_DIR/run-testsuite.py" -s "$TEST_DIR/spec-permissive-url-autolinks.txt" -p "$PROGRAM"
-
-echo
-echo "WWW autolinks extension:"
-$PYTHON "$TEST_DIR/run-testsuite.py" -s "$TEST_DIR/spec-permissive-www-autolinks.txt" -p "$PROGRAM"
+echo "Permissive autolink extensions:"
+$PYTHON "$TEST_DIR/run-testsuite.py" -s "$TEST_DIR/spec-permissive-autolinks.txt" -p "$PROGRAM"
 
 echo
 echo "Hard soft breaks extension:"

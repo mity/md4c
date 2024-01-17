@@ -3021,8 +3021,9 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
     int codespan_scanned_till_paragraph_end = FALSE;
 
     for(line = lines; line < line_term; line++) {
-        OFF off = line->beg;
+        OFF line_beg = line->beg;
         OFF line_end = line->end;
+        OFF off = line_beg;
 
         while(TRUE) {
             CHAR ch;
@@ -3245,7 +3246,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                 {
                     PUSH_MARK(ch, off, off+1, MD_MARK_POTENTIAL_OPENER);
                     /* Push a dummy as a reserve for a closer. */
-                    PUSH_MARK('D', off, off, 0);
+                    PUSH_MARK('D', line_beg, line_end, 0);
                 }
 
                 off++;
@@ -3274,12 +3275,11 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                     const SZ suffix_size = scheme_map[scheme_index].suffix_size;
 
                     if(line->beg + scheme_size <= off  &&  md_ascii_eq(STR(off-scheme_size), scheme, scheme_size)  &&
-                        (line->beg + scheme_size == off || ISWHITESPACE(off-scheme_size-1) || ISANYOF(off-scheme_size-1, _T("*_~([")))  &&
                         off + 1 + suffix_size < line->end  &&  md_ascii_eq(STR(off+1), suffix, suffix_size))
                     {
                         PUSH_MARK(ch, off-scheme_size, off+1+suffix_size, MD_MARK_POTENTIAL_OPENER);
                         /* Push a dummy as a reserve for a closer. */
-                        PUSH_MARK('D', off, off, 0);
+                        PUSH_MARK('D', line_beg, line_end, 0);
                         off += 1 + suffix_size;
                         break;
                     }
@@ -3291,13 +3291,10 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
 
             /* A potential permissive WWW autolink. */
             if(ch == _T('.')) {
-                if(line->beg + 3 <= off  &&  md_ascii_eq(STR(off-3), _T("www"), 3)  &&
-                    (line->beg + 3 == off || ISWHITESPACE(off-4) || ISANYOF(off-4, _T("*_~([")))  &&
-                    off + 1 < line_end)
-                {
+                if(line->beg + 3 <= off  &&  md_ascii_eq(STR(off-3), _T("www"), 3)) {
                     PUSH_MARK(ch, off-3, off+1, MD_MARK_POTENTIAL_OPENER);
                     /* Push a dummy as a reserve for a closer. */
-                    PUSH_MARK('D', off, off, 0);
+                    PUSH_MARK('D', line_beg, line_end, 0);
                     off++;
                     continue;
                 }
@@ -3878,142 +3875,184 @@ md_analyze_dollar(MD_CTX* ctx, int mark_index)
     md_mark_chain_append(ctx, &DOLLAR_OPENERS, mark_index);
 }
 
-static void
-md_analyze_permissive_url_autolink(MD_CTX* ctx, int mark_index)
+static MD_MARK*
+md_scan_left_for_resolved_mark(MD_CTX* ctx, MD_MARK* mark_from, OFF off, MD_MARK** p_cursor)
 {
-    MD_MARK* opener = &ctx->marks[mark_index];
-    int closer_index = mark_index + 1;
-    MD_MARK* closer = &ctx->marks[closer_index];
-    MD_MARK* next_resolved_mark;
-    OFF off = opener->end;
-    int n_dots = FALSE;
-    int has_underscore_in_last_seg = FALSE;
-    int has_underscore_in_next_to_last_seg = FALSE;
-    int n_opened_parenthesis = 0;
-    int n_excess_parenthesis = 0;
+    MD_MARK* mark;
 
-    /* Check for domain. */
-    while(off < ctx->size) {
-        if(ISALNUM(off) || CH(off) == _T('-')) {
-            off++;
-        } else if(CH(off) == _T('.')) {
-            /* We must see at least one period. */
-            n_dots++;
-            has_underscore_in_next_to_last_seg = has_underscore_in_last_seg;
-            has_underscore_in_last_seg = FALSE;
-            off++;
-        } else if(CH(off) == _T('_')) {
-            /* No underscore may be present in the last two domain segments. */
-            has_underscore_in_last_seg = TRUE;
-            off++;
-        } else {
+    for(mark = mark_from; mark >= ctx->marks; mark--) {
+        if(mark->ch == 'D'  ||  mark->beg > off)
+            continue;
+        if(mark->beg <= off  &&  off < mark->end  &&  (mark->flags & MD_MARK_RESOLVED)) {
+            if(p_cursor != NULL)
+                *p_cursor = mark;
+            return mark;
+        }
+        if(mark->end <= off)
             break;
-        }
-    }
-    if(off > opener->end  &&  CH(off-1) == _T('.')) {
-        off--;
-        n_dots--;
-    }
-    if(off <= opener->end || n_dots == 0 || has_underscore_in_next_to_last_seg || has_underscore_in_last_seg)
-        return;
-
-    /* Check for path. */
-    next_resolved_mark = closer + 1;
-    while(next_resolved_mark->ch == 'D' || !(next_resolved_mark->flags & MD_MARK_RESOLVED))
-        next_resolved_mark++;
-    while(off < next_resolved_mark->beg  &&  CH(off) != _T('<')  &&  !ISWHITESPACE(off)  &&  !ISNEWLINE(off)) {
-        /* Parenthesis must be balanced. */
-        if(CH(off) == _T('(')) {
-            n_opened_parenthesis++;
-        } else if(CH(off) == _T(')')) {
-            if(n_opened_parenthesis > 0)
-                n_opened_parenthesis--;
-            else
-                n_excess_parenthesis++;
-        }
-
-        off++;
     }
 
-    /* Trim a trailing punctuation from the end. */
-    while(TRUE) {
-        if(ISANYOF(off-1, _T("?!.,:*_~"))) {
-            off--;
-        } else if(CH(off-1) == ')'  &&  n_excess_parenthesis > 0) {
-            /* Unmatched ')' can be in an interior of the path but not at the
-             * of it, so the auto-link may be safely nested in a parenthesis
-             * pair. */
-            off--;
-            n_excess_parenthesis--;
-        } else {
-            break;
-        }
-    }
-
-    /* Ok. Lets call it an auto-link. Adapt opener and create closer to zero
-     * length so all the contents becomes the link text. */
-    MD_ASSERT(closer->ch == 'D' ||
-              ((ctx->parser.flags & MD_FLAG_PERMISSIVEWWWAUTOLINKS) &&
-               (closer->ch == '.' || closer->ch == ':' || closer->ch == '@')));
-    opener->end = opener->beg;
-    closer->ch = opener->ch;
-    closer->beg = off;
-    closer->end = off;
-    md_resolve_range(ctx, NULL, mark_index, closer_index);
+    if(p_cursor != NULL)
+        *p_cursor = mark;
+    return NULL;
 }
 
-/* The permissive autolinks do not have to be enclosed in '<' '>' but we
- * instead impose stricter rules what is understood as an e-mail address
- * here. Actually any non-alphanumeric characters with exception of '.'
- * are prohibited both in username and after '@'. */
-static void
-md_analyze_permissive_email_autolink(MD_CTX* ctx, int mark_index)
+static MD_MARK*
+md_scan_right_for_resolved_mark(MD_CTX* ctx, MD_MARK* mark_from, OFF off, MD_MARK** p_cursor)
 {
+    MD_MARK* mark;
+
+    for(mark = mark_from; mark < ctx->marks + ctx->n_marks; mark++) {
+        if(mark->ch == 'D'  ||  mark->end <= off)
+            continue;
+        if(mark->beg <= off  &&  off < mark->end  &&  (mark->flags & MD_MARK_RESOLVED)) {
+            if(p_cursor != NULL)
+                *p_cursor = mark;
+            return mark;
+        }
+        if(mark->beg > off)
+            break;
+    }
+
+    if(p_cursor != NULL)
+        *p_cursor = mark;
+    return NULL;
+}
+
+static void
+md_analyze_permissive_autolink(MD_CTX* ctx, int mark_index)
+{
+    static const struct {
+        const MD_CHAR start_char;
+        const MD_CHAR delim_char;
+        const MD_CHAR* allowed_nonalnum_chars;
+        int min_components;
+    } URL_MAP[] = {
+        { _T('\0'), _T('.'),  _T(".-_"),      2 },    /* host, mandatory */
+        { _T('/'),  _T('/'),  _T("/.-_"),     0 },    /* path */
+        { _T('?'),  _T('&'),  _T("&.-+_=()"), 1 },    /* query */
+        { _T('#'),  _T('\0'), _T(".-+_") ,    1 }     /* fragment */
+    };
+
     MD_MARK* opener = &ctx->marks[mark_index];
-    int closer_index;
-    MD_MARK* closer;
+    MD_MARK* closer = &ctx->marks[mark_index + 1];  /* The dummy. */
+    OFF line_beg = closer->beg;     /* md_collect_mark() set this for us */
+    OFF line_end = closer->end;     /* ditto */
     OFF beg = opener->beg;
     OFF end = opener->end;
-    int dot_count = 0;
+    MD_MARK* left_cursor = opener;
+    int left_boundary_ok = FALSE;
+    MD_MARK* right_cursor = opener;
+    int right_boundary_ok = FALSE;
+    unsigned i;
 
-    MD_ASSERT(CH(beg) == _T('@'));
-
-    /* Scan for name before '@'. */
-    while(beg > 0  &&  (ISALNUM(beg-1) || ISANYOF(beg-1, _T(".-_+"))))
-        beg--;
-
-    /* Scan for domain after '@'. */
-    while(end < ctx->size  &&  (ISALNUM(end) || ISANYOF(end, _T(".-_")))) {
-        if(CH(end) == _T('.'))
-            dot_count++;
-        end++;
-    }
-    if(CH(end-1) == _T('.')) {  /* Final '.' not part of it. */
-        dot_count--;
-        end--;
-    }
-    else if(ISANYOF2(end-1, _T('-'), _T('_'))) /* These are forbidden at the end. */
-        return;
-    if(CH(end-1) == _T('@')  ||  dot_count == 0)
-        return;
-
-    /* Ok. Lets call it auto-link. Adapt opener and create closer to zero
-     * length so all the contents becomes the link text. */
-    closer_index = mark_index + 1;
-    closer = &ctx->marks[closer_index];
     MD_ASSERT(closer->ch == 'D');
 
+    if(opener->ch == '@') {
+        MD_ASSERT(CH(opener->beg) == _T('@'));
+
+        /* Scan backwards for the user name (before '@'). */
+        while(beg > line_beg) {
+            if(ISALNUM(beg-1))
+                beg--;
+            else if(beg >= line_beg+2  &&  ISALNUM(beg-2)  &&
+                        ISANYOF(beg-1, _T(".-_+"))  &&
+                        md_scan_left_for_resolved_mark(ctx, left_cursor, beg-1, &left_cursor) == NULL  &&
+                        ISALNUM(beg))
+                beg--;
+            else
+                break;
+        }
+        if(beg == opener->beg)      /* empty user name */
+            return;
+    }
+
+    for(i = 0; i < SIZEOF_ARRAY(URL_MAP); i++) {
+        int n_components = 0;
+        int n_open_brackets = 0;
+
+        if(URL_MAP[i].start_char != _T('\0')) {
+            if(end + 1 >= line_end  ||  CH(end) != URL_MAP[i].start_char  ||  !ISALNUM(end+1))
+                continue;
+            end++;
+        }
+
+        while(end < line_end) {
+            if(ISALNUM(end)) {
+                if(n_components == 0)
+                    n_components++;
+                end++;
+            } else if(end < line_end  &&
+                        ISANYOF(end, URL_MAP[i].allowed_nonalnum_chars)  &&
+                        md_scan_right_for_resolved_mark(ctx, right_cursor, end, &right_cursor) == NULL  &&
+                        ((end > line_beg && (ISALNUM(end-1) || CH(end-1) == _T(')')))  ||  CH(end) == _T('('))  &&
+                        ((end+1 < line_end && (ISALNUM(end+1) || CH(end+1) == _T('(')))  ||  CH(end) == _T(')')))
+            {
+                if(CH(end) == URL_MAP[i].delim_char)
+                    n_components++;
+
+                /* brackets have to be balanced. */
+                if(CH(end) == _T('(')) {
+                    n_open_brackets++;
+                } else if(CH(end) == _T(')')) {
+                    if(n_open_brackets <= 0)
+                        break;
+                    n_open_brackets--;
+                }
+
+                end++;
+            } else {
+                break;
+            }
+        }
+
+        if(n_components < URL_MAP[i].min_components  ||  n_open_brackets != 0)
+            return;
+
+        if(opener->ch == '@')   /* E-mail autolinks wants only the host. */
+            break;
+    }
+
+    /* Verify there's line boundary, whitespace or resolved emphasis mark just
+     * before and after the suspected autolink. */
+    if(beg == line_beg  ||  ISUNICODEWHITESPACEBEFORE(beg)  ||  ISANYOF(beg-1, _T("({["))) {
+        left_boundary_ok = TRUE;
+    } else if(ISANYOF(beg-1, _T("*_~"))) {
+        MD_MARK* left_mark;
+
+        left_mark = md_scan_left_for_resolved_mark(ctx, left_cursor, beg-1, &left_cursor);
+        if(left_mark != NULL  &&  (left_mark->flags & MD_MARK_OPENER))
+            left_boundary_ok = TRUE;
+    }
+    if(!left_boundary_ok)
+        return;
+
+    if(end == line_end  ||  ISUNICODEWHITESPACE(end)  ||  ISANYOF(end, _T(")}].!?,;"))) {
+        right_boundary_ok = TRUE;
+    } else {
+        MD_MARK* right_mark;
+
+        right_mark = md_scan_right_for_resolved_mark(ctx, right_cursor, end, &right_cursor);
+        if(right_mark != NULL  &&  (right_mark->flags & MD_MARK_CLOSER))
+            right_boundary_ok = TRUE;
+    }
+    if(!right_boundary_ok)
+        return;
+
+    /* Success, we are an autolink. */
     opener->beg = beg;
     opener->end = beg;
-    closer->ch = opener->ch;
     closer->beg = end;
     closer->end = end;
-    md_resolve_range(ctx, NULL, mark_index, closer_index);
+    closer->ch = opener->ch;
+    md_resolve_range(ctx, NULL, mark_index, mark_index + 1);
 }
+
+#define MD_ANALYZE_NOSKIP_EMPH  0x01
 
 static inline void
 md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
-                 int mark_beg, int mark_end, const CHAR* mark_chars)
+                 int mark_beg, int mark_end, const CHAR* mark_chars, unsigned flags)
 {
     int i = mark_beg;
     OFF last_end = lines[0].beg;
@@ -4026,7 +4065,9 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
 
         /* Skip resolved spans. */
         if(mark->flags & MD_MARK_RESOLVED) {
-            if(mark->flags & MD_MARK_OPENER) {
+            if((mark->flags & MD_MARK_OPENER)  &&
+               !((flags & MD_ANALYZE_NOSKIP_EMPH) && ISANYOF_(mark->ch, "*_~")))
+            {
                 MD_ASSERT(i < mark->next);
                 i = mark->next + 1;
             } else {
@@ -4059,8 +4100,8 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
             case '~':   md_analyze_tilde(ctx, i); break;
             case '$':   md_analyze_dollar(ctx, i); break;
             case '.':   /* Pass through. */
-            case ':':   md_analyze_permissive_url_autolink(ctx, i); break;
-            case '@':   md_analyze_permissive_email_autolink(ctx, i); break;
+            case ':':   /* Pass through. */
+            case '@':   md_analyze_permissive_autolink(ctx, i); break;
         }
 
         if(mark->flags & MD_MARK_RESOLVED) {
@@ -4087,7 +4128,7 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mod
     MD_CHECK(md_collect_marks(ctx, lines, n_lines, table_mode));
 
     /* (1) Links. */
-    md_analyze_marks(ctx, lines, n_lines, 0, ctx->n_marks, _T("[]!"));
+    md_analyze_marks(ctx, lines, n_lines, 0, ctx->n_marks, _T("[]!"), 0);
     MD_CHECK(md_resolve_links(ctx, lines, n_lines));
     BRACKET_OPENERS.head = -1;
     BRACKET_OPENERS.tail = -1;
@@ -4098,7 +4139,7 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mod
         /* (2) Analyze table cell boundaries. */
         MD_ASSERT(n_lines == 1);
         ctx->n_table_cell_boundaries = 0;
-        md_analyze_marks(ctx, lines, n_lines, 0, ctx->n_marks, _T("|"));
+        md_analyze_marks(ctx, lines, n_lines, 0, ctx->n_marks, _T("|"), 0);
         return ret;
     }
 
@@ -4115,8 +4156,15 @@ md_analyze_link_contents(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
 {
     int i;
 
-    md_analyze_marks(ctx, lines, n_lines, mark_beg, mark_end, _T("&"));
-    md_analyze_marks(ctx, lines, n_lines, mark_beg, mark_end, _T("*_~$@:."));
+    md_analyze_marks(ctx, lines, n_lines, mark_beg, mark_end, _T("&"), 0);
+    md_analyze_marks(ctx, lines, n_lines, mark_beg, mark_end, _T("*_~$"), 0);
+
+    if((ctx->parser.flags & MD_FLAG_PERMISSIVEAUTOLINKS) != 0) {
+        /* These have to be processed last, as they may be greedy and expand
+         * from their original mark. Also their implementation must be careful
+         * not to cross any (previously) resolved marks when doing so. */
+        md_analyze_marks(ctx, lines, n_lines, mark_beg, mark_end, _T("@:."), MD_ANALYZE_NOSKIP_EMPH);
+    }
 
     for(i = OPENERS_CHAIN_FIRST; i <= OPENERS_CHAIN_LAST; i++) {
         ctx->mark_chains[i].head = -1;
