@@ -133,14 +133,13 @@ typedef struct MD_CONTAINER_tag MD_CONTAINER;
 typedef struct MD_REF_DEF_tag MD_REF_DEF;
 
 
-/* During analyzes of inline marks, we need to manage some "mark chains",
- * of (yet unresolved) openers. This structure holds start/end of the chain.
- * The chain internals are then realized through MD_MARK::prev and ::next.
+/* During analyzes of inline marks, we need to manage stacks of unresolved
+ * openers of the given type.
+ * The stack connects the marks via MD_MARK::next;
  */
-typedef struct MD_MARKCHAIN_tag MD_MARKCHAIN;
-struct MD_MARKCHAIN_tag {
-    int head;   /* Index of first mark in the chain, or -1 if empty. */
-    int tail;   /* Index of last mark in the chain, or -1 if empty. */
+typedef struct MD_MARKSTACK_tag MD_MARKSTACK;
+struct MD_MARKSTACK_tag {
+    int top;        /* -1 if empty. */
 };
 
 /* Context propagated through all the parsing. */
@@ -181,29 +180,33 @@ struct MD_CTX_tag {
 #endif
 
     /* For resolving of inline spans. */
-    MD_MARKCHAIN mark_chains[18];
-#define PTR_CHAIN                               (ctx->mark_chains[0])
-#define TABLECELLBOUNDARIES                     (ctx->mark_chains[1])
-#define ASTERISK_OPENERS_oo_mod3_0              (ctx->mark_chains[2])   /* Opener-only */
-#define ASTERISK_OPENERS_oo_mod3_1              (ctx->mark_chains[3])
-#define ASTERISK_OPENERS_oo_mod3_2              (ctx->mark_chains[4])
-#define ASTERISK_OPENERS_oc_mod3_0              (ctx->mark_chains[5])   /* Both opener and closer candidate */
-#define ASTERISK_OPENERS_oc_mod3_1              (ctx->mark_chains[6])
-#define ASTERISK_OPENERS_oc_mod3_2              (ctx->mark_chains[7])
-#define UNDERSCORE_OPENERS_oo_mod3_0            (ctx->mark_chains[8])   /* Opener-only */
-#define UNDERSCORE_OPENERS_oo_mod3_1            (ctx->mark_chains[9])
-#define UNDERSCORE_OPENERS_oo_mod3_2            (ctx->mark_chains[10])
-#define UNDERSCORE_OPENERS_oc_mod3_0            (ctx->mark_chains[11])  /* Both opener and closer candidate */
-#define UNDERSCORE_OPENERS_oc_mod3_1            (ctx->mark_chains[12])
-#define UNDERSCORE_OPENERS_oc_mod3_2            (ctx->mark_chains[13])
-#define TILDE_OPENERS_1                         (ctx->mark_chains[14])
-#define TILDE_OPENERS_2                         (ctx->mark_chains[15])
-#define BRACKET_OPENERS                         (ctx->mark_chains[16])
-#define DOLLAR_OPENERS                          (ctx->mark_chains[17])
-#define OPENERS_CHAIN_FIRST                     2  /* [0] and [1] are special. */
-#define OPENERS_CHAIN_LAST                      17
+    MD_MARKSTACK opener_stacks[16];
+#define ASTERISK_OPENERS_oo_mod3_0      (ctx->opener_stacks[0])     /* Opener-only */
+#define ASTERISK_OPENERS_oo_mod3_1      (ctx->opener_stacks[1])
+#define ASTERISK_OPENERS_oo_mod3_2      (ctx->opener_stacks[2])
+#define ASTERISK_OPENERS_oc_mod3_0      (ctx->opener_stacks[3])     /* Both opener and closer candidate */
+#define ASTERISK_OPENERS_oc_mod3_1      (ctx->opener_stacks[4])
+#define ASTERISK_OPENERS_oc_mod3_2      (ctx->opener_stacks[5])
+#define UNDERSCORE_OPENERS_oo_mod3_0    (ctx->opener_stacks[6])     /* Opener-only */
+#define UNDERSCORE_OPENERS_oo_mod3_1    (ctx->opener_stacks[7])
+#define UNDERSCORE_OPENERS_oo_mod3_2    (ctx->opener_stacks[8])
+#define UNDERSCORE_OPENERS_oc_mod3_0    (ctx->opener_stacks[9])     /* Both opener and closer candidate */
+#define UNDERSCORE_OPENERS_oc_mod3_1    (ctx->opener_stacks[10])
+#define UNDERSCORE_OPENERS_oc_mod3_2    (ctx->opener_stacks[11])
+#define TILDE_OPENERS_1                 (ctx->opener_stacks[12])
+#define TILDE_OPENERS_2                 (ctx->opener_stacks[13])
+#define BRACKET_OPENERS                 (ctx->opener_stacks[14])
+#define DOLLAR_OPENERS                  (ctx->opener_stacks[15])
 
+    /* Stack of dummies which need to call free() for pointers stored in them.
+     * These are constructed during inline parsing and freed after all the block
+     * is processed (i.e. all callbacks referring those strings are called). */
+    MD_MARKSTACK ptr_stack;
+
+    /* For resolving table rows. */
     int n_table_cell_boundaries;
+    int table_cell_boundaries_head;
+    int table_cell_boundaries_tail;
 
     /* For resolving links. */
     int unresolved_link_head;
@@ -2470,11 +2473,11 @@ struct MD_MARK_tag {
     OFF beg;
     OFF end;
 
-    /* For unresolved openers, 'prev' and 'next' form the chain of open openers
-     * of given type 'ch'.
+    /* For unresolved openers, 'next' may be used to form a stack of
+     * unresolved open openers.
      *
-     * During resolving, we disconnect from the chain and point to the
-     * corresponding counterpart so opener points to its closer and vice versa.
+     * When resolved with MD_MARK_OPENER/CLOSER flag, next/prev is index of the
+     * respective closer/opener.
      */
     int prev;
     int next;
@@ -2501,38 +2504,38 @@ struct MD_MARK_tag {
 #define MD_MARK_VALIDPERMISSIVEAUTOLINK     0x20  /* For permissive autolinks. */
 #define MD_MARK_HASNESTEDBRACKETS           0x20  /* For '[' to rule out invalid link labels early */
 
-static MD_MARKCHAIN*
-md_emph_chain(MD_CTX* ctx, MD_CHAR ch, unsigned flags)
+static MD_MARKSTACK*
+md_emph_stack(MD_CTX* ctx, MD_CHAR ch, unsigned flags)
 {
-    MD_MARKCHAIN* chain;
+    MD_MARKSTACK* stack;
 
     switch(ch) {
-        case '*':   chain = &ASTERISK_OPENERS_oo_mod3_0; break;
-        case '_':   chain = &UNDERSCORE_OPENERS_oo_mod3_0; break;
+        case '*':   stack = &ASTERISK_OPENERS_oo_mod3_0; break;
+        case '_':   stack = &UNDERSCORE_OPENERS_oo_mod3_0; break;
         default:    MD_UNREACHABLE();
     }
 
     if(flags & MD_MARK_EMPH_OC)
-        chain += 3;
+        stack += 3;
 
     switch(flags & MD_MARK_EMPH_MOD3_MASK) {
-        case MD_MARK_EMPH_MOD3_0:   chain += 0; break;
-        case MD_MARK_EMPH_MOD3_1:   chain += 1; break;
-        case MD_MARK_EMPH_MOD3_2:   chain += 2; break;
+        case MD_MARK_EMPH_MOD3_0:   stack += 0; break;
+        case MD_MARK_EMPH_MOD3_1:   stack += 1; break;
+        case MD_MARK_EMPH_MOD3_2:   stack += 2; break;
         default:                    MD_UNREACHABLE();
     }
 
-    return chain;
+    return stack;
 }
 
-static MD_MARKCHAIN*
-md_mark_chain(MD_CTX* ctx, int mark_index)
+static MD_MARKSTACK*
+md_opener_stack(MD_CTX* ctx, int mark_index)
 {
     MD_MARK* mark = &ctx->marks[mark_index];
 
     switch(mark->ch) {
         case _T('*'):
-        case _T('_'):   return md_emph_chain(ctx, mark->ch, mark->flags);
+        case _T('_'):   return md_emph_stack(ctx, mark->ch, mark->flags);
 
         case _T('~'):   return (mark->end - mark->beg == 1) ? &TILDE_OPENERS_1 : &TILDE_OPENERS_2;
 
@@ -2585,17 +2588,20 @@ md_push_mark(MD_CTX* ctx)
         } while(0)
 
 
-static void
-md_mark_chain_append(MD_CTX* ctx, MD_MARKCHAIN* chain, int mark_index)
+static inline void
+md_mark_stack_push(MD_CTX* ctx, MD_MARKSTACK* stack, int mark_index)
 {
-    if(chain->tail >= 0)
-        ctx->marks[chain->tail].next = mark_index;
-    else
-        chain->head = mark_index;
+    ctx->marks[mark_index].next = stack->top;
+    stack->top = mark_index;
+}
 
-    ctx->marks[mark_index].prev = chain->tail;
-    ctx->marks[mark_index].next = -1;
-    chain->tail = mark_index;
+static inline int
+md_mark_stack_pop(MD_CTX* ctx, MD_MARKSTACK* stack)
+{
+    int top = stack->top;
+    if(top >= 0)
+        stack->top = ctx->marks[top].next;
+    return top;
 }
 
 /* Sometimes, we need to store a pointer into the mark. It is quite rare
@@ -2622,29 +2628,17 @@ md_mark_get_ptr(MD_CTX* ctx, int mark_index)
     return ptr;
 }
 
-static void
-md_resolve_range(MD_CTX* ctx, MD_MARKCHAIN* chain, int opener_index, int closer_index)
+static inline void
+md_resolve_range(MD_CTX* ctx, int opener_index, int closer_index)
 {
     MD_MARK* opener = &ctx->marks[opener_index];
     MD_MARK* closer = &ctx->marks[closer_index];
 
-    /* Remove opener from the list of openers. */
-    if(chain != NULL) {
-        if(opener->prev >= 0)
-            ctx->marks[opener->prev].next = opener->next;
-        else
-            chain->head = opener->next;
-
-        if(opener->next >= 0)
-            ctx->marks[opener->next].prev = opener->prev;
-        else
-            chain->tail = opener->prev;
-    }
-
     /* Interconnect opener and closer and mark both as resolved. */
     opener->next = closer_index;
-    opener->flags |= MD_MARK_OPENER | MD_MARK_RESOLVED;
     closer->prev = opener_index;
+
+    opener->flags |= MD_MARK_OPENER | MD_MARK_RESOLVED;
     closer->flags |= MD_MARK_CLOSER | MD_MARK_RESOLVED;
 }
 
@@ -2670,17 +2664,10 @@ md_rollback(MD_CTX* ctx, int opener_index, int closer_index, int how)
 {
     int i;
 
-    /* Cut all unresolved openers at the mark index. */
-    for(i = OPENERS_CHAIN_FIRST; i < OPENERS_CHAIN_LAST+1; i++) {
-        MD_MARKCHAIN* chain = &ctx->mark_chains[i];
-
-        while(chain->tail >= opener_index)
-            chain->tail = ctx->marks[chain->tail].prev;
-
-        if(chain->tail >= 0)
-            ctx->marks[chain->tail].next = -1;
-        else
-            chain->head = -1;
+    for(i = 0; i < (int) SIZEOF_ARRAY(ctx->opener_stacks); i++) {
+        MD_MARKSTACK* stack = &ctx->opener_stacks[i];
+        while(stack->top >= opener_index)
+            md_mark_stack_pop(ctx, stack);
     }
 
     if(how == MD_ROLLBACK_ALL) {
@@ -3103,7 +3090,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                 if(is_code_span) {
                     PUSH_MARK(opener.ch, opener.beg, opener.end, opener.flags);
                     PUSH_MARK(closer.ch, closer.beg, closer.end, closer.flags);
-                    md_resolve_range(ctx, NULL, ctx->n_marks-2, ctx->n_marks-1);
+                    md_resolve_range(ctx, ctx->n_marks-2, ctx->n_marks-1);
                     off = closer.end;
 
                     /* Advance the current line accordingly. */
@@ -3367,28 +3354,22 @@ md_analyze_bracket(MD_CTX* ctx, int mark_index)
     MD_MARK* mark = &ctx->marks[mark_index];
 
     if(mark->flags & MD_MARK_POTENTIAL_OPENER) {
-        if(BRACKET_OPENERS.head != -1)
-            ctx->marks[BRACKET_OPENERS.tail].flags |= MD_MARK_HASNESTEDBRACKETS;
+        if(BRACKET_OPENERS.top >= 0)
+            ctx->marks[BRACKET_OPENERS.top].flags |= MD_MARK_HASNESTEDBRACKETS;
 
-        md_mark_chain_append(ctx, &BRACKET_OPENERS, mark_index);
+        md_mark_stack_push(ctx, &BRACKET_OPENERS, mark_index);
         return;
     }
 
-    if(BRACKET_OPENERS.tail >= 0) {
-        /* Pop the opener from the chain. */
-        int opener_index = BRACKET_OPENERS.tail;
+    if(BRACKET_OPENERS.top >= 0) {
+        int opener_index = md_mark_stack_pop(ctx, &BRACKET_OPENERS);
         MD_MARK* opener = &ctx->marks[opener_index];
-        if(opener->prev >= 0)
-            ctx->marks[opener->prev].next = -1;
-        else
-            BRACKET_OPENERS.head = -1;
-        BRACKET_OPENERS.tail = opener->prev;
 
         /* Interconnect the opener and closer. */
         opener->next = mark_index;
         mark->prev = opener_index;
 
-        /* Add the pair into chain of potential links for md_resolve_links().
+        /* Add the pair into a list of potential links for md_resolve_links().
          * Note we misuse opener->prev for this as opener->next points to its
          * closer. */
         if(ctx->unresolved_link_tail >= 0)
@@ -3622,7 +3603,7 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
             md_mark_store_ptr(ctx, opener_index+2, attr.title);
             /* The title might or might not have been allocated for us. */
             if(attr.title_needs_free)
-                md_mark_chain_append(ctx, &PTR_CHAIN, opener_index+2);
+                md_mark_stack_push(ctx, &ctx->ptr_stack, opener_index+2);
             ctx->marks[opener_index+2].prev = attr.title_size;
 
             if(opener->ch == '[') {
@@ -3695,7 +3676,7 @@ md_analyze_entity(MD_CTX* ctx, int mark_index)
     if(md_is_entity(ctx, opener->beg, closer->end, &off)) {
         MD_ASSERT(off == closer->end);
 
-        md_resolve_range(ctx, NULL, mark_index, mark_index+1);
+        md_resolve_range(ctx, mark_index, mark_index+1);
         opener->end = closer->end;
     }
 }
@@ -3705,8 +3686,13 @@ md_analyze_table_cell_boundary(MD_CTX* ctx, int mark_index)
 {
     MD_MARK* mark = &ctx->marks[mark_index];
     mark->flags |= MD_MARK_RESOLVED;
+    mark->next = -1;
 
-    md_mark_chain_append(ctx, &TABLECELLBOUNDARIES, mark_index);
+    if(ctx->table_cell_boundaries_head < 0)
+        ctx->table_cell_boundaries_head = mark_index;
+    else
+        ctx->marks[ctx->table_cell_boundaries_tail].next = mark_index;
+    ctx->table_cell_boundaries_tail = mark_index;
     ctx->n_table_cell_boundaries++;
 }
 
@@ -3740,32 +3726,33 @@ md_analyze_emph(MD_CTX* ctx, int mark_index)
     if(mark->flags & MD_MARK_POTENTIAL_CLOSER) {
         MD_MARK* opener = NULL;
         int opener_index = 0;
-        MD_MARKCHAIN* opener_chains[6];
-        int i, n_opener_chains;
+        MD_MARKSTACK* opener_stacks[6];
+        int i, n_opener_stacks;
         unsigned flags = mark->flags;
 
-        n_opener_chains = 0;
+        n_opener_stacks = 0;
 
         /* Apply the rule of 3 */
-        opener_chains[n_opener_chains++] = md_emph_chain(ctx, mark->ch, MD_MARK_EMPH_MOD3_0 | MD_MARK_EMPH_OC);
+        opener_stacks[n_opener_stacks++] = md_emph_stack(ctx, mark->ch, MD_MARK_EMPH_MOD3_0 | MD_MARK_EMPH_OC);
         if((flags & MD_MARK_EMPH_MOD3_MASK) != MD_MARK_EMPH_MOD3_2)
-            opener_chains[n_opener_chains++] = md_emph_chain(ctx, mark->ch, MD_MARK_EMPH_MOD3_1 | MD_MARK_EMPH_OC);
+            opener_stacks[n_opener_stacks++] = md_emph_stack(ctx, mark->ch, MD_MARK_EMPH_MOD3_1 | MD_MARK_EMPH_OC);
         if((flags & MD_MARK_EMPH_MOD3_MASK) != MD_MARK_EMPH_MOD3_1)
-            opener_chains[n_opener_chains++] = md_emph_chain(ctx, mark->ch, MD_MARK_EMPH_MOD3_2 | MD_MARK_EMPH_OC);
-        opener_chains[n_opener_chains++] = md_emph_chain(ctx, mark->ch, MD_MARK_EMPH_MOD3_0);
+            opener_stacks[n_opener_stacks++] = md_emph_stack(ctx, mark->ch, MD_MARK_EMPH_MOD3_2 | MD_MARK_EMPH_OC);
+        opener_stacks[n_opener_stacks++] = md_emph_stack(ctx, mark->ch, MD_MARK_EMPH_MOD3_0);
         if(!(flags & MD_MARK_EMPH_OC)  ||  (flags & MD_MARK_EMPH_MOD3_MASK) != MD_MARK_EMPH_MOD3_2)
-            opener_chains[n_opener_chains++] = md_emph_chain(ctx, mark->ch, MD_MARK_EMPH_MOD3_1);
+            opener_stacks[n_opener_stacks++] = md_emph_stack(ctx, mark->ch, MD_MARK_EMPH_MOD3_1);
         if(!(flags & MD_MARK_EMPH_OC)  ||  (flags & MD_MARK_EMPH_MOD3_MASK) != MD_MARK_EMPH_MOD3_1)
-            opener_chains[n_opener_chains++] = md_emph_chain(ctx, mark->ch, MD_MARK_EMPH_MOD3_2);
+            opener_stacks[n_opener_stacks++] = md_emph_stack(ctx, mark->ch, MD_MARK_EMPH_MOD3_2);
 
-        /* Opener is the most recent mark from the allowed chains. */
-        for(i = 0; i < n_opener_chains; i++) {
-            if(opener_chains[i]->tail >= 0) {
-                int tmp_index = opener_chains[i]->tail;
-                MD_MARK* tmp_mark = &ctx->marks[tmp_index];
-                if(opener == NULL  ||  tmp_mark->end > opener->end) {
-                    opener_index = tmp_index;
-                    opener = tmp_mark;
+        /* Opener is the most recent mark from the allowed stacks. */
+        for(i = 0; i < n_opener_stacks; i++) {
+            if(opener_stacks[i]->top >= 0) {
+                int m_index = opener_stacks[i]->top;
+                MD_MARK* m = &ctx->marks[m_index];
+
+                if(opener == NULL  ||  m->end > opener->end) {
+                    opener_index = m_index;
+                    opener = m;
                 }
             }
         }
@@ -3774,46 +3761,50 @@ md_analyze_emph(MD_CTX* ctx, int mark_index)
         if(opener != NULL) {
             SZ opener_size = opener->end - opener->beg;
             SZ closer_size = mark->end - mark->beg;
-            MD_MARKCHAIN* opener_chain = md_mark_chain(ctx, opener_index);
+            MD_MARKSTACK* stack = md_opener_stack(ctx, opener_index);
 
             if(opener_size > closer_size) {
                 opener_index = md_split_emph_mark(ctx, opener_index, closer_size);
-                md_mark_chain_append(ctx, opener_chain, opener_index);
+                md_mark_stack_push(ctx, stack, opener_index);
             } else if(opener_size < closer_size) {
                 md_split_emph_mark(ctx, mark_index, closer_size - opener_size);
             }
 
+            /* Above we were only peeking. */
+            md_mark_stack_pop(ctx, stack);
+
             md_rollback(ctx, opener_index, mark_index, MD_ROLLBACK_CROSSING);
-            md_resolve_range(ctx, opener_chain, opener_index, mark_index);
+            md_resolve_range(ctx, opener_index, mark_index);
             return;
         }
     }
 
     /* If we could not resolve as closer, we may be yet be an opener. */
     if(mark->flags & MD_MARK_POTENTIAL_OPENER)
-        md_mark_chain_append(ctx, md_emph_chain(ctx, mark->ch, mark->flags), mark_index);
+        md_mark_stack_push(ctx, md_emph_stack(ctx, mark->ch, mark->flags), mark_index);
 }
 
 static void
 md_analyze_tilde(MD_CTX* ctx, int mark_index)
 {
     MD_MARK* mark = &ctx->marks[mark_index];
-    MD_MARKCHAIN* chain = md_mark_chain(ctx, mark_index);
+    MD_MARKSTACK* stack = md_opener_stack(ctx, mark_index);
 
     /* We attempt to be Github Flavored Markdown compatible here. GFM accepts
      * only tildes sequences of length 1 and 2, and the length of the opener
      * and closer has to match. */
 
-    if((mark->flags & MD_MARK_POTENTIAL_CLOSER)  &&  chain->tail >= 0) {
-        int opener_index = chain->tail;
+    if((mark->flags & MD_MARK_POTENTIAL_CLOSER)  &&  stack->top >= 0) {
+        int opener_index = stack->top;
 
+        md_mark_stack_pop(ctx, stack);
         md_rollback(ctx, opener_index, mark_index, MD_ROLLBACK_CROSSING);
-        md_resolve_range(ctx, chain, opener_index, mark_index);
+        md_resolve_range(ctx, opener_index, mark_index);
         return;
     }
 
     if(mark->flags & MD_MARK_POTENTIAL_OPENER)
-        md_mark_chain_append(ctx, chain, mark_index);
+        md_mark_stack_push(ctx, stack, mark_index);
 }
 
 static void
@@ -3821,28 +3812,28 @@ md_analyze_dollar(MD_CTX* ctx, int mark_index)
 {
     MD_MARK* mark = &ctx->marks[mark_index];
 
-    if((mark->flags & MD_MARK_POTENTIAL_CLOSER)  &&  DOLLAR_OPENERS.tail >= 0) {
+    if((mark->flags & MD_MARK_POTENTIAL_CLOSER)  &&  DOLLAR_OPENERS.top >= 0) {
         /* If the potential closer has a non-matching number of $, discard */
-        MD_MARK* opener = &ctx->marks[DOLLAR_OPENERS.tail];
-        int opener_index = DOLLAR_OPENERS.tail;
+        MD_MARK* opener = &ctx->marks[DOLLAR_OPENERS.top];
+        int opener_index = DOLLAR_OPENERS.top;
         MD_MARK* closer = mark;
         int closer_index = mark_index;
 
         if(opener->end - opener->beg == closer->end - closer->beg) {
             /* We are the matching closer */
+            md_mark_stack_pop(ctx, &DOLLAR_OPENERS);
             md_rollback(ctx, opener_index, closer_index, MD_ROLLBACK_ALL);
-            md_resolve_range(ctx, &DOLLAR_OPENERS, opener_index, closer_index);
+            md_resolve_range(ctx, opener_index, closer_index);
 
             /* Discard all pending openers: Latex math span do not allow
              * nesting. */
-            DOLLAR_OPENERS.head = -1;
-            DOLLAR_OPENERS.tail = -1;
+            DOLLAR_OPENERS.top = -1;
             return;
         }
     }
 
     if(mark->flags & MD_MARK_POTENTIAL_OPENER)
-        md_mark_chain_append(ctx, &DOLLAR_OPENERS, mark_index);
+        md_mark_stack_push(ctx, &DOLLAR_OPENERS, mark_index);
 }
 
 static MD_MARK*
@@ -4015,7 +4006,7 @@ md_analyze_permissive_autolink(MD_CTX* ctx, int mark_index)
     closer->beg = end;
     closer->end = end;
     closer->ch = opener->ch;
-    md_resolve_range(ctx, NULL, mark_index, mark_index + 1);
+    md_resolve_range(ctx, mark_index, mark_index + 1);
 }
 
 #define MD_ANALYZE_NOSKIP_EMPH  0x01
@@ -4100,8 +4091,7 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mod
     /* (1) Links. */
     md_analyze_marks(ctx, lines, n_lines, 0, ctx->n_marks, _T("[]!"), 0);
     MD_CHECK(md_resolve_links(ctx, lines, n_lines));
-    BRACKET_OPENERS.head = -1;
-    BRACKET_OPENERS.tail = -1;
+    BRACKET_OPENERS.top = -1;
     ctx->unresolved_link_head = -1;
     ctx->unresolved_link_tail = -1;
 
@@ -4136,10 +4126,8 @@ md_analyze_link_contents(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
         md_analyze_marks(ctx, lines, n_lines, mark_beg, mark_end, _T("@:."), MD_ANALYZE_NOSKIP_EMPH);
     }
 
-    for(i = OPENERS_CHAIN_FIRST; i <= OPENERS_CHAIN_LAST; i++) {
-        ctx->mark_chains[i].head = -1;
-        ctx->mark_chains[i].tail = -1;
-    }
+    for(i = 0; i < (int) SIZEOF_ARRAY(ctx->opener_stacks); i++)
+        ctx->opener_stacks[i].top = -1;
 }
 
 static int
@@ -4571,7 +4559,7 @@ md_process_table_row(MD_CTX* ctx, MD_BLOCKTYPE cell_type, OFF beg, OFF end,
     }
     j = 0;
     pipe_offs[j++] = beg;
-    for(i = TABLECELLBOUNDARIES.head; i >= 0; i = ctx->marks[i].next) {
+    for(i = ctx->table_cell_boundaries_head; i >= 0; i = ctx->marks[i].next) {
         MD_MARK* mark = &ctx->marks[i];
         pipe_offs[j++] = mark->end;
     }
@@ -4594,13 +4582,12 @@ abort:
     free(pipe_offs);
 
     /* Free any temporary memory blocks stored within some dummy marks. */
-    for(i = PTR_CHAIN.head; i >= 0; i = ctx->marks[i].next)
+    for(i = ctx->ptr_stack.top; i >= 0; i = ctx->marks[i].next)
         free(md_mark_get_ptr(ctx, i));
-    PTR_CHAIN.head = -1;
-    PTR_CHAIN.tail = -1;
+    ctx->ptr_stack.top = -1;
 
-    TABLECELLBOUNDARIES.head = -1;
-    TABLECELLBOUNDARIES.tail = -1;
+    ctx->table_cell_boundaries_head = -1;
+    ctx->table_cell_boundaries_tail = -1;
 
     return ret;
 }
@@ -4696,10 +4683,9 @@ md_process_normal_block_contents(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
 
 abort:
     /* Free any temporary memory blocks stored within some dummy marks. */
-    for(i = PTR_CHAIN.head; i >= 0; i = ctx->marks[i].next)
+    for(i = ctx->ptr_stack.top; i >= 0; i = ctx->marks[i].next)
         free(md_mark_get_ptr(ctx, i));
-    PTR_CHAIN.head = -1;
-    PTR_CHAIN.tail = -1;
+    ctx->ptr_stack.top = -1;
 
     return ret;
 }
@@ -6462,13 +6448,14 @@ md_parse(const MD_CHAR* text, MD_SIZE size, const MD_PARSER* parser, void* userd
     md_build_mark_char_map(&ctx);
     ctx.doc_ends_with_newline = (size > 0  &&  ISNEWLINE_(text[size-1]));
 
-    /* Reset all unresolved opener mark chains. */
-    for(i = 0; i < (int) SIZEOF_ARRAY(ctx.mark_chains); i++) {
-        ctx.mark_chains[i].head = -1;
-        ctx.mark_chains[i].tail = -1;
-    }
+    /* Reset all mark stacks and lists. */
+    for(i = 0; i < (int) SIZEOF_ARRAY(ctx.opener_stacks); i++)
+        ctx.opener_stacks[i].top = -1;
+    ctx.ptr_stack.top = -1;
     ctx.unresolved_link_head = -1;
     ctx.unresolved_link_tail = -1;
+    ctx.table_cell_boundaries_head = -1;
+    ctx.table_cell_boundaries_tail = -1;
 
     /* All the work. */
     ret = md_process_doc(&ctx);
