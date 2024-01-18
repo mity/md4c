@@ -683,3 +683,33 @@ _*xx-_-
 .
 --fstrikethrough
 ````````````````````````````````
+
+
+## [Issue 223](https://github.com/mity/md4c/issues/223)
+
+If from one side (and the other has no space/newline), replace new line with
+space.
+
+```````````````````````````````` example
+`
+foo`
+.
+<p><code> foo</code></p>
+````````````````````````````````
+
+```````````````````````````````` example
+`foo
+`
+.
+<p><code>foo </code></p>
+````````````````````````````````
+
+If from both side, eat it.
+
+```````````````````````````````` example
+`
+foo
+`
+.
+<p><code>foo</code></p>
+````````````````````````````````

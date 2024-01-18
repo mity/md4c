@@ -2490,6 +2490,7 @@ struct MD_MARK_tag {
 #define MD_MARK_RESOLVED                    0x10  /* Resolved in any definite way. */
 
 /* Mark flags specific for various mark types (so they can share bits). */
+#define MD_MARK_CODE_EXTRA_SPACE            0x20
 #define MD_MARK_EMPH_OC                     0x20  /* Opener/closer mixed candidate. Helper for the "rule of 3". */
 #define MD_MARK_EMPH_MOD3_0                 0x40
 #define MD_MARK_EMPH_MOD3_1                 0x80
@@ -2743,8 +2744,7 @@ md_build_mark_char_map(MD_CTX* ctx)
 
 static int
 md_is_code_span(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
-                OFF* p_opener_beg, OFF* p_opener_end,
-                OFF* p_closer_beg, OFF* p_closer_end,
+                MD_MARK* opener, MD_MARK* closer,
                 OFF last_potential_closers[CODESPAN_MARK_MAXLEN],
                 int* p_reached_paragraph_end)
 {
@@ -2759,6 +2759,8 @@ md_is_code_span(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
     int has_space_before_closer = FALSE;
     int has_eol_before_closer = FALSE;
     int has_only_space = TRUE;
+    int opener_needs_extra_space = FALSE;
+    int closer_needs_extra_space = FALSE;
     int line_index = 0;
 
     line_end = lines[0].end;
@@ -2769,7 +2771,7 @@ md_is_code_span(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
     has_eol_after_opener = (opener_end == line_end);
 
     /* The caller needs to know end of the opening mark even if we fail. */
-    *p_opener_end = opener_end;
+    opener->end = opener_end;
 
     mark_len = opener_end - opener_beg;
     if(mark_len > CODESPAN_MARK_MAXLEN)
@@ -2851,12 +2853,21 @@ md_is_code_span(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
             while(closer_beg < ctx->size  &&  ISBLANK(closer_beg))
                 closer_beg++;
         }
+    } else {
+        if(has_eol_after_opener)
+            opener_needs_extra_space = TRUE;
+        if(has_eol_before_closer)
+            closer_needs_extra_space = TRUE;
     }
 
-    *p_opener_beg = opener_beg;
-    *p_opener_end = opener_end;
-    *p_closer_beg = closer_beg;
-    *p_closer_end = closer_end;
+    opener->ch = _T('`');
+    opener->beg = opener_beg;
+    opener->end = opener_end;
+    opener->flags = (opener_needs_extra_space ? MD_MARK_CODE_EXTRA_SPACE : 0);
+    closer->ch = _T('`');
+    closer->beg = closer_beg;
+    closer->end = closer_end;
+    closer->flags = (closer_needs_extra_space ? MD_MARK_CODE_EXTRA_SPACE : 0);
     return TRUE;
 }
 
@@ -3082,21 +3093,18 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
 
             /* A potential code span start/end. */
             if(ch == _T('`')) {
-                OFF opener_beg, opener_end;
-                OFF closer_beg, closer_end;
+                MD_MARK opener;
+                MD_MARK closer;
                 int is_code_span;
 
                 is_code_span = md_is_code_span(ctx, line, line_term - line, off,
-                                    &opener_beg, &opener_end, &closer_beg, &closer_end,
-                                    codespan_last_potential_closers,
-                                    &codespan_scanned_till_paragraph_end);
+                            &opener, &closer, codespan_last_potential_closers,
+                            &codespan_scanned_till_paragraph_end);
                 if(is_code_span) {
-                    PUSH_MARK(_T('`'), opener_beg, opener_end, MD_MARK_OPENER | MD_MARK_RESOLVED);
-                    PUSH_MARK(_T('`'), closer_beg, closer_end, MD_MARK_CLOSER | MD_MARK_RESOLVED);
-                    ctx->marks[ctx->n_marks-2].next = ctx->n_marks-1;
-                    ctx->marks[ctx->n_marks-1].prev = ctx->n_marks-2;
-
-                    off = closer_end;
+                    PUSH_MARK(opener.ch, opener.beg, opener.end, opener.flags);
+                    PUSH_MARK(closer.ch, closer.beg, closer.end, closer.flags);
+                    md_resolve_range(ctx, NULL, ctx->n_marks-2, ctx->n_marks-1);
+                    off = closer.end;
 
                     /* Advance the current line accordingly. */
                     if(off > line->end)
@@ -3104,7 +3112,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                     continue;
                 }
 
-                off = opener_end;
+                off = opener.end;
                 continue;
             }
 
@@ -4233,7 +4241,11 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                     if(mark->flags & MD_MARK_OPENER) {
                         MD_ENTER_SPAN(MD_SPAN_CODE, NULL);
                         text_type = MD_TEXT_CODE;
+                        if(mark->flags & MD_MARK_CODE_EXTRA_SPACE)
+                            MD_TEXT(text_type, _T(" "), 1);
                     } else {
+                        if(mark->flags & MD_MARK_CODE_EXTRA_SPACE)
+                            MD_TEXT(text_type, _T(" "), 1);
                         MD_LEAVE_SPAN(MD_SPAN_CODE, NULL);
                         text_type = MD_TEXT_NORMAL;
                     }
