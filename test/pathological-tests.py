@@ -117,7 +117,7 @@ for description in pathological:
     end = timer()
     if rc != 0:
         errored += 1
-        print('{:35} [ERRORED (return code %d)]'.format(description, rc))
+        print('{:35} [ERRORED (exit code {})]'.format(description, rc))
         print(err)
     elif regex.search(actual):
         print('{:35} [PASSED] {:.3f} secs'.format(description, end-start))
