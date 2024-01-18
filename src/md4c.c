@@ -2665,12 +2665,15 @@ md_resolve_range(MD_CTX* ctx, MD_MARKCHAIN* chain, int opener_index, int closer_
  * (3) If 'how' is MD_ROLLBACK_CROSSING, only closers with openers handled
  *     in (1) are discarded. I.e. pairs of openers and closers which are both
  *     inside the range are retained as well as any unpaired marks.
+ *
+ * WARNING: Do not call for arbitrary range of opener and closer.
+ * This must form (potentially) valid range not crossing nesting boundaries
+ * of already resolved ranges.
  */
 static void
 md_rollback(MD_CTX* ctx, int opener_index, int closer_index, int how)
 {
     int i;
-    int mark_index;
 
     /* Cut all unresolved openers at the mark index. */
     for(i = OPENERS_CHAIN_FIRST; i < OPENERS_CHAIN_LAST+1; i++) {
@@ -2685,53 +2688,10 @@ md_rollback(MD_CTX* ctx, int opener_index, int closer_index, int how)
             chain->head = -1;
     }
 
-    /* Go backwards so that unresolved openers are re-added into their
-     * respective chains, in the right order. */
-    mark_index = closer_index - 1;
-    while(mark_index > opener_index) {
-        MD_MARK* mark = &ctx->marks[mark_index];
-        int mark_flags = mark->flags;
-        int discard_flag = (how == MD_ROLLBACK_ALL);
-
-        if(mark->flags & MD_MARK_CLOSER) {
-            int mark_opener_index = mark->prev;
-
-            /* Undo opener BEFORE the range. */
-            if(mark_opener_index < opener_index) {
-                MD_MARK* mark_opener = &ctx->marks[mark_opener_index];
-                MD_MARKCHAIN* chain;
-
-                mark_opener->flags &= ~(MD_MARK_OPENER | MD_MARK_CLOSER | MD_MARK_RESOLVED);
-                chain = md_mark_chain(ctx, opener_index);
-                if(chain != NULL) {
-                    md_mark_chain_append(ctx, chain, mark_opener_index);
-                    discard_flag = 1;
-                }
-            }
-        }
-
-        /* And reset our flags. */
-        if(discard_flag) {
-            /* Make zero-length closer a dummy mark as that's how it was born */
-            if((mark->flags & MD_MARK_CLOSER)  &&  mark->beg == mark->end)
-                mark->ch = 'D';
-
-            mark->flags &= ~(MD_MARK_OPENER | MD_MARK_CLOSER | MD_MARK_RESOLVED);
-        }
-
-        /* Jump as far as we can over unresolved or non-interesting marks. */
-        switch(how) {
-            case MD_ROLLBACK_CROSSING:
-                if((mark_flags & MD_MARK_CLOSER)  &&  mark->prev > opener_index) {
-                    /* If we are closer with opener INSIDE the range, there may
-                     * not be any other crosser inside the subrange. */
-                    mark_index = mark->prev;
-                    break;
-                }
-                MD_FALLTHROUGH();
-            default:
-                mark_index--;
-                break;
+    if(how == MD_ROLLBACK_ALL) {
+        for(i = opener_index + 1; i < closer_index; i++) {
+            ctx->marks[i].ch = 'D';
+            ctx->marks[i].flags = 0;
         }
     }
 }
