@@ -2496,6 +2496,7 @@ struct MD_MARK_tag {
 #define MD_MARK_EMPH_MOD3_2                 (0x40 | 0x80)
 #define MD_MARK_EMPH_MOD3_MASK              (0x40 | 0x80)
 #define MD_MARK_AUTOLINK                    0x20  /* Distinguisher for '<', '>'. */
+#define MD_MARK_AUTOLINK_MISSING_MAILTO     0x40
 #define MD_MARK_VALIDPERMISSIVEAUTOLINK     0x20  /* For permissive autolinks. */
 #define MD_MARK_HASNESTEDBRACKETS           0x20  /* For '[' to rule out invalid link labels early */
 
@@ -3208,10 +3209,12 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                 is_autolink = md_is_autolink(ctx, off, lines[n_lines-1].end,
                                     &autolink_end, &missing_mailto);
                 if(is_autolink) {
-                    PUSH_MARK((missing_mailto ? _T('@') : _T('<')), off, off+1,
-                                MD_MARK_OPENER | MD_MARK_RESOLVED | MD_MARK_AUTOLINK);
-                    PUSH_MARK(_T('>'), autolink_end-1, autolink_end,
-                                MD_MARK_CLOSER | MD_MARK_RESOLVED | MD_MARK_AUTOLINK);
+                    unsigned flags = MD_MARK_RESOLVED | MD_MARK_AUTOLINK;
+                    if(missing_mailto)
+                        flags |= MD_MARK_AUTOLINK_MISSING_MAILTO;
+
+                    PUSH_MARK(_T('<'), off, off+1, MD_MARK_OPENER | flags);
+                    PUSH_MARK(_T('>'), autolink_end-1, autolink_end, MD_MARK_CLOSER | flags);
                     ctx->marks[ctx->n_marks-2].next = ctx->n_marks-1;
                     ctx->marks[ctx->n_marks-1].prev = ctx->n_marks-2;
                     off = autolink_end;
@@ -3851,22 +3854,15 @@ md_analyze_tilde(MD_CTX* ctx, int mark_index)
 static void
 md_analyze_dollar(MD_CTX* ctx, int mark_index)
 {
-    /* This should mimic the way inline equations work in LaTeX, so there
-     * can only ever be one item in the chain (i.e. the dollars can't be
-     * nested). This is basically the same as the md_analyze_tilde function,
-     * except that we require matching openers and closers to be of the same
-     * length.
-     *
-     * E.g.: $abc$$def$$ => abc (display equation) def (end equation) */
     if(DOLLAR_OPENERS.head >= 0) {
         /* If the potential closer has a non-matching number of $, discard */
-        MD_MARK* open = &ctx->marks[DOLLAR_OPENERS.head];
+        MD_MARK* open = &ctx->marks[DOLLAR_OPENERS.tail];
         MD_MARK* close = &ctx->marks[mark_index];
-        int opener_index = DOLLAR_OPENERS.head;
+        int opener_index = DOLLAR_OPENERS.tail;
 
         if (open->end - open->beg == close->end - close->beg) {
             /* We are the matching closer */
-            md_rollback(ctx, opener_index, mark_index, MD_ROLLBACK_ALL);
+            md_rollback(ctx, opener_index, mark_index, MD_ROLLBACK_CROSSING);
             md_resolve_range(ctx, &DOLLAR_OPENERS, opener_index, mark_index);
             return;
         }
@@ -4412,11 +4408,13 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, int n_lines)
                     if(mark->flags & MD_MARK_OPENER)
                         closer->flags |= MD_MARK_VALIDPERMISSIVEAUTOLINK;
 
-                    if(opener->ch == '@' || opener->ch == '.') {
+                    if(opener->ch == '@' || opener->ch == '.' ||
+                        (opener->ch == '<' && (opener->flags & MD_MARK_AUTOLINK_MISSING_MAILTO)))
+                    {
                         dest_size += 7;
                         MD_TEMP_BUFFER(dest_size * sizeof(CHAR));
                         memcpy(ctx->buffer,
-                                (opener->ch == '@' ? _T("mailto:") : _T("http://")),
+                                (opener->ch == '.' ? _T("http://") : _T("mailto:")),
                                 7 * sizeof(CHAR));
                         memcpy(ctx->buffer + 7, dest, (dest_size-7) * sizeof(CHAR));
                         dest = ctx->buffer;
