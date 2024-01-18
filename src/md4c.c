@@ -2976,9 +2976,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
     int codespan_scanned_till_paragraph_end = FALSE;
 
     for(line = lines; line < line_term; line++) {
-        OFF line_beg = line->beg;
-        OFF line_end = line->end;
-        OFF off = line_beg;
+        OFF off = line->beg;
 
         while(TRUE) {
             CHAR ch;
@@ -2993,13 +2991,13 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
 #endif
 
             /* Optimization: Use some loop unrolling. */
-            while(off + 3 < line_end  &&  !IS_MARK_CHAR(off+0)  &&  !IS_MARK_CHAR(off+1)
-                                      &&  !IS_MARK_CHAR(off+2)  &&  !IS_MARK_CHAR(off+3))
+            while(off + 3 < line->end  &&  !IS_MARK_CHAR(off+0)  &&  !IS_MARK_CHAR(off+1)
+                                       &&  !IS_MARK_CHAR(off+2)  &&  !IS_MARK_CHAR(off+3))
                 off += 4;
-            while(off < line_end  &&  !IS_MARK_CHAR(off+0))
+            while(off < line->end  &&  !IS_MARK_CHAR(off+0))
                 off++;
 
-            if(off >= line_end)
+            if(off >= line->end)
                 break;
 
             ch = CH(off);
@@ -3021,7 +3019,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                 int left_level;     /* What precedes: 0 = whitespace; 1 = punctuation; 2 = other char. */
                 int right_level;    /* What follows: 0 = whitespace; 1 = punctuation; 2 = other char. */
 
-                while(tmp < line_end  &&  CH(tmp) == ch)
+                while(tmp < line->end  &&  CH(tmp) == ch)
                     tmp++;
 
                 if(off == line->beg  ||  ISUNICODEWHITESPACEBEFORE(off))
@@ -3031,7 +3029,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                 else
                     left_level = 2;
 
-                if(tmp == line_end  ||  ISUNICODEWHITESPACE(tmp))
+                if(tmp == line->end  ||  ISUNICODEWHITESPACE(tmp))
                     right_level = 0;
                 else if(ISUNICODEPUNCT(tmp))
                     right_level = 1;
@@ -3101,10 +3099,8 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                     off = closer_end;
 
                     /* Advance the current line accordingly. */
-                    if(off > line_end) {
+                    if(off > line->end)
                         line = md_lookup_line(off, line, line_term - line);
-                        line_end = line->end;
-                    }
                     continue;
                 }
 
@@ -3152,10 +3148,8 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                         off = html_end;
 
                         /* Advance the current line accordingly. */
-                        if(off > line_end) {
+                        if(off > line->end)
                             line = md_lookup_line(off, line, line_term - line);
-                            line_end = line->end;
-                        }
                         continue;
                     }
                 }
@@ -3180,7 +3174,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
             }
 
             /* A potential link or its part. */
-            if(ch == _T('[')  ||  (ch == _T('!') && off+1 < line_end && CH(off+1) == _T('['))) {
+            if(ch == _T('[')  ||  (ch == _T('!') && off+1 < line->end && CH(off+1) == _T('['))) {
                 OFF tmp = (ch == _T('[') ? off+1 : off+2);
                 PUSH_MARK(ch, off, tmp, MD_MARK_POTENTIAL_OPENER);
                 off = tmp;
@@ -3203,7 +3197,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                 {
                     PUSH_MARK(ch, off, off+1, MD_MARK_POTENTIAL_OPENER);
                     /* Push a dummy as a reserve for a closer. */
-                    PUSH_MARK('D', line_beg, line_end, 0);
+                    PUSH_MARK('D', line->beg, line->end, 0);
                 }
 
                 off++;
@@ -3236,7 +3230,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                     {
                         PUSH_MARK(ch, off-scheme_size, off+1+suffix_size, MD_MARK_POTENTIAL_OPENER);
                         /* Push a dummy as a reserve for a closer. */
-                        PUSH_MARK('D', line_beg, line_end, 0);
+                        PUSH_MARK('D', line->beg, line->end, 0);
                         off += 1 + suffix_size;
                         break;
                     }
@@ -3251,7 +3245,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                 if(line->beg + 3 <= off  &&  md_ascii_eq(STR(off-3), _T("www"), 3)) {
                     PUSH_MARK(ch, off-3, off+1, MD_MARK_POTENTIAL_OPENER);
                     /* Push a dummy as a reserve for a closer. */
-                    PUSH_MARK('D', line_beg, line_end, 0);
+                    PUSH_MARK('D', line->beg, line->end, 0);
                     off++;
                     continue;
                 }
@@ -3271,13 +3265,13 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
             if(ch == _T('~')) {
                 OFF tmp = off+1;
 
-                while(tmp < line_end  &&  CH(tmp) == _T('~'))
+                while(tmp < line->end  &&  CH(tmp) == _T('~'))
                     tmp++;
 
                 if(tmp - off < 3) {
                     unsigned flags = 0;
 
-                    if(tmp < line_end  &&  !ISUNICODEWHITESPACE(tmp))
+                    if(tmp < line->end  &&  !ISUNICODEWHITESPACE(tmp))
                         flags |= MD_MARK_POTENTIAL_OPENER;
                     if(off > line->beg  &&  !ISUNICODEWHITESPACEBEFORE(off))
                         flags |= MD_MARK_POTENTIAL_CLOSER;
@@ -3295,15 +3289,15 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                  * where two dollar signs signify a display equation. */
                 OFF tmp = off+1;
 
-                while(tmp < line_end && CH(tmp) == _T('$'))
+                while(tmp < line->end && CH(tmp) == _T('$'))
                     tmp++;
 
                 if(tmp - off <= 2) {
                     unsigned flags = MD_MARK_POTENTIAL_OPENER | MD_MARK_POTENTIAL_CLOSER;
 
-                    if(off > line_beg  &&  !ISUNICODEWHITESPACEBEFORE(off)  &&  !ISUNICODEPUNCTBEFORE(off))
+                    if(off > line->beg  &&  !ISUNICODEWHITESPACEBEFORE(off)  &&  !ISUNICODEPUNCTBEFORE(off))
                         flags &= ~MD_MARK_POTENTIAL_OPENER;
-                    if(tmp < line_end  &&  !ISUNICODEWHITESPACE(tmp)  &&  !ISUNICODEPUNCT(tmp))
+                    if(tmp < line->end  &&  !ISUNICODEWHITESPACE(tmp)  &&  !ISUNICODEPUNCT(tmp))
                         flags &= ~MD_MARK_POTENTIAL_CLOSER;
                     if(flags != 0)
                         PUSH_MARK(ch, off, tmp, flags);
@@ -3317,7 +3311,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
             if(ISWHITESPACE_(ch)) {
                 OFF tmp = off+1;
 
-                while(tmp < line_end  &&  ISWHITESPACE(tmp))
+                while(tmp < line->end  &&  ISWHITESPACE(tmp))
                     tmp++;
 
                 if(tmp - off > 1  ||  ch != _T(' '))
