@@ -2547,7 +2547,7 @@ md_opener_stack(MD_CTX* ctx, int mark_index)
 }
 
 static MD_MARK*
-md_push_mark(MD_CTX* ctx)
+md_add_mark(MD_CTX* ctx)
 {
     if(ctx->n_marks >= ctx->alloc_marks) {
         MD_MARK* new_marks;
@@ -2567,18 +2567,18 @@ md_push_mark(MD_CTX* ctx)
     return &ctx->marks[ctx->n_marks++];
 }
 
-#define PUSH_MARK_()                                                    \
+#define ADD_MARK_()                                                     \
         do {                                                            \
-            mark = md_push_mark(ctx);                                   \
+            mark = md_add_mark(ctx);                                    \
             if(mark == NULL) {                                          \
                 ret = -1;                                               \
                 goto abort;                                             \
             }                                                           \
         } while(0)
 
-#define PUSH_MARK(ch_, beg_, end_, flags_)                              \
+#define ADD_MARK(ch_, beg_, end_, flags_)                               \
         do {                                                            \
-            PUSH_MARK_();                                               \
+            ADD_MARK_();                                                \
             mark->beg = (beg_);                                         \
             mark->end = (end_);                                         \
             mark->prev = -1;                                            \
@@ -3006,7 +3006,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
             if(ch == _T('\\')  &&  off+1 < ctx->size  &&  (ISPUNCT(off+1) || ISNEWLINE(off+1))) {
                 /* Hard-break cannot be on the last line of the block. */
                 if(!ISNEWLINE(off+1)  ||  line+1 < line_term)
-                    PUSH_MARK(ch, off, off+2, MD_MARK_RESOLVED);
+                    ADD_MARK(ch, off, off+2, MD_MARK_RESOLVED);
                 off += 2;
                 continue;
             }
@@ -3060,7 +3060,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                         case 2: flags |= MD_MARK_EMPH_MOD3_2; break;
                     }
 
-                    PUSH_MARK(ch, off, tmp, flags);
+                    ADD_MARK(ch, off, tmp, flags);
 
                     /* During resolving, multiple asterisks may have to be
                      * split into independent span start/ends. Consider e.g.
@@ -3068,7 +3068,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                      * marks to have enough space for that. */
                     off++;
                     while(off < tmp) {
-                        PUSH_MARK('D', off, off, 0);
+                        ADD_MARK('D', off, off, 0);
                         off++;
                     }
                     continue;
@@ -3088,8 +3088,8 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                             &opener, &closer, codespan_last_potential_closers,
                             &codespan_scanned_till_paragraph_end);
                 if(is_code_span) {
-                    PUSH_MARK(opener.ch, opener.beg, opener.end, opener.flags);
-                    PUSH_MARK(closer.ch, closer.beg, closer.end, closer.flags);
+                    ADD_MARK(opener.ch, opener.beg, opener.end, opener.flags);
+                    ADD_MARK(closer.ch, closer.beg, closer.end, closer.flags);
                     md_resolve_range(ctx, ctx->n_marks-2, ctx->n_marks-1);
                     off = closer.end;
 
@@ -3105,7 +3105,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
 
             /* A potential entity start. */
             if(ch == _T('&')) {
-                PUSH_MARK(ch, off, off+1, MD_MARK_POTENTIAL_OPENER);
+                ADD_MARK(ch, off, off+1, MD_MARK_POTENTIAL_OPENER);
                 off++;
                 continue;
             }
@@ -3114,7 +3114,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
             if(ch == _T(';')) {
                 /* We surely cannot be entity unless the previous mark is '&'. */
                 if(ctx->n_marks > 0  &&  ctx->marks[ctx->n_marks-1].ch == _T('&'))
-                    PUSH_MARK(ch, off, off+1, MD_MARK_POTENTIAL_CLOSER);
+                    ADD_MARK(ch, off, off+1, MD_MARK_POTENTIAL_CLOSER);
 
                 off++;
                 continue;
@@ -3136,8 +3136,8 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                     is_html = md_is_html_any(ctx, line, line_term - line, off,
                                     lines[n_lines-1].end, &html_end);
                     if(is_html) {
-                        PUSH_MARK(_T('<'), off, off, MD_MARK_OPENER | MD_MARK_RESOLVED);
-                        PUSH_MARK(_T('>'), html_end, html_end, MD_MARK_CLOSER | MD_MARK_RESOLVED);
+                        ADD_MARK(_T('<'), off, off, MD_MARK_OPENER | MD_MARK_RESOLVED);
+                        ADD_MARK(_T('>'), html_end, html_end, MD_MARK_CLOSER | MD_MARK_RESOLVED);
                         ctx->marks[ctx->n_marks-2].next = ctx->n_marks-1;
                         ctx->marks[ctx->n_marks-1].prev = ctx->n_marks-2;
                         off = html_end;
@@ -3156,8 +3156,8 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                     if(missing_mailto)
                         flags |= MD_MARK_AUTOLINK_MISSING_MAILTO;
 
-                    PUSH_MARK(_T('<'), off, off+1, MD_MARK_OPENER | flags);
-                    PUSH_MARK(_T('>'), autolink_end-1, autolink_end, MD_MARK_CLOSER | flags);
+                    ADD_MARK(_T('<'), off, off+1, MD_MARK_OPENER | flags);
+                    ADD_MARK(_T('>'), autolink_end-1, autolink_end, MD_MARK_CLOSER | flags);
                     ctx->marks[ctx->n_marks-2].next = ctx->n_marks-1;
                     ctx->marks[ctx->n_marks-1].prev = ctx->n_marks-2;
                     off = autolink_end;
@@ -3171,16 +3171,16 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
             /* A potential link or its part. */
             if(ch == _T('[')  ||  (ch == _T('!') && off+1 < line->end && CH(off+1) == _T('['))) {
                 OFF tmp = (ch == _T('[') ? off+1 : off+2);
-                PUSH_MARK(ch, off, tmp, MD_MARK_POTENTIAL_OPENER);
+                ADD_MARK(ch, off, tmp, MD_MARK_POTENTIAL_OPENER);
                 off = tmp;
                 /* Two dummies to make enough place for data we need if it is
                  * a link. */
-                PUSH_MARK('D', off, off, 0);
-                PUSH_MARK('D', off, off, 0);
+                ADD_MARK('D', off, off, 0);
+                ADD_MARK('D', off, off, 0);
                 continue;
             }
             if(ch == _T(']')) {
-                PUSH_MARK(ch, off, off+1, MD_MARK_POTENTIAL_CLOSER);
+                ADD_MARK(ch, off, off+1, MD_MARK_POTENTIAL_CLOSER);
                 off++;
                 continue;
             }
@@ -3190,9 +3190,9 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                 if(line->beg + 1 <= off  &&  ISALNUM(off-1)  &&
                     off + 3 < line->end  &&  ISALNUM(off+1))
                 {
-                    PUSH_MARK(ch, off, off+1, MD_MARK_POTENTIAL_OPENER);
+                    ADD_MARK(ch, off, off+1, MD_MARK_POTENTIAL_OPENER);
                     /* Push a dummy as a reserve for a closer. */
-                    PUSH_MARK('D', line->beg, line->end, 0);
+                    ADD_MARK('D', line->beg, line->end, 0);
                 }
 
                 off++;
@@ -3223,9 +3223,9 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                     if(line->beg + scheme_size <= off  &&  md_ascii_eq(STR(off-scheme_size), scheme, scheme_size)  &&
                         off + 1 + suffix_size < line->end  &&  md_ascii_eq(STR(off+1), suffix, suffix_size))
                     {
-                        PUSH_MARK(ch, off-scheme_size, off+1+suffix_size, MD_MARK_POTENTIAL_OPENER);
+                        ADD_MARK(ch, off-scheme_size, off+1+suffix_size, MD_MARK_POTENTIAL_OPENER);
                         /* Push a dummy as a reserve for a closer. */
-                        PUSH_MARK('D', line->beg, line->end, 0);
+                        ADD_MARK('D', line->beg, line->end, 0);
                         off += 1 + suffix_size;
                         break;
                     }
@@ -3238,9 +3238,9 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
             /* A potential permissive WWW autolink. */
             if(ch == _T('.')) {
                 if(line->beg + 3 <= off  &&  md_ascii_eq(STR(off-3), _T("www"), 3)) {
-                    PUSH_MARK(ch, off-3, off+1, MD_MARK_POTENTIAL_OPENER);
+                    ADD_MARK(ch, off-3, off+1, MD_MARK_POTENTIAL_OPENER);
                     /* Push a dummy as a reserve for a closer. */
-                    PUSH_MARK('D', line->beg, line->end, 0);
+                    ADD_MARK('D', line->beg, line->end, 0);
                     off++;
                     continue;
                 }
@@ -3251,7 +3251,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
 
             /* A potential table cell boundary or wiki link label delimiter. */
             if((table_mode || ctx->parser.flags & MD_FLAG_WIKILINKS) && ch == _T('|')) {
-                PUSH_MARK(ch, off, off+1, 0);
+                ADD_MARK(ch, off, off+1, 0);
                 off++;
                 continue;
             }
@@ -3271,7 +3271,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                     if(off > line->beg  &&  !ISUNICODEWHITESPACEBEFORE(off))
                         flags |= MD_MARK_POTENTIAL_CLOSER;
                     if(flags != 0)
-                        PUSH_MARK(ch, off, tmp, flags);
+                        ADD_MARK(ch, off, tmp, flags);
                 }
 
                 off = tmp;
@@ -3295,7 +3295,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                     if(tmp < line->end  &&  !ISUNICODEWHITESPACE(tmp)  &&  !ISUNICODEPUNCT(tmp))
                         flags &= ~MD_MARK_POTENTIAL_CLOSER;
                     if(flags != 0)
-                        PUSH_MARK(ch, off, tmp, flags);
+                        ADD_MARK(ch, off, tmp, flags);
                 }
 
                 off = tmp;
@@ -3310,7 +3310,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                     tmp++;
 
                 if(tmp - off > 1  ||  ch != _T(' '))
-                    PUSH_MARK(ch, off, tmp, MD_MARK_RESOLVED);
+                    ADD_MARK(ch, off, tmp, MD_MARK_RESOLVED);
 
                 off = tmp;
                 continue;
@@ -3318,7 +3318,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
 
             /* NULL character. */
             if(ch == _T('\0')) {
-                PUSH_MARK(ch, off, off+1, MD_MARK_RESOLVED);
+                ADD_MARK(ch, off, off+1, MD_MARK_RESOLVED);
                 off++;
                 continue;
             }
@@ -3329,7 +3329,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
 
     /* Add a dummy mark at the end of the mark vector to simplify
      * process_inlines(). */
-    PUSH_MARK(127, ctx->size, ctx->size, MD_MARK_RESOLVED);
+    ADD_MARK(127, ctx->size, ctx->size, MD_MARK_RESOLVED);
 
 abort:
     return ret;
