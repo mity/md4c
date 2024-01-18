@@ -3344,8 +3344,17 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                 while(tmp < line_end && CH(tmp) == _T('$'))
                     tmp++;
 
-                if (tmp - off <= 2)
-                    PUSH_MARK(ch, off, tmp, MD_MARK_POTENTIAL_OPENER | MD_MARK_POTENTIAL_CLOSER);
+                if(tmp - off <= 2) {
+                    unsigned flags = MD_MARK_POTENTIAL_OPENER | MD_MARK_POTENTIAL_CLOSER;
+
+                    if(off > line_beg  &&  !ISUNICODEWHITESPACEBEFORE(off)  &&  !ISUNICODEPUNCTBEFORE(off))
+                        flags &= ~MD_MARK_POTENTIAL_OPENER;
+                    if(tmp < line_end  &&  !ISUNICODEWHITESPACE(tmp)  &&  !ISUNICODEPUNCT(tmp))
+                        flags &= ~MD_MARK_POTENTIAL_CLOSER;
+                    if(flags != 0)
+                        PUSH_MARK(ch, off, tmp, flags);
+                }
+
                 off = tmp;
                 continue;
             }
@@ -3854,21 +3863,30 @@ md_analyze_tilde(MD_CTX* ctx, int mark_index)
 static void
 md_analyze_dollar(MD_CTX* ctx, int mark_index)
 {
-    if(DOLLAR_OPENERS.head >= 0) {
-        /* If the potential closer has a non-matching number of $, discard */
-        MD_MARK* open = &ctx->marks[DOLLAR_OPENERS.tail];
-        MD_MARK* close = &ctx->marks[mark_index];
-        int opener_index = DOLLAR_OPENERS.tail;
+    MD_MARK* mark = &ctx->marks[mark_index];
 
-        if (open->end - open->beg == close->end - close->beg) {
+    if((mark->flags & MD_MARK_POTENTIAL_CLOSER)  &&  DOLLAR_OPENERS.tail >= 0) {
+        /* If the potential closer has a non-matching number of $, discard */
+        MD_MARK* opener = &ctx->marks[DOLLAR_OPENERS.tail];
+        int opener_index = DOLLAR_OPENERS.tail;
+        MD_MARK* closer = mark;
+        int closer_index = mark_index;
+
+        if(opener->end - opener->beg == closer->end - closer->beg) {
             /* We are the matching closer */
-            md_rollback(ctx, opener_index, mark_index, MD_ROLLBACK_CROSSING);
-            md_resolve_range(ctx, &DOLLAR_OPENERS, opener_index, mark_index);
+            md_rollback(ctx, opener_index, closer_index, MD_ROLLBACK_ALL);
+            md_resolve_range(ctx, &DOLLAR_OPENERS, opener_index, closer_index);
+
+            /* Discard all pending openers: Latex math span do not allow
+             * nesting. */
+            DOLLAR_OPENERS.head = -1;
+            DOLLAR_OPENERS.tail = -1;
             return;
         }
     }
 
-    md_mark_chain_append(ctx, &DOLLAR_OPENERS, mark_index);
+    if(mark->flags & MD_MARK_POTENTIAL_OPENER)
+        md_mark_chain_append(ctx, &DOLLAR_OPENERS, mark_index);
 }
 
 static MD_MARK*

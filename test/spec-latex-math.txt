@@ -15,6 +15,36 @@ $a+b=c$ Hello, world!
 --flatex-math
 ````````````````````````````````
 
+However the LaTeX math spans cannot be nested:
+
+```````````````````````````````` example
+$$foo $bar$ baz$$
+.
+<p>$$foo <x-equation>bar</x-equation> baz$$</p>
+.
+--flatex-math
+````````````````````````````````
+
+The opening delimiter cannot be preceded with an alphanumerical character:
+
+```````````````````````````````` example
+x$a+b=c$
+.
+<p>x$a+b=c$</p>
+.
+--flatex-math
+````````````````````````````````
+
+Similarly the closing delimiter cannot be followed with an alphanumerical character:
+
+```````````````````````````````` example
+$a+b=c$x
+.
+<p>$a+b=c$x</p>
+.
+--flatex-math
+````````````````````````````````
+
 If the double dollar sign is used, the math span is a display math span.
 
 ```````````````````````````````` example
