@@ -2648,23 +2648,17 @@ md_resolve_range(MD_CTX* ctx, MD_MARKCHAIN* chain, int opener_index, int closer_
 }
 
 
-#define MD_ROLLBACK_ALL         0
-#define MD_ROLLBACK_CROSSING    1
+#define MD_ROLLBACK_CROSSING    0
+#define MD_ROLLBACK_ALL         1
 
 /* In the range ctx->marks[opener_index] ... [closer_index], undo some or all
  * resolvings accordingly to these rules:
  *
- * (1) All openers BEFORE the range corresponding to any closer inside the
- *     range are un-resolved and they are re-added to their respective chains
- *     of unresolved openers. This ensures we can reuse the opener for closers
- *     AFTER the range.
+ * (1) All stacks of openers are cut so that any pending potential openers
+ *     are discarded from future consideration.
  *
  * (2) If 'how' is MD_ROLLBACK_ALL, then ALL resolved marks inside the range
- *     are discarded.
- *
- * (3) If 'how' is MD_ROLLBACK_CROSSING, only closers with openers handled
- *     in (1) are discarded. I.e. pairs of openers and closers which are both
- *     inside the range are retained as well as any unpaired marks.
+ *     are thrown away and turned into dummy marks ('D').
  *
  * WARNING: Do not call for arbitrary range of opener and closer.
  * This must form (potentially) valid range not crossing nesting boundaries
