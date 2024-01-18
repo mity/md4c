@@ -4126,7 +4126,7 @@ md_analyze_link_contents(MD_CTX* ctx, const MD_LINE* lines, int n_lines,
         md_analyze_marks(ctx, lines, n_lines, mark_beg, mark_end, _T("@:."), MD_ANALYZE_NOSKIP_EMPH);
     }
 
-    for(i = 0; i <= (int) SIZEOF_ARRAY(ctx->opener_stacks); i++)
+    for(i = 0; i < (int) SIZEOF_ARRAY(ctx->opener_stacks); i++)
         ctx->opener_stacks[i].top = -1;
 }
 
@@ -4582,10 +4582,8 @@ abort:
     free(pipe_offs);
 
     /* Free any temporary memory blocks stored within some dummy marks. */
-    while(ctx->ptr_stack.top >= 0) {
-        free(md_mark_get_ptr(ctx, ctx->ptr_stack.top));
-        md_mark_stack_pop(ctx, &ctx->ptr_stack);
-    }
+    for(i = ctx->ptr_stack.top; i >= 0; i = ctx->marks[i].next)
+        free(md_mark_get_ptr(ctx, i));
     ctx->ptr_stack.top = -1;
 
     ctx->table_cell_boundaries_head = -1;
