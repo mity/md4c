@@ -3090,7 +3090,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
                 if(is_code_span) {
                     PUSH_MARK(opener.ch, opener.beg, opener.end, opener.flags);
                     PUSH_MARK(closer.ch, closer.beg, closer.end, closer.flags);
-                    md_resolve_range(ctx, NULL, ctx->n_marks-2, ctx->n_marks-1);
+                    md_resolve_range(ctx, ctx->n_marks-2, ctx->n_marks-1);
                     off = closer.end;
 
                     /* Advance the current line accordingly. */
