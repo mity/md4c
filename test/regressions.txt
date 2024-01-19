@@ -713,3 +713,15 @@ foo
 .
 <p><code>foo</code></p>
 ````````````````````````````````
+
+## [Issue 226](https://github.com/mity/md4c/issues/226)
+
+```````````````````````````````` example
+https://example.com/
+https://example.com/dir/
+.
+<p><a href="https://example.com/">https://example.com/</a>
+<a href="https://example.com/dir/">https://example.com/dir/</a></p>
+.
+--fpermissive-url-autolinks
+````````````````````````````````
