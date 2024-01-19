@@ -118,6 +118,22 @@
 #define MD_UNUSED(x)                ((void)x)
 
 
+/******************************
+ ***  Some internal limits  ***
+ ******************************/
+
+/* We limit code span marks to lower than 32 backticks. This solves the
+ * pathologic case of too many openers, each of different length: Their
+ * resolving would be then O(n^2). */
+#define CODESPAN_MARK_MAXLEN    32
+
+/* We limit column count of tables to prevent quadratic explosion of output
+ * from pathological input of a table thousands of columns and thousands
+ * of rows where rows are requested with as little as single character
+ * per-line, relying on us to "helpfully" fill all the missing "<td></td>". */
+#define TABLE_MAXCOLCOUNT       128
+
+
 /************************
  ***  Internal Types  ***
  ************************/
@@ -2724,11 +2740,6 @@ md_build_mark_char_map(MD_CTX* ctx)
     }
 }
 
-/* We limit code span marks to lower than 32 backticks. This solves the
- * pathologic case of too many openers, each of different length: Their
- * resolving would be then O(n^2). */
-#define CODESPAN_MARK_MAXLEN    32
-
 static int
 md_is_code_span(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
                 MD_MARK* opener, MD_MARK* closer,
@@ -5303,6 +5314,10 @@ md_is_table_underline(MD_CTX* ctx, OFF beg, OFF* p_end, unsigned* p_col_count)
             off++;
 
         col_count++;
+        if(col_count > TABLE_MAXCOLCOUNT) {
+            MD_LOG("Suppressing table (column_count >" STRINGIZE(TABLE_MAXCOLCOUNT) ")");
+            return FALSE;
+        }
 
         /* Pipe delimiter (optional at the end of line). */
         while(off < ctx->size  &&  ISWHITESPACE(off))

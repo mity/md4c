@@ -95,7 +95,11 @@ pathological = {
     "many broken permissive autolinks":
             (("www._" * 50000 + "x"),
             re.compile("<p>(www._){50000}x</p>"),
-            "--fpermissive-www-autolinks")
+            "--fpermissive-www-autolinks"),
+    "huge table":
+            (("th|" * 10000 + "\n" + "-|" * 10000 + "\n" + "td\n" * 10000),
+            re.compile(""),
+            "--ftables")
 }
 
 whitespace_re = re.compile('/s+/')
