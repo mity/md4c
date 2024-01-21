@@ -2,6 +2,65 @@
 # MD4C Change Log
 
 
+## Version 0.5.1
+
+Changes:
+
+ * LaTeX math extension (`MD_FLAG_LATEXMATHSPANS`) now requires that opener
+   mark is not immediately preceded with alpha-numeric character and similarly
+   that closer mark is not immediately followed with alpha-numeric character.
+
+   So for example `foo$ x + y = z $` is not recognized as LaTeX equation
+   anymore because there is no space between `foo` and the opening `$`.
+
+ * Table extension (`MD_FLAG_TABLES`) now recognizes only tables with no more
+   than 128 columns. This limit has been imposed to prevent a pathological
+   case of quadratic output size explosion which could be used as DoS attack
+   vector.
+
+ * We are now more strict with `MD_FLAG_PERMISSIVExxxAUTOLINKS` family of
+   extensions with respect to non-alphanumeric characters, with the aim to
+   mitigate false positive detections.
+
+   Only relatively few selected non-alphanumeric are now allowed in permissive
+   e-mail auto-links (`MD_FLAG_PERMISSIVEEMAILAUTOLINKS`):
+     - `.`, `-`, `_`, `+` in user name part of e-mail address; and
+     - `.`, `-`, `_` in host part of the e-mail address.
+
+   Similarly for URL and e-mail auto-links (`MD_FLAG_PERMISSIVEURLAUTOLINKS` and
+   `MD_FLAG_PERMISSIVEWWWAUTOLINKS`):
+     - `.`, `-`, `_` in host part of the URL;
+     - `/`, `.`, `-`, `_` in path part of the URL;
+     - `&`, `.`, `-`, `+`, `_`, `=`, `(`, `)` in the query part of the URL
+       (additionally, if present, `(` and `)` must form balanced pairs); and
+     - `.`, `-`, `+`, `_` in the fragment part of the URL.
+
+   Furthermore these characters (with some exceptions like where they serve as
+   delimiter characters, e.g. `/` for paths) are generally accepted only when
+   an alphanumeric character both precedes and follows them (i.e. these cannot
+   be "stacked" together).
+
+Fixes:
+
+ * Fix several bugs where we haven't properly respected already resolved spans
+   of higher precedence level in handling of permissive auto-links extensions
+   (family of `MD_FLAG_PERMISSIVExxxAUTOLINKS` flags), LaTeX math extension
+   (`MD_FLAG_LATEXMATHSPANS`) and wiki-links extension (`MD_FLAG_WIKILINKS`)
+   of the form `[[label|text]]` (with pipe `|`). In some complex cases this
+   could lead to invalid internal parser state and memory corruption.
+
+   Identified with [OSS-Fuzz](https://github.com/google/oss-fuzz).
+
+ * [#222](https://github.com/mity/md4c/issues/222):
+   Fix strike-through extension (`MD_FLAG_STRIKETHROUGH`) which did not respect
+   same rules for pairing opener and closer marks as other emphasis spans.
+
+ * [#223](https://github.com/mity/md4c/issues/223):
+   Fix incorrect handling of new-line character just at the beginning and/or
+   end of a code span where we were not following CommonMark specification
+   requirements correctly.
+
+
 ## Version 0.5.0
 
 Changes:
