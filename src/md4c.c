@@ -1275,9 +1275,6 @@ md_is_html_cdata(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg, OFF ma
         return FALSE;
     off += open_size;
 
-    if(lines[n_lines-1].end < max_end)
-        max_end = lines[n_lines-1].end - 2;
-
     return md_scan_for_html_closer(ctx, _T("]]>"), 3,
                 lines, n_lines, off, max_end, p_end, &ctx->html_cdata_horizon);
 }
