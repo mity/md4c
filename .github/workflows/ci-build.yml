@@ -8,7 +8,8 @@ jobs:
   linux:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: Configure
         # We enforce -Wdeclaration-after-statement because Qt project needs to
         # build MD4C with Integrity compiler which chokes whenever a declaration
