@@ -41,12 +41,97 @@ Ditto for Unicode punctuation (here U+00A1).
 
 ## `md_decode_utf8__()` and `md_decode_utf8_before__()`
 
+### Alphanumerical Character (i.e. not whitespace, not punctuation)
+
+Non-whitespace & non-punctuation characters below suppress `_` from being
+recognized as an emphasis because `_` should be seen as in-word character:
+
+Example of 1-byte UTF-8 sequence (U+0058):
 ```````````````````````````````` example
-á*Á (U+00E1, i.e. two byte UTF-8 sequence)
- *  (U+2000, i.e. three byte UTF-8 sequence)
+X__foo__X
 .
-<p>á*Á (U+00E1, i.e. two byte UTF-8 sequence)
- *  (U+2000, i.e. three byte UTF-8 sequence)</p>
+<p>X__foo__X</p>
+````````````````````````````````
+
+Example of 2-byte UTF-8 sequence (U+0158):
+```````````````````````````````` example
+Ř__foo__Ř
+.
+<p>Ř__foo__Ř</p>
+````````````````````````````````
+
+Example of 3-byte UTF-8 sequence (U+0BA3):
+```````````````````````````````` example
+ண__foo__ண
+.
+<p>ண__foo__ண</p>
+````````````````````````````````
+
+Example of 4-byte UTF-8 sequence (U+13142):
+```````````````````````````````` example
+𓅂__foo__𓅂
+.
+<p>𓅂__foo__𓅂</p>
+````````````````````````````````
+
+### Whitespace character
+
+Whitespace on the other hand should not suppress `_`:
+
+Example of 1-byte UTF-8 sequence (U+0009):
+```````````````````````````````` example
+x→__foo__→
+.
+<p>x <strong>foo</strong></p>
+````````````````````````````````
+(The initial `x` to suppress indented code block.)
+
+Example of 2-byte UTF-8 sequence (U+00A0):
+```````````````````````````````` example
+ __foo__
+.
+<p> <strong>foo</strong> </p>
+````````````````````````````````
+
+Example of 3-byte UTF-8 sequence (U+2000):
+```````````````````````````````` example
+ __foo__
+.
+<p> <strong>foo</strong> </p>
+````````````````````````````````
+
+(AFAIK, there is no 4-byte UTF-8 whitespace.)
+
+### Punctuation character
+
+Punctuation also should not suppress `_`:
+
+Example of 1-byte UTF-8 sequence (U+002E):
+```````````````````````````````` example
+.__foo__.
+.
+<p>.<strong>foo</strong>.</p>
+````````````````````````````````
+
+Example of 2-byte UTF-8 sequence (U+00B7):
+```````````````````````````````` example
+·__foo__·
+.
+<p>·<strong>foo</strong>·</p>
+````````````````````````````````
+
+Example of 3-byte UTF-8 sequence (U+0C84):
+```````````````````````````````` example
+಄__foo__಄
+.
+<p>಄<strong>foo</strong>಄</p>
+````````````````````````````````
+
+Example of 4-byte UTF-8 sequence (U+1039F):
+```````````````````````````````` example
+𐎟__foo__𐎟
+.
+<p>𐎟<strong>foo</strong>𐎟</p>
 ````````````````````````````````
 
 
