@@ -4596,11 +4596,6 @@ md_process_table_row(MD_CTX* ctx, MD_BLOCKTYPE cell_type, OFF beg, OFF end,
 abort:
     free(pipe_offs);
 
-    /* Free any temporary memory blocks stored within some dummy marks. */
-    for(i = ctx->ptr_stack.top; i >= 0; i = ctx->marks[i].next)
-        free(md_mark_get_ptr(ctx, i));
-    ctx->ptr_stack.top = -1;
-
     ctx->table_cell_boundaries_head = -1;
     ctx->table_cell_boundaries_tail = -1;
 
