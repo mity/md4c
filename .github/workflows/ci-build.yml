@@ -18,15 +18,14 @@ jobs:
         run: make VERBOSE=1
       - name: Test
         run: ./scripts/run-tests.sh
-      - name: Code Coverage Report
-        if: ${{ github.event_name == 'push' }}
-        continue-on-error: true
+      - name: Create coverage report
         run: |
           sudo apt-get install -y lcov
           lcov --directory . --capture --output-file coverage.info
           lcov --remove coverage.info '/usr/*' --output-file coverage.info
           lcov --list coverage.info
-          bash <(curl -s https://codecov.io/bash)
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v3
 
   windows-32:
     runs-on: windows-latest
