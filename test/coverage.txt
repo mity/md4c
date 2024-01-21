@@ -199,3 +199,14 @@ main(int argc, char** argv)
     return 0;
 }
 ~~~
+
+
+## Flag `MD_FLAG_COLLAPSEWHITESPACE`
+
+```````````````````````````````` example
+foo  bar → baz
+.
+<p>foo bar baz</p>
+.
+--fcollapse-whitespace
+````````````````````````````````
