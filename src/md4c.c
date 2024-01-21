@@ -2555,7 +2555,7 @@ md_opener_stack(MD_CTX* ctx, int mark_index)
         case _T('!'):
         case _T('['):   return &BRACKET_OPENERS;
 
-        default:        return NULL;
+        default:        MD_UNREACHABLE();
     }
 }
 
