@@ -3245,7 +3245,9 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, int n_lines, int table_mode)
 
             /* A potential permissive WWW autolink. */
             if(ch == _T('.')) {
-                if(line->beg + 3 <= off  &&  md_ascii_eq(STR(off-3), _T("www"), 3)) {
+                if(line->beg + 3 <= off  &&  md_ascii_eq(STR(off-3), _T("www"), 3)  &&
+                   (off-3 == line->beg || ISUNICODEWHITESPACEBEFORE(off-3) || ISUNICODEPUNCTBEFORE(off-3)))
+                {
                     ADD_MARK(ch, off-3, off+1, MD_MARK_POTENTIAL_OPENER);
                     /* Push a dummy as a reserve for a closer. */
                     ADD_MARK('D', line->beg, line->end, 0);
