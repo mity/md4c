@@ -3937,6 +3937,20 @@ md_analyze_permissive_autolink(MD_CTX* ctx, int mark_index)
             return;
     }
 
+    /* Verify there's line boundary, whitespace, allowed punctuation or
+     * resolved emphasis mark just before the suspected autolink. */
+    if(beg == line_beg  ||  ISUNICODEWHITESPACEBEFORE(beg)  ||  ISANYOF(beg-1, _T("({["))) {
+        left_boundary_ok = TRUE;
+    } else if(ISANYOF(beg-1, _T("*_~"))) {
+        MD_MARK* left_mark;
+
+        left_mark = md_scan_left_for_resolved_mark(ctx, left_cursor, beg-1, &left_cursor);
+        if(left_mark != NULL  &&  (left_mark->flags & MD_MARK_OPENER))
+            left_boundary_ok = TRUE;
+    }
+    if(!left_boundary_ok)
+        return;
+
     for(i = 0; i < SIZEOF_ARRAY(URL_MAP); i++) {
         int n_components = 0;
         int n_open_brackets = 0;
@@ -3989,20 +4003,8 @@ md_analyze_permissive_autolink(MD_CTX* ctx, int mark_index)
             break;
     }
 
-    /* Verify there's line boundary, whitespace or resolved emphasis mark just
-     * before and after the suspected autolink. */
-    if(beg == line_beg  ||  ISUNICODEWHITESPACEBEFORE(beg)  ||  ISANYOF(beg-1, _T("({["))) {
-        left_boundary_ok = TRUE;
-    } else if(ISANYOF(beg-1, _T("*_~"))) {
-        MD_MARK* left_mark;
-
-        left_mark = md_scan_left_for_resolved_mark(ctx, left_cursor, beg-1, &left_cursor);
-        if(left_mark != NULL  &&  (left_mark->flags & MD_MARK_OPENER))
-            left_boundary_ok = TRUE;
-    }
-    if(!left_boundary_ok)
-        return;
-
+    /* Verify there's line boundary, whitespace, allowed punctuation or
+     * resolved emphasis mark just after the suspected autolink. */
     if(end == line_end  ||  ISUNICODEWHITESPACE(end)  ||  ISANYOF(end, _T(")}].!?,;"))) {
         right_boundary_ok = TRUE;
     } else {
