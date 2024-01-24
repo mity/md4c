@@ -2,7 +2,7 @@
  * C Reusables
  * <http://github.com/mity/c-reusables>
  *
- * Copyright (c) 2017 Martin Mitas
+ * Copyright (c) 2017 Martin Mitáš
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -46,25 +46,24 @@ extern "C" {
  * With this flag, CMDLINE_OPTION::longname is treated differently as follows:
  *
  * 1. The option matches if the CMDLINE_OPTION::longname is the exact prefix
- *   of the argv[i] from commandline.
+ *    of the argv[i] from commandline.
  *
  * 2. Double dash ("--") is not automatically prepended to
  *    CMDLINE_OPTION::longname. (If you desire any leading dash, include it
  *    explicitly in CMDLINE_OPTION initialization.)
  *
- * 3. An argument (optionally after a whitespace) is required (the flag
- *    CMDLINE_OPTFLAG_COMPILERLIKE implicitly implies also the flag
- *    CMDLINE_OPTFLAG_REQUIREDARG).
+ * 3. An argument is required (the flag CMDLINE_OPTFLAG_COMPILERLIKE implicitly
+ *    implies also the flag CMDLINE_OPTFLAG_REQUIREDARG).
  *
- *    But there is no delimiter expected (no "=" between the option and its
- *    argument). Whitespace is optional between the option and its argument.
+ *    But there is no "=" delimiter expected between the option and argument,
+ *    however there is an optional whitespace allowed.
  *
- *    Intended use is for options similar to what many compilers accept.
- *    For example:
- *      -DDEBUG=0               (-D is the option, DEBUG=0 is the argument).
- *      -Isrc/include           (-I is the option, src/include is the argument).
- *      -isystem /usr/include   (-isystem is the option, /usr/include is the argument).
- *      -lmath                  (-l is the option, math is the argument).
+ *    This offers similar semantics to common compiler options. For example:
+ *      -DDEBUG=0               (If -D is the option, DEBUG=0 is the argument)
+ *      -Isrc/include           (If -I is the option, src/include is the argument)
+ *      -I src/include          (Equivalent to the above)
+ *      -isystem /usr/include   (If -isystem is the option, /usr/include is the argument)
+ *      -lmath                  (If -l is the option, math is the argument)
  */
 #define CMDLINE_OPTFLAG_COMPILERLIKE    0x0004
 
@@ -91,12 +90,12 @@ typedef struct CMDLINE_OPTION {
  *
  * The caller must specify the list of supported options in the 1st parameter
  * of the function. The array must end with a record whose CMDLINE_OPTION::id
- * is zero to zero.
+ * is set to zero.
  *
  * The provided callback function is called for each option on the command
  * line so that:
  *
- *   -- the "id" refers to the id of the option as specified  in options[].
+ *   -- the "id" refers to the id of the option as specified in options[].
  *
  *   -- the "arg" specifies an argument of the option or NULL if none is
  *      provided.
@@ -107,13 +106,13 @@ typedef struct CMDLINE_OPTION {
  * Special cases (recognized via special "id" value) are reported to the
  * callback as follows:
  *
- *   -- If id is CMDLINE_OPTID_NONE, the callback informs about a non-option
+ *   -- If id is CMDLINE_OPTID_NONE, the callback informs about a non-option,
  *      also known as a positional argument.
  *
  *      All argv[] tokens which are not interpreted as an options or an argument
  *      of any option fall into this category.
  *
- *      Usually, programs interpret these as paths to file to process.
+ *      Usually, programs interpret these as file paths to process.
  *
  *   -- If id is CMDLINE_OPTID_UNKNOWN, the corresponding argv[] looks like an
  *      option but it is not found in the options[] passed to cmdline_read().
