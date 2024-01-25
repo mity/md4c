@@ -42,7 +42,7 @@ def do_test(test, normalize, result_counts):
     if retcode == 0:
         expected_html = test['html']
         unicode_error = None
-        if normalize:
+        if normalize and not test['no_normalize']:
             try:
                 passed = normalize_html(actual_html) == normalize_html(expected_html)
             except UnicodeDecodeError as e:
@@ -84,6 +84,7 @@ def get_tests(specfile):
     state = 0  # 0 regular text, 1 markdown example, 2 html output
     headertext = ''
     tests = []
+    no_normalize = 0
 
     header_re = re.compile('#+ ')
 
@@ -93,6 +94,8 @@ def get_tests(specfile):
             l = line.strip()
             if re.match("`{32} example( [a-z]{1,})?", l):
                 state = 1
+                if re.search("\\[no-normalize\\]", l):
+                    no_normalize = 1
             elif state >= 2 and l == "`" * 32:
                 state = 0
                 example_number = example_number + 1
@@ -100,15 +103,17 @@ def get_tests(specfile):
                 tests.append({
                     "markdown":''.join(markdown_lines).replace('→',"\t"),
                     "html":''.join(html_lines).replace('→',"\t"),
+                    "no_normalize": no_normalize,
                     "cmdline_options":''.join(cmdline_lines),
                     "example": example_number,
                     "start_line": start_line,
                     "end_line": end_line,
-                    "section": headertext})
+                    "section": headertext,})
                 start_line = 0
                 markdown_lines = []
                 html_lines = []
                 cmdline_lines = []
+                no_normalize = 0
             elif l == ".":
                 state += 1
             elif state == 1:

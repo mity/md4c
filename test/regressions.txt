@@ -690,14 +690,14 @@ _*xx-_-
 If from one side (and the other has no space/newline), replace new line with
 space.
 
-```````````````````````````````` example
+```````````````````````````````` example [no-normalize]
 `
 foo`
 .
 <p><code> foo</code></p>
 ````````````````````````````````
 
-```````````````````````````````` example
+```````````````````````````````` example [no-normalize]
 `foo
 `
 .
@@ -706,13 +706,14 @@ foo`
 
 If from both side, eat it.
 
-```````````````````````````````` example
+```````````````````````````````` example [no-normalize]
 `
 foo
 `
 .
 <p><code>foo</code></p>
 ````````````````````````````````
+
 
 ## [Issue 226](https://github.com/mity/md4c/issues/226)
 
