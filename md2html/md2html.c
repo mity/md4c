@@ -193,6 +193,9 @@ process_file(const char* in_path, FILE* in, FILE* out)
         fprintf(out, "<head>\n");
         fprintf(out, "<title>%s</title>\n", html_title ? html_title : "");
         fprintf(out, "<meta name=\"generator\" content=\"md2html\"%s>\n", want_xhtml ? " /" : "");
+#if !defined MD4C_USE_ASCII && !defined MD4C_USE_UTF16
+        fprintf(out, "<meta charset=\"UTF-8\"%s>\n", want_xhtml ? " /" : "");
+#endif
         if(css_path != NULL) {
             fprintf(out, "<link rel=\"stylesheet\" href=\"%s\"%s>\n", css_path, want_xhtml ? " /" : "");
         }
