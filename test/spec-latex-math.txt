@@ -63,7 +63,7 @@ $$
 f(x) dx
 $$
 .
-<p><x-equation type="display">\int_a^b f(x) dx </x-equation></p>
+<p><x-equation type="display"> \int_a^b f(x) dx </x-equation></p>
 .
 --flatex-math
 ````````````````````````````````
