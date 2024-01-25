@@ -2850,9 +2850,11 @@ md_is_code_span(MD_CTX* ctx, const MD_LINE* lines, int n_lines, OFF beg,
     opener->ch = _T('`');
     opener->beg = opener_beg;
     opener->end = opener_end;
+    opener->flags = MD_MARK_POTENTIAL_OPENER;
     closer->ch = _T('`');
     closer->beg = closer_beg;
     closer->end = closer_end;
+    closer->flags = MD_MARK_POTENTIAL_CLOSER;
     return TRUE;
 }
 
