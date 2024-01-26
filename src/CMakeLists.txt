@@ -7,9 +7,6 @@ set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -DDEBUG")
 
 configure_file(md4c.pc.in md4c.pc @ONLY)
 add_library(md4c md4c.c md4c.h)
-if(CMAKE_C_COMPILER_ID MATCHES "Clang|GNU")
-    target_compile_options(md4c PRIVATE -Wall -Wextra)
-endif()
 set_target_properties(md4c PROPERTIES
     COMPILE_FLAGS "-DMD4C_USE_UTF8"
     VERSION ${MD_VERSION}
