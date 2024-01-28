@@ -38,8 +38,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ---
 
-The normalization code in runtests.py was derived from the
-markdowntest project, Copyright 2013 Karl Dubost:
+The normalization code in normalize.py was derived from the markdowntest
+project, Copyright 2013 Karl Dubost:
 
 The MIT License (MIT)
 
