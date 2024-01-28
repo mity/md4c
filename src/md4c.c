@@ -4206,6 +4206,7 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
     MD_MARK* mark;
     OFF off = lines[0].beg;
     OFF end = lines[n_lines-1].end;
+    OFF tmp;
     int enforce_hardbreak = 0;
     int ret = 0;
 
@@ -4221,7 +4222,7 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
 
     while(1) {
         /* Process the text up to the next mark or end-of-line. */
-        OFF tmp = (line->end < mark->beg ? line->end : mark->beg);
+        tmp = (line->end < mark->beg ? line->end : mark->beg);
         if(tmp > off) {
             MD_TEXT(text_type, STR(off), tmp - off);
             off = tmp;
@@ -4432,8 +4433,6 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
                 break;
 
             if(text_type == MD_TEXT_CODE || text_type == MD_TEXT_LATEXMATH) {
-                OFF tmp;
-
                 MD_ASSERT(prev_mark != NULL);
                 MD_ASSERT(ISANYOF2_(prev_mark->ch, '`', '$')  &&  (prev_mark->flags & MD_MARK_OPENER));
                 MD_ASSERT(ISANYOF2_(mark->ch, '`', '$')  &&  (mark->flags & MD_MARK_CLOSER));
@@ -4452,8 +4451,7 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
             } else if(text_type == MD_TEXT_HTML) {
                 /* Inside raw HTML, we output the new line verbatim, including
                  * any trailing spaces. */
-                OFF tmp = off;
-
+                tmp = off;
                 while(tmp < end  &&  ISBLANK(tmp))
                     tmp++;
                 if(tmp > off)

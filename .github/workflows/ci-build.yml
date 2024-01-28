@@ -11,10 +11,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Configure
-        # We enforce -Wdeclaration-after-statement because Qt project needs to
-        # build MD4C with Integrity compiler which chokes whenever a declaration
-        # is not at the beginning of a block.
-        run: CFLAGS='--coverage -g -O0 -Wall -Wdeclaration-after-statement -Werror' cmake -DCMAKE_BUILD_TYPE=Debug -G 'Unix Makefiles' .
+        run: CFLAGS='--coverage -Werror' cmake -DCMAKE_BUILD_TYPE=Debug -G 'Unix Makefiles' .
       - name: Build
         run: make VERBOSE=1
       - name: Test

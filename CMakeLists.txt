@@ -41,7 +41,12 @@ endif()
 
 
 if(${CMAKE_C_COMPILER_ID} MATCHES GNU|Clang)
-    add_compile_options(-Wall -Wextra)
+    add_compile_options(-Wall -Wextra -Wshadow)
+
+    # We enforce -Wdeclaration-after-statement because Qt project needs to
+    # build MD4C with Integrity compiler which chokes whenever a declaration
+    # is not at the beginning of a block.
+    add_compile_options(-Wdeclaration-after-statement)
 elseif(MSVC)
     # Disable warnings about the so-called unsecured functions:
     add_definitions(/D_CRT_SECURE_NO_WARNINGS)
