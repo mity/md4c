@@ -2,6 +2,27 @@
 # MD4C Change Log
 
 
+## Next Version (Work in Progress)
+
+Changes:
+
+ * Changes mandated by CommonMark specification 0.31:
+
+   - The specification expands set of Unicode characters seen by Markdown
+     parser as a punctuation. Namely all Unicode general categories P
+     (punctuation) and S (symbols) are now seen as such.
+
+   - The definition of HTML comment has been changed so that `<!-->` and
+     `<!--->` are also recognized as HTML comments.
+
+   - HTML tags recognized as HTML block starting condition of type 4 has been
+     updated, namely a tag `<source>` has been removed, whereas `<search>`
+     added.
+
+   Refer to [CommonMark 0.31](https://spec.commonmark.org/0.31/) for full
+   specification.
+
+
 ## Version 0.5.1
 
 Changes:
@@ -79,9 +100,8 @@ Changes:
    Other than that, the newest specification mainly improves test coverage and
    clarifies its wording in some cases, without affecting the implementation.
 
-   Refer to [CommonMark
-   0.30 notes](https://github.com/commonmark/commonmark-spec/releases/tag/0.30)
-   for more info.
+   Refer to [CommonMark 0.30](https://spec.commonmark.org/0.30/) for full
+   specification.
 
  * Make Unicode-specific code compliant to Unicode 15.1.
 
