@@ -22,6 +22,15 @@ Changes:
    Refer to [CommonMark 0.31](https://spec.commonmark.org/0.31/) for full
    specification.
 
+Fixes:
+
+ - [#230](https://github.com/mity/md4c/issues/230):
+   The fix [#223](https://github.com/mity/md4c/issues/223) in 0.5.1 release
+   was incomplete and one corner case remained unfixed. This is now addressed.
+
+ - [#231](https://github.com/mity/md4c/issues/231):
+   `md2html --full-html` now emits `<meta  charset="UTF-8">` in the HTML header.
+
 
 ## Version 0.5.1
 
