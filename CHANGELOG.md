@@ -19,7 +19,7 @@ Changes:
      updated, namely a tag `<source>` has been removed, whereas `<search>`
      added.
 
-   Refer to [CommonMark 0.31](https://spec.commonmark.org/0.31/) for full
+   Refer to [CommonMark 0.31.2](https://spec.commonmark.org/0.31.2/) for full
    specification.
 
 Fixes:
