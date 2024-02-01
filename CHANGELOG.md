@@ -2,6 +2,15 @@
 # MD4C Change Log
 
 
+## Next Version (Work in Progress)
+
+Fixes:
+
+ - [#236](https://github.com/mity/md4c/issues/236):
+   Fix quadratic time behavior caused by one-by-one walking over block lines
+   instead of calling `md_lookup_line()`.
+
+
 ## Version 0.5.2
 
 Changes:

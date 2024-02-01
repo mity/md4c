@@ -2332,8 +2332,7 @@ md_is_inline_link_spec(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
     OFF off = beg;
     int ret = FALSE;
 
-    while(off >= lines[line_index].end)
-        line_index++;
+    md_lookup_line(off, lines, n_lines, &line_index);
 
     MD_ASSERT(CH(off) == _T('('));
     off++;

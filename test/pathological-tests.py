@@ -99,7 +99,10 @@ pathological = {
     "huge table":
             (("th|" * 10000 + "\n" + "-|" * 10000 + "\n" + "td\n" * 10000),
             re.compile(""),
-            "--ftables")
+            "--ftables"),
+    "many broken links":
+            (("]([\n" * 50000),
+            re.compile("<p>(\]\(\[\r?\n){49999}\]\(\[</p>"))
 }
 
 whitespace_re = re.compile('/s+/')
