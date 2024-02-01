@@ -1936,6 +1936,8 @@ md_is_link_label(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, OFF beg,
     MD_SIZE line_index = 0;
     int len = 0;
 
+    *p_beg_line_index = 0;
+
     if(CH(off) != _T('['))
         return FALSE;
     off++;
