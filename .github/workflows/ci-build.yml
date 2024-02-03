@@ -5,7 +5,12 @@ on:
   - push
 
 jobs:
-  linux:
+  # Linux builds.
+  #
+  # gcc sometimes warns (e.g. about potentially uninitialized variables) only
+  # when some optimizations are enabled. So we build Debug as well as Release
+  # on Linux. The Debug build also collects and uploads test coverage.
+  linux-debug:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -24,8 +29,25 @@ jobs:
           lcov --list coverage.info
       - name: Upload coverage report
         uses: codecov/codecov-action@v3
+  linux-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Configure
+        run: CFLAGS='--coverage -Werror' cmake -DCMAKE_BUILD_TYPE=Release -G 'Unix Makefiles' .
+      - name: Build
+        run: make VERBOSE=1
+      - name: Test
+        run: ./scripts/run-tests.sh
 
-  windows-32:
+  # Windows builds.
+  #
+  # We build 32-bit Release and 64-bit Debug build (complete matrix would
+  # likely be an overkill).
+  #
+  # FIXME: If possible we should also run our tests on Windows.
+  windows-32-debug:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,12 +57,12 @@ jobs:
       - name: Build
         run: msbuild.exe md4c.sln /p:Configuration=Release /p:Platform=Win32
 
-  windows-64:
+  windows-64-release:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: microsoft/setup-msbuild@v1.3.1
       - name: Configure
-        run: cmake -DCMAKE_BUILD_TYPE=Release -G "Visual Studio 17 2022" -A x64 .
+        run: cmake -DCMAKE_BUILD_TYPE=Debug -G "Visual Studio 17 2022" -A x64 .
       - name: Build
-        run: msbuild.exe md4c.sln /p:Configuration=Release /p:Platform=x64
+        run: msbuild.exe md4c.sln /p:Configuration=Debug /p:Platform=x64
