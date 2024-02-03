@@ -43,26 +43,32 @@ jobs:
 
   # Windows builds.
   #
-  # We build 32-bit Release and 64-bit Debug build (complete matrix would
-  # likely be an overkill).
-  #
-  # FIXME: If possible we should also run our tests on Windows.
+  # We do both 32 and 64-bit builds. Also note 32-bit does Debug build while
+  # 64-bit one does Release build. (Full matrix would likely be an overkill.)
   windows-32-debug:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: microsoft/setup-msbuild@v1.3.1
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Dev command prompt
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
       - name: Configure
-        run: cmake -DCMAKE_BUILD_TYPE=Release -G "Visual Studio 17 2022" -A Win32 .
+        run: cmake -DCMAKE_BUILD_TYPE=Debug -G "NMake Makefiles" .
       - name: Build
-        run: msbuild.exe md4c.sln /p:Configuration=Release /p:Platform=Win32
+        run: nmake
 
   windows-64-release:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: microsoft/setup-msbuild@v1.3.1
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Dev command prompt
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
       - name: Configure
-        run: cmake -DCMAKE_BUILD_TYPE=Debug -G "Visual Studio 17 2022" -A x64 .
+        run: cmake -DCMAKE_BUILD_TYPE=Release -G "NMake Makefiles" .
       - name: Build
-        run: msbuild.exe md4c.sln /p:Configuration=Debug /p:Platform=x64
+        run: nmake
