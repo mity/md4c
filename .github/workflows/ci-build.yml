@@ -20,7 +20,7 @@ jobs:
       - name: Build
         run: make VERBOSE=1
       - name: Test
-        run: ./scripts/run-tests.sh
+        run: python3 ./scripts/run-tests.py
       - name: Create coverage report
         run: |
           sudo apt-get install -y lcov
@@ -29,6 +29,7 @@ jobs:
           lcov --list coverage.info
       - name: Upload coverage report
         uses: codecov/codecov-action@v3
+
   linux-release:
     runs-on: ubuntu-latest
     steps:
@@ -39,7 +40,7 @@ jobs:
       - name: Build
         run: make VERBOSE=1
       - name: Test
-        run: ./scripts/run-tests.sh
+        run: python3 ./scripts/run-tests.py
 
   # Windows builds.
   #
@@ -58,6 +59,10 @@ jobs:
         run: cmake -DCMAKE_BUILD_TYPE=Debug -G "NMake Makefiles" .
       - name: Build
         run: nmake
+      - name: Setyp Python
+        uses: actions/setup-python@v5
+      - name: Test
+        run: python .\scripts\run-tests.py
 
   windows-64-release:
     runs-on: windows-latest
@@ -72,3 +77,5 @@ jobs:
         run: cmake -DCMAKE_BUILD_TYPE=Release -G "NMake Makefiles" .
       - name: Build
         run: nmake
+      - name: Test
+        run: python .\scripts\run-tests.py
