@@ -5,7 +5,12 @@ on:
   - push
 
 jobs:
-  linux:
+  # Linux builds.
+  #
+  # gcc sometimes warns (e.g. about potentially uninitialized variables) only
+  # when some optimizations are enabled. So we build Debug as well as Release
+  # on Linux. The Debug build also collects and uploads test coverage.
+  linux-debug:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -15,7 +20,7 @@ jobs:
       - name: Build
         run: make VERBOSE=1
       - name: Test
-        run: ./scripts/run-tests.sh
+        run: python3 ./scripts/run-tests.py
       - name: Create coverage report
         run: |
           sudo apt-get install -y lcov
@@ -25,22 +30,52 @@ jobs:
       - name: Upload coverage report
         uses: codecov/codecov-action@v3
 
-  windows-32:
-    runs-on: windows-latest
+  linux-release:
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: microsoft/setup-msbuild@v1.3.1
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: Configure
-        run: cmake -DCMAKE_BUILD_TYPE=Release -G "Visual Studio 17 2022" -A Win32 .
+        run: CFLAGS='--coverage -Werror' cmake -DCMAKE_BUILD_TYPE=Release -G 'Unix Makefiles' .
       - name: Build
-        run: msbuild.exe md4c.sln /p:Configuration=Release /p:Platform=Win32
+        run: make VERBOSE=1
+      - name: Test
+        run: python3 ./scripts/run-tests.py
 
-  windows-64:
+  # Windows builds.
+  #
+  # We do both 32 and 64-bit builds. Also note 32-bit does Debug build while
+  # 64-bit one does Release build. (Full matrix would likely be an overkill.)
+  windows-32-debug:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: microsoft/setup-msbuild@v1.3.1
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Dev command prompt
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
       - name: Configure
-        run: cmake -DCMAKE_BUILD_TYPE=Release -G "Visual Studio 17 2022" -A x64 .
+        run: cmake -DCMAKE_BUILD_TYPE=Debug -G "NMake Makefiles" .
       - name: Build
-        run: msbuild.exe md4c.sln /p:Configuration=Release /p:Platform=x64
+        run: nmake
+      - name: Setyp Python
+        uses: actions/setup-python@v5
+      - name: Test
+        run: python .\scripts\run-tests.py
+
+  windows-64-release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Dev command prompt
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - name: Configure
+        run: cmake -DCMAKE_BUILD_TYPE=Release -G "NMake Makefiles" .
+      - name: Build
+        run: nmake
+      - name: Test
+        run: python .\scripts\run-tests.py
