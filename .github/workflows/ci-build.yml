@@ -59,8 +59,6 @@ jobs:
         run: cmake -DCMAKE_BUILD_TYPE=Debug -G "NMake Makefiles" .
       - name: Build
         run: nmake
-      - name: Setyp Python
-        uses: actions/setup-python@v5
       - name: Test
         run: python .\scripts\run-tests.py
 
