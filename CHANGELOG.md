@@ -10,6 +10,10 @@ Fixes:
    Fix quadratic time behavior caused by one-by-one walking over block lines
    instead of calling `md_lookup_line()`.
 
+ - [#237](https://github.com/mity/md4c/issues/237):
+   Fix quadratic time and output size behavior caused by malicious misuse of
+   link reference definitions.
+
 
 ## Version 0.5.2
 
