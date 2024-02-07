@@ -102,7 +102,10 @@ pathological = {
             "--ftables"),
     "many broken links":
             (("]([\n" * 50000),
-            re.compile("<p>(\]\(\[\r?\n){49999}\]\(\[</p>"))
+            re.compile("<p>(\]\(\[\r?\n){49999}\]\(\[</p>")),
+    "many link ref. def. instantiations":
+            (("[x]: " + "x" * 50000 + "\n[x]" * 50000),
+            re.compile(""))
 }
 
 whitespace_re = re.compile('/s+/')

@@ -26,6 +26,7 @@
 #include "md4c.h"
 
 #include <limits.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -143,6 +144,9 @@
 #define SZ      MD_SIZE
 #define OFF     MD_OFFSET
 
+#define SZ_MAX      (sizeof(SZ) == 8 ? UINT64_MAX : UINT32_MAX)
+#define OFF_MAX     (sizeof(OFF) == 8 ? UINT64_MAX : UINT32_MAX)
+
 typedef struct MD_MARK_tag MD_MARK;
 typedef struct MD_BLOCK_tag MD_BLOCK;
 typedef struct MD_CONTAINER_tag MD_CONTAINER;
@@ -180,6 +184,7 @@ struct MD_CTX_tag {
     int alloc_ref_defs;
     void** ref_def_hashtable;
     int ref_def_hashtable_size;
+    SZ max_ref_def_output;
 
     /* Stack of inline/span markers.
      * This is only used for parsing a single block contents but by storing it
@@ -2283,10 +2288,13 @@ md_is_link_reference(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
     int is_multiline;
     CHAR* label;
     SZ label_size;
-    int ret;
+    int ret = FALSE;
 
     MD_ASSERT(CH(beg) == _T('[') || CH(beg) == _T('!'));
     MD_ASSERT(CH(end-1) == _T(']'));
+
+    if(ctx->max_ref_def_output == 0)
+        return FALSE;
 
     beg += (CH(beg) == _T('!') ? 2 : 1);
     end--;
@@ -2315,7 +2323,17 @@ md_is_link_reference(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
     if(is_multiline)
         free(label);
 
-    ret = (def != NULL);
+    if(def != NULL) {
+        /* See https://github.com/mity/md4c/issues/238 */
+        MD_SIZE output_size_estimation = def->label_size + def->title_size + def->dest_end - def->dest_beg;
+        if(output_size_estimation < ctx->max_ref_def_output) {
+            ctx->max_ref_def_output -= output_size_estimation;
+            ret = TRUE;
+        } else {
+            MD_LOG("Too many link reference definition instantiations.");
+            ctx->max_ref_def_output = 0;
+        }
+    }
 
 abort:
     return ret;
@@ -6470,6 +6488,7 @@ md_parse(const MD_CHAR* text, MD_SIZE size, const MD_PARSER* parser, void* userd
     ctx.code_indent_offset = (ctx.parser.flags & MD_FLAG_NOINDENTEDCODEBLOCKS) ? (OFF)(-1) : 4;
     md_build_mark_char_map(&ctx);
     ctx.doc_ends_with_newline = (size > 0  &&  ISNEWLINE_(text[size-1]));
+    ctx.max_ref_def_output = MIN(MIN(16 * (uint64_t)size, (uint64_t)(1024 * 1024)), (uint64_t)SZ_MAX);
 
     /* Reset all mark stacks and lists. */
     for(i = 0; i < (int) SIZEOF_ARRAY(ctx.opener_stacks); i++)
