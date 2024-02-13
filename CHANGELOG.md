@@ -42,7 +42,7 @@ Fixes:
    was incomplete and one corner case remained unfixed. This is now addressed.
 
  - [#231](https://github.com/mity/md4c/issues/231):
-   `md2html --full-html` now emits `<meta  charset="UTF-8">` in the HTML header.
+   `md2html --full-html` now emits `<meta charset="UTF-8">` in the HTML header.
 
 
 ## Version 0.5.1

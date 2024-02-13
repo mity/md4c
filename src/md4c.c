@@ -986,7 +986,7 @@ struct MD_UNICODE_FOLD_INFO_tag {
  * line breaks with given replacement character.
  *
  * NOTE: Caller is responsible to make sure the buffer is large enough.
- * (Given the output is always shorter then input, (end - beg) is good idea
+ * (Given the output is always shorter than input, (end - beg) is good idea
  * what the caller should allocate.)
  */
 static void
