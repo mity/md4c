@@ -29,6 +29,8 @@ jobs:
           lcov --list coverage.info
       - name: Upload coverage report
         uses: codecov/codecov-action@v4
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   linux-release:
     runs-on: ubuntu-latest
