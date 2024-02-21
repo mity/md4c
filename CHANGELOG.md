@@ -14,6 +14,11 @@ Fixes:
    Fix quadratic time and output size behavior caused by malicious misuse of
    link reference definitions.
 
+ - [#242](https://github.com/mity/md4c/issues/242):
+   The strike-through extension (with flag `MD_FLAG_STRIKETHROUGH`) now follows
+   same logic as other emphasis spans in respect to punctuation character and
+   word boundaries.
+
 
 ## Version 0.5.2
 
