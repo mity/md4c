@@ -726,3 +726,17 @@ https://example.com/dir/
 .
 --fpermissive-url-autolinks
 ````````````````````````````````
+
+
+## [Issue 242](https://github.com/mity/md4c/issues/242)
+
+```````````````````````````````` example
+copy ~user1/file to ~user2/file
+
+copy "~user1/file" to "~user2/file"
+.
+<p>copy ~user1/file to ~user2/file</p>
+<p>copy &quot;~user1/file&quot; to &quot;~user2/file&quot;</p>
+.
+--fstrikethrough
+````````````````````````````````

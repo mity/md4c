@@ -3295,35 +3295,11 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table_m
                 continue;
             }
 
-            /* A potential strikethrough start/end. */
-            if(ch == _T('~')) {
+            /* A potential strikethrough/equation start/end. */
+            if(ch == _T('$') || ch == _T('~')) {
                 OFF tmp = off+1;
 
-                while(tmp < line->end  &&  CH(tmp) == _T('~'))
-                    tmp++;
-
-                if(tmp - off < 3) {
-                    unsigned flags = 0;
-
-                    if(tmp < line->end  &&  !ISUNICODEWHITESPACE(tmp))
-                        flags |= MD_MARK_POTENTIAL_OPENER;
-                    if(off > line->beg  &&  !ISUNICODEWHITESPACEBEFORE(off))
-                        flags |= MD_MARK_POTENTIAL_CLOSER;
-                    if(flags != 0)
-                        ADD_MARK(ch, off, tmp, flags);
-                }
-
-                off = tmp;
-                continue;
-            }
-
-            /* A potential equation start/end */
-            if(ch == _T('$')) {
-                /* We can have at most two consecutive $ signs,
-                 * where two dollar signs signify a display equation. */
-                OFF tmp = off+1;
-
-                while(tmp < line->end && CH(tmp) == _T('$'))
+                while(tmp < line->end && CH(tmp) == ch)
                     tmp++;
 
                 if(tmp - off <= 2) {
