@@ -336,8 +336,8 @@ typedef struct MD_SPAN_WIKILINK {
 
 /* Parser structure.
  */
-typedef struct MD_PARSER {
-    /* Reserved. Set to zero.
+typedef struct MD_PARSER_v1 {
+    /* Set to one (for compatibility, zero is also accepted).
      */
     unsigned abi_version;
 
@@ -380,11 +380,59 @@ typedef struct MD_PARSER {
     /* Reserved. Set to NULL.
      */
     void (*syntax)(void);
-} MD_PARSER;
+} MD_PARSER_v1;
+
+
+typedef struct MD_PARSER_v2 {
+    /* Set to 2.
+     */
+    unsigned abi_version;
+
+    /* Dialect options. Bitmask of MD_FLAG_xxxx values.
+     */
+    unsigned flags;
+
+    /* Caller-provided rendering callbacks.
+     *
+     * For some block/span types, more detailed information is provided in a
+     * type-specific structure pointed by the argument 'detail'.
+     *
+     * The last argument of all callbacks, 'userdata', is just propagated from
+     * md_parse() and is available for any use by the application.
+     *
+     * Note any strings provided to the callbacks as their arguments or as
+     * members of any detail structure are generally not zero-terminated.
+     * Application has to take the respective size information into account.
+     *
+     * Any rendering callback may abort further parsing of the document by
+     * returning non-zero.
+     */
+    int (*enter_block)(int /*type*/, void* /*detail*/, void* /*userdata*/);
+    int (*leave_block)(int /*type*/, void* /*detail*/, void* /*userdata*/);
+
+    int (*enter_span)(int /*type*/, void* /*detail*/, void* /*userdata*/);
+    int (*leave_span)(int /*type*/, void* /*detail*/, void* /*userdata*/);
+
+    int (*text)(int /*type*/, const MD_CHAR* /*text*/, MD_SIZE /*size*/, void* /*userdata*/);
+
+    /* Debug callback. Optional (may be NULL).
+     *
+     * If provided and something goes wrong, this function gets called.
+     * This is intended for debugging and problem diagnosis for developers;
+     * it is not intended to provide any errors suitable for displaying to an
+     * end user.
+     */
+    void (*debug_log)(const char* /*msg*/, void* /*userdata*/);
+
+    /* Reserved. Set to NULL.
+     */
+    void (*syntax)(void);
+} MD_PARSER_v2;
 
 
 /* For backward compatibility. Do not use in new code.
  */
+typedef MD_PARSER_v1 MD_PARSER;
 typedef MD_PARSER MD_RENDERER;
 
 

@@ -168,7 +168,7 @@ struct MD_CTX_tag {
     /* Immutable stuff (parameters of md_parse()). */
     const CHAR* text;
     SZ size;
-    MD_PARSER parser;
+    MD_PARSER_v2 parser;
     void* userdata;
 
     /* When this is true, it allows some optimizations. */
@@ -6446,20 +6446,30 @@ int
 md_parse(const MD_CHAR* text, MD_SIZE size, const MD_PARSER* parser, void* userdata)
 {
     MD_CTX ctx;
+    size_t parser_size;
     int i;
     int ret;
 
-    if(parser->abi_version != 0) {
-        if(parser->debug_log != NULL)
-            parser->debug_log("Unsupported abi_version.", userdata);
-        return -1;
-    }
-
     /* Setup context structure. */
     memset(&ctx, 0, sizeof(MD_CTX));
+    switch(parser->abi_version) {
+        case 0:
+        case 1:
+            parser_size = sizeof(MD_PARSER_v1);
+            break;
+        case 2:
+            parser_size = sizeof(MD_PARSER_v2);
+            break;
+        default:
+            if(parser->debug_log != NULL)
+                parser->debug_log("Unsupported abi_version.", userdata);
+            return -1;
+    }
+    memcpy(&ctx.parser, parser, parser_size);
+    memset((uint8_t*)&ctx.parser + parser_size, 0, sizeof(ctx.parser) - parser_size);
+
     ctx.text = text;
     ctx.size = size;
-    memcpy(&ctx.parser, parser, sizeof(MD_PARSER));
     ctx.userdata = userdata;
     ctx.code_indent_offset = (ctx.parser.flags & MD_FLAG_NOINDENTEDCODEBLOCKS) ? (OFF)(-1) : 4;
     md_build_mark_char_map(&ctx);
