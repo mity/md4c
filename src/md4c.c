@@ -6468,6 +6468,21 @@ md_parse(const MD_CHAR* text, MD_SIZE size, const MD_PARSER* parser, void* userd
     memcpy(&ctx.parser, parser, parser_size);
     memset((uint8_t*)&ctx.parser + parser_size, 0, sizeof(ctx.parser) - parser_size);
 
+#if defined MD4C_USE_UTF8  ||  defined MD4C_USE_UTF16
+    if(parser->flags & MD_FLAG_SKIPBOM) {
+#ifdef MD4C_USE_UTF8
+        static const MD_CHAR bom[3] = { (char)0xef, (char)0xbb, (char)0xbf };
+#endif
+#ifdef MD4C_USE_UTF16
+        static const MD_CHAR bom[1] = { (WCHAR)0xfeff };
+#endif
+        if(size >= SIZEOF_ARRAY(bom)  &&  memcmp(text, bom, sizeof(bom)) == 0) {
+            text += SIZEOF_ARRAY(bom);
+            size -= SIZEOF_ARRAY(bom);
+        }
+    }
+#endif
+
     ctx.text = text;
     ctx.size = size;
     ctx.userdata = userdata;

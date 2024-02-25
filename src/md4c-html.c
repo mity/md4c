@@ -553,14 +553,9 @@ md_html(const MD_CHAR* input, MD_SIZE input_size,
             render.escape_map[i] |= NEED_URL_ESC_FLAG;
     }
 
-    /* Consider skipping UTF-8 byte order mark (BOM). */
-    if(renderer_flags & MD_HTML_FLAG_SKIP_UTF8_BOM  &&  sizeof(MD_CHAR) == 1) {
-        static const MD_CHAR bom[3] = { (char)0xef, (char)0xbb, (char)0xbf };
-        if(input_size >= sizeof(bom)  &&  memcmp(input, bom, sizeof(bom)) == 0) {
-            input += sizeof(bom);
-            input_size -= sizeof(bom);
-        }
-    }
+    /* For compatibility with old apps. */
+    if(renderer_flags & MD_HTML_FLAG_SKIP_UTF8_BOM)
+        parser.flags |= MD_FLAG_SKIPBOM;
 
     return md_parse(input, input_size, &parser, (void*) &render);
 }
