@@ -19,6 +19,10 @@ Fixes:
    same logic as other emphasis spans in respect to punctuation character and
    word boundaries.
 
+ - [#248](https://github.com/mity/md4c/issues/248):
+   Fix handling tab when removing trailing whitespace, especially in connection
+   with ATX headers.
+
 
 ## Version 0.5.2
 

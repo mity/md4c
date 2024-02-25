@@ -5250,10 +5250,10 @@ md_is_atxheader_line(MD_CTX* ctx, OFF beg, OFF* p_beg, OFF* p_end, unsigned* p_l
     *p_level = n;
 
     if(!(ctx->parser.flags & MD_FLAG_PERMISSIVEATXHEADERS)  &&  off < ctx->size  &&
-       CH(off) != _T(' ')  &&  CH(off) != _T('\t')  &&  !ISNEWLINE(off))
+       !ISBLANK(off)  &&  !ISNEWLINE(off))
         return FALSE;
 
-    while(off < ctx->size  &&  CH(off) == _T(' '))
+    while(off < ctx->size  &&  ISBLANK(off))
         off++;
     *p_beg = off;
     *p_end = off;
@@ -6248,17 +6248,17 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
     /* But for ATX header, we should exclude the optional trailing mark. */
     if(line->type == MD_LINE_ATXHEADER) {
         OFF tmp = line->end;
-        while(tmp > line->beg && CH(tmp-1) == _T(' '))
+        while(tmp > line->beg && ISBLANK(tmp-1))
             tmp--;
         while(tmp > line->beg && CH(tmp-1) == _T('#'))
             tmp--;
-        if(tmp == line->beg || CH(tmp-1) == _T(' ') || (ctx->parser.flags & MD_FLAG_PERMISSIVEATXHEADERS))
+        if(tmp == line->beg || ISBLANK(tmp-1) || (ctx->parser.flags & MD_FLAG_PERMISSIVEATXHEADERS))
             line->end = tmp;
     }
 
     /* Trim trailing spaces. */
     if(line->type != MD_LINE_INDENTEDCODE  &&  line->type != MD_LINE_FENCEDCODE  && line->type != MD_LINE_HTML) {
-        while(line->end > line->beg && CH(line->end-1) == _T(' '))
+        while(line->end > line->beg && ISBLANK(line->end-1))
             line->end--;
     }
 

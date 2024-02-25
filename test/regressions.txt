@@ -740,3 +740,24 @@ copy "~user1/file" to "~user2/file"
 .
 --fstrikethrough
 ````````````````````````````````
+
+
+## [Issue 248](https://github.com/mity/md4c/issues/248)
+
+(These are in spec.txt, but we need the [no-normalize] flag in order to
+catch the whitespace issues.)
+
+```````````````````````````````` example [no-normalize]
+#→Foo
+.
+<h1>Foo</h1>
+````````````````````````````````
+
+```````````````````````````````` example [no-normalize]
+  Foo *bar
+baz*→
+====
+.
+<h1>Foo <em>bar
+baz</em></h1>
+````````````````````````````````
