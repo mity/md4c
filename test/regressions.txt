@@ -761,3 +761,27 @@ baz*→
 <h1>Foo <em>bar
 baz</em></h1>
 ````````````````````````````````
+
+
+## [Issue 250](https://github.com/mity/md4c/issues/250)
+
+Handling trailing tabulator character versus hard break.
+
+Space + space + tab + newline is not hard break:
+```````````````````````````````` example [no-normalize]
+foo  →
+bar
+.
+<p>foo
+bar</p>
+````````````````````````````````
+
+Tab + space + space + newline is hard break:
+```````````````````````````````` example [no-normalize]
+foo→  
+bar
+.
+<p>foo<br>
+bar</p>
+````````````````````````````````
+

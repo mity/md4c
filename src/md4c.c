@@ -4470,12 +4470,14 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
                 MD_TEXTTYPE break_type = MD_TEXT_SOFTBR;
 
                 if(text_type == MD_TEXT_NORMAL) {
-                    if(ctx->parser.flags & MD_FLAG_HARD_SOFT_BREAKS)
+                    if(enforce_hardbreak  ||  (ctx->parser.flags & MD_FLAG_HARD_SOFT_BREAKS)) {
                         break_type = MD_TEXT_BR;
-                    else if(enforce_hardbreak)
-                        break_type = MD_TEXT_BR;
-                    else if((CH(line->end) == _T(' ') && CH(line->end+1) == _T(' ')))
-                        break_type = MD_TEXT_BR;
+                    } else {
+                        while(off < ctx->size  &&  ISBLANK(off))
+                            off++;
+                        if(off >= line->end + 2  &&  CH(off-2) == _T(' ')  &&  CH(off-1) == _T(' ')  &&  ISNEWLINE(off))
+                            break_type = MD_TEXT_BR;
+                    }
                 }
 
                 MD_TEXT(break_type, _T("\n"), 1);
