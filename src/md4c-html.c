@@ -47,8 +47,8 @@
 
 
 
-typedef struct MD_HTML_tag MD_HTML;
-struct MD_HTML_tag {
+typedef struct MD_HTML MD_HTML;
+struct MD_HTML {
     void (*process_output)(const MD_CHAR*, MD_SIZE, void*);
     void* userdata;
     unsigned flags;
@@ -70,89 +70,11 @@ struct MD_HTML_tag {
 #define ISALNUM(ch)     (ISLOWER(ch) || ISUPPER(ch) || ISDIGIT(ch))
 
 
-static inline void
-render_verbatim(MD_HTML* r, const MD_CHAR* text, MD_SIZE size)
-{
-    r->process_output(text, size, r->userdata);
-}
-
 /* Keep this as a macro. Most compiler should then be smart enough to replace
  * the strlen() call with a compile-time constant if the string is a C literal. */
 #define RENDER_VERBATIM(r, verbatim)                                    \
-        render_verbatim((r), (verbatim), (MD_SIZE) (strlen(verbatim)))
+        md_html_output_verbatim((r), (verbatim), (MD_SIZE) (strlen(verbatim)))
 
-
-static void
-render_html_escaped(MD_HTML* r, const MD_CHAR* data, MD_SIZE size)
-{
-    MD_OFFSET beg = 0;
-    MD_OFFSET off = 0;
-
-    /* Some characters need to be escaped in normal HTML text. */
-    #define NEED_HTML_ESC(ch)   (r->escape_map[(unsigned char)(ch)] & NEED_HTML_ESC_FLAG)
-
-    while(1) {
-        /* Optimization: Use some loop unrolling. */
-        while(off + 3 < size  &&  !NEED_HTML_ESC(data[off+0])  &&  !NEED_HTML_ESC(data[off+1])
-                              &&  !NEED_HTML_ESC(data[off+2])  &&  !NEED_HTML_ESC(data[off+3]))
-            off += 4;
-        while(off < size  &&  !NEED_HTML_ESC(data[off]))
-            off++;
-
-        if(off > beg)
-            render_verbatim(r, data + beg, off - beg);
-
-        if(off < size) {
-            switch(data[off]) {
-                case '&':   RENDER_VERBATIM(r, "&amp;"); break;
-                case '<':   RENDER_VERBATIM(r, "&lt;"); break;
-                case '>':   RENDER_VERBATIM(r, "&gt;"); break;
-                case '"':   RENDER_VERBATIM(r, "&quot;"); break;
-            }
-            off++;
-        } else {
-            break;
-        }
-        beg = off;
-    }
-}
-
-static void
-render_url_escaped(MD_HTML* r, const MD_CHAR* data, MD_SIZE size)
-{
-    static const MD_CHAR hex_chars[] = "0123456789ABCDEF";
-    MD_OFFSET beg = 0;
-    MD_OFFSET off = 0;
-
-    /* Some characters need to be escaped in URL attributes. */
-    #define NEED_URL_ESC(ch)    (r->escape_map[(unsigned char)(ch)] & NEED_URL_ESC_FLAG)
-
-    while(1) {
-        while(off < size  &&  !NEED_URL_ESC(data[off]))
-            off++;
-        if(off > beg)
-            render_verbatim(r, data + beg, off - beg);
-
-        if(off < size) {
-            char hex[3];
-
-            switch(data[off]) {
-                case '&':   RENDER_VERBATIM(r, "&amp;"); break;
-                default:
-                    hex[0] = '%';
-                    hex[1] = hex_chars[((unsigned)data[off] >> 4) & 0xf];
-                    hex[2] = hex_chars[((unsigned)data[off] >> 0) & 0xf];
-                    render_verbatim(r, hex, 3);
-                    break;
-            }
-            off++;
-        } else {
-            break;
-        }
-
-        beg = off;
-    }
-}
 
 static unsigned
 hex_val(char ch)
@@ -207,7 +129,7 @@ render_entity(MD_HTML* r, const MD_CHAR* text, MD_SIZE size,
               void (*fn_append)(MD_HTML*, const MD_CHAR*, MD_SIZE))
 {
     if(r->flags & MD_HTML_FLAG_VERBATIM_ENTITIES) {
-        render_verbatim(r, text, size);
+        md_html_output_verbatim(r, text, size);
         return;
     }
 
@@ -258,7 +180,7 @@ render_attribute(MD_HTML* r, const MD_ATTRIBUTE* attr,
         const MD_CHAR* text = attr->text + off;
 
         switch(type) {
-            case MD_TEXT_NULLCHAR:  render_utf8_codepoint(r, 0x0000, render_verbatim); break;
+            case MD_TEXT_NULLCHAR:  render_utf8_codepoint(r, 0x0000, md_html_output_verbatim); break;
             case MD_TEXT_ENTITY:    render_entity(r, text, size, fn_append); break;
             default:                fn_append(r, text, size); break;
         }
@@ -302,7 +224,7 @@ render_open_code_block(MD_HTML* r, const MD_BLOCK_CODE_DETAIL* det)
     /* If known, output the HTML 5 attribute class="language-LANGNAME". */
     if(det->lang.text != NULL) {
         RENDER_VERBATIM(r, " class=\"language-");
-        render_attribute(r, &det->lang, render_html_escaped);
+        render_attribute(r, &det->lang, md_html_output_escaped);
         RENDER_VERBATIM(r, "\"");
     }
 
@@ -327,11 +249,11 @@ static void
 render_open_a_span(MD_HTML* r, const MD_SPAN_A_DETAIL* det)
 {
     RENDER_VERBATIM(r, "<a href=\"");
-    render_attribute(r, &det->href, render_url_escaped);
+    render_attribute(r, &det->href, md_html_output_url_escaped);
 
     if(det->title.text != NULL) {
         RENDER_VERBATIM(r, "\" title=\"");
-        render_attribute(r, &det->title, render_html_escaped);
+        render_attribute(r, &det->title, md_html_output_escaped);
     }
 
     RENDER_VERBATIM(r, "\">");
@@ -341,7 +263,7 @@ static void
 render_open_img_span(MD_HTML* r, const MD_SPAN_IMG_DETAIL* det)
 {
     RENDER_VERBATIM(r, "<img src=\"");
-    render_attribute(r, &det->src, render_url_escaped);
+    render_attribute(r, &det->src, md_html_output_url_escaped);
 
     RENDER_VERBATIM(r, "\" alt=\"");
 }
@@ -351,7 +273,7 @@ render_close_img_span(MD_HTML* r, const MD_SPAN_IMG_DETAIL* det)
 {
     if(det->title.text != NULL) {
         RENDER_VERBATIM(r, "\" title=\"");
-        render_attribute(r, &det->title, render_html_escaped);
+        render_attribute(r, &det->title, md_html_output_escaped);
     }
 
     RENDER_VERBATIM(r, (r->flags & MD_HTML_FLAG_XHTML) ? "\" />" : "\">");
@@ -361,18 +283,86 @@ static void
 render_open_wikilink_span(MD_HTML* r, const MD_SPAN_WIKILINK_DETAIL* det)
 {
     RENDER_VERBATIM(r, "<x-wikilink data-target=\"");
-    render_attribute(r, &det->target, render_html_escaped);
+    render_attribute(r, &det->target, md_html_output_escaped);
 
     RENDER_VERBATIM(r, "\">");
 }
 
 
+static void
+md_html_init(MD_HTML* mh, void (*process_output)(const MD_CHAR*, MD_SIZE, void*),
+        void* userdata, unsigned renderer_flags)
+{
+    int i;
+
+    memset(mh, 0, sizeof(MD_HTML));
+    mh->process_output = process_output;
+    mh->userdata = userdata;
+    mh->flags = renderer_flags;
+    mh->image_nesting_level = 0;
+
+    /* Build map of characters which need escaping. */
+    for(i = 0; i < 256; i++) {
+        unsigned char ch = (unsigned char) i;
+
+        if(strchr("\"&<>", ch) != NULL)
+            mh->escape_map[i] |= NEED_HTML_ESC_FLAG;
+
+        if(!ISALNUM(ch)  &&  strchr("~-_.+!*(),%#@?=;:/,+$", ch) == NULL)
+            mh->escape_map[i] |= NEED_URL_ESC_FLAG;
+    }
+}
+
 /**************************************
  ***  HTML renderer implementation  ***
  **************************************/
 
-static int
-enter_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
+int
+md_html(const MD_CHAR* input, MD_SIZE input_size,
+        void (*process_output)(const MD_CHAR*, MD_SIZE, void*),
+        void* userdata, unsigned parser_flags, unsigned renderer_flags)
+{
+    MD_HTML mh;
+    MD_PARSER_v2 parser = {
+        0,
+        parser_flags,
+        md_html_enter_block,
+        md_html_leave_block,
+        md_html_enter_span,
+        md_html_leave_span,
+        md_html_text,
+        md_html_debug_log,
+        NULL
+    };
+
+    md_html_init(&mh, process_output, userdata, renderer_flags);
+
+    /* For compatibility with old apps. */
+    if(renderer_flags & MD_HTML_FLAG_SKIP_UTF8_BOM)
+        parser.flags |= MD_FLAG_SKIPBOM;
+
+    return md_parse(input, input_size, (MD_PARSER*) &parser, (void*) &mh);
+}
+
+MD_HTML*
+md_html_create(void (*process_output)(const MD_CHAR*, MD_SIZE, void*),
+        void* userdata, unsigned renderer_flags)
+{
+    MD_HTML* mh;
+    mh = (MD_HTML*) malloc(sizeof(MD_HTML));
+    if(mh != NULL)
+        md_html_init(mh, process_output, userdata, renderer_flags);
+    return mh;
+}
+
+void
+md_html_destroy(MD_HTML* mh)
+{
+    free(mh);
+}
+
+int
+md_html_enter_block(int type, void* detail, void* userdata)
 {
     static const MD_CHAR* head[6] = { "<h1>", "<h2>", "<h3>", "<h4>", "<h5>", "<h6>" };
     MD_HTML* r = (MD_HTML*) userdata;
@@ -399,8 +389,8 @@ enter_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
     return 0;
 }
 
-static int
-leave_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
+int
+md_html_leave_block(int type, void* detail, void* userdata)
 {
     static const MD_CHAR* head[6] = { "</h1>\n", "</h2>\n", "</h3>\n", "</h4>\n", "</h5>\n", "</h6>\n" };
     MD_HTML* r = (MD_HTML*) userdata;
@@ -427,8 +417,8 @@ leave_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
     return 0;
 }
 
-static int
-enter_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
+int
+md_html_enter_span(int type, void* detail, void* userdata)
 {
     MD_HTML* r = (MD_HTML*) userdata;
     int inside_img = (r->image_nesting_level > 0);
@@ -468,8 +458,8 @@ enter_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
     return 0;
 }
 
-static int
-leave_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
+int
+md_html_leave_span(int type, void* detail, void* userdata)
 {
     MD_HTML* r = (MD_HTML*) userdata;
 
@@ -494,74 +484,108 @@ leave_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
     return 0;
 }
 
-static int
-text_callback(MD_TEXTTYPE type, const MD_CHAR* text, MD_SIZE size, void* userdata)
+int
+md_html_text(int type, const MD_CHAR* text, MD_SIZE size, void* userdata)
 {
     MD_HTML* r = (MD_HTML*) userdata;
 
     switch(type) {
-        case MD_TEXT_NULLCHAR:  render_utf8_codepoint(r, 0x0000, render_verbatim); break;
+        case MD_TEXT_NULLCHAR:  render_utf8_codepoint(r, 0x0000, md_html_output_verbatim); break;
         case MD_TEXT_BR:        RENDER_VERBATIM(r, (r->image_nesting_level == 0
                                         ? ((r->flags & MD_HTML_FLAG_XHTML) ? "<br />\n" : "<br>\n")
                                         : " "));
                                 break;
         case MD_TEXT_SOFTBR:    RENDER_VERBATIM(r, (r->image_nesting_level == 0 ? "\n" : " ")); break;
-        case MD_TEXT_HTML:      render_verbatim(r, text, size); break;
-        case MD_TEXT_ENTITY:    render_entity(r, text, size, render_html_escaped); break;
-        default:                render_html_escaped(r, text, size); break;
+        case MD_TEXT_HTML:      md_html_output_verbatim(r, text, size); break;
+        case MD_TEXT_ENTITY:    render_entity(r, text, size, md_html_output_escaped); break;
+        default:                md_html_output_escaped(r, text, size); break;
     }
 
     return 0;
 }
 
-static void
-debug_log_callback(const char* msg, void* userdata)
+void
+md_html_debug_log(const char* msg, void* userdata)
 {
     MD_HTML* r = (MD_HTML*) userdata;
     if(r->flags & MD_HTML_FLAG_DEBUG)
         fprintf(stderr, "MD4C: %s\n", msg);
 }
 
-int
-md_html(const MD_CHAR* input, MD_SIZE input_size,
-        void (*process_output)(const MD_CHAR*, MD_SIZE, void*),
-        void* userdata, unsigned parser_flags, unsigned renderer_flags)
+void
+md_html_output_verbatim(MD_HTML* r, const MD_CHAR* text, MD_SIZE size)
 {
-    MD_HTML render = { process_output, userdata, renderer_flags, 0, { 0 } };
-    int i;
-
-    MD_PARSER parser = {
-        0,
-        parser_flags,
-        enter_block_callback,
-        leave_block_callback,
-        enter_span_callback,
-        leave_span_callback,
-        text_callback,
-        debug_log_callback,
-        NULL
-    };
-
-    /* Build map of characters which need escaping. */
-    for(i = 0; i < 256; i++) {
-        unsigned char ch = (unsigned char) i;
-
-        if(strchr("\"&<>", ch) != NULL)
-            render.escape_map[i] |= NEED_HTML_ESC_FLAG;
-
-        if(!ISALNUM(ch)  &&  strchr("~-_.+!*(),%#@?=;:/,+$", ch) == NULL)
-            render.escape_map[i] |= NEED_URL_ESC_FLAG;
-    }
-
-    /* Consider skipping UTF-8 byte order mark (BOM). */
-    if(renderer_flags & MD_HTML_FLAG_SKIP_UTF8_BOM  &&  sizeof(MD_CHAR) == 1) {
-        static const MD_CHAR bom[3] = { (char)0xef, (char)0xbb, (char)0xbf };
-        if(input_size >= sizeof(bom)  &&  memcmp(input, bom, sizeof(bom)) == 0) {
-            input += sizeof(bom);
-            input_size -= sizeof(bom);
-        }
-    }
-
-    return md_parse(input, input_size, &parser, (void*) &render);
+    r->process_output(text, size, r->userdata);
 }
 
+void
+md_html_output_escaped(MD_HTML* r, const MD_CHAR* data, MD_SIZE size)
+{
+    MD_OFFSET beg = 0;
+    MD_OFFSET off = 0;
+
+    /* Some characters need to be escaped in normal HTML text. */
+    #define NEED_HTML_ESC(ch)   (r->escape_map[(unsigned char)(ch)] & NEED_HTML_ESC_FLAG)
+
+    while(1) {
+        /* Optimization: Use some loop unrolling. */
+        while(off + 3 < size  &&  !NEED_HTML_ESC(data[off+0])  &&  !NEED_HTML_ESC(data[off+1])
+                              &&  !NEED_HTML_ESC(data[off+2])  &&  !NEED_HTML_ESC(data[off+3]))
+            off += 4;
+        while(off < size  &&  !NEED_HTML_ESC(data[off]))
+            off++;
+
+        if(off > beg)
+            md_html_output_verbatim(r, data + beg, off - beg);
+
+        if(off < size) {
+            switch(data[off]) {
+                case '&':   RENDER_VERBATIM(r, "&amp;"); break;
+                case '<':   RENDER_VERBATIM(r, "&lt;"); break;
+                case '>':   RENDER_VERBATIM(r, "&gt;"); break;
+                case '"':   RENDER_VERBATIM(r, "&quot;"); break;
+            }
+            off++;
+        } else {
+            break;
+        }
+        beg = off;
+    }
+}
+
+void
+md_html_output_url_escaped(MD_HTML* r, const MD_CHAR* data, MD_SIZE size)
+{
+    static const MD_CHAR hex_chars[] = "0123456789ABCDEF";
+    MD_OFFSET beg = 0;
+    MD_OFFSET off = 0;
+
+    /* Some characters need to be escaped in URL attributes. */
+    #define NEED_URL_ESC(ch)    (r->escape_map[(unsigned char)(ch)] & NEED_URL_ESC_FLAG)
+
+    while(1) {
+        while(off < size  &&  !NEED_URL_ESC(data[off]))
+            off++;
+        if(off > beg)
+            md_html_output_verbatim(r, data + beg, off - beg);
+
+        if(off < size) {
+            char hex[3];
+
+            switch(data[off]) {
+                case '&':   RENDER_VERBATIM(r, "&amp;"); break;
+                default:
+                    hex[0] = '%';
+                    hex[1] = hex_chars[((unsigned)data[off] >> 4) & 0xf];
+                    hex[2] = hex_chars[((unsigned)data[off] >> 0) & 0xf];
+                    md_html_output_verbatim(r, hex, 3);
+                    break;
+            }
+            off++;
+        } else {
+            break;
+        }
+
+        beg = off;
+    }
+}

@@ -303,21 +303,23 @@ typedef struct MD_SPAN_WIKILINK {
  * By default (when MD_PARSER::flags == 0), we follow CommonMark specification.
  * The following flags may allow some extensions or deviations from it.
  */
-#define MD_FLAG_COLLAPSEWHITESPACE          0x0001  /* In MD_TEXT_NORMAL, collapse non-trivial whitespace into single ' ' */
-#define MD_FLAG_PERMISSIVEATXHEADERS        0x0002  /* Do not require space in ATX headers ( ###header ) */
-#define MD_FLAG_PERMISSIVEURLAUTOLINKS      0x0004  /* Recognize URLs as autolinks even without '<', '>' */
-#define MD_FLAG_PERMISSIVEEMAILAUTOLINKS    0x0008  /* Recognize e-mails as autolinks even without '<', '>' and 'mailto:' */
-#define MD_FLAG_NOINDENTEDCODEBLOCKS        0x0010  /* Disable indented code blocks. (Only fenced code works.) */
-#define MD_FLAG_NOHTMLBLOCKS                0x0020  /* Disable raw HTML blocks. */
-#define MD_FLAG_NOHTMLSPANS                 0x0040  /* Disable raw HTML (inline). */
-#define MD_FLAG_TABLES                      0x0100  /* Enable tables extension. */
-#define MD_FLAG_STRIKETHROUGH               0x0200  /* Enable strikethrough extension. */
-#define MD_FLAG_PERMISSIVEWWWAUTOLINKS      0x0400  /* Enable WWW autolinks (even without any scheme prefix, if they begin with 'www.') */
-#define MD_FLAG_TASKLISTS                   0x0800  /* Enable task list extension. */
-#define MD_FLAG_LATEXMATHSPANS              0x1000  /* Enable $ and $$ containing LaTeX equations. */
-#define MD_FLAG_WIKILINKS                   0x2000  /* Enable wiki links extension. */
-#define MD_FLAG_UNDERLINE                   0x4000  /* Enable underline extension (and disables '_' for normal emphasis). */
-#define MD_FLAG_HARD_SOFT_BREAKS            0x8000  /* Force all soft breaks to act as hard breaks. */
+#define MD_FLAG_COLLAPSEWHITESPACE          0x00000001  /* In MD_TEXT_NORMAL, collapse non-trivial whitespace into single ' ' */
+#define MD_FLAG_PERMISSIVEATXHEADERS        0x00000002  /* Do not require space in ATX headers ( ###header ) */
+#define MD_FLAG_PERMISSIVEURLAUTOLINKS      0x00000004  /* Recognize URLs as autolinks even without '<', '>' */
+#define MD_FLAG_PERMISSIVEEMAILAUTOLINKS    0x00000008  /* Recognize e-mails as autolinks even without '<', '>' and 'mailto:' */
+#define MD_FLAG_NOINDENTEDCODEBLOCKS        0x00000010  /* Disable indented code blocks. (Only fenced code works.) */
+#define MD_FLAG_NOHTMLBLOCKS                0x00000020  /* Disable raw HTML blocks. */
+#define MD_FLAG_NOHTMLSPANS                 0x00000040  /* Disable raw HTML (inline). */
+#define MD_FLAG_TABLES                      0x00000100  /* Enable tables extension. */
+#define MD_FLAG_STRIKETHROUGH               0x00000200  /* Enable strikethrough extension. */
+#define MD_FLAG_PERMISSIVEWWWAUTOLINKS      0x00000400  /* Enable WWW autolinks (even without any scheme prefix, if they begin with 'www.') */
+#define MD_FLAG_TASKLISTS                   0x00000800  /* Enable task list extension. */
+#define MD_FLAG_LATEXMATHSPANS              0x00001000  /* Enable $ and $$ containing LaTeX equations. */
+#define MD_FLAG_WIKILINKS                   0x00002000  /* Enable wiki links extension. */
+#define MD_FLAG_UNDERLINE                   0x00004000  /* Enable underline extension (and disables '_' for normal emphasis). */
+#define MD_FLAG_HARD_SOFT_BREAKS            0x00008000  /* Force all soft breaks to act as hard breaks. */
+#define MD_FLAG_SKIPBOM                     0x00010000  /* Skip Unicode BOM, if present. */
+
 
 #define MD_FLAG_PERMISSIVEAUTOLINKS         (MD_FLAG_PERMISSIVEEMAILAUTOLINKS | MD_FLAG_PERMISSIVEURLAUTOLINKS | MD_FLAG_PERMISSIVEWWWAUTOLINKS)
 #define MD_FLAG_NOHTML                      (MD_FLAG_NOHTMLBLOCKS | MD_FLAG_NOHTMLSPANS)
@@ -336,8 +338,8 @@ typedef struct MD_SPAN_WIKILINK {
 
 /* Parser structure.
  */
-typedef struct MD_PARSER {
-    /* Reserved. Set to zero.
+typedef struct MD_PARSER_v1 {
+    /* Set to one (for compatibility, zero is also accepted).
      */
     unsigned abi_version;
 
@@ -380,11 +382,59 @@ typedef struct MD_PARSER {
     /* Reserved. Set to NULL.
      */
     void (*syntax)(void);
-} MD_PARSER;
+} MD_PARSER_v1;
+
+
+typedef struct MD_PARSER_v2 {
+    /* Set to 2.
+     */
+    unsigned abi_version;
+
+    /* Dialect options. Bitmask of MD_FLAG_xxxx values.
+     */
+    unsigned flags;
+
+    /* Caller-provided rendering callbacks.
+     *
+     * For some block/span types, more detailed information is provided in a
+     * type-specific structure pointed by the argument 'detail'.
+     *
+     * The last argument of all callbacks, 'userdata', is just propagated from
+     * md_parse() and is available for any use by the application.
+     *
+     * Note any strings provided to the callbacks as their arguments or as
+     * members of any detail structure are generally not zero-terminated.
+     * Application has to take the respective size information into account.
+     *
+     * Any rendering callback may abort further parsing of the document by
+     * returning non-zero.
+     */
+    int (*enter_block)(int /*type*/, void* /*detail*/, void* /*userdata*/);
+    int (*leave_block)(int /*type*/, void* /*detail*/, void* /*userdata*/);
+
+    int (*enter_span)(int /*type*/, void* /*detail*/, void* /*userdata*/);
+    int (*leave_span)(int /*type*/, void* /*detail*/, void* /*userdata*/);
+
+    int (*text)(int /*type*/, const MD_CHAR* /*text*/, MD_SIZE /*size*/, void* /*userdata*/);
+
+    /* Debug callback. Optional (may be NULL).
+     *
+     * If provided and something goes wrong, this function gets called.
+     * This is intended for debugging and problem diagnosis for developers;
+     * it is not intended to provide any errors suitable for displaying to an
+     * end user.
+     */
+    void (*debug_log)(const char* /*msg*/, void* /*userdata*/);
+
+    /* Reserved. Set to NULL.
+     */
+    void (*syntax)(void);
+} MD_PARSER_v2;
 
 
 /* For backward compatibility. Do not use in new code.
  */
+typedef MD_PARSER_v1 MD_PARSER;
 typedef MD_PARSER MD_RENDERER;
 
 
