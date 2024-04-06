@@ -295,3 +295,6 @@ Software using MD4C:
 
 * [8th](https://8th-dev.com/):
   Cross-platform concatenative programming language.
+  
+* [lnav](https://lnav.org/):
+  A log file viewer for the terminal that can also render markdown.
