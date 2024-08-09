@@ -6,8 +6,6 @@ includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
 Name: @PROJECT_NAME@
 Description: Markdown parser library with a SAX-like callback-based interface.
 Version: @PROJECT_VERSION@
-URL: @PROJECT_URL@
-
-Requires:
+URL: @PROJECT_HOMEPAGE_URL@
 Libs: -L${libdir} -lmd4c
 Cflags: -I${includedir}
