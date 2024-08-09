@@ -1,5 +1,9 @@
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS 1)
 
+# Handle absolute include and lib dirs outside of CMAKE_INSTALL_PREFIX
+include(JoinPaths.cmake) # can be replaced by cmake_path(APPEND) in CMake 3.20
+join_paths(PKGCONFIG_INCLUDEDIR "\${prefix}" "${CMAKE_INSTALL_INCLUDEDIR}")
+join_paths(PKGCONFIG_LIBDIR "\${prefix}" "${CMAKE_INSTALL_LIBDIR}")
 
 # Build rules for MD4C parser library
 
