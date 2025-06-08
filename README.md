@@ -219,9 +219,9 @@ language) are full DOM-like parsers: They construct abstract syntax tree (AST)
 representation of the whole Markdown document. That takes time and it leads to
 bigger memory footprint.
 
-Build AST is completely fine as long as you really need it. If you don't need
-it, there is a very high chance that using MD4C will be substantially faster
-and less hungry in terms of memory consumption.
+Building AST is completely fine as long as you need it. If you don't, there is
+a very high chance that using MD4C will be substantially faster and less hungry
+in terms of memory consumption.
 
 Last but not least, some Markdown parsers are implemented in a naive way. When
 fed with a [smartly crafted input pattern](test/pathological_tests.py), they

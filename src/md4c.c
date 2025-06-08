@@ -26,6 +26,7 @@
 #include "md4c.h"
 
 #include <limits.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -143,6 +144,9 @@
 #define SZ      MD_SIZE
 #define OFF     MD_OFFSET
 
+#define SZ_MAX      (sizeof(SZ) == 8 ? UINT64_MAX : UINT32_MAX)
+#define OFF_MAX     (sizeof(OFF) == 8 ? UINT64_MAX : UINT32_MAX)
+
 typedef struct MD_MARK_tag MD_MARK;
 typedef struct MD_BLOCK_tag MD_BLOCK;
 typedef struct MD_CONTAINER_tag MD_CONTAINER;
@@ -180,6 +184,7 @@ struct MD_CTX_tag {
     int alloc_ref_defs;
     void** ref_def_hashtable;
     int ref_def_hashtable_size;
+    SZ max_ref_def_output;
 
     /* Stack of inline/span markers.
      * This is only used for parsing a single block contents but by storing it
@@ -981,7 +986,7 @@ struct MD_UNICODE_FOLD_INFO_tag {
  * line breaks with given replacement character.
  *
  * NOTE: Caller is responsible to make sure the buffer is large enough.
- * (Given the output is always shorter then input, (end - beg) is good idea
+ * (Given the output is always shorter than input, (end - beg) is good idea
  * what the caller should allocate.)
  */
 static void
@@ -1936,6 +1941,8 @@ md_is_link_label(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, OFF beg,
     MD_SIZE line_index = 0;
     int len = 0;
 
+    *p_beg_line_index = 0;
+
     if(CH(off) != _T('['))
         return FALSE;
     off++;
@@ -2281,10 +2288,13 @@ md_is_link_reference(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
     int is_multiline;
     CHAR* label;
     SZ label_size;
-    int ret;
+    int ret = FALSE;
 
     MD_ASSERT(CH(beg) == _T('[') || CH(beg) == _T('!'));
     MD_ASSERT(CH(end-1) == _T(']'));
+
+    if(ctx->max_ref_def_output == 0)
+        return FALSE;
 
     beg += (CH(beg) == _T('!') ? 2 : 1);
     end--;
@@ -2313,7 +2323,17 @@ md_is_link_reference(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
     if(is_multiline)
         free(label);
 
-    ret = (def != NULL);
+    if(def != NULL) {
+        /* See https://github.com/mity/md4c/issues/238 */
+        MD_SIZE output_size_estimation = def->label_size + def->title_size + def->dest_end - def->dest_beg;
+        if(output_size_estimation < ctx->max_ref_def_output) {
+            ctx->max_ref_def_output -= output_size_estimation;
+            ret = TRUE;
+        } else {
+            MD_LOG("Too many link reference definition instantiations.");
+            ctx->max_ref_def_output = 0;
+        }
+    }
 
 abort:
     return ret;
@@ -2332,8 +2352,7 @@ md_is_inline_link_spec(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
     OFF off = beg;
     int ret = FALSE;
 
-    while(off >= lines[line_index].end)
-        line_index++;
+    md_lookup_line(off, lines, n_lines, &line_index);
 
     MD_ASSERT(CH(off) == _T('('));
     off++;
@@ -3276,35 +3295,11 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table_m
                 continue;
             }
 
-            /* A potential strikethrough start/end. */
-            if(ch == _T('~')) {
+            /* A potential strikethrough/equation start/end. */
+            if(ch == _T('$') || ch == _T('~')) {
                 OFF tmp = off+1;
 
-                while(tmp < line->end  &&  CH(tmp) == _T('~'))
-                    tmp++;
-
-                if(tmp - off < 3) {
-                    unsigned flags = 0;
-
-                    if(tmp < line->end  &&  !ISUNICODEWHITESPACE(tmp))
-                        flags |= MD_MARK_POTENTIAL_OPENER;
-                    if(off > line->beg  &&  !ISUNICODEWHITESPACEBEFORE(off))
-                        flags |= MD_MARK_POTENTIAL_CLOSER;
-                    if(flags != 0)
-                        ADD_MARK(ch, off, tmp, flags);
-                }
-
-                off = tmp;
-                continue;
-            }
-
-            /* A potential equation start/end */
-            if(ch == _T('$')) {
-                /* We can have at most two consecutive $ signs,
-                 * where two dollar signs signify a display equation. */
-                OFF tmp = off+1;
-
-                while(tmp < line->end && CH(tmp) == _T('$'))
+                while(tmp < line->end && CH(tmp) == ch)
                     tmp++;
 
                 if(tmp - off <= 2) {
@@ -4475,12 +4470,14 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
                 MD_TEXTTYPE break_type = MD_TEXT_SOFTBR;
 
                 if(text_type == MD_TEXT_NORMAL) {
-                    if(ctx->parser.flags & MD_FLAG_HARD_SOFT_BREAKS)
+                    if(enforce_hardbreak  ||  (ctx->parser.flags & MD_FLAG_HARD_SOFT_BREAKS)) {
                         break_type = MD_TEXT_BR;
-                    else if(enforce_hardbreak)
-                        break_type = MD_TEXT_BR;
-                    else if((CH(line->end) == _T(' ') && CH(line->end+1) == _T(' ')))
-                        break_type = MD_TEXT_BR;
+                    } else {
+                        while(off < ctx->size  &&  ISBLANK(off))
+                            off++;
+                        if(off >= line->end + 2  &&  CH(off-2) == _T(' ')  &&  CH(off-1) == _T(' ')  &&  ISNEWLINE(off))
+                            break_type = MD_TEXT_BR;
+                    }
                 }
 
                 MD_TEXT(break_type, _T("\n"), 1);
@@ -5255,10 +5252,10 @@ md_is_atxheader_line(MD_CTX* ctx, OFF beg, OFF* p_beg, OFF* p_end, unsigned* p_l
     *p_level = n;
 
     if(!(ctx->parser.flags & MD_FLAG_PERMISSIVEATXHEADERS)  &&  off < ctx->size  &&
-       CH(off) != _T(' ')  &&  CH(off) != _T('\t')  &&  !ISNEWLINE(off))
+       !ISBLANK(off)  &&  !ISNEWLINE(off))
         return FALSE;
 
-    while(off < ctx->size  &&  CH(off) == _T(' '))
+    while(off < ctx->size  &&  ISBLANK(off))
         off++;
     *p_beg = off;
     *p_end = off;
@@ -6253,17 +6250,17 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
     /* But for ATX header, we should exclude the optional trailing mark. */
     if(line->type == MD_LINE_ATXHEADER) {
         OFF tmp = line->end;
-        while(tmp > line->beg && CH(tmp-1) == _T(' '))
+        while(tmp > line->beg && ISBLANK(tmp-1))
             tmp--;
         while(tmp > line->beg && CH(tmp-1) == _T('#'))
             tmp--;
-        if(tmp == line->beg || CH(tmp-1) == _T(' ') || (ctx->parser.flags & MD_FLAG_PERMISSIVEATXHEADERS))
+        if(tmp == line->beg || ISBLANK(tmp-1) || (ctx->parser.flags & MD_FLAG_PERMISSIVEATXHEADERS))
             line->end = tmp;
     }
 
     /* Trim trailing spaces. */
     if(line->type != MD_LINE_INDENTEDCODE  &&  line->type != MD_LINE_FENCEDCODE  && line->type != MD_LINE_HTML) {
-        while(line->end > line->beg && CH(line->end-1) == _T(' '))
+        while(line->end > line->beg && ISBLANK(line->end-1))
             line->end--;
     }
 
@@ -6469,6 +6466,7 @@ md_parse(const MD_CHAR* text, MD_SIZE size, const MD_PARSER* parser, void* userd
     ctx.code_indent_offset = (ctx.parser.flags & MD_FLAG_NOINDENTEDCODEBLOCKS) ? (OFF)(-1) : 4;
     md_build_mark_char_map(&ctx);
     ctx.doc_ends_with_newline = (size > 0  &&  ISNEWLINE_(text[size-1]));
+    ctx.max_ref_def_output = MIN(MIN(16 * (uint64_t)size, (uint64_t)(1024 * 1024)), (uint64_t)SZ_MAX);
 
     /* Reset all mark stacks and lists. */
     for(i = 0; i < (int) SIZEOF_ARRAY(ctx.opener_stacks); i++)

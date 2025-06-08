@@ -2,6 +2,28 @@
 # MD4C Change Log
 
 
+## Next Version (Work in Progress)
+
+Fixes:
+
+ - [#236](https://github.com/mity/md4c/issues/236):
+   Fix quadratic time behavior caused by one-by-one walking over block lines
+   instead of calling `md_lookup_line()`.
+
+ - [#238](https://github.com/mity/md4c/issues/238):
+   Fix quadratic time and output size behavior caused by malicious misuse of
+   link reference definitions.
+
+ - [#242](https://github.com/mity/md4c/issues/242):
+   The strike-through extension (with flag `MD_FLAG_STRIKETHROUGH`) now follows
+   same logic as other emphasis spans in respect to punctuation character and
+   word boundaries.
+
+ - [#248](https://github.com/mity/md4c/issues/248):
+   Fix handling tab when removing trailing whitespace, especially in connection
+   with ATX headers.
+
+
 ## Version 0.5.2
 
 Changes:
@@ -29,7 +51,7 @@ Fixes:
    was incomplete and one corner case remained unfixed. This is now addressed.
 
  - [#231](https://github.com/mity/md4c/issues/231):
-   `md2html --full-html` now emits `<meta  charset="UTF-8">` in the HTML header.
+   `md2html --full-html` now emits `<meta charset="UTF-8">` in the HTML header.
 
 
 ## Version 0.5.1
