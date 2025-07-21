@@ -147,7 +147,7 @@
 #define SZ_MAX      (sizeof(SZ) == 8 ? UINT64_MAX : UINT32_MAX)
 #define OFF_MAX     (sizeof(OFF) == 8 ? UINT64_MAX : UINT32_MAX)
 
-typedef union MD_MARK_tag MD_MARK;
+typedef struct MD_MARK_tag MD_MARK;
 typedef struct MD_BLOCK_tag MD_BLOCK;
 typedef struct MD_CONTAINER_tag MD_CONTAINER;
 typedef struct MD_REF_DEF_tag MD_REF_DEF;
@@ -2519,23 +2519,25 @@ md_free_ref_defs(MD_CTX* ctx)
  * (Keep this struct as small as possible to fit as much of them into CPU
  * cache line.)
  */
-union MD_MARK_tag {
-    struct {
-        OFF beg;
-        OFF end;
-
-        /* For unresolved openers, 'next' may be used to form a stack of
-        * unresolved open openers.
-        *
-        * When resolved with MD_MARK_OPENER/CLOSER flag, next/prev is index of the
-        * respective closer/opener.
-        */
-        int prev;
-        int next;
-        CHAR ch;
-        unsigned char flags;
+struct MD_MARK_tag {
+    union {
+        struct {
+            OFF beg;
+            OFF end;
+        };
+        void* pointer; // Dummy marks can sometimes store a pointer
     };
-    void* pointer; // Dummy marks can sometimes store a pointer
+
+    /* For unresolved openers, 'next' may be used to form a stack of
+     * unresolved open openers.
+     *
+     * When resolved with MD_MARK_OPENER/CLOSER flag, next/prev is index of the
+     * respective closer/opener.
+     */
+    int prev;
+    int next;
+    CHAR ch;
+    unsigned char flags;
 };
 
 /* Mark flags (these apply to ALL mark types). */
@@ -2663,9 +2665,6 @@ md_mark_store_ptr(MD_CTX* ctx, int mark_index, void* ptr)
 {
     MD_MARK* mark = &ctx->marks[mark_index];
     MD_ASSERT(mark->ch == 'D');
-
-    /* Check only members beg and end are misused for this. */
-    MD_ASSERT(sizeof(void*) <= 2 * sizeof(OFF));
     memcpy(&mark->pointer, &ptr, sizeof(void*));
 }
 
