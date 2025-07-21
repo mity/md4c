@@ -2663,19 +2663,15 @@ md_mark_stack_pop(MD_CTX* ctx, MD_MARKSTACK* stack)
 static inline void
 md_mark_store_ptr(MD_CTX* ctx, int mark_index, void* ptr)
 {
-    MD_MARK* mark = &ctx->marks[mark_index];
-    MD_ASSERT(mark->ch == 'D');
-    memcpy(&mark->pointer, &ptr, sizeof(void*));
+    MD_ASSERT(ctx->marks[mark_index].ch == 'D');
+    ctx->marks[mark_index].pointer = ptr;
 }
 
 static inline void*
 md_mark_get_ptr(MD_CTX* ctx, int mark_index)
 {
-    void* ptr;
-    MD_MARK* mark = &ctx->marks[mark_index];
-    MD_ASSERT(mark->ch == 'D');
-    memcpy(&ptr, mark, sizeof(void*));
-    return ptr;
+    MD_ASSERT(ctx->marks[mark_index].ch == 'D');
+    return ctx->marks[mark_index].pointer;
 }
 
 static inline void
