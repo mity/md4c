@@ -3221,7 +3221,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table_m
 
             /* A potential permissive URL autolink. */
             if(ch == _T(':')) {
-                static struct {
+                static const struct {
                     const CHAR* scheme;
                     SZ scheme_size;
                     const CHAR* suffix;
