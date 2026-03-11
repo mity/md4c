@@ -68,6 +68,46 @@ $$
 --flatex-math
 ````````````````````````````````
 
+A line consisting of only `=` or `-` within a math span isn't interpreted
+as a Setext underline:
+
+```````````````````````````````` example
+$$
+a
+=
+b
+$$
+.
+<p><x-equation type="display"> a = b </x-equation></p>
+.
+--flatex-math
+````````````````````````````````
+
+```````````````````````````````` example
+$
+a
+-
+b
+$
+.
+<p><x-equation> a - b </x-equation></p>
+.
+--flatex-math
+````````````````````````````````
+
+Escaped dollars don't start a math span:
+
+```````````````````````````````` example
+\$
+Header
+=
+.
+<h1>$
+Header</h1>
+.
+--flatex-math
+````````````````````````````````
+
 Note though that many (simple) renderers may output the math spans just as a
 verbatim text. (This includes the HTML renderer used by the `md2html` utility.)
 

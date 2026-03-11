@@ -5267,6 +5267,43 @@ md_is_setext_underline(MD_CTX* ctx, OFF beg, OFF* p_end, unsigned* p_level)
 {
     OFF off = beg + 1;
 
+    /* Check if the LaTeX math extension is enabled and if we are currently inside a paragraph. */
+    if((ctx->parser.flags & MD_FLAG_LATEXMATHSPANS) && ctx->current_block && ctx->current_block->type == MD_BLOCK_P) {
+        MD_LINE* lines = (MD_LINE*)(ctx->current_block + 1);
+        MD_SIZE i;
+        int opened_math = 0;
+
+        /* Iterate through all lines of the current paragraph to see if there's an unclosed math span. */
+        for(i = 0; i < ctx->current_block->n_lines; i++) {
+            OFF off2 = lines[i].beg;
+            while(off2 < lines[i].end) {
+                if(CH(off2) == _T('$')) {
+                    /* Count consecutive '$' characters (1 - inline, 2 - display). */
+                    int n = 0;
+                    while(off2 < lines[i].end && CH(off2) == _T('$')) {
+                        n++;
+                        off2++;
+                    }
+                    if(opened_math == 0) {
+                        /* If no math is open, and we see 1 or 2 '$', mark it as opened. */
+                        opened_math = (n <= 2 ? n : 0);
+                    } else if(opened_math == n) {
+                        /* If a math span is open, and we see a matching number of '$', it is now closed. */
+                        opened_math = 0;
+                    }
+                } else if(CH(off2) == _T('\\')) {
+                    off2 += 2;
+                } else {
+                    off2++;
+                }
+            }
+        }
+        /* If after scanning all lines, the math span is still open,
+         * we prevent the current line from being interpreted as a Setext heading. */
+        if(opened_math != 0)
+            return FALSE;
+    }
+
     while(off < ctx->size  &&  CH(off) == CH(beg))
         off++;
 
