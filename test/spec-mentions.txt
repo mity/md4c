@@ -1,0 +1,651 @@
+
+# Mentions
+
+With the flags `MD_FLAG_MENTION_AT` and/or `MD_FLAG_MENTION_HASH`, MD4C enables
+recognition of mention spans.
+
+A mention is written as an indicator character (`@` or `#`) immediately followed
+by display text in square brackets and an optional target in parentheses:
+
+    @[display text](target)
+    #[display text](target)
+
+The target is free-form — any string up to the closing `)`.
+
+The HTML renderer in md4c-html treats `MD_SPAN_MENTION` as a no-op (the display
+text is emitted as normal text).  Application-level renderers use the indicator
+and target fields from `MD_SPAN_MENTION_DETAIL` to produce their own output.
+
+
+## Basic @-mentions (users)
+
+The `@`, `[`, `]`, and `(target)` are all consumed by the parser; only the
+display text appears in the output.
+
+```````````````````````````````` example
+Hello @[John Doe](user:123)!
+.
+<p>Hello John Doe!</p>
+.
+--fmention-at
+````````````````````````````````
+
+```````````````````````````````` example
+Hello @[John Doe](user:123) and @[Jane](user:456).
+.
+<p>Hello John Doe and Jane.</p>
+.
+--fmention-at
+````````````````````````````````
+
+```````````````````````````````` example
+@[Alice](user:1) @[Bob](user:2) @[Carol](user:3)
+.
+<p>Alice Bob Carol</p>
+.
+--fmention-at
+````````````````````````````````
+
+Mention at the very start of a paragraph.
+
+```````````````````````````````` example
+@[John](user:42) please review this.
+.
+<p>John please review this.</p>
+.
+--fmention-at
+````````````````````````````````
+
+Mention at the very end of a paragraph.
+
+```````````````````````````````` example
+Please review this @[John](user:42)
+.
+<p>Please review this John</p>
+.
+--fmention-at
+````````````````````````````````
+
+Numeric-only display text is allowed.
+
+```````````````````````````````` example
+Hey @[007](user:7)!
+.
+<p>Hey 007!</p>
+.
+--fmention-at
+````````````````````````````````
+
+
+## Basic #-mentions (channels)
+
+```````````````````````````````` example
+Check #[general](channel:42) for updates.
+.
+<p>Check general for updates.</p>
+.
+--fmention-hash
+````````````````````````````````
+
+```````````````````````````````` example
+Post in #[announcements](channel:1) or #[random](channel:2).
+.
+<p>Post in announcements or random.</p>
+.
+--fmention-hash
+````````````````````````````````
+
+```````````````````````````````` example
+#[engineering](channel:10) #[design](channel:11) #[marketing](channel:12)
+.
+<p>engineering design marketing</p>
+.
+--fmention-hash
+````````````````````````````````
+
+
+## Role mentions
+
+The target prefix `role:` carries the role type and an optional numeric ID.
+Any colon-delimited sub-structure is opaque to the parser.
+
+```````````````````````````````` example
+Ping @[Moderators](role:moderator) for help.
+.
+<p>Ping Moderators for help.</p>
+.
+--fmention-at
+````````````````````````````````
+
+```````````````````````````````` example
+Only @[Admins](role:admin) can do this.
+.
+<p>Only Admins can do this.</p>
+.
+--fmention-at
+````````````````````````````````
+
+```````````````````````````````` example
+Contact @[Owner](role:owner) for billing.
+.
+<p>Contact Owner for billing.</p>
+.
+--fmention-at
+````````````````````````````````
+
+Role with a numeric ID in the target.
+
+```````````````````````````````` example
+Ping @[Moderators](role:admin:99) for help.
+.
+<p>Ping Moderators for help.</p>
+.
+--fmention-at
+````````````````````````````````
+
+```````````````````````````````` example
+Alert @[Senior Devs](role:developer:senior:42).
+.
+<p>Alert Senior Devs.</p>
+.
+--fmention-at
+````````````````````````````````
+
+Multiple role mentions in one sentence.
+
+```````````````````````````````` example
+@[Admins](role:admin) and @[Mods](role:moderator) please review.
+.
+<p>Admins and Mods please review.</p>
+.
+--fmention-at
+````````````````````````````````
+
+
+## Both indicators — mixed users, channels, roles
+
+```````````````````````````````` example
+@[Alice](user:1) posted in #[announcements](channel:7).
+.
+<p>Alice posted in announcements.</p>
+.
+--fmentions
+````````````````````````````````
+
+```````````````````````````````` example
+@[Alice](user:1) and @[Bob](user:2) join #[general](channel:1).
+.
+<p>Alice and Bob join general.</p>
+.
+--fmentions
+````````````````````````````````
+
+```````````````````````````````` example
+@[Admins](role:admin), please check #[incidents](channel:99).
+.
+<p>Admins, please check incidents.</p>
+.
+--fmentions
+````````````````````````````````
+
+A dense mix of all three kinds.
+
+```````````````````````````````` example
+@[Alice](user:1) pinged @[Mods](role:moderator) in #[general](channel:1) and #[off-topic](channel:5).
+.
+<p>Alice pinged Mods in general and off-topic.</p>
+.
+--fmentions
+````````````````````````````````
+
+
+## Mention without a target
+
+The parenthesised target is optional.
+
+```````````````````````````````` example
+Hello @[John]!
+.
+<p>Hello John!</p>
+.
+--fmention-at
+````````````````````````````````
+
+```````````````````````````````` example
+Hello #[general]!
+.
+<p>Hello general!</p>
+.
+--fmention-hash
+````````````````````````````````
+
+```````````````````````````````` example
+@[Alice] and @[Bob] are here.
+.
+<p>Alice and Bob are here.</p>
+.
+--fmention-at
+````````````````````````````````
+
+
+## Inline formatting inside display text
+
+Emphasis and other inline spans are allowed within the display text.
+
+```````````````````````````````` example
+@[**John** Doe](user:1) is bold.
+.
+<p><strong>John</strong> Doe is bold.</p>
+.
+--fmention-at
+````````````````````````````````
+
+```````````````````````````````` example
+@[*italic*](user:2) here.
+.
+<p><em>italic</em> here.</p>
+.
+--fmention-at
+````````````````````````````````
+
+```````````````````````````````` example
+#[**important** channel](channel:9)
+.
+<p><strong>important</strong> channel</p>
+.
+--fmention-hash
+````````````````````````````````
+
+
+## Mentions inside block-level elements
+
+### Headings
+
+```````````````````````````````` example
+# Hello @[John](user:1)
+.
+<h1>Hello John</h1>
+.
+--fmention-at
+````````````````````````````````
+
+```````````````````````````````` example
+## Channel #[general](channel:1) updates
+.
+<h2>Channel general updates</h2>
+.
+--fmention-hash
+````````````````````````````````
+
+### Blockquotes
+
+```````````````````````````````` example
+> @[Alice](user:1) said hello.
+.
+<blockquote>
+<p>Alice said hello.</p>
+</blockquote>
+.
+--fmention-at
+````````````````````````````````
+
+Nested blockquote.
+
+```````````````````````````````` example
+> > @[Alice](user:1) deeply nested
+.
+<blockquote>
+<blockquote>
+<p>Alice deeply nested</p>
+</blockquote>
+</blockquote>
+.
+--fmention-at
+````````````````````````````````
+
+### Lists
+
+Unordered list items.
+
+```````````````````````````````` example
+- @[Alice](user:1) reviewed
+- @[Bob](user:2) approved
+.
+<ul>
+<li>Alice reviewed</li>
+<li>Bob approved</li>
+</ul>
+.
+--fmention-at
+````````````````````````````````
+
+Ordered list items.
+
+```````````````````````````````` example
+1. @[Alice](user:1) reviewed
+2. @[Bob](user:2) approved
+.
+<ol>
+<li>Alice reviewed</li>
+<li>Bob approved</li>
+</ol>
+.
+--fmention-at
+````````````````````````````````
+
+Channel mentions in a list.
+
+```````````````````````````````` example
+- Post in #[general](channel:1)
+- Post in #[random](channel:2)
+.
+<ul>
+<li>Post in general</li>
+<li>Post in random</li>
+</ul>
+.
+--fmention-hash
+````````````````````````````````
+
+### Tables
+
+Mentions are recognised inside table cells.
+
+```````````````````````````````` example
+Name | Role
+--- | ---
+@[Alice](user:1) | @[Admin](role:admin)
+.
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Alice</td>
+<td>Admin</td>
+</tr>
+</tbody>
+</table>
+.
+--fmention-at --ftables
+````````````````````````````````
+
+### Fenced code blocks suppress mentions
+
+Mentions inside fenced code blocks are never recognised — the content is raw
+text.
+
+```````````````````````````````` example
+```
+@[John](user:1)
+```
+.
+<pre><code>@[John](user:1)
+</code></pre>
+.
+--fmention-at
+````````````````````````````````
+
+Inline code inside a heading also suppresses the mention.
+
+```````````````````````````````` example
+# `@[John](user:1)` is literal
+.
+<h1><code>@[John](user:1)</code> is literal</h1>
+.
+--fmention-at
+````````````````````````````````
+
+### Mention combined with other inline formatting in a heading
+
+```````````````````````````````` example
+# **@[Alice](user:1)** is here
+.
+<h1><strong>Alice</strong> is here</h1>
+.
+--fmention-at
+````````````````````````````````
+
+
+## Code span suppresses mention
+
+A mention inside a code span is not recognised.
+
+```````````````````````````````` example
+`@[John](user:1)` is literal.
+.
+<p><code>@[John](user:1)</code> is literal.</p>
+.
+--fmention-at
+````````````````````````````````
+
+```````````````````````````````` example
+`#[general](channel:1)` is literal.
+.
+<p><code>#[general](channel:1)</code> is literal.</p>
+.
+--fmention-hash
+````````````````````````````````
+
+
+## Backslash escape suppresses mention
+
+`\@` is a backslash escape that outputs a literal `@`.  The following `[...](...)`
+is then a regular CommonMark inline link.
+
+```````````````````````````````` example
+\@[John](user:1) is not a mention.
+.
+<p>@<a href="user:1">John</a> is not a mention.</p>
+.
+--fmention-at
+````````````````````````````````
+
+
+## Malformed mentions fall back to literal text
+
+If there is no closing `]`, the sequence is output as plain text.
+
+```````````````````````````````` example
+@[no closer here
+.
+<p>@[no closer here</p>
+.
+--fmention-at
+````````````````````````````````
+
+An empty display text is not recognised as a mention.
+
+```````````````````````````````` example
+@[](user:1) is not a mention.
+.
+<p>@[](user:1) is not a mention.</p>
+.
+--fmention-at
+````````````````````````````````
+
+```````````````````````````````` example
+#[](channel:1) is not a mention.
+.
+<p>#[](channel:1) is not a mention.</p>
+.
+--fmention-hash
+````````````````````````````````
+
+
+## Bare @ or # are not mentions
+
+A `@` not followed by `[` is never a mention, even with the flag enabled.
+
+```````````````````````````````` example
+user@example.com
+.
+<p>user@example.com</p>
+.
+--fmention-at
+````````````````````````````````
+
+```````````````````````````````` example
+Email me @ work.
+.
+<p>Email me @ work.</p>
+.
+--fmention-at
+````````````````````````````````
+
+A bare `#` (heading marker in a different context, or standalone hash) is not a
+mention.
+
+```````````````````````````````` example
+Issue #42 is open.
+.
+<p>Issue #42 is open.</p>
+.
+--fmention-hash
+````````````````````````````````
+
+
+## Mention flag independence
+
+Without `--fmention-hash`, `#[...]` is not a mention indicator.  The `#` is
+output as-is and `[name](target)` is a regular CommonMark inline link.
+
+```````````````````````````````` example
+#[general](channel:1) without the hash flag.
+.
+<p>#<a href="channel:1">general</a> without the hash flag.</p>
+.
+--fmention-at
+````````````````````````````````
+
+Without `--fmention-at`, `@[...]` is not a mention indicator.
+
+```````````````````````````````` example
+@[John](user:1) without the at flag.
+.
+<p>@<a href="user:1">John</a> without the at flag.</p>
+.
+--fmention-hash
+````````````````````````````````
+
+
+## Edge cases
+
+### Multi-line display text
+
+A soft line break inside the display text is normalised to a space, just like
+inside a regular CommonMark link.
+
+```````````````````````````````` example
+@[John
+Doe](user:1)
+.
+<p>John Doe</p>
+.
+--fmention-at
+````````````````````````````````
+
+### Nested brackets inside display text
+
+The first unresolved `]` always closes the mention (same rule as CommonMark
+links).  A `[` inside the display text is treated as a literal character.
+
+```````````````````````````````` example
+@[John [nick]](user:1)
+.
+<p>John [nick](user:1)</p>
+.
+--fmention-at
+````````````````````````````````
+
+### Nested parentheses inside the target
+
+The target scanner counts depth, so parentheses nested inside the target string
+are kept verbatim.
+
+```````````````````````````````` example
+@[John](user:(123))
+.
+<p>John</p>
+.
+--fmention-at
+````````````````````````````````
+
+```````````````````````````````` example
+@[Alice](role:(admin:(99)))
+.
+<p>Alice</p>
+.
+--fmention-at
+````````````````````````````````
+
+### Hard line break immediately after a mention
+
+The trailing spaces that trigger a hard break come after the closing `)`, so
+the mention is unaffected.
+
+```````````````````````````````` example
+@[Alice](user:1)  
+More text
+.
+<p>Alice<br>More text</p>
+.
+--fmention-at
+````````````````````````````````
+
+### Mention wrapped in emphasis
+
+Emphasis markers outside the mention apply to the display text.
+
+```````````````````````````````` example
+*@[John](user:1)*
+.
+<p><em>John</em></p>
+.
+--fmention-at
+````````````````````````````````
+
+### Malformed target — no closing parenthesis
+
+If the opening `(` after `]` has no matching `)` before end of line, no target
+is consumed.  The `(...)` text is output as literal characters.
+
+```````````````````````````````` example
+@[John](user:1 no paren
+.
+<p>John(user:1 no paren</p>
+.
+--fmention-at
+````````````````````````````````
+
+### Target scanner stops at a newline
+
+A target cannot span multiple lines.  A `(` followed by a newline before `)` is
+not consumed; the text is output literally.
+
+```````````````````````````````` example
+@[John](user:
+1)
+.
+<p>John(user: 1)</p>
+.
+--fmention-at
+````````````````````````````````
+
+
+## Mention coexists with permissive e-mail autolinks
+
+When both flags are active, `user@domain.com` is still an e-mail autolink and
+`@[John]` is still a mention (display text only in HTML output).
+
+```````````````````````````````` example
+user@example.com and @[John](user:1).
+.
+<p><a href="mailto:user@example.com">user@example.com</a> and John.</p>
+.
+--fmention-at --fpermissive-email-autolinks
+````````````````````````````````

@@ -36,6 +36,12 @@
 *.x86_64
 *.hex
 pfft
+md2html/md2html
+
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
 
 # Debug files
 *.dSYM/

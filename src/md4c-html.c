@@ -463,6 +463,11 @@ enter_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
         case MD_SPAN_LATEXMATH:         RENDER_VERBATIM(r, "<x-equation>"); break;
         case MD_SPAN_LATEXMATH_DISPLAY: RENDER_VERBATIM(r, "<x-equation type=\"display\">"); break;
         case MD_SPAN_WIKILINK:          render_open_wikilink_span(r, (MD_SPAN_WIKILINK_DETAIL*) detail); break;
+        /* MD_SPAN_MENTION is intentionally a no-op here: md4c-html passes the
+         * display text through via the text() callback so it appears in output,
+         * but visual styling and tap handling are the application's responsibility.
+         * Use MD_SPAN_MENTION_DETAIL (indicator + target) in your own renderer. */
+        case MD_SPAN_MENTION:           break;
     }
 
     return 0;
@@ -489,6 +494,7 @@ leave_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
         case MD_SPAN_LATEXMATH:         /*fall through*/
         case MD_SPAN_LATEXMATH_DISPLAY: RENDER_VERBATIM(r, "</x-equation>"); break;
         case MD_SPAN_WIKILINK:          RENDER_VERBATIM(r, "</x-wikilink>"); break;
+        case MD_SPAN_MENTION:           break;  /* see enter_span_callback above */
     }
 
     return 0;

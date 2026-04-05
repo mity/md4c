@@ -145,7 +145,16 @@ typedef enum MD_SPANTYPE {
 
     /* <u>...</u>
      * Note: Recognized only when MD_FLAG_UNDERLINE is enabled. */
-    MD_SPAN_U
+    MD_SPAN_U,
+
+    /* Mention span: @[display text](target) or #[display text](target)
+     * The indicator character ('@' or '#') and the optional free-form target
+     * string (verbatim contents of the parentheses, e.g. "user:123") are
+     * provided in MD_SPAN_MENTION_DETAIL.  The display text is delivered via
+     * the normal text() callback between enter and leave.
+     * Note: Recognized only when MD_FLAG_MENTION_AT / MD_FLAG_MENTION_HASH
+     * is enabled. */
+    MD_SPAN_MENTION
 } MD_SPANTYPE;
 
 /* Text is the actual textual contents of span. */
@@ -298,6 +307,13 @@ typedef struct MD_SPAN_WIKILINK {
     MD_ATTRIBUTE target;
 } MD_SPAN_WIKILINK_DETAIL;
 
+/* Detailed info for MD_SPAN_MENTION. */
+typedef struct MD_SPAN_MENTION_DETAIL {
+    MD_CHAR      indicator;  /* '@' or '#' */
+    MD_ATTRIBUTE target;     /* Verbatim contents of (...), e.g. "user:123".
+                              * Empty if no parenthesised target was present. */
+} MD_SPAN_MENTION_DETAIL;
+
 /* Flags specifying extensions/deviations from CommonMark specification.
  *
  * By default (when MD_PARSER::flags == 0), we follow CommonMark specification.
@@ -318,6 +334,11 @@ typedef struct MD_SPAN_WIKILINK {
 #define MD_FLAG_WIKILINKS                   0x2000  /* Enable wiki links extension. */
 #define MD_FLAG_UNDERLINE                   0x4000  /* Enable underline extension (and disables '_' for normal emphasis). */
 #define MD_FLAG_HARD_SOFT_BREAKS            0x8000  /* Force all soft breaks to act as hard breaks. */
+#define MD_FLAG_MENTION_AT                  0x10000 /* Enable @[display](target) mention spans. */
+#define MD_FLAG_MENTION_HASH                0x20000 /* Enable #[display](target) mention spans. */
+
+/* Convenience: enable both built-in mention indicators at once. */
+#define MD_FLAG_MENTIONS                    (MD_FLAG_MENTION_AT | MD_FLAG_MENTION_HASH)
 
 #define MD_FLAG_PERMISSIVEAUTOLINKS         (MD_FLAG_PERMISSIVEEMAILAUTOLINKS | MD_FLAG_PERMISSIVEURLAUTOLINKS | MD_FLAG_PERMISSIVEWWWAUTOLINKS)
 #define MD_FLAG_NOHTML                      (MD_FLAG_NOHTMLBLOCKS | MD_FLAG_NOHTMLSPANS)

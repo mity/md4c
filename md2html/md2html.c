@@ -259,6 +259,14 @@ static const CMDLINE_OPTION cmdline_options[] = {
     {  0,  "funderline",                    '_', 0 },
     {  0,  "fverbatim-entities",            'E', 0 },
     {  0,  "fwiki-links",                   'K', 0 },
+    /* Mention extension flags.  These are used by the test suite (run-tests.py
+     * passes them to this binary per spec example) so that spec-mentions.txt
+     * can toggle mention parsing independently.  In production the flags are
+     * set directly on MD_PARSER.flags in the application's C/C++ code; this
+     * CLI tool and md4c-html are not involved. */
+    {  0,  "fmention-at",                   ')', 0 },
+    {  0,  "fmention-hash",                 '(', 0 },
+    {  0,  "fmentions",                     '?', 0 },
 
     {  0,  "fno-html-blocks",               'F', 0 },
     {  0,  "fno-html-spans",                'G', 0 },
@@ -313,6 +321,9 @@ usage(void)
         "      --ftasklists     Enable task lists\n"
         "      --funderline     Enable underline spans\n"
         "      --fwiki-links    Enable wiki links\n"
+        "      --fmention-at   Enable @[display](target) mention spans\n"
+        "      --fmention-hash Enable #[display](target) mention spans\n"
+        "      --fmentions     Same as --fmention-at --fmention-hash\n"
         "\n"
         "Markdown suppression options:\n"
         "      --fno-html-blocks\n"
@@ -388,6 +399,9 @@ cmdline_callback(int opt, char const* value, void* data)
         case 'X':   parser_flags |= MD_FLAG_TASKLISTS; break;
         case '_':   parser_flags |= MD_FLAG_UNDERLINE; break;
         case 'B':   parser_flags |= MD_FLAG_HARD_SOFT_BREAKS; break;
+        case ')':   parser_flags |= MD_FLAG_MENTION_AT; break;   /* --fmention-at   */
+        case '(':   parser_flags |= MD_FLAG_MENTION_HASH; break; /* --fmention-hash  */
+        case '?':   parser_flags |= MD_FLAG_MENTIONS; break;     /* --fmentions      */
 
         default:
             fprintf(stderr, "Illegal option: %s\n", value);
