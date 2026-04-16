@@ -25,7 +25,6 @@ jobs:
         run: |
           sudo apt-get install -y lcov
           lcov --directory . --capture --branch-coverage --output-file coverage.info
-          lcov --remove coverage.info '/usr/*' --branch-coverage --output-file coverage.info
           lcov --list coverage.info --branch-coverage
       - name: Upload coverage report
         uses: codecov/codecov-action@v4
