@@ -412,7 +412,7 @@ md_text_with_null_replacement(MD_CTX* ctx, MD_TEXTTYPE type, const CHAR* str, SZ
 #define MD_CHECK(func)                                                      \
     do {                                                                    \
         ret = (func);                                                       \
-        if(ret < 0)                                                         \
+        if(ret != 0)                                                        \
             goto abort;                                                     \
     } while(0)
 
