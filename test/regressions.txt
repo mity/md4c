@@ -786,6 +786,17 @@ bar</p>
 ````````````````````````````````
 
 
+## [Issue 251](https://github.com/mity/md4c/issues/251)
+
+```````````````````````````````` example
+https://codereview.qt-project.org/c/qt/qtwayland/+/545836
+.
+<p><a href="https://codereview.qt-project.org/c/qt/qtwayland/+/545836">https://codereview.qt-project.org/c/qt/qtwayland/+/545836</a></p>
+.
+--fpermissive-autolinks
+````````````````````````````````
+
+
 ## [Issue 271](https://github.com/mity/md4c/issues/271)
 
 ```````````````````````````````` example

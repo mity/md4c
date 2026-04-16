@@ -3880,14 +3880,15 @@ md_analyze_permissive_autolink(MD_CTX* ctx, int mark_index)
     static const struct {
         const MD_CHAR start_char;
         const MD_CHAR delim_char;
-        const MD_CHAR* allowed_nonalnum_chars;
+        const MD_CHAR* allowed_nonalnum_chars_inside;
+        const MD_CHAR* allowed_nonalnum_chars_anywhere;
         int min_components;
         const MD_CHAR optional_end_char;
     } URL_MAP[] = {
-        { _T('\0'), _T('.'),  _T(".-_"),      2, _T('\0') },    /* host, mandatory */
-        { _T('/'),  _T('/'),  _T("/.-_"),     0, _T('/') },     /* path */
-        { _T('?'),  _T('&'),  _T("&.-+_=()"), 1, _T('\0') },    /* query */
-        { _T('#'),  _T('\0'), _T(".-+_") ,    1, _T('\0') }     /* fragment */
+        { _T('\0'), _T('.'),  _T(".-_"),      _T(""),   2, _T('\0') },    /* host, mandatory */
+        { _T('/'),  _T('/'),  _T("/._"),      _T("+-"), 0, _T('/') },     /* path */
+        { _T('?'),  _T('&'),  _T("&.-+_=()"), _T(""),   1, _T('\0') },    /* query */
+        { _T('#'),  _T('\0'), _T(".-+_") ,    _T(""),   1, _T('\0') }     /* fragment */
     };
 
     MD_MARK* opener = &ctx->marks[mark_index];
@@ -3940,6 +3941,7 @@ md_analyze_permissive_autolink(MD_CTX* ctx, int mark_index)
     for(i = 0; i < SIZEOF_ARRAY(URL_MAP); i++) {
         int n_components = 0;
         int n_open_brackets = 0;
+        int component_len = 0;
 
         if(URL_MAP[i].start_char != _T('\0')) {
             if(end >= line_end  ||  CH(end) != URL_MAP[i].start_char)
@@ -3950,18 +3952,21 @@ md_analyze_permissive_autolink(MD_CTX* ctx, int mark_index)
         }
 
         while(end < line_end) {
-            if(ISALNUM(end)) {
+            if(ISALNUM(end)  ||  ISANYOF(end, URL_MAP[i].allowed_nonalnum_chars_anywhere)) {
                 if(n_components == 0)
                     n_components++;
+                component_len++;
                 end++;
-            } else if(ISANYOF(end, URL_MAP[i].allowed_nonalnum_chars)  &&
+            } else if(component_len > 0  &&  CH(end) == URL_MAP[i].delim_char  &&  end+1 < line_end  &&
+                      (ISALNUM(end+1)  ||  ISANYOF(end+1, URL_MAP[i].allowed_nonalnum_chars_anywhere))) {
+                n_components++;
+                component_len = 0;
+                end++;
+            } else if(ISANYOF(end, URL_MAP[i].allowed_nonalnum_chars_inside)  &&
                       md_scan_right_for_resolved_mark(ctx, right_cursor, end, &right_cursor) == NULL  &&
                       ((end > line_beg && (ISALNUM(end-1) || CH(end-1) == _T(')')))  ||  CH(end) == _T('('))  &&
                       ((end+1 < line_end && (ISALNUM(end+1) || CH(end+1) == _T('(')))  ||  CH(end) == _T(')')))
             {
-                if(CH(end) == URL_MAP[i].delim_char)
-                    n_components++;
-
                 /* brackets have to be balanced. */
                 if(CH(end) == _T('(')) {
                     n_open_brackets++;
@@ -3971,6 +3976,7 @@ md_analyze_permissive_autolink(MD_CTX* ctx, int mark_index)
                     n_open_brackets--;
                 }
 
+                component_len++;
                 end++;
             } else {
                 break;
