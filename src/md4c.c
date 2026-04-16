@@ -4464,7 +4464,7 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
 
             /* Move to the next line. */
             line++;
-            off = line->beg;
+            off = MAX(off, line->beg);
 
             enforce_hardbreak = 0;
         }

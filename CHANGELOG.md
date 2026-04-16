@@ -31,6 +31,11 @@ Fixes:
    Fix handling tab when removing trailing whitespace, especially in connection
    with ATX headers.
 
+ - [#271](https://github.com/mity/md4c/issues/271):
+   Fix handling a code span whose closer is on the next line and yet another
+   text follows. In the case we erroneously outputted the closer code span mark
+   as part of the text.
+
  - [#275](https://github.com/mity/md4c/issues/275):
    Fix `md_decode_utf16le_before__()`. (Only affected MD4C builds built with
    `-MD4C_USE_UTF16` on Windows.)
