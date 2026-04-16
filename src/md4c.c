@@ -4809,8 +4809,8 @@ md_process_leaf_block(MD_CTX* ctx, const MD_BLOCK* block)
         MD_BLOCK_CODE_DETAIL code;
         MD_BLOCK_TABLE_DETAIL table;
     } det;
-    MD_ATTRIBUTE_BUILD info_build;
-    MD_ATTRIBUTE_BUILD lang_build;
+    MD_ATTRIBUTE_BUILD info_build = { 0 };
+    MD_ATTRIBUTE_BUILD lang_build = { 0 };
     int is_in_tight_list;
     int clean_fence_code_detail = FALSE;
     int ret = 0;
