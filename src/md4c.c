@@ -2685,25 +2685,10 @@ md_resolve_range(MD_CTX* ctx, int opener_index, int closer_index)
     closer->flags |= MD_MARK_CLOSER | MD_MARK_RESOLVED;
 }
 
-
-#define MD_ROLLBACK_CROSSING    0
-#define MD_ROLLBACK_ALL         1
-
-/* In the range ctx->marks[opener_index] ... [closer_index], undo some or all
- * resolvings accordingly to these rules:
- *
- * (1) All stacks of openers are cut so that any pending potential openers
- *     are discarded from future consideration.
- *
- * (2) If 'how' is MD_ROLLBACK_ALL, then ALL resolved marks inside the range
- *     are thrown away and turned into dummy marks ('D').
- *
- * WARNING: Do not call for arbitrary range of opener and closer.
- * This must form (potentially) valid range not crossing nesting boundaries
- * of already resolved ranges.
- */
+/* Pop all opener records in the activated chains after the given mark.
+ * This makes sure, we have no crossing ranges. */
 static void
-md_rollback(MD_CTX* ctx, int opener_index, int closer_index, int how)
+md_pop_openers(MD_CTX* ctx, int opener_index)
 {
     int i;
 
@@ -2712,12 +2697,16 @@ md_rollback(MD_CTX* ctx, int opener_index, int closer_index, int how)
         while(stack->top >= opener_index)
             md_mark_stack_pop(ctx, stack);
     }
+}
 
-    if(how == MD_ROLLBACK_ALL) {
-        for(i = opener_index + 1; i < closer_index; i++) {
-            ctx->marks[i].ch = 'D';
-            ctx->marks[i].flags = 0;
-        }
+static void
+md_disable_marks(MD_CTX* ctx, int mark_index0, int mark_index1)
+{
+    int i;
+
+    for(i = mark_index0; i < mark_index1; i++) {
+        ctx->marks[i].ch = 'D';
+        ctx->marks[i].flags &= ~MD_MARK_RESOLVED;
     }
 }
 
@@ -3492,17 +3481,17 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
             }
 
             if(is_link) {
+                md_pop_openers(ctx, opener_index);
+
                 if(delim != NULL) {
                     if(delim->end < closer->beg) {
-                        md_rollback(ctx, opener_index, delim_index, MD_ROLLBACK_ALL);
-                        md_rollback(ctx, delim_index, closer_index, MD_ROLLBACK_CROSSING);
+                        md_disable_marks(ctx, delim_index+1, delim_index);
                         delim->flags |= MD_MARK_RESOLVED;
                         opener->end = delim->beg;
                     } else {
                         /* The pipe is just before the closer: [[foo|]] */
-                        md_rollback(ctx, opener_index, closer_index, MD_ROLLBACK_ALL);
+                        md_disable_marks(ctx, opener_index+1, closer_index);
                         closer->beg = delim->beg;
-                        delim = NULL;
                     }
                 }
 
@@ -3551,6 +3540,7 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
             if(closer->end < ctx->size  &&  CH(closer->end) == _T('(')) {
                 /* Might be inline link. */
                 OFF inline_link_end = UINT_MAX;
+                int following_mark_index = closer_index + 1;
 
                 is_link = md_is_inline_link_spec(ctx, lines, n_lines, closer->end, &inline_link_end, &attr);
                 if(is_link < 0)
@@ -3559,10 +3549,8 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
                 /* Check the closing ')' is not inside an already resolved range
                  * (i.e. a range with a higher priority), e.g. a code span. */
                 if(is_link) {
-                    int i = closer_index + 1;
-
-                    while(i < ctx->n_marks) {
-                        MD_MARK* mark = &ctx->marks[i];
+                    while(following_mark_index < ctx->n_marks) {
+                        MD_MARK* mark = &ctx->marks[following_mark_index];
 
                         if(mark->beg >= inline_link_end)
                             break;
@@ -3575,9 +3563,9 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
                                 break;
                             }
 
-                            i = mark->next + 1;
+                            following_mark_index = mark->next + 1;
                         } else {
-                            i++;
+                            following_mark_index++;
                         }
                     }
                 }
@@ -3585,6 +3573,7 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
                 if(is_link) {
                     /* Eat the "(...)" */
                     closer->end = inline_link_end;
+                    md_disable_marks(ctx, closer_index+1, following_mark_index);
                 }
             }
 
@@ -3779,10 +3768,7 @@ md_analyze_emph(MD_CTX* ctx, int mark_index)
                 md_split_emph_mark(ctx, mark_index, closer_size - opener_size);
             }
 
-            /* Above we were only peeking. */
-            md_mark_stack_pop(ctx, stack);
-
-            md_rollback(ctx, opener_index, mark_index, MD_ROLLBACK_CROSSING);
+            md_pop_openers(ctx, opener_index);
             md_resolve_range(ctx, opener_index, mark_index);
             return;
         }
@@ -3806,8 +3792,7 @@ md_analyze_tilde(MD_CTX* ctx, int mark_index)
     if((mark->flags & MD_MARK_POTENTIAL_CLOSER)  &&  stack->top >= 0) {
         int opener_index = stack->top;
 
-        md_mark_stack_pop(ctx, stack);
-        md_rollback(ctx, opener_index, mark_index, MD_ROLLBACK_CROSSING);
+        md_pop_openers(ctx, opener_index);
         md_resolve_range(ctx, opener_index, mark_index);
         return;
     }
@@ -3830,8 +3815,8 @@ md_analyze_dollar(MD_CTX* ctx, int mark_index)
 
         if(opener->end - opener->beg == closer->end - closer->beg) {
             /* We are the matching closer */
-            md_mark_stack_pop(ctx, &DOLLAR_OPENERS);
-            md_rollback(ctx, opener_index, closer_index, MD_ROLLBACK_ALL);
+            md_pop_openers(ctx, opener_index);
+            md_disable_marks(ctx, opener_index+1, closer_index);
             md_resolve_range(ctx, opener_index, closer_index);
 
             /* Discard all pending openers: Latex math span do not allow
