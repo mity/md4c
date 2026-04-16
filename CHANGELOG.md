@@ -36,7 +36,7 @@ Fixes:
    `-MD4C_USE_UTF16` on Windows.)
 
  - [#278](https://github.com/mity/md4c/issues/278),
- - [#294](https://github.com/mity/md4c/issues/294):
+   [#294](https://github.com/mity/md4c/issues/294):
    Do not try to interpret characters in a link URL as Markdown syntax
    characters.
 
