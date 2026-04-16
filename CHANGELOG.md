@@ -4,6 +4,14 @@
 
 ## Next Version (Work in Progress)
 
+Changes:
+
+  - Avoid repeated prefix `language-` in code block language specification if
+    the input already explicitly includes the prefix.
+
+    Contributed by [Zach Newton](https://github.com/znewt99).
+
+
 Fixes:
 
  - [#236](https://github.com/mity/md4c/issues/236):
@@ -22,6 +30,21 @@ Fixes:
  - [#248](https://github.com/mity/md4c/issues/248):
    Fix handling tab when removing trailing whitespace, especially in connection
    with ATX headers.
+
+ - [#275](https://github.com/mity/md4c/issues/275):
+   Fix `md_decode_utf16le_before__()`. (Only affected MD4C builds built with
+   `-MD4C_USE_UTF16` on Windows.)
+
+ - [#278](https://github.com/mity/md4c/issues/278),
+ - [#294](https://github.com/mity/md4c/issues/294):
+   Do not try to interpret characters in a link URL as Markdown syntax
+   characters.
+
+ - [#292](https://github.com/mity/md4c/issues/292):
+   Fix detection of closing code block fence if it has a trailing tabulator.
+
+ - [#299](https://github.com/mity/md4c/issues/299):
+   Fix invalid free() in an error path.
 
 
 ## Version 0.5.2
