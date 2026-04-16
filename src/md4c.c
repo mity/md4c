@@ -5384,7 +5384,7 @@ md_is_closing_code_fence(MD_CTX* ctx, CHAR ch, OFF beg, OFF* p_end)
         goto out;
 
     /* Optionally, space(s) can follow */
-    while(off < ctx->size  &&  CH(off) == _T(' '))
+    while(off < ctx->size  &&  ISANYOF2(off, _T(' '), _T('\t')))
         off++;
 
     /* But nothing more is allowed on the line. */

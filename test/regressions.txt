@@ -785,6 +785,21 @@ bar
 bar</p>
 ````````````````````````````````
 
+
+## [Issue 292](https://github.com/mity/md4c/issues/292)
+
+```````````````````````````````` example
+```
+foo
+```→
+bar
+.
+<pre><code>foo
+</code></pre>
+<p>bar</p>
+````````````````````````````````
+
+
 ## [Issue 295](https://github.com/mity/md4c/issues/295)
 
 ```````````````````````````````` example
