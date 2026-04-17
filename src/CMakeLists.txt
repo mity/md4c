@@ -16,15 +16,17 @@ set_target_properties(md4c PROPERTIES
 
 # Build rules for HTML renderer library
 
-configure_file(md4c-html.pc.in md4c-html.pc @ONLY)
-add_library(md4c-html md4c-html.c md4c-html.h entity.c entity.h)
-set_target_properties(md4c-html PROPERTIES
-    VERSION ${MD_VERSION}
-    SOVERSION ${MD_VERSION_MAJOR}
-    PUBLIC_HEADER md4c-html.h
-)
-target_link_libraries(md4c-html md4c)
-
+option(BUILD_MD4C_HTML "Whether to compile the md4c-html library" ON)
+if(BUILD_MD4C_HTML)
+    configure_file(md4c-html.pc.in md4c-html.pc @ONLY)
+    add_library(md4c-html md4c-html.c md4c-html.h entity.c entity.h)
+    set_target_properties(md4c-html PROPERTIES
+        VERSION ${MD_VERSION}
+        SOVERSION ${MD_VERSION_MAJOR}
+        PUBLIC_HEADER md4c-html.h
+    )
+    target_link_libraries(md4c-html md4c)
+endif()
 
 # Install rules
 
@@ -39,15 +41,17 @@ install(
 )
 install(FILES ${CMAKE_BINARY_DIR}/src/md4c.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
 
-install(
-    TARGETS md4c-html
-    EXPORT md4cConfig
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
-install(FILES ${CMAKE_BINARY_DIR}/src/md4c-html.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+if(BUILD_MD4C_HTML)
+    install(
+        TARGETS md4c-html
+        EXPORT md4cConfig
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+        PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    )
+    install(FILES ${CMAKE_BINARY_DIR}/src/md4c-html.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+endif()
 
 install(EXPORT md4cConfig DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/md4c/ NAMESPACE md4c::)
 
