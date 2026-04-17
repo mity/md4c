@@ -278,6 +278,9 @@ Ports and bindings to other languages:
 * [PyMD4C](https://github.com/dominickpastore/pymd4c):
   Python bindings for MD4C.
 
+* [md4lean](https://github.com/acmepjz/md4lean):
+  [Lean](https://lean-lang.org/) bindings for MD4C.
+
 
 Software using MD4C:
 
