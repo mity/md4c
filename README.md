@@ -230,10 +230,10 @@ in a fraction of second may turn into long minutes or possibly hours with them.
 Hence, when such a naive parser is used to process an input from an untrusted
 source, the possibility of denial-of-service attacks becomes a real danger.
 
-A lot of our effort went into providing linear parsing times no matter what
-kind of crazy input MD4C parser is fed with. (If you encounter an input pattern
-which leads to a sub-linear parsing times, please do not hesitate and report it
-as a bug.)
+A lot of our effort went into providing linear or near-linear parsing times, no
+matter what kind of crazy input MD4C parser is fed with. (If you encounter an
+input pattern which leads to a sub-linear parsing times, please do not hesitate
+and report it as a bug.)
 
 **Q: Does MD4C perform any input validation?**
 
@@ -255,6 +255,23 @@ a part of the text.
 If you need to validate that the input is, say, a well-formed UTF-8 document,
 you have to do it on your own. The easiest way how to do this is to simply
 validate the whole document before passing it to the MD4C parser.
+
+**Q: MD4C does not work with zero-terminated strings. Why?**
+
+**A:** There are two reasons: correctness and performance.
+
+Markdown documents can legally contain `U+0000` character (which in UTF-8 is
+encoded as a zero byte) and we need to be able dealing with such input to comply
+to the CommonMark specification.
+
+As for performance, for adding the zero terminator after every chunk of text
+before passing to the application callback, we'd have to copy every such string
+internally into a temporary buffer. This means we'd be essentially doing, bit
+by bit, an extra copy of the whole document's contents.
+
+To avoid such slowdown, whenever it's reasonably possible the parser passes the
+callback directly pointer pointing into the right place in the input document,
+together with length of the text the callback is expected to process.
 
 
 ## License
