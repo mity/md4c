@@ -272,20 +272,23 @@ Ports and bindings to other languages:
 * [markdown-wasm](https://github.com/rsms/markdown-wasm):
   Port of MD4C to WebAssembly.
 
+* [md4lean](https://github.com/acmepjz/md4lean):
+  [Lean](https://lean-lang.org/) bindings for MD4C.
+
 * [PECL MD4C](https://pecl.php.net/package/md4c):
   PHP bindings for MD4C.
 
 * [PyMD4C](https://github.com/dominickpastore/pymd4c):
   Python bindings for MD4C.
 
-* [md4lean](https://github.com/acmepjz/md4lean):
-  [Lean](https://lean-lang.org/) bindings for MD4C.
-
 
 Software using MD4C:
 
 * [imgui_md](https://github.com/mekhontsev/imgui_md):
   Markdown renderer for [Dear ImGui](https://github.com/ocornut/imgui)
+
+* [LibreOffice](https://www.libreoffice.org/)
+  An open source office suite.
 
 * [lnav](https://lnav.org/):
   A log file viewer for the terminal that can also render markdown.
