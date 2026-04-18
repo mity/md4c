@@ -11,6 +11,9 @@ Changes:
 
     Contributed by [Zach Newton](https://github.com/znewt99).
 
+  - Permissive autolink extensions (`MD_FLAG_PERMISSIVExxxAUTOLINKS`) are now
+    tiny bit more permissive, allowing `+` and `-` characters to be anywhere
+    in the path portion of the URL. This also improves compatibility with GFM.
 
 Fixes:
 
