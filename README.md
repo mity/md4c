@@ -285,9 +285,9 @@ Ports and bindings to other languages:
 Software using MD4C:
 
 * [imgui_md](https://github.com/mekhontsev/imgui_md):
-  Markdown renderer for [Dear ImGui](https://github.com/ocornut/imgui)
+  Markdown renderer for [Dear ImGui](https://github.com/ocornut/imgui).
 
-* [LibreOffice](https://www.libreoffice.org/)
+* [LibreOffice](https://www.libreoffice.org/):
   An open source office suite.
 
 * [lnav](https://lnav.org/):
