@@ -19,7 +19,7 @@ The following resources can explain more if you are unfamiliar with it:
 
 ## What is MD4C
 
-MD4C is Markdown parser implementation in C, with the following features:
+MD4C is a Markdown parser implementation in C, with the following features:
 
 * **Compliance:** Generally, MD4C aims to be compliant to the latest version of
   [CommonMark specification](http://spec.commonmark.org/). Currently, we are
@@ -138,7 +138,7 @@ disabled with the following flags:
 The CommonMark specification declares that any sequence of Unicode code points
 is a valid CommonMark document.
 
-But, under a closer inspection, Unicode plays any role in few very specific
+But, under a closer inspection, Unicode plays a role in few very specific
 situations when parsing Markdown documents:
 
 1. For detection of word boundaries when processing emphasis and strong
@@ -151,7 +151,7 @@ situations when parsing Markdown documents:
 3. For translating HTML entities (e.g. `&amp;`) and numeric character
    references (e.g. `&#35;` or `&#xcab;`) into their Unicode equivalents.
 
-   However note MD4C leaves this translation on the renderer/application; as
+   However, note MD4C leaves this translation on the renderer/application; as
    the renderer is supposed to really know output encoding and whether it
    really needs to perform this kind of translation. (For example, when the
    renderer outputs HTML, it may leave the entities untranslated and defer the
@@ -200,8 +200,8 @@ preprocessor macros (as specified at the time MD4C is being built):
 The API of the parser is quite well documented in the comments in the `md4c.h`.
 Similarly, the markdown-to-html API is described in its header `md4c-html.h`.
 
-There is also [project wiki](http://github.com/mity/md4c/wiki) which provides
-some more comprehensive documentation. However note it is incomplete and some
+There is also a [project wiki](http://github.com/mity/md4c/wiki) which provides
+some more comprehensive documentation. However, note it is incomplete and some
 details may be somewhat outdated.
 
 
@@ -253,8 +253,8 @@ ill-formed UTF-8 byte sequence will propagate to the respective callback as
 a part of the text.
 
 If you need to validate that the input is, say, a well-formed UTF-8 document,
-you have to do it on your own. The easiest way how to do this is to simply
-validate the whole document before passing it to the MD4C parser.
+you have to do it on your own. The easiest way to do this is to simply validate
+the whole document before passing it to the MD4C parser.
 
 **Q: MD4C does not work with zero-terminated strings. Why?**
 
