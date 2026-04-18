@@ -15,6 +15,8 @@ Changes:
     tiny bit more permissive, allowing `+` and `-` characters to be anywhere
     in the path portion of the URL. This also improves compatibility with GFM.
 
+  - Make Unicode-specific code compliant to Unicode 18.0.
+
 Fixes:
 
  - [#236](https://github.com/mity/md4c/issues/236):
