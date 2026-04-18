@@ -224,7 +224,7 @@ a very high chance that using MD4C will be substantially faster and less hungry
 in terms of memory consumption.
 
 Last but not least, some Markdown parsers are implemented in a naive way. When
-fed with a [smartly crafted input pattern](test/pathological_tests.py), they
+fed with a [smartly crafted input pattern](test/pathological-tests.py), they
 may exhibit quadratic (or even worse) parsing times. What MD4C can still parse
 in a fraction of second may turn into long minutes or possibly hours with them.
 Hence, when such a naive parser is used to process an input from an untrusted
