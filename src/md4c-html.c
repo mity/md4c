@@ -305,7 +305,7 @@ render_open_code_block(MD_HTML* r, const MD_BLOCK_CODE_DETAIL* det)
     /* If known, output the HTML 5 attribute class="language-LANGNAME". */
     if(det->lang.text != NULL) {
         RENDER_VERBATIM(r, " class=\"");
-        if(strncmp(det->lang.text, "language-", 9) != 0) {
+        if(det->lang.size < 9  ||  strncmp(det->lang.text, "language-", 9) != 0) {
             RENDER_VERBATIM(r, "language-");
         }
         render_attribute(r, &det->lang, render_html_escaped);
