@@ -5,10 +5,10 @@ Standard autolinks (as per CommonMark specification) have to be decorated with
 `<` and `>` so for example:
 
 ```````````````````````````````` example
-<mailto:john.doe@gmail.com>
+<mailto:john.doe@example.com>
 <https://example.com>
 .
-<p><a href="mailto:john.doe@gmail.com">mailto:john.doe@gmail.com</a>
+<p><a href="mailto:john.doe@example.com">mailto:john.doe@example.com</a>
 <a href="https://example.com">https://example.com</a></p>
 ````````````````````````````````
 
@@ -23,7 +23,7 @@ john.doe@example.com
 https://www.example.com
 www.example.com
 .
-<p><a href="mailto:john.doe@gmail.com">john.doe@gmail.com</a>
+<p><a href="mailto:john.doe@example.com">john.doe@example.com</a>
 <a href="https://www.example.com">https://www.example.com</a>
 <a href="http://www.example.com">www.example.com</a></p>
 .
@@ -44,11 +44,11 @@ precede and follow respectively.
 Therefore these are not autolinks because `:` precedes or follows:
 
 ```````````````````````````````` example
-:john.doe@gmail.com
+:john.doe@example.com
 :https://www.example.com
 :www.example.com
 .
-<p>:john.doe@gmail.com
+<p>:john.doe@example.com
 :https://www.example.com
 :www.example.com</p>
 .
@@ -61,11 +61,11 @@ Allowed punctuation right before autolink includes only opening brackets `(`,
 `{` or `[`:
 
 ```````````````````````````````` example
-[john.doe@gmail.com
+[john.doe@example.com
 (https://www.example.com
 {www.example.com
 .
-<p>[<a href="mailto:john.doe@gmail.com">john.doe@gmail.com</a>
+<p>[<a href="mailto:john.doe@example.com">john.doe@example.com</a>
 (<a href="https://www.example.com">https://www.example.com</a>
 {<a href="http://www.example.com">www.example.com</a></p>
 .
@@ -77,11 +77,11 @@ Allowed punctuation right before autolink includes only opening brackets `(`,
 Correspondingly, the respective closing brackets may follow the autolinks.
 
 ```````````````````````````````` example
-john.doe@gmail.com]
+john.doe@example.com]
 https://www.example.com)
 www.example.com}
 .
-<p><a href="mailto:john.doe@gmail.com">john.doe@gmail.com</a>]
+<p><a href="mailto:john.doe@example.com">john.doe@example.com</a>]
 <a href="https://www.example.com">https://www.example.com</a>)
 <a href="http://www.example.com">www.example.com</a>}</p>
 .
