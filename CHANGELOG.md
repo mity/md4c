@@ -6,60 +6,60 @@
 
 Changes:
 
-  - Avoid repeated prefix `language-` in code block language specification if
+  * Avoid repeated prefix `language-` in code block language specification if
     the input already explicitly includes the prefix.
 
     Contributed by [Zach Newton](https://github.com/znewt99).
 
-  - Permissive autolink extensions (`MD_FLAG_PERMISSIVExxxAUTOLINKS`) are now
+  * Permissive autolink extensions (`MD_FLAG_PERMISSIVExxxAUTOLINKS`) are now
     tiny bit more permissive, allowing `+` and `-` characters to be anywhere
     in the path portion of the URL. This also improves compatibility with GFM.
 
-  - Make Unicode-specific code compliant to Unicode 18.0.
+  * Make Unicode-specific code compliant to Unicode 18.0.
 
 Fixes:
 
- - [#236](https://github.com/mity/md4c/issues/236):
+ * [#236](https://github.com/mity/md4c/issues/236):
    Fix quadratic time behavior caused by one-by-one walking over block lines
    instead of calling `md_lookup_line()`.
 
- - [#238](https://github.com/mity/md4c/issues/238):
+ * [#238](https://github.com/mity/md4c/issues/238):
    Fix quadratic time and output size behavior caused by malicious misuse of
    link reference definitions.
 
- - [#242](https://github.com/mity/md4c/issues/242):
+ * [#242](https://github.com/mity/md4c/issues/242):
    The strike-through extension (with flag `MD_FLAG_STRIKETHROUGH`) now follows
    same logic as other emphasis spans in respect to punctuation character and
    word boundaries.
 
- - [#248](https://github.com/mity/md4c/issues/248):
+ * [#248](https://github.com/mity/md4c/issues/248):
    Fix handling tab when removing trailing whitespace, especially in connection
    with ATX headers.
 
- - [#266](https://github.com/mity/md4c/issues/266):
+ * [#266](https://github.com/mity/md4c/issues/266):
    We now correctly abort the parser when a callback returns non-zero.
    (Previously it worked correctly only for negative values, values greater
    than zero were causing strange and inconsistent behavior.)
 
- - [#271](https://github.com/mity/md4c/issues/271):
+ * [#271](https://github.com/mity/md4c/issues/271):
    Fix handling a code span whose closer is on the next line and yet another
    text follows. In the case we erroneously outputted the closer code span mark
    as part of the text.
 
- - [#275](https://github.com/mity/md4c/issues/275):
+ * [#275](https://github.com/mity/md4c/issues/275):
    Fix `md_decode_utf16le_before__()`. (Only affected MD4C builds built with
    `-MD4C_USE_UTF16` on Windows.)
 
- - [#278](https://github.com/mity/md4c/issues/278),
+ * [#278](https://github.com/mity/md4c/issues/278),
    [#294](https://github.com/mity/md4c/issues/294):
    Do not try to interpret characters in a link URL as Markdown syntax
    characters.
 
- - [#292](https://github.com/mity/md4c/issues/292):
+ * [#292](https://github.com/mity/md4c/issues/292):
    Fix detection of closing code block fence if it has a trailing tabulator.
 
- - [#299](https://github.com/mity/md4c/issues/299):
-   Fix invalid free() in an error path.
+ * [#299](https://github.com/mity/md4c/issues/299):
+   Fix invalid `free()` in an error path.
 
 
 ## Version 0.5.2
@@ -84,11 +84,11 @@ Changes:
 
 Fixes:
 
- - [#230](https://github.com/mity/md4c/issues/230):
+ * [#230](https://github.com/mity/md4c/issues/230):
    The fix [#223](https://github.com/mity/md4c/issues/223) in 0.5.1 release
    was incomplete and one corner case remained unfixed. This is now addressed.
 
- - [#231](https://github.com/mity/md4c/issues/231):
+ * [#231](https://github.com/mity/md4c/issues/231):
    `md2html --full-html` now emits `<meta charset="UTF-8">` in the HTML header.
 
 
