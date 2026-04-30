@@ -198,7 +198,7 @@ struct MD_CTX_tag {
 #endif
 
     /* For resolving of inline spans. */
-    MD_MARKSTACK opener_stacks[16];
+    MD_MARKSTACK opener_stacks[17];
 #define ASTERISK_OPENERS_oo_mod3_0      (ctx->opener_stacks[0])     /* Opener-only */
 #define ASTERISK_OPENERS_oo_mod3_1      (ctx->opener_stacks[1])
 #define ASTERISK_OPENERS_oo_mod3_2      (ctx->opener_stacks[2])
@@ -215,6 +215,7 @@ struct MD_CTX_tag {
 #define TILDE_OPENERS_2                 (ctx->opener_stacks[13])
 #define BRACKET_OPENERS                 (ctx->opener_stacks[14])
 #define DOLLAR_OPENERS                  (ctx->opener_stacks[15])
+#define PIPE_OPENERS                    (ctx->opener_stacks[16])
 
     /* Stack of dummies which need to call free() for pointers stored in them.
      * These are constructed during inline parsing and freed after all the block
@@ -2598,6 +2599,8 @@ md_opener_stack(MD_CTX* ctx, int mark_index)
 
         case _T('~'):   return (mark->end - mark->beg == 1) ? &TILDE_OPENERS_1 : &TILDE_OPENERS_2;
 
+        case _T('|'):   return &PIPE_OPENERS;
+
         case _T('!'):
         case _T('['):   return &BRACKET_OPENERS;
 
@@ -2751,7 +2754,8 @@ md_build_mark_char_map(MD_CTX* ctx)
     if(ctx->parser.flags & MD_FLAG_PERMISSIVEWWWAUTOLINKS)
         ctx->mark_char_map['.'] = 1;
 
-    if((ctx->parser.flags & MD_FLAG_TABLES) || (ctx->parser.flags & MD_FLAG_WIKILINKS))
+    if((ctx->parser.flags & MD_FLAG_TABLES) || (ctx->parser.flags & MD_FLAG_WIKILINKS) ||
+       (ctx->parser.flags & MD_FLAG_SPOILER))
         ctx->mark_char_map['|'] = 1;
 
     if(ctx->parser.flags & MD_FLAG_COLLAPSEWHITESPACE) {
@@ -3277,6 +3281,17 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table_m
 
                 off++;
                 continue;
+            }
+
+            /* A potential spoiler delimiter: || ... ||
+             * Checked before the single-| handler so a double pipe is consumed
+             * as one mark and does not become two cell boundaries. */
+            if(ch == _T('|') && (ctx->parser.flags & MD_FLAG_SPOILER)) {
+                if(off + 1 < line->end && CH(off+1) == _T('|')) {
+                    ADD_MARK(ch, off, off+2, MD_MARK_POTENTIAL_OPENER | MD_MARK_POTENTIAL_CLOSER);
+                    off += 2;
+                    continue;
+                }
             }
 
             /* A potential table cell boundary or wiki link label delimiter. */
@@ -3838,6 +3853,28 @@ md_analyze_dollar(MD_CTX* ctx, int mark_index)
         md_mark_stack_push(ctx, &DOLLAR_OPENERS, mark_index);
 }
 
+static void
+md_analyze_pipe(MD_CTX* ctx, int mark_index)
+{
+    MD_MARK* mark = &ctx->marks[mark_index];
+
+    /* Only 2-char || marks are spoiler delimiters; single | is a table boundary
+     * or wiki-link separator. */
+    if(mark->end - mark->beg != 2)
+        return;
+
+    if((mark->flags & MD_MARK_POTENTIAL_CLOSER)  &&  PIPE_OPENERS.top >= 0) {
+        int opener_index = PIPE_OPENERS.top;
+
+        md_pop_openers(ctx, opener_index);
+        md_resolve_range(ctx, opener_index, mark_index);
+        return;
+    }
+
+    if(mark->flags & MD_MARK_POTENTIAL_OPENER)
+        md_mark_stack_push(ctx, &PIPE_OPENERS, mark_index);
+}
+
 static MD_MARK*
 md_scan_left_for_resolved_mark(MD_CTX* ctx, MD_MARK* mark_from, OFF off, MD_MARK** p_cursor)
 {
@@ -4071,7 +4108,12 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
             case '!':   /* Pass through. */
             case ']':   md_analyze_bracket(ctx, i); break;
             case '&':   md_analyze_entity(ctx, i); break;
-            case '|':   md_analyze_table_cell_boundary(ctx, i); break;
+            case '|':
+                if(ctx->marks[i].end - ctx->marks[i].beg == 2)
+                    md_analyze_pipe(ctx, i);
+                else
+                    md_analyze_table_cell_boundary(ctx, i);
+                break;
             case '_':   /* Pass through. */
             case '*':   md_analyze_emph(ctx, i); break;
             case '~':   md_analyze_tilde(ctx, i); break;
@@ -4134,6 +4176,16 @@ md_analyze_link_contents(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
 
     md_analyze_marks(ctx, lines, n_lines, mark_beg, mark_end, _T("&"), 0);
     md_analyze_marks(ctx, lines, n_lines, mark_beg, mark_end, _T("*_~$"), 0);
+
+    if(ctx->parser.flags & MD_FLAG_SPOILER) {
+        for(i = mark_beg; i < mark_end; i++) {
+            MD_MARK* mark = &ctx->marks[i];
+            if(mark->flags & MD_MARK_RESOLVED)
+                continue;
+            if(mark->ch == '|' && mark->end - mark->beg == 2)
+                md_analyze_pipe(ctx, i);
+        }
+    }
 
     if((ctx->parser.flags & MD_FLAG_PERMISSIVEAUTOLINKS) != 0) {
         /* These have to be processed last, as they may be greedy and expand
@@ -4296,6 +4348,15 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
                         MD_ENTER_SPAN(MD_SPAN_DEL, NULL);
                     else
                         MD_LEAVE_SPAN(MD_SPAN_DEL, NULL);
+                    break;
+
+                case '|':
+                    if(mark->end - mark->beg == 2) {
+                        if(mark->flags & MD_MARK_OPENER)
+                            MD_ENTER_SPAN(MD_SPAN_SPOILER, NULL);
+                        else
+                            MD_LEAVE_SPAN(MD_SPAN_SPOILER, NULL);
+                    }
                     break;
 
                 case '$':

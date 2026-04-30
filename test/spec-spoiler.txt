@@ -1,0 +1,396 @@
+
+# Spoiler Spans
+
+With the flag `MD_FLAG_SPOILER`, MD4C enables recognition of inline spoiler
+spans using the `||text||` syntax (popularized by Telegram and Discord).
+
+A spoiler span is content wrapped in exactly two consecutive pipe characters
+(`||`) on each side.  The content is intended to be hidden by default and
+revealed on user interaction (tap, hover, click, etc.).  Rendering of the
+hidden state is the application's responsibility; the HTML renderer wraps the
+content in `<x-spoiler>` tags.
+
+
+## Basic recognition
+
+```````````````````````````````` example
+||Hello, world!||
+.
+<p><x-spoiler>Hello, world!</x-spoiler></p>
+.
+--fspoiler
+````````````````````````````````
+
+Spoilers may appear inline alongside normal text:
+
+```````````````````````````````` example
+This is normal text with ||hidden content|| revealed here.
+.
+<p>This is normal text with <x-spoiler>hidden content</x-spoiler> revealed here.</p>
+.
+--fspoiler
+````````````````````````````````
+
+Multiple independent spoiler spans in the same paragraph:
+
+```````````````````````````````` example
+||first|| and ||second||
+.
+<p><x-spoiler>first</x-spoiler> and <x-spoiler>second</x-spoiler></p>
+.
+--fspoiler
+````````````````````````````````
+
+A spoiler span at the very start and end of a paragraph:
+
+```````````````````````````````` example
+||entire paragraph is a spoiler||
+.
+<p><x-spoiler>entire paragraph is a spoiler</x-spoiler></p>
+.
+--fspoiler
+````````````````````````````````
+
+
+## Flag required
+
+Without `MD_FLAG_SPOILER` the `||` sequence is treated as literal text:
+
+```````````````````````````````` example
+||hidden||
+.
+<p>||hidden||</p>
+.
+````````````````````````````````
+
+
+## Nested inline spans inside a spoiler
+
+Emphasis inside a spoiler:
+
+```````````````````````````````` example
+||nested *emphasis*||
+.
+<p><x-spoiler>nested <em>emphasis</em></x-spoiler></p>
+.
+--fspoiler
+````````````````````````````````
+
+Strong emphasis inside a spoiler:
+
+```````````````````````````````` example
+||**bold** and _italic_ together||
+.
+<p><x-spoiler><strong>bold</strong> and <em>italic</em> together</x-spoiler></p>
+.
+--fspoiler
+````````````````````````````````
+
+Inline code inside a spoiler:
+
+```````````````````````````````` example
+||spoiler with `code`||
+.
+<p><x-spoiler>spoiler with <code>code</code></x-spoiler></p>
+.
+--fspoiler
+````````````````````````````````
+
+A link inside a spoiler:
+
+```````````````````````````````` example
+||spoiler with [a link](http://example.com)||
+.
+<p><x-spoiler>spoiler with <a href="http://example.com">a link</a></x-spoiler></p>
+.
+--fspoiler
+````````````````````````````````
+
+Strikethrough inside a spoiler (requires both flags):
+
+```````````````````````````````` example
+||~~strikethrough inside spoiler~~||
+.
+<p><x-spoiler><del>strikethrough inside spoiler</del></x-spoiler></p>
+.
+--fspoiler --fstrikethrough
+````````````````````````````````
+
+A spoiler inside strikethrough:
+
+```````````````````````````````` example
+~~del with ||spoiler|| inside~~
+.
+<p><del>del with <x-spoiler>spoiler</x-spoiler> inside</del></p>
+.
+--fspoiler --fstrikethrough
+````````````````````````````````
+
+
+## Suppression inside code spans and code blocks
+
+Pipe characters inside a code span are not recognized as spoiler delimiters:
+
+```````````````````````````````` example
+`code with ||pipes||`
+.
+<p><code>code with ||pipes||</code></p>
+.
+--fspoiler
+````````````````````````````````
+
+Similarly inside a fenced code block:
+
+```````````````````````````````` example
+```
+||not a spoiler||
+```
+.
+<pre><code>||not a spoiler||
+</code></pre>
+.
+--fspoiler
+````````````````````````````````
+
+And inside an indented code block:
+
+```````````````````````````````` example
+    ||not a spoiler||
+.
+<pre><code>||not a spoiler||
+</code></pre>
+.
+--fspoiler
+````````````````````````````````
+
+
+## Unmatched delimiters
+
+A lone `||` with no matching closer is left as literal text:
+
+```````````````````````````````` example
+||unclosed spoiler
+.
+<p>||unclosed spoiler</p>
+.
+--fspoiler
+````````````````````````````````
+
+A lone closer with no preceding opener is also left as literal text:
+
+```````````````````````````````` example
+unclosed spoiler||
+.
+<p>unclosed spoiler||</p>
+.
+--fspoiler
+````````````````````````````````
+
+
+## Backslash escaping
+
+A backslash before the first pipe escapes it, breaking the `||` pair and
+preventing spoiler recognition:
+
+```````````````````````````````` example
+\||not a spoiler||
+.
+<p>||not a spoiler||</p>
+.
+--fspoiler
+````````````````````````````````
+
+
+## Paragraph boundary
+
+A spoiler cannot span a paragraph break (same rule as emphasis):
+
+```````````````````````````````` example
+||starts here
+
+ends here||
+.
+<p>||starts here</p>
+<p>ends here||</p>
+.
+--fspoiler
+````````````````````````````````
+
+
+## Soft line break inside a spoiler
+
+A soft line break within the same block is permitted:
+
+```````````````````````````````` example
+||multi
+line spoiler||
+.
+<p><x-spoiler>multi
+line spoiler</x-spoiler></p>
+.
+--fspoiler
+````````````````````````````````
+
+
+## Empty spoiler
+
+Two consecutive `||` pairs produce an empty spoiler span:
+
+```````````````````````````````` example
+||||
+.
+<p><x-spoiler></x-spoiler></p>
+.
+--fspoiler
+````````````````````````````````
+
+
+## Block-level contexts
+
+### ATX headings
+
+```````````````````````````````` example
+# ||heading spoiler||
+.
+<h1><x-spoiler>heading spoiler</x-spoiler></h1>
+.
+--fspoiler
+````````````````````````````````
+
+```````````````````````````````` example
+## ||level two||
+.
+<h2><x-spoiler>level two</x-spoiler></h2>
+.
+--fspoiler
+````````````````````````````````
+
+### Block quotes
+
+```````````````````````````````` example
+> ||hidden in a quote||
+.
+<blockquote>
+<p><x-spoiler>hidden in a quote</x-spoiler></p>
+</blockquote>
+.
+--fspoiler
+````````````````````````````````
+
+Nested block quotes:
+
+```````````````````````````````` example
+> > ||nested quote spoiler||
+.
+<blockquote>
+<blockquote>
+<p><x-spoiler>nested quote spoiler</x-spoiler></p>
+</blockquote>
+</blockquote>
+.
+--fspoiler
+````````````````````````````````
+
+### Unordered lists
+
+```````````````````````````````` example
+- ||list item spoiler||
+- normal item
+.
+<ul>
+<li><x-spoiler>list item spoiler</x-spoiler></li>
+<li>normal item</li>
+</ul>
+.
+--fspoiler
+````````````````````````````````
+
+### Ordered lists
+
+```````````````````````````````` example
+1. ||first item||
+2. normal item
+.
+<ol>
+<li><x-spoiler>first item</x-spoiler></li>
+<li>normal item</li>
+</ol>
+.
+--fspoiler
+````````````````````````````````
+
+### Task lists (requires MD_FLAG_TASKLISTS)
+
+```````````````````````````````` example
+- [ ] ||task item spoiler||
+- [x] done
+.
+<ul>
+<li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled><x-spoiler>task item spoiler</x-spoiler></li>
+<li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled checked>done</li>
+</ul>
+.
+--fspoiler --ftasklists
+````````````````````````````````
+
+### Tables (requires MD_FLAG_TABLES)
+
+A spoiler inside a table cell:
+
+```````````````````````````````` example
+| A | B |
+|---|---|
+| ||spoiler|| | baz |
+.
+<table>
+<thead>
+<tr>
+<th>A</th>
+<th>B</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><x-spoiler>spoiler</x-spoiler></td>
+<td>baz</td>
+</tr>
+</tbody>
+</table>
+.
+--fspoiler --ftables
+````````````````````````````````
+
+
+## Interaction with other extensions
+
+### Wiki links (requires MD_FLAG_WIKILINKS)
+
+A spoiler inside the display portion of a wiki link:
+
+```````````````````````````````` example
+[[target|display with ||spoiler||]]
+.
+<p><x-wikilink data-target="target">display with <x-spoiler>spoiler</x-spoiler></x-wikilink></p>
+.
+--fspoiler --fwiki-links
+````````````````````````````````
+
+Wiki links with a `|` separator must not be mistaken for spoiler delimiters:
+
+```````````````````````````````` example
+[[foo|bar]]
+.
+<p><x-wikilink data-target="foo">bar</x-wikilink></p>
+.
+--fspoiler --fwiki-links
+````````````````````````````````
+
+A wiki link whose label contains an unrelated `|` character:
+
+```````````````````````````````` example
+[[foo|bar|baz]]
+.
+<p><x-wikilink data-target="foo">bar|baz</x-wikilink></p>
+.
+--fspoiler --fwiki-links
+````````````````````````````````
