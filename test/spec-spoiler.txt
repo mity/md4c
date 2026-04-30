@@ -360,6 +360,29 @@ A spoiler inside a table cell:
 --fspoiler --ftables
 ````````````````````````````````
 
+Spoiler parsing must not interfere with table cell boundary detection:
+
+```````````````````````````````` example
+x
+|-
+||||||||||
+.
+<table>
+<thead>
+<tr>
+<th>x</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><x-spoiler></x-spoiler><x-spoiler></x-spoiler>||</td>
+</tr>
+</tbody>
+</table>
+.
+--fspoiler --github
+````````````````````````````````
+
 
 ## Interaction with other extensions
 

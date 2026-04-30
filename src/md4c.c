@@ -2599,8 +2599,6 @@ md_opener_stack(MD_CTX* ctx, int mark_index)
 
         case _T('~'):   return (mark->end - mark->beg == 1) ? &TILDE_OPENERS_1 : &TILDE_OPENERS_2;
 
-        case _T('|'):   return &PIPE_OPENERS;
-
         case _T('!'):
         case _T('['):   return &BRACKET_OPENERS;
 
@@ -3858,11 +3856,6 @@ md_analyze_pipe(MD_CTX* ctx, int mark_index)
 {
     MD_MARK* mark = &ctx->marks[mark_index];
 
-    /* Only 2-char || marks are spoiler delimiters; single | is a table boundary
-     * or wiki-link separator. */
-    if(mark->end - mark->beg != 2)
-        return;
-
     if((mark->flags & MD_MARK_POTENTIAL_CLOSER)  &&  PIPE_OPENERS.top >= 0) {
         int opener_index = PIPE_OPENERS.top;
 
@@ -4108,12 +4101,6 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
             case '!':   /* Pass through. */
             case ']':   md_analyze_bracket(ctx, i); break;
             case '&':   md_analyze_entity(ctx, i); break;
-            case '|':
-                if(ctx->marks[i].end - ctx->marks[i].beg == 2)
-                    md_analyze_pipe(ctx, i);
-                else
-                    md_analyze_table_cell_boundary(ctx, i);
-                break;
             case '_':   /* Pass through. */
             case '*':   md_analyze_emph(ctx, i); break;
             case '~':   md_analyze_tilde(ctx, i); break;
@@ -4138,6 +4125,7 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
 static int
 md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table_mode)
 {
+    int i;
     int ret;
 
     /* Reset the previously collected stack of marks. */
@@ -4157,7 +4145,12 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table
         /* (2) Analyze table cell boundaries. */
         MD_ASSERT(n_lines == 1);
         ctx->n_table_cell_boundaries = 0;
-        md_analyze_marks(ctx, lines, n_lines, 0, ctx->n_marks, _T("|"), 0);
+        for(i = 0; i < ctx->n_marks; i++) {
+            MD_MARK* mark = &ctx->marks[i];
+            if(!(mark->flags & MD_MARK_RESOLVED) &&
+               mark->ch == '|' && mark->end - mark->beg == 1)
+                md_analyze_table_cell_boundary(ctx, i);
+        }
         return ret;
     }
 
