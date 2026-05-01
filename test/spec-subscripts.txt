@@ -62,6 +62,26 @@ H~ 2~O
 --fsubscripts
 ````````````````````````````````
 
+A tilde cannot close a subscript span when immediately preceded by whitespace:
+
+```````````````````````````````` example
+H~2 ~O
+.
+<p>H~2 ~O</p>
+.
+--fsubscripts
+````````````````````````````````
+
+A tilde at the start of a line can open but not close a span:
+
+```````````````````````````````` example
+~2~
+.
+<p><sub>2</sub></p>
+.
+--fsubscripts
+````````````````````````````````
+
 
 ## Code spans suppress markers
 
