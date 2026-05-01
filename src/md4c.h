@@ -164,7 +164,7 @@ typedef enum MD_TEXTTYPE {
     MD_TEXT_SOFTBR,     /* '\n' in source text where it is not semantically meaningful (soft break) */
 
     /* Entity.
-     * (a) Named entity, e.g. &nbsp; 
+     * (a) Named entity, e.g. &nbsp;
      *     (Note MD4C does not have a list of known entities.
      *     Anything matching the regexp /&[A-Za-z][A-Za-z0-9]{1,47};/ is
      *     treated as a named entity.)
