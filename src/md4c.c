@@ -2753,7 +2753,7 @@ md_build_mark_char_map(MD_CTX* ctx)
         ctx->mark_char_map['.'] = 1;
 
     if((ctx->parser.flags & MD_FLAG_TABLES) || (ctx->parser.flags & MD_FLAG_WIKILINKS) ||
-       (ctx->parser.flags & MD_FLAG_SPOILER))
+       (ctx->parser.flags & MD_FLAG_SPOILERS))
         ctx->mark_char_map['|'] = 1;
 
     if(ctx->parser.flags & MD_FLAG_COLLAPSEWHITESPACE) {
@@ -3284,7 +3284,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table_m
             /* A potential spoiler delimiter: || ... ||
              * Checked before the single-| handler so a double pipe is consumed
              * as one mark and does not become two cell boundaries. */
-            if(ch == _T('|') && (ctx->parser.flags & MD_FLAG_SPOILER)) {
+            if(ch == _T('|') && (ctx->parser.flags & MD_FLAG_SPOILERS)) {
                 if(off + 1 < line->end && CH(off+1) == _T('|')) {
                     ADD_MARK(ch, off, off+2, MD_MARK_POTENTIAL_OPENER | MD_MARK_POTENTIAL_CLOSER);
                     off += 2;
@@ -4170,7 +4170,7 @@ md_analyze_link_contents(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
     md_analyze_marks(ctx, lines, n_lines, mark_beg, mark_end, _T("&"), 0);
     md_analyze_marks(ctx, lines, n_lines, mark_beg, mark_end, _T("*_~$"), 0);
 
-    if(ctx->parser.flags & MD_FLAG_SPOILER) {
+    if(ctx->parser.flags & MD_FLAG_SPOILERS) {
         for(i = mark_beg; i < mark_end; i++) {
             MD_MARK* mark = &ctx->marks[i];
             if(mark->flags & MD_MARK_RESOLVED)

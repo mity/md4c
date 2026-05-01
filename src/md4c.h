@@ -149,7 +149,7 @@ typedef enum MD_SPANTYPE {
 
     /* Spoiler (hidden content revealed on interaction).
      * Syntax: ||hidden text||
-     * Note: Recognized only when MD_FLAG_SPOILER is enabled. */
+     * Note: Recognized only when MD_FLAG_SPOILERS is enabled. */
     MD_SPAN_SPOILER
 } MD_SPANTYPE;
 
@@ -323,7 +323,7 @@ typedef struct MD_SPAN_WIKILINK {
 #define MD_FLAG_WIKILINKS                   0x2000  /* Enable wiki links extension. */
 #define MD_FLAG_UNDERLINE                   0x4000  /* Enable underline extension (and disables '_' for normal emphasis). */
 #define MD_FLAG_HARD_SOFT_BREAKS            0x8000  /* Force all soft breaks to act as hard breaks. */
-#define MD_FLAG_SPOILER                     0x10000 /* Enable ||hidden text|| spoiler spans. */
+#define MD_FLAG_SPOILERS                    0x10000 /* Enable ||hidden text|| spoiler spans. */
 
 #define MD_FLAG_PERMISSIVEAUTOLINKS         (MD_FLAG_PERMISSIVEEMAILAUTOLINKS | MD_FLAG_PERMISSIVEURLAUTOLINKS | MD_FLAG_PERMISSIVEWWWAUTOLINKS)
 #define MD_FLAG_NOHTML                      (MD_FLAG_NOHTMLBLOCKS | MD_FLAG_NOHTMLSPANS)

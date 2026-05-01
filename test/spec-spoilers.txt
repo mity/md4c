@@ -1,7 +1,7 @@
 
 # Spoiler Spans
 
-With the flag `MD_FLAG_SPOILER`, MD4C enables recognition of inline spoiler
+With the flag `MD_FLAG_SPOILERS`, MD4C enables recognition of inline spoiler
 spans using the `||text||` syntax (popularized by Telegram and Discord).
 
 A spoiler span is content wrapped in exactly two consecutive pipe characters
@@ -18,7 +18,7 @@ content in `<x-spoiler>` tags.
 .
 <p><x-spoiler>Hello, world!</x-spoiler></p>
 .
---fspoiler
+--fspoilers
 ````````````````````````````````
 
 Spoilers may appear inline alongside normal text:
@@ -28,7 +28,7 @@ This is normal text with ||hidden content|| revealed here.
 .
 <p>This is normal text with <x-spoiler>hidden content</x-spoiler> revealed here.</p>
 .
---fspoiler
+--fspoilers
 ````````````````````````````````
 
 Multiple independent spoiler spans in the same paragraph:
@@ -38,7 +38,7 @@ Multiple independent spoiler spans in the same paragraph:
 .
 <p><x-spoiler>first</x-spoiler> and <x-spoiler>second</x-spoiler></p>
 .
---fspoiler
+--fspoilers
 ````````````````````````````````
 
 A spoiler span at the very start and end of a paragraph:
@@ -48,13 +48,13 @@ A spoiler span at the very start and end of a paragraph:
 .
 <p><x-spoiler>entire paragraph is a spoiler</x-spoiler></p>
 .
---fspoiler
+--fspoilers
 ````````````````````````````````
 
 
 ## Flag required
 
-Without `MD_FLAG_SPOILER` the `||` sequence is treated as literal text:
+Without `MD_FLAG_SPOILERS` the `||` sequence is treated as literal text:
 
 ```````````````````````````````` example
 ||hidden||
@@ -73,7 +73,7 @@ Emphasis inside a spoiler:
 .
 <p><x-spoiler>nested <em>emphasis</em></x-spoiler></p>
 .
---fspoiler
+--fspoilers
 ````````````````````````````````
 
 Strong emphasis inside a spoiler:
@@ -83,7 +83,7 @@ Strong emphasis inside a spoiler:
 .
 <p><x-spoiler><strong>bold</strong> and <em>italic</em> together</x-spoiler></p>
 .
---fspoiler
+--fspoilers
 ````````````````````````````````
 
 Inline code inside a spoiler:
@@ -93,7 +93,7 @@ Inline code inside a spoiler:
 .
 <p><x-spoiler>spoiler with <code>code</code></x-spoiler></p>
 .
---fspoiler
+--fspoilers
 ````````````````````````````````
 
 A link inside a spoiler:
@@ -103,7 +103,7 @@ A link inside a spoiler:
 .
 <p><x-spoiler>spoiler with <a href="http://example.com">a link</a></x-spoiler></p>
 .
---fspoiler
+--fspoilers
 ````````````````````````````````
 
 Strikethrough inside a spoiler (requires both flags):
@@ -113,7 +113,7 @@ Strikethrough inside a spoiler (requires both flags):
 .
 <p><x-spoiler><del>strikethrough inside spoiler</del></x-spoiler></p>
 .
---fspoiler --fstrikethrough
+--fspoilers --fstrikethrough
 ````````````````````````````````
 
 A spoiler inside strikethrough:
@@ -123,7 +123,7 @@ A spoiler inside strikethrough:
 .
 <p><del>del with <x-spoiler>spoiler</x-spoiler> inside</del></p>
 .
---fspoiler --fstrikethrough
+--fspoilers --fstrikethrough
 ````````````````````````````````
 
 
@@ -136,7 +136,7 @@ Pipe characters inside a code span are not recognized as spoiler delimiters:
 .
 <p><code>code with ||pipes||</code></p>
 .
---fspoiler
+--fspoilers
 ````````````````````````````````
 
 Similarly inside a fenced code block:
@@ -149,7 +149,7 @@ Similarly inside a fenced code block:
 <pre><code>||not a spoiler||
 </code></pre>
 .
---fspoiler
+--fspoilers
 ````````````````````````````````
 
 And inside an indented code block:
@@ -160,7 +160,7 @@ And inside an indented code block:
 <pre><code>||not a spoiler||
 </code></pre>
 .
---fspoiler
+--fspoilers
 ````````````````````````````````
 
 
@@ -173,7 +173,7 @@ A lone `||` with no matching closer is left as literal text:
 .
 <p>||unclosed spoiler</p>
 .
---fspoiler
+--fspoilers
 ````````````````````````````````
 
 A lone closer with no preceding opener is also left as literal text:
@@ -183,7 +183,7 @@ unclosed spoiler||
 .
 <p>unclosed spoiler||</p>
 .
---fspoiler
+--fspoilers
 ````````````````````````````````
 
 
@@ -197,7 +197,7 @@ preventing spoiler recognition:
 .
 <p>||not a spoiler||</p>
 .
---fspoiler
+--fspoilers
 ````````````````````````````````
 
 
@@ -213,7 +213,7 @@ ends here||
 <p>||starts here</p>
 <p>ends here||</p>
 .
---fspoiler
+--fspoilers
 ````````````````````````````````
 
 
@@ -228,7 +228,7 @@ line spoiler||
 <p><x-spoiler>multi
 line spoiler</x-spoiler></p>
 .
---fspoiler
+--fspoilers
 ````````````````````````````````
 
 
@@ -241,7 +241,7 @@ Two consecutive `||` pairs produce an empty spoiler span:
 .
 <p><x-spoiler></x-spoiler></p>
 .
---fspoiler
+--fspoilers
 ````````````````````````````````
 
 
@@ -254,7 +254,7 @@ Two consecutive `||` pairs produce an empty spoiler span:
 .
 <h1><x-spoiler>heading spoiler</x-spoiler></h1>
 .
---fspoiler
+--fspoilers
 ````````````````````````````````
 
 ```````````````````````````````` example
@@ -262,7 +262,7 @@ Two consecutive `||` pairs produce an empty spoiler span:
 .
 <h2><x-spoiler>level two</x-spoiler></h2>
 .
---fspoiler
+--fspoilers
 ````````````````````````````````
 
 ### Block quotes
@@ -274,7 +274,7 @@ Two consecutive `||` pairs produce an empty spoiler span:
 <p><x-spoiler>hidden in a quote</x-spoiler></p>
 </blockquote>
 .
---fspoiler
+--fspoilers
 ````````````````````````````````
 
 Nested block quotes:
@@ -288,7 +288,7 @@ Nested block quotes:
 </blockquote>
 </blockquote>
 .
---fspoiler
+--fspoilers
 ````````````````````````````````
 
 ### Unordered lists
@@ -302,7 +302,7 @@ Nested block quotes:
 <li>normal item</li>
 </ul>
 .
---fspoiler
+--fspoilers
 ````````````````````````````````
 
 ### Ordered lists
@@ -316,10 +316,10 @@ Nested block quotes:
 <li>normal item</li>
 </ol>
 .
---fspoiler
+--fspoilers
 ````````````````````````````````
 
-### Task lists (requires MD_FLAG_TASKLISTS)
+### Task lists (requires `MD_FLAG_TASKLISTS`)
 
 ```````````````````````````````` example
 - [ ] ||task item spoiler||
@@ -330,10 +330,10 @@ Nested block quotes:
 <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled checked>done</li>
 </ul>
 .
---fspoiler --ftasklists
+--fspoilers --ftasklists
 ````````````````````````````````
 
-### Tables (requires MD_FLAG_TABLES)
+### Tables (requires `MD_FLAG_TABLES`)
 
 A spoiler inside a table cell:
 
@@ -357,7 +357,7 @@ A spoiler inside a table cell:
 </tbody>
 </table>
 .
---fspoiler --ftables
+--fspoilers --ftables
 ````````````````````````````````
 
 Spoiler parsing must not interfere with table cell boundary detection:
@@ -380,13 +380,13 @@ x
 </tbody>
 </table>
 .
---fspoiler --github
+--fspoilers --github
 ````````````````````````````````
 
 
 ## Interaction with other extensions
 
-### Wiki links (requires MD_FLAG_WIKILINKS)
+### Wiki links (requires `MD_FLAG_WIKILINKS`)
 
 A spoiler inside the display portion of a wiki link:
 
@@ -395,7 +395,7 @@ A spoiler inside the display portion of a wiki link:
 .
 <p><x-wikilink data-target="target">display with <x-spoiler>spoiler</x-spoiler></x-wikilink></p>
 .
---fspoiler --fwiki-links
+--fspoilers --fwiki-links
 ````````````````````````````````
 
 Wiki links with a `|` separator must not be mistaken for spoiler delimiters:
@@ -405,7 +405,7 @@ Wiki links with a `|` separator must not be mistaken for spoiler delimiters:
 .
 <p><x-wikilink data-target="foo">bar</x-wikilink></p>
 .
---fspoiler --fwiki-links
+--fspoilers --fwiki-links
 ````````````````````````````````
 
 A wiki link whose label contains an unrelated `|` character:
@@ -415,5 +415,5 @@ A wiki link whose label contains an unrelated `|` character:
 .
 <p><x-wikilink data-target="foo">bar|baz</x-wikilink></p>
 .
---fspoiler --fwiki-links
+--fspoilers --fwiki-links
 ````````````````````````````````

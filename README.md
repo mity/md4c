@@ -102,7 +102,7 @@ extensions:
 * With the flag `MD_FLAG_STRIKETHROUGH`, strike-through spans are enabled
   (text enclosed in tilde marks, e.g. `~foo bar~`).
 
-* With the flag `MD_FLAG_SPOILER`, spoiler spans are enabled
+* With the flag `MD_FLAG_SPOILERS`, spoiler spans are enabled
   (text enclosed in double pipe marks, e.g. `||hidden text||`). (Note that the
   HTML renderer outputs them in a custom tag `<x-spoiler>`.)
 

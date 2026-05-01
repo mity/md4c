@@ -253,7 +253,7 @@ static const CMDLINE_OPTION cmdline_options[] = {
     {  0,  "fpermissive-email-autolinks",   '@', 0 },
     {  0,  "fpermissive-url-autolinks",     'U', 0 },
     {  0,  "fpermissive-www-autolinks",     '.', 0 },
-    {  0,  "fspoiler",                      'P', 0 },
+    {  0,  "fspoilers",                     'P', 0 },
     {  0,  "fstrikethrough",                'S', 0 },
     {  0,  "ftables",                       'T', 0 },
     {  0,  "ftasklists",                    'X', 0 },
@@ -309,7 +309,7 @@ usage(void)
         "                       --fpermissive-email-autolinks\n"
         "      --fhard-soft-breaks\n"
         "                       Force all soft breaks to act as hard breaks\n"
-        "      --fspoiler       Enable spoiler spans (||hidden text||)\n"
+        "      --fspoilers      Enable spoiler spans (||hidden text||)\n"
         "      --fstrikethrough Enable strike-through spans\n"
         "      --ftables        Enable tables\n"
         "      --ftasklists     Enable task lists\n"
@@ -384,7 +384,7 @@ cmdline_callback(int opt, char const* value, void* data)
         case '@':   parser_flags |= MD_FLAG_PERMISSIVEEMAILAUTOLINKS; break;
         case 'V':   parser_flags |= MD_FLAG_PERMISSIVEAUTOLINKS; break;
         case 'T':   parser_flags |= MD_FLAG_TABLES; break;
-        case 'P':   parser_flags |= MD_FLAG_SPOILER; break;
+        case 'P':   parser_flags |= MD_FLAG_SPOILERS; break;
         case 'S':   parser_flags |= MD_FLAG_STRIKETHROUGH; break;
         case 'L':   parser_flags |= MD_FLAG_LATEXMATHSPANS; break;
         case 'K':   parser_flags |= MD_FLAG_WIKILINKS; break;
