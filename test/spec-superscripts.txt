@@ -125,6 +125,29 @@ Caret characters inside code spans are treated as literal text:
 ````````````````````````````````
 
 
+A caret at the very start of a line can still open a superscript span (exercises
+the `off == line->beg` branch for the closer check):
+
+```````````````````````````````` example
+^2^
+.
+<p><sup>2</sup></p>
+.
+--fsuperscripts
+````````````````````````````````
+
+A lone caret at the start of a line followed by whitespace can be neither opener
+nor closer, so it is treated as literal text:
+
+```````````````````````````````` example
+^ x
+.
+<p>^ x</p>
+.
+--fsuperscripts
+````````````````````````````````
+
+
 ## Unmatched delimiters are literal
 
 An opening caret with no matching closer is literal:
