@@ -2600,8 +2600,6 @@ md_opener_stack(MD_CTX* ctx, int mark_index)
 
         case _T('~'):   return (mark->end - mark->beg == 1) ? &TILDE_OPENERS_1 : &TILDE_OPENERS_2;
 
-        case _T('^'):   return &CARET_OPENERS;
-
         case _T('!'):
         case _T('['):   return &BRACKET_OPENERS;
 
