@@ -255,6 +255,8 @@ static const CMDLINE_OPTION cmdline_options[] = {
     {  0,  "fpermissive-www-autolinks",     '.', 0 },
     {  0,  "fspoilers",                     'P', 0 },
     {  0,  "fstrikethrough",                'S', 0 },
+    {  0,  "fsuperscripts",                 '^', 0 },
+    {  0,  "fsubscripts",                   '~', 0 },
     {  0,  "ftables",                       'T', 0 },
     {  0,  "ftasklists",                    'X', 0 },
     {  0,  "funderline",                    '_', 0 },
@@ -311,6 +313,8 @@ usage(void)
         "                       Force all soft breaks to act as hard breaks\n"
         "      --fspoilers      Enable spoiler spans (||hidden text||)\n"
         "      --fstrikethrough Enable strike-through spans\n"
+        "      --fsuperscripts  Enable superscript spans (^text^)\n"
+        "      --fsubscripts    Enable subscript spans (~text~)\n"
         "      --ftables        Enable tables\n"
         "      --ftasklists     Enable task lists\n"
         "      --funderline     Enable underline spans\n"
@@ -386,6 +390,8 @@ cmdline_callback(int opt, char const* value, void* data)
         case 'T':   parser_flags |= MD_FLAG_TABLES; break;
         case 'P':   parser_flags |= MD_FLAG_SPOILERS; break;
         case 'S':   parser_flags |= MD_FLAG_STRIKETHROUGH; break;
+        case '^':   parser_flags |= MD_FLAG_SUPERSCRIPTS; break;
+        case '~':   parser_flags |= MD_FLAG_SUBSCRIPTS; break;
         case 'L':   parser_flags |= MD_FLAG_LATEXMATHSPANS; break;
         case 'K':   parser_flags |= MD_FLAG_WIKILINKS; break;
         case 'X':   parser_flags |= MD_FLAG_TASKLISTS; break;
