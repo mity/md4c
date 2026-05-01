@@ -106,6 +106,15 @@ extensions:
   (text enclosed in double pipe marks, e.g. `||hidden text||`). (Note that the
   HTML renderer outputs them in a custom tag `<x-spoiler>`.)
 
+* With the flag `MD_FLAG_SUPERSCRIPTS`, superscript spans are enabled
+  (text enclosed in caret marks, e.g. `x^2^`). The HTML renderer outputs
+  `<sup>`.
+
+* With the flag `MD_FLAG_SUBSCRIPTS`, subscript spans are enabled
+  (text enclosed in single tilde marks, e.g. `H~2~O`). The HTML renderer
+  outputs `<sub>`. When used together with `MD_FLAG_STRIKETHROUGH`, single
+  tilde renders as subscript and double tilde `~~text~~` as strikethrough.
+
 * With the flag `MD_FLAG_PERMISSIVEURLAUTOLINKS` permissive URL autolinks
   (not enclosed in `<` and `>`) are supported.
 
