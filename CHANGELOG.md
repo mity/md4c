@@ -2,6 +2,18 @@
 # MD4C Change Log
 
 
+## Next Version (Work in Progress)
+
+New Features:
+
+  * Add extension recognizing spoilers with `||hidden text||` syntax. This
+    follows syntax used by Telegram and Discord Markdown implementations.
+    It needs to be explicitly enabled with `MD_FLAG_SPOILERS`. (Note though that
+    the HTML renderer outputs them verbatim in a custom `<x-spoiler>` tag.)
+
+    Contributed by [Gregory Moskaliuk](https://github.com/hryhoriiK97).
+
+
 ## Version 0.5.3
 
 Changes:
