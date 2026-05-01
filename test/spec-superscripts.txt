@@ -1,0 +1,175 @@
+
+# Superscript Spans
+
+With the flag `MD_FLAG_SUPERSCRIPTS`, MD4C enables recognition of inline
+superscript spans using the `^text^` syntax.  A single caret on each side
+wraps the content, which the HTML renderer outputs as `<sup>`.
+
+
+## Basic recognition
+
+```````````````````````````````` example
+x^2^
+.
+<p>x<sup>2</sup></p>
+.
+--fsuperscripts
+````````````````````````````````
+
+Superscripts may open after regular text characters:
+
+```````````````````````````````` example
+foo^bar^
+.
+<p>foo<sup>bar</sup></p>
+.
+--fsuperscripts
+````````````````````````````````
+
+Superscripts may appear inside emphasis:
+
+```````````````````````````````` example
+_x^2^_
+.
+<p><em>x<sup>2</sup></em></p>
+.
+--fsuperscripts
+````````````````````````````````
+
+Superscripts may appear inside strong emphasis:
+
+```````````````````````````````` example
+**x^2^**
+.
+<p><strong>x<sup>2</sup></strong></p>
+.
+--fsuperscripts
+````````````````````````````````
+
+
+## Opt-in behavior
+
+Without `MD_FLAG_SUPERSCRIPTS` the `^` sequence is treated as literal text:
+
+```````````````````````````````` example
+x^2^
+.
+<p>x^2^</p>
+.
+
+````````````````````````````````
+
+
+## Whitespace rules
+
+A caret cannot open a superscript span when immediately followed by whitespace:
+
+```````````````````````````````` example
+x^ 2^
+.
+<p>x^ 2^</p>
+.
+--fsuperscripts
+````````````````````````````````
+
+A caret cannot close a superscript span when immediately preceded by whitespace:
+
+```````````````````````````````` example
+x^2 ^
+.
+<p>x^2 ^</p>
+.
+--fsuperscripts
+````````````````````````````````
+
+
+## Longer caret runs are literal
+
+Double or longer caret runs are not split into superscript delimiters:
+
+```````````````````````````````` example
+x^^y^^
+.
+<p>x^^y^^</p>
+.
+--fsuperscripts
+````````````````````````````````
+
+
+## Paragraph boundary stops resolution
+
+A superscript span cannot cross a paragraph boundary:
+
+```````````````````````````````` example
+x^
+
+2^
+.
+<p>x^</p>
+<p>2^</p>
+.
+--fsuperscripts
+````````````````````````````````
+
+
+## Code spans suppress markers
+
+Caret characters inside code spans are treated as literal text:
+
+```````````````````````````````` example
+`x^2^`
+.
+<p><code>x^2^</code></p>
+.
+--fsuperscripts
+````````````````````````````````
+
+
+## Unmatched delimiters are literal
+
+An opening caret with no matching closer is literal:
+
+```````````````````````````````` example
+x^2
+.
+<p>x^2</p>
+.
+--fsuperscripts
+````````````````````````````````
+
+A closing caret with no matching opener is literal:
+
+```````````````````````````````` example
+x2^
+.
+<p>x2^</p>
+.
+--fsuperscripts
+````````````````````````````````
+
+
+## Interaction with other extensions
+
+### Subscripts (requires `MD_FLAG_SUBSCRIPTS`)
+
+Superscript and subscript may nest inside each other:
+
+```````````````````````````````` example
+x^a~b~^
+.
+<p>x<sup>a<sub>b</sub></sup></p>
+.
+--fsuperscripts --fsubscripts
+````````````````````````````````
+
+### Spoilers (requires `MD_FLAG_SPOILERS`)
+
+Superscript may appear inside a spoiler span:
+
+```````````````````````````````` example
+||x^2^||
+.
+<p><x-spoiler>x<sup>2</sup></x-spoiler></p>
+.
+--fsuperscripts --fspoilers
+````````````````````````````````

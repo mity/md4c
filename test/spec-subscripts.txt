@@ -1,0 +1,126 @@
+
+# Subscript Spans
+
+With the flag `MD_FLAG_SUBSCRIPTS`, MD4C enables recognition of inline
+subscript spans using the `~text~` syntax (single tilde on each side).  The
+HTML renderer outputs these as `<sub>`.
+
+
+## Basic recognition
+
+```````````````````````````````` example
+H~2~O
+.
+<p>H<sub>2</sub>O</p>
+.
+--fsubscripts
+````````````````````````````````
+
+Subscripts may open after regular text characters:
+
+```````````````````````````````` example
+log~2~x
+.
+<p>log<sub>2</sub>x</p>
+.
+--fsubscripts
+````````````````````````````````
+
+Subscripts may appear inside link text:
+
+```````````````````````````````` example
+[H~2~O](http://example.com)
+.
+<p><a href="http://example.com">H<sub>2</sub>O</a></p>
+.
+--fsubscripts
+````````````````````````````````
+
+
+## Opt-in behavior
+
+Without `MD_FLAG_SUBSCRIPTS` the `~text~` sequence is treated as literal text:
+
+```````````````````````````````` example
+H~2~O
+.
+<p>H~2~O</p>
+.
+
+````````````````````````````````
+
+
+## Whitespace rules
+
+A tilde cannot open a subscript span when immediately followed by whitespace:
+
+```````````````````````````````` example
+H~ 2~O
+.
+<p>H~ 2~O</p>
+.
+--fsubscripts
+````````````````````````````````
+
+
+## Code spans suppress markers
+
+Tilde characters inside code spans are treated as literal text:
+
+```````````````````````````````` example
+`H~2~O`
+.
+<p><code>H~2~O</code></p>
+.
+--fsubscripts
+````````````````````````````````
+
+
+## Double tilde is not subscript
+
+Double tilde `~~text~~` is not a subscript delimiter; it is only meaningful
+when `MD_FLAG_STRIKETHROUGH` is also enabled:
+
+```````````````````````````````` example
+~~old~~
+.
+<p>~~old~~</p>
+.
+--fsubscripts
+````````````````````````````````
+
+
+## Interaction with `MD_FLAG_STRIKETHROUGH`
+
+With only `MD_FLAG_STRIKETHROUGH`, single-tilde `~text~` renders as
+strikethrough (GFM compatibility):
+
+```````````````````````````````` example
+~text~
+.
+<p><del>text</del></p>
+.
+--fstrikethrough
+````````````````````````````````
+
+With only `MD_FLAG_STRIKETHROUGH`, double-tilde `~~text~~` also renders as
+strikethrough:
+
+```````````````````````````````` example
+~~text~~
+.
+<p><del>text</del></p>
+.
+--fstrikethrough
+````````````````````````````````
+
+With both `MD_FLAG_SUBSCRIPTS` and `MD_FLAG_STRIKETHROUGH`, single tilde
+becomes subscript and double tilde remains strikethrough:
+
+```````````````````````````````` example
+H~2~O and ~~old~~
+.
+<p>H<sub>2</sub>O and <del>old</del></p>
+.
+--fsubscripts --fstrikethrough
+````````````````````````````````
