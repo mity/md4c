@@ -4173,8 +4173,15 @@ md_analyze_link_contents(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
     if(ctx->parser.flags & MD_FLAG_SPOILERS) {
         for(i = mark_beg; i < mark_end; i++) {
             MD_MARK* mark = &ctx->marks[i];
-            if(mark->flags & MD_MARK_RESOLVED)
+            if(mark->flags & MD_MARK_RESOLVED) {
+                /* Skip resolved link/image spans. Their contents were already
+                 * analyzed by the recursive md_analyze_link_contents() call
+                 * inside md_resolve_links(). Without this, deeply nested
+                 * brackets cause O(n^2) parsing time. */
+                if((mark->flags & MD_MARK_OPENER)  &&  ISANYOF_(mark->ch, "[!"))
+                    i = mark->next;
                 continue;
+            }
             if(mark->ch == '|' && mark->end - mark->beg == 2)
                 md_analyze_pipe(ctx, i);
         }
