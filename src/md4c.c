@@ -3852,9 +3852,13 @@ md_analyze_dollar(MD_CTX* ctx, int mark_index)
 }
 
 static void
-md_analyze_pipe(MD_CTX* ctx, int mark_index)
+md_analyze_spoiler(MD_CTX* ctx, int mark_index)
 {
     MD_MARK* mark = &ctx->marks[mark_index];
+
+    /* Only "||" are recognized as spiler marks. */
+    if(mark->end - mark->beg != 2)
+        return;
 
     if((mark->flags & MD_MARK_POTENTIAL_CLOSER)  &&  PIPE_OPENERS.top >= 0) {
         int opener_index = PIPE_OPENERS.top;
@@ -3963,10 +3967,10 @@ md_analyze_permissive_autolink(MD_CTX* ctx, int mark_index)
     }
 
     /* Verify there's line boundary, whitespace, allowed punctuation or
-     * resolved emphasis mark just before the suspected autolink. */
+     * resolved opener mark just before the suspected autolink. */
     if(beg == line_beg  ||  ISUNICODEWHITESPACEBEFORE(beg)  ||  ISANYOF(beg-1, _T("({["))) {
         left_boundary_ok = TRUE;
-    } else if(ISANYOF(beg-1, _T("*_~"))) {
+    } else {
         MD_MARK* left_mark;
 
         left_mark = md_scan_left_for_resolved_mark(ctx, left_cursor, beg-1, &left_cursor);
@@ -4033,7 +4037,7 @@ md_analyze_permissive_autolink(MD_CTX* ctx, int mark_index)
     }
 
     /* Verify there's line boundary, whitespace, allowed punctuation or
-     * resolved emphasis mark just after the suspected autolink. */
+     * resolved closer mark just after the suspected autolink. */
     if(end == line_end  ||  ISUNICODEWHITESPACE(end)  ||  ISANYOF(end, _T(")}].!?,;"))) {
         right_boundary_ok = TRUE;
     } else {
@@ -4059,7 +4063,7 @@ md_analyze_permissive_autolink(MD_CTX* ctx, int mark_index)
 
 static inline void
 md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
-                 int mark_beg, int mark_end, const CHAR* mark_chars, unsigned flags)
+                 int mark_beg, int mark_end, const CHAR* mark_chars, const CHAR* noskip_mark_chars)
 {
     int i = mark_beg;
     OFF last_end = lines[0].beg;
@@ -4073,7 +4077,7 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
         /* Skip resolved spans. */
         if(mark->flags & MD_MARK_RESOLVED) {
             if((mark->flags & MD_MARK_OPENER)  &&
-               !((flags & MD_ANALYZE_NOSKIP_EMPH) && ISANYOF_(mark->ch, "*_~")))
+               (noskip_mark_chars == NULL || !(ISANYOF_(mark->ch, noskip_mark_chars))))
             {
                 MD_ASSERT(i < mark->next);
                 i = mark->next + 1;
@@ -4108,6 +4112,7 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
             case '.':   /* Pass through. */
             case ':':   /* Pass through. */
             case '@':   md_analyze_permissive_autolink(ctx, i); break;
+            case '|':   md_analyze_spoiler(ctx, i); break;
         }
 
         if(mark->flags & MD_MARK_RESOLVED) {
@@ -4135,7 +4140,7 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table
     MD_CHECK(md_collect_marks(ctx, lines, n_lines, table_mode));
 
     /* (1) Links. */
-    md_analyze_marks(ctx, lines, n_lines, 0, ctx->n_marks, _T("[]!"), 0);
+    md_analyze_marks(ctx, lines, n_lines, 0, ctx->n_marks, _T("[]!"), NULL);
     MD_CHECK(md_resolve_links(ctx, lines, n_lines));
     BRACKET_OPENERS.top = -1;
     ctx->unresolved_link_head = -1;
@@ -4166,25 +4171,36 @@ md_analyze_link_contents(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
                          int mark_beg, int mark_end)
 {
     int i;
+    CHAR emph_mark_types[16];
+    SZ n_emph_mark_types = 0;
 
-    md_analyze_marks(ctx, lines, n_lines, mark_beg, mark_end, _T("&"), 0);
-    md_analyze_marks(ctx, lines, n_lines, mark_beg, mark_end, _T("*_~$"), 0);
+    emph_mark_types[n_emph_mark_types++] = _T('&');
+    emph_mark_types[n_emph_mark_types++] = _T('*');
+    emph_mark_types[n_emph_mark_types++] = _T('_');
+    if(ctx->parser.flags & MD_FLAG_STRIKETHROUGH)
+        emph_mark_types[n_emph_mark_types++] = _T('~');
+    if(ctx->parser.flags & MD_FLAG_LATEXMATHSPANS)
+        emph_mark_types[n_emph_mark_types++] = _T('$');
+    if(ctx->parser.flags & MD_FLAG_SPOILERS)
+        emph_mark_types[n_emph_mark_types++] = _T('|');
+    emph_mark_types[n_emph_mark_types] = _T('\0');
+    md_analyze_marks(ctx, lines, n_lines, mark_beg, mark_end, emph_mark_types, NULL);
 
-    if(ctx->parser.flags & MD_FLAG_SPOILERS) {
-        for(i = mark_beg; i < mark_end; i++) {
-            MD_MARK* mark = &ctx->marks[i];
-            if(mark->flags & MD_MARK_RESOLVED)
-                continue;
-            if(mark->ch == '|' && mark->end - mark->beg == 2)
-                md_analyze_pipe(ctx, i);
-        }
-    }
-
-    if((ctx->parser.flags & MD_FLAG_PERMISSIVEAUTOLINKS) != 0) {
+    if(ctx->parser.flags & MD_FLAG_PERMISSIVEAUTOLINKS) {
         /* These have to be processed last, as they may be greedy and expand
          * from their original mark. Also their implementation must be careful
          * not to cross any (previously) resolved marks when doing so. */
-        md_analyze_marks(ctx, lines, n_lines, mark_beg, mark_end, _T("@:."), MD_ANALYZE_NOSKIP_EMPH);
+        CHAR autolink_mark_types[16];
+        SZ n_autolink_mark_types = 0;
+
+        if(ctx->parser.flags & MD_FLAG_PERMISSIVEEMAILAUTOLINKS)
+            autolink_mark_types[n_autolink_mark_types++] = _T('@');
+        if(ctx->parser.flags & MD_FLAG_PERMISSIVEURLAUTOLINKS)
+            autolink_mark_types[n_autolink_mark_types++] = _T(':');
+        if(ctx->parser.flags & MD_FLAG_PERMISSIVEWWWAUTOLINKS)
+            autolink_mark_types[n_autolink_mark_types++] = _T('.');
+        autolink_mark_types[n_autolink_mark_types] = _T('\0');
+        md_analyze_marks(ctx, lines, n_lines, mark_beg, mark_end, autolink_mark_types, emph_mark_types);
     }
 
     for(i = 0; i < (int) SIZEOF_ARRAY(ctx->opener_stacks); i++)
