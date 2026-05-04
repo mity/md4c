@@ -6,6 +6,15 @@
 
 New Features:
 
+  * Add extension recognizing superscripts and subscripts with `^superscript^`
+    and `~subscript~` syntax respectively. Flags `MD_FLAG_SUPERSCRIPTS` and
+    `MD_FLAG_SUBSCRIPTS` enable these extensions.
+
+    Note that if both `MD_FLAG_SUBSCRIPTS` and `MD_FLAG_STRIKETHROUGH` are
+    enabled, strike-through requires double tildes: `~~strike-through~~`.
+
+    Contributed by [Gregory Moskaliuk](https://github.com/hryhoriiK97).
+
   * Add extension recognizing spoilers with `||hidden text||` syntax. This
     follows syntax used by Telegram and Discord Markdown implementations.
     It needs to be explicitly enabled with `MD_FLAG_SPOILERS`. (Note though that
