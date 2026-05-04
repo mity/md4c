@@ -143,8 +143,9 @@ process_file(const char* in_path, FILE* in, FILE* out)
      * deal with the HTML header/footer and tags. */
     membuf_init(&buf_out, (MD_SIZE)(buf_in.size + buf_in.size/8 + 64));
 
-    /* Special mode for reproduce test case found with fuzzing a tool.
-     * We assume file format as produced by test/fuzzers/fuzz-mdhtml.c. */
+    /* Special mode for reproducing a test case found with a fuzzing tool.
+     * We assume file the same file format as produced by the fuzzer implemented
+     * in test/fuzzers/fuzz-mdhtml.c. */
     if(want_replay_fuzz) {
         if(buf_in.size < 2 * sizeof(unsigned)) {
             fprintf(stderr, "File %s isn't valid fuzz test case.\n", in_path);
@@ -152,7 +153,7 @@ process_file(const char* in_path, FILE* in, FILE* out)
             goto out;
         }
 
-        /* Override parser and renderer flags with those form the test case. */
+        /* Override parser and renderer flags with those from the test case. */
         p_flags = ((unsigned*)buf_in.data)[0];
         r_flags = ((unsigned*)buf_in.data)[1];
 
@@ -160,10 +161,6 @@ process_file(const char* in_path, FILE* in, FILE* out)
         memmove(buf_in.data, buf_in.data + 2 * sizeof(unsigned),
                     buf_in.size - 2 * sizeof(unsigned));
         buf_in.size -= 2 * sizeof(unsigned);
-
-        /* Zero the tail we have moved the contents from.
-         * It helps in debugging if make it actually a zero-terminated string. */
-        memset(buf_in.data + buf_in.size, 0, 2 * sizeof(unsigned));
     }
 
     /* Parse the document. This shall call our callbacks provided via the
