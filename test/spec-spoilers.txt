@@ -398,7 +398,7 @@ A spoiler inside the display portion of a wiki link:
 --fspoilers --fwiki-links
 ````````````````````````````````
 
-Links and images inside spoiler spans are recognized normally:
+Links, images, and inline spans inside spoiler spans are recognized normally:
 
 ```````````````````````````````` example
 ||[link](http://example.com) inside spoiler||
@@ -412,6 +412,14 @@ Links and images inside spoiler spans are recognized normally:
 ||![img](http://example.com/img.png) inside spoiler||
 .
 <p><x-spoiler><img src="http://example.com/img.png" alt="img"> inside spoiler</x-spoiler></p>
+.
+--fspoilers
+````````````````````````````````
+
+```````````````````````````````` example
+||*em* inside spoiler||
+.
+<p><x-spoiler><em>em</em> inside spoiler</x-spoiler></p>
 .
 --fspoilers
 ````````````````````````````````
