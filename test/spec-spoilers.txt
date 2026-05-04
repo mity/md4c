@@ -398,6 +398,24 @@ A spoiler inside the display portion of a wiki link:
 --fspoilers --fwiki-links
 ````````````````````````````````
 
+Links and images inside spoiler spans are recognized normally:
+
+```````````````````````````````` example
+||[link](http://example.com) inside spoiler||
+.
+<p><x-spoiler><a href="http://example.com">link</a> inside spoiler</x-spoiler></p>
+.
+--fspoilers
+````````````````````````````````
+
+```````````````````````````````` example
+||![img](http://example.com/img.png) inside spoiler||
+.
+<p><x-spoiler><img src="http://example.com/img.png" alt="img"> inside spoiler</x-spoiler></p>
+.
+--fspoilers
+````````````````````````````````
+
 Wiki links with a `|` separator must not be mistaken for spoiler delimiters:
 
 ```````````````````````````````` example
