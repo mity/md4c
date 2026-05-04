@@ -3967,10 +3967,10 @@ md_analyze_permissive_autolink(MD_CTX* ctx, int mark_index)
     }
 
     /* Verify there's line boundary, whitespace, allowed punctuation or
-     * resolved emphasis mark just before the suspected autolink. */
+     * resolved opener mark just before the suspected autolink. */
     if(beg == line_beg  ||  ISUNICODEWHITESPACEBEFORE(beg)  ||  ISANYOF(beg-1, _T("({["))) {
         left_boundary_ok = TRUE;
-    } else if(ISANYOF(beg-1, _T("*_~"))) {
+    } else {
         MD_MARK* left_mark;
 
         left_mark = md_scan_left_for_resolved_mark(ctx, left_cursor, beg-1, &left_cursor);
@@ -4037,7 +4037,7 @@ md_analyze_permissive_autolink(MD_CTX* ctx, int mark_index)
     }
 
     /* Verify there's line boundary, whitespace, allowed punctuation or
-     * resolved emphasis mark just after the suspected autolink. */
+     * resolved closer mark just after the suspected autolink. */
     if(end == line_end  ||  ISUNICODEWHITESPACE(end)  ||  ISANYOF(end, _T(")}].!?,;"))) {
         right_boundary_ok = TRUE;
     } else {
