@@ -3293,7 +3293,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table_m
             }
 
             /* A potential table cell boundary or wiki link label delimiter. */
-            if((table_mode || ctx->parser.flags & MD_FLAG_WIKILINKS) && ch == _T('|')) {
+            if((table_mode || (ctx->parser.flags & MD_FLAG_WIKILINKS)) && ch == _T('|')) {
                 ADD_MARK(ch, off, off+1, 0);
                 off++;
                 continue;
