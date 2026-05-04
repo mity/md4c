@@ -6,6 +6,15 @@
 
 New Features:
 
+  * Add extension recognizing GFM-like admonitions, as e.g.
+
+    ```
+    > [!IMPORTANT]
+    > Text of an important note.
+    ```
+
+    The flag `MD_FLAG_ADMONITIONS` enables this extension.
+
   * Add extension recognizing superscripts and subscripts with `^superscript^`
     and `~subscript~` syntax respectively. Flags `MD_FLAG_SUPERSCRIPTS` and
     `MD_FLAG_SUBSCRIPTS` enable these extensions.

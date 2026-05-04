@@ -1,0 +1,55 @@
+
+# Admonitions
+
+With the flag `MD_FLAG_ADMONITIONS`, MD4C enables extension for recognition of
+admonitions:
+
+```````````````````````````````` example
+> [!NOTE]
+> My note text.
+.
+<div class="admonition-note"><p class="admonition-title">note</p><p>My note text.</p>
+</div>
+.
+--fadmonitions
+````````````````````````````````
+
+```````````````````````````````` example
+> [!TIP]
+> My tip text.
+.
+<div class="admonition-tip"><p class="admonition-title">tip</p><p>My tip text.</p>
+</div>
+.
+--fadmonitions
+````````````````````````````````
+
+```````````````````````````````` example
+> [!IMPORTANT]
+> My important text.
+.
+<div class="admonition-important"><p class="admonition-title">important</p><p>My important text.</p>
+</div>
+.
+--fadmonitions
+````````````````````````````````
+
+```````````````````````````````` example
+> [!WARNING]
+> My warning text.
+.
+<div class="admonition-warning"><p class="admonition-title">warning</p><p>My warning text.</p>
+</div>
+.
+--fadmonitions
+````````````````````````````````
+
+```````````````````````````````` example
+> [!CAUTION]
+> My caution text.
+.
+<div class="admonition-caution"><p class="admonition-title">caution</p><p>My caution text.</p>
+</div>
+.
+--fadmonitions
+````````````````````````````````

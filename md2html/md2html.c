@@ -242,6 +242,7 @@ static const CMDLINE_OPTION cmdline_options[] = {
     {  0,  "commonmark",                    'c', 0 },
     {  0,  "github",                        'g', 0 },
 
+    {  0,  "fadmonitions",                  'D', 0 },
     {  0,  "fcollapse-whitespace",          'W', 0 },
     {  0,  "flatex-math",                   'L', 0 },
     {  0,  "fpermissive-atx-headers",       'A', 0 },
@@ -292,6 +293,7 @@ usage(void)
         "      --github         Github Flavored Markdown\n"
         "\n"
         "Markdown extension options:\n"
+        "      --fadmonitions   Enable admonitions\n"
         "      --fcollapse-whitespace\n"
         "                       Collapse non-trivial whitespace\n"
         "      --flatex-math    Enable LaTeX style mathematics spans\n"
@@ -373,6 +375,7 @@ cmdline_callback(int opt, char const* value, void* data)
         case 'c':   parser_flags |= MD_DIALECT_COMMONMARK; break;
         case 'g':   parser_flags |= MD_DIALECT_GITHUB; break;
 
+        case 'D':   parser_flags |= MD_FLAG_ADMONITIONS; break;
         case 'E':   renderer_flags |= MD_HTML_FLAG_VERBATIM_ENTITIES; break;
         case 'A':   parser_flags |= MD_FLAG_PERMISSIVEATXHEADERS; break;
         case 'I':   parser_flags |= MD_FLAG_NOINDENTEDCODEBLOCKS; break;
