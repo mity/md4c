@@ -37,10 +37,10 @@ pathological = {
             re.compile("(a<em><strong>a</strong></em>){32500}")),
     "many link closers with no openers":
             (("a]" * 65000),
-            re.compile("(a\]){65000}")),
+            re.compile(r"(a\]){65000}")),
     "many link openers with no closers":
             (("[a" * 65000),
-            re.compile("(\[a){65000}")),
+            re.compile(r"(\[a){65000}")),
     "mismatched openers and closers":
             (("*a_ " * 50000),
             re.compile("([*]a[_] ){49999}[*]a_")),
@@ -49,13 +49,13 @@ pathological = {
             re.compile("a[*][*]b(c[*] ){49999}c[*]")),
     "link openers and emph closers":
             (("[ a_" * 50000),
-            re.compile("(\[ a_){50000}")),
+            re.compile(r"(\[ a_){50000}")),
     "hard link/emph case":
             ("**x [a*b**c*](d)",
             re.compile("\\*\\*x <a href=\"d\">a<em>b\\*\\*c</em></a>")),
     "nested brackets":
             (("[" * 50000) + "a" + ("]" * 50000),
-            re.compile("\[{50000}a\]{50000}")),
+            re.compile(r"\[{50000}a\]{50000}")),
     "nested block quotes":
             ((("> " * 50000) + "a"),
             re.compile("(<blockquote>\r?\n){50000}")),
@@ -67,7 +67,7 @@ pathological = {
             re.compile("(<a href=\"/u\">t</a> ?){50000}")),
     "many references":
             ("".join(map(lambda x: ("[" + str(x) + "]: u\n"), range(1,20000 * 16))) + "[0] " * 20000,
-            re.compile("(\[0\] ){19999}")),
+            re.compile(r"(\[0\] ){19999}")),
     "deeply nested lists":
             ("".join(map(lambda x: ("  " * x + "* a\n"), range(0,1000))),
             re.compile("<ul>\r?\n(<li>a<ul>\r?\n){999}<li>a</li>\r?\n</ul>\r?\n(</li>\r?\n</ul>\r?\n){999}")),
@@ -85,13 +85,13 @@ pathological = {
             re.compile("(``){50000}")),
     "many broken link titles":
             (("[ (](" * 50000),
-            re.compile("(\[ \(\]\(){50000}")),
+            re.compile(r"(\[ \(\]\(){50000}")),
     "broken thematic break":
             (("* " * 50000 + "a"),
             re.compile("<ul>\r?\n(<li><ul>\r?\n){49999}<li>a</li>\r?\n</ul>\r?\n(</li>\r?\n</ul>\r?\n){49999}")),
     "nested invalid link references":
             (("[" * 50000 + "]" * 50000 + "\n\n[a]: /b"),
-            re.compile("\[{50000}\]{50000}")),
+            re.compile(r"\[{50000}\]{50000}")),
     "many broken permissive autolinks":
             (("www._" * 50000 + "x"),
             re.compile("<p>(www._){50000}x</p>"),
@@ -102,7 +102,7 @@ pathological = {
             "--ftables"),
     "many broken links":
             (("]([\n" * 50000),
-            re.compile("<p>(\]\(\[\r?\n){49999}\]\(\[</p>")),
+            re.compile(r"<p>(\]\(\[\r?\n){49999}\]\(\[</p>")),
     "many link ref. def. instantiations":
             (("[x]: " + "x" * 50000 + "\n[x]" * 50000),
             re.compile(""))
