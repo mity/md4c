@@ -979,7 +979,7 @@ struct MD_UNICODE_FOLD_INFO_tag {
     static inline unsigned
     md_decode_unicode(const CHAR* str, OFF off, SZ str_size, SZ* p_size)
     {
-		MD_UNUSED(str_size);
+        MD_UNUSED(str_size);
         *p_size = 1;
         return (unsigned) str[off];
     }
