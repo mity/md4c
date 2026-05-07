@@ -576,4 +576,3 @@ md_html(const MD_CHAR* input, MD_SIZE input_size,
 
     return md_parse(input, input_size, &parser, (void*) &render);
 }
-
