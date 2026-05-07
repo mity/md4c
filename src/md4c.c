@@ -23,13 +23,13 @@
  * IN THE SOFTWARE.
  */
 
-#include "md4c.h"
-
 #include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "md4c.h"
 
 
 /*****************************
@@ -979,6 +979,7 @@ struct MD_UNICODE_FOLD_INFO_tag {
     static inline unsigned
     md_decode_unicode(const CHAR* str, OFF off, SZ str_size, SZ* p_size)
     {
+		MD_UNUSED(str_size);
         *p_size = 1;
         return (unsigned) str[off];
     }
@@ -2532,7 +2533,7 @@ struct MD_MARK_tag {
             OFF beg;
             OFF end;
         };
-        void* pointer; // Dummy marks can sometimes store a pointer
+        void* pointer; /* Dummy marks can sometimes store a pointer */
     };
 
     /* For unresolved openers, 'next' may be used to form a stack of
