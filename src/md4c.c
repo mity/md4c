@@ -6531,7 +6531,7 @@ md_process_line(MD_CTX* ctx, const MD_LINE_ANALYSIS** p_pivot_line, MD_LINE_ANAL
     if((ctx->parser.flags & MD_FLAG_ADMONITIONS)  &&
        ctx->current_block == NULL  &&  ctx->n_block_bytes >= (int)sizeof(MD_BLOCK))
     {
-        MD_BLOCK* block = (MD_BLOCK*)(ctx->block_bytes + ctx->n_block_bytes - sizeof(MD_BLOCK));
+        MD_BLOCK* block = (MD_BLOCK*)((char*)ctx->block_bytes + ctx->n_block_bytes - sizeof(MD_BLOCK));
 
         if(block->type == MD_BLOCK_QUOTE  &&  line->end - line->beg > 3  &&  line->end - line->beg < 16  &&
            CH(line->beg) == _T('[')  &&  CH(line->beg+1) == _T('!')  &&  CH(line->end-1) == _T(']'))
