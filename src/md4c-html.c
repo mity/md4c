@@ -393,12 +393,12 @@ static void
 render_open_footnote_ref_span(MD_HTML* r, const MD_SPAN_FOOTNOTE_REF_DETAIL* det)
 {
     char buf[64];
-    if(det->ref_index <= 1)
+    if(det->ref_id <= 1)
         snprintf(buf, sizeof(buf), "<sup><a href=\"#fn-%u\" id=\"fnref-%u\">%u</a></sup>",
-                 det->index, det->index, det->index);
+                 det->id, det->id, det->id);
     else
         snprintf(buf, sizeof(buf), "<sup><a href=\"#fn-%u\" id=\"fnref-%u-%u\">%u</a></sup>",
-                 det->index, det->index, det->ref_index, det->index);
+                 det->id, det->id, det->ref_id, det->id);
     render_verbatim(r, buf, (MD_SIZE) strlen(buf));
 }
 
@@ -410,7 +410,7 @@ render_open_footnote_def_block(MD_HTML* r, const MD_BLOCK_FOOTNOTE_DEF_DETAIL* d
     if(r->footnote_count == 0)
         RENDER_VERBATIM(r, "<section class=\"footnotes\">\n<ol>\n");
 
-    snprintf(buf, sizeof(buf), "<li id=\"fn-%u\">\n", det->index);
+    snprintf(buf, sizeof(buf), "<li id=\"fn-%u\">\n", det->id);
     render_verbatim(r, buf, (MD_SIZE) strlen(buf));
     r->footnote_count++;
 }
@@ -426,10 +426,10 @@ render_close_footnote_def_block(MD_HTML* r, const MD_BLOCK_FOOTNOTE_DEF_DETAIL* 
             RENDER_VERBATIM(r, " ");
         if(ref_index == 1)
             snprintf(buf, sizeof(buf), "<a href=\"#fnref-%u\" class=\"footnote-backref\">&#8617;</a>",
-                     det->index);
+                     det->id);
         else
             snprintf(buf, sizeof(buf), "<a href=\"#fnref-%u-%u\" class=\"footnote-backref\">&#8617;</a>",
-                     det->index, ref_index);
+                     det->id, ref_index);
         render_verbatim(r, buf, (MD_SIZE) strlen(buf));
     }
 

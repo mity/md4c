@@ -339,14 +339,14 @@ typedef struct MD_SPAN_WIKILINK {
 
 /* Detailed info for MD_SPAN_FOOTNOTE_REF. */
 typedef struct MD_SPAN_FOOTNOTE_REF_DETAIL {
-    unsigned int index;     /* 1-based sequential number (order of first reference in document) */
-    unsigned int ref_index; /* 1-based index of this reference among references to the same footnote */
+    unsigned int id;        /* 1-based identifier of the referenced footnote */
+    unsigned int ref_id;    /* 1-based identifier of this reference among references to the same footnote */
     MD_ATTRIBUTE label;     /* Raw label text, e.g. "1" or "note" */
 } MD_SPAN_FOOTNOTE_REF_DETAIL;
 
 /* Detailed info for MD_BLOCK_FOOTNOTE_DEF. */
 typedef struct MD_BLOCK_FOOTNOTE_DEF_DETAIL {
-    unsigned int index;     /* 1-based sequential number */
+    unsigned int id;        /* 1-based identifier of this footnote */
     unsigned int ref_count; /* Number of references to this footnote */
     MD_ATTRIBUTE label;     /* Raw label text */
 } MD_BLOCK_FOOTNOTE_DEF_DETAIL;

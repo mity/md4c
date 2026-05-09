@@ -4621,16 +4621,16 @@ abort:
 }
 
 static int
-md_enter_leave_span_footnote_ref(MD_CTX* ctx, unsigned int index,
-                                 unsigned int ref_index, const CHAR* label, SZ label_size)
+md_enter_leave_span_footnote_ref(MD_CTX* ctx, unsigned int id,
+                                 unsigned int ref_id, const CHAR* label, SZ label_size)
 {
     MD_ATTRIBUTE_BUILD label_build = { 0 };
     MD_SPAN_FOOTNOTE_REF_DETAIL det;
     int ret = 0;
 
     memset(&det, 0, sizeof(MD_SPAN_FOOTNOTE_REF_DETAIL));
-    det.index = index;
-    det.ref_index = ref_index;
+    det.id = id;
+    det.ref_id = ref_id;
     MD_CHECK(md_build_attribute(ctx, label, label_size, 0,
                                 &det.label, &label_build));
 
@@ -6917,7 +6917,7 @@ md_process_footnote_def(MD_CTX* ctx, MD_FOOTNOTE_DEF* def)
     int ret = 0;
 
     memset(&det, 0, sizeof(MD_BLOCK_FOOTNOTE_DEF_DETAIL));
-    det.index = def->index;
+    det.id = def->index;
     det.ref_count = def->ref_count;
     MD_CHECK(md_build_attribute(ctx, def->label, def->label_size, 0,
                                 &det.label, &label_build));
