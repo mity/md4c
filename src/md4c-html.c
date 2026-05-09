@@ -331,6 +331,17 @@ render_open_td_block(MD_HTML* r, const MD_CHAR* cell_type, const MD_BLOCK_TD_DET
 }
 
 static void
+render_open_admonition_block(MD_HTML* r, const MD_BLOCK_ADMONITION_DETAIL* det)
+{
+    RENDER_VERBATIM(r, "<div class=\"admonition-");
+    render_attribute(r, &det->type, render_html_escaped);
+    RENDER_VERBATIM(r, "\">");
+    RENDER_VERBATIM(r, "<p class=\"admonition-title\">");
+    render_attribute(r, &det->type, render_html_escaped);
+    RENDER_VERBATIM(r, "</p>");
+}
+
+static void
 render_open_a_span(MD_HTML* r, const MD_SPAN_A_DETAIL* det)
 {
     RENDER_VERBATIM(r, "<a href=\"");
@@ -446,9 +457,10 @@ enter_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
         case MD_BLOCK_THEAD:    RENDER_VERBATIM(r, "<thead>\n"); break;
         case MD_BLOCK_TBODY:    RENDER_VERBATIM(r, "<tbody>\n"); break;
         case MD_BLOCK_TR:       RENDER_VERBATIM(r, "<tr>\n"); break;
-        case MD_BLOCK_TH:               render_open_td_block(r, "th", (MD_BLOCK_TD_DETAIL*)detail); break;
-        case MD_BLOCK_TD:               render_open_td_block(r, "td", (MD_BLOCK_TD_DETAIL*)detail); break;
-        case MD_BLOCK_FOOTNOTE_DEF:     render_open_footnote_def_block(r, (MD_BLOCK_FOOTNOTE_DEF_DETAIL*)detail); break;
+        case MD_BLOCK_TH:       render_open_td_block(r, "th", (MD_BLOCK_TD_DETAIL*)detail); break;
+        case MD_BLOCK_TD:       render_open_td_block(r, "td", (MD_BLOCK_TD_DETAIL*)detail); break;
+        case MD_BLOCK_FOOTNOTE_DEF: render_open_footnote_def_block(r, (MD_BLOCK_FOOTNOTE_DEF_DETAIL*)detail); break;
+        case MD_BLOCK_ADMONITION:   render_open_admonition_block(r, (const MD_BLOCK_ADMONITION_DETAIL*) detail); break;
     }
 
     return 0;
@@ -481,6 +493,7 @@ leave_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
         case MD_BLOCK_TH:       RENDER_VERBATIM(r, "</th>\n"); break;
         case MD_BLOCK_TD:       RENDER_VERBATIM(r, "</td>\n"); break;
         case MD_BLOCK_FOOTNOTE_DEF: render_close_footnote_def_block(r, (MD_BLOCK_FOOTNOTE_DEF_DETAIL*)detail); break;
+        case MD_BLOCK_ADMONITION:   RENDER_VERBATIM(r, "</div>\n"); break;
     }
 
     return 0;

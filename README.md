@@ -140,6 +140,8 @@ extensions:
 * With the flag `MD_FLAG_UNDERLINE`, underscore (`_`) denotes an underline
   instead of an ordinary emphasis or strong emphasis.
 
+* With the flag `MD_FLAG_ADMONITIONS`, GitHub-style admonitions are recognized.
+
 Few features of CommonMark (those some people see as mis-features) may be
 disabled with the following flags:
 
