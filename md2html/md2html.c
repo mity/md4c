@@ -241,6 +241,7 @@ static const CMDLINE_OPTION cmdline_options[] = {
 
     {  0,  "commonmark",                    'c', 0 },
     {  0,  "github",                        'g', 0 },
+    {  0,  "gfm",                           'g', 0 },
 
     {  0,  "fcollapse-whitespace",          'W', 0 },
     {  0,  "flatex-math",                   'L', 0 },
@@ -289,7 +290,8 @@ usage(void)
         "Markdown dialect options:\n"
         "(note these are equivalent to some combinations of the flags below)\n"
         "      --commonmark     CommonMark (this is default)\n"
-        "      --github         Github Flavored Markdown\n"
+        "      --gfm            Github Flavored Markdown\n"
+        "      --github         Same as --gfm\n"
         "\n"
         "Markdown extension options:\n"
         "      --fcollapse-whitespace\n"
