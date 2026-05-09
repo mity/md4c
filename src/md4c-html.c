@@ -330,6 +330,17 @@ render_open_td_block(MD_HTML* r, const MD_CHAR* cell_type, const MD_BLOCK_TD_DET
 }
 
 static void
+render_open_admonition_block(MD_HTML* r, const MD_BLOCK_ADMONITION_DETAIL* det)
+{
+    RENDER_VERBATIM(r, "<div class=\"admonition-");
+    render_attribute(r, &det->type, render_html_escaped);
+    RENDER_VERBATIM(r, "\">");
+    RENDER_VERBATIM(r, "<p class=\"admonition-title\">");
+    render_attribute(r, &det->type, render_html_escaped);
+    RENDER_VERBATIM(r, "</p>");
+}
+
+static void
 render_open_a_span(MD_HTML* r, const MD_SPAN_A_DETAIL* det)
 {
     RENDER_VERBATIM(r, "<a href=\"");
@@ -384,22 +395,23 @@ enter_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
     MD_HTML* r = (MD_HTML*) userdata;
 
     switch(type) {
-        case MD_BLOCK_DOC:      /* noop */ break;
-        case MD_BLOCK_QUOTE:    RENDER_VERBATIM(r, "<blockquote>\n"); break;
-        case MD_BLOCK_UL:       RENDER_VERBATIM(r, "<ul>\n"); break;
-        case MD_BLOCK_OL:       render_open_ol_block(r, (const MD_BLOCK_OL_DETAIL*)detail); break;
-        case MD_BLOCK_LI:       render_open_li_block(r, (const MD_BLOCK_LI_DETAIL*)detail); break;
-        case MD_BLOCK_HR:       RENDER_VERBATIM(r, (r->flags & MD_HTML_FLAG_XHTML) ? "<hr />\n" : "<hr>\n"); break;
-        case MD_BLOCK_H:        RENDER_VERBATIM(r, head[((MD_BLOCK_H_DETAIL*)detail)->level - 1]); break;
-        case MD_BLOCK_CODE:     render_open_code_block(r, (const MD_BLOCK_CODE_DETAIL*) detail); break;
-        case MD_BLOCK_HTML:     /* noop */ break;
-        case MD_BLOCK_P:        RENDER_VERBATIM(r, "<p>"); break;
-        case MD_BLOCK_TABLE:    RENDER_VERBATIM(r, "<table>\n"); break;
-        case MD_BLOCK_THEAD:    RENDER_VERBATIM(r, "<thead>\n"); break;
-        case MD_BLOCK_TBODY:    RENDER_VERBATIM(r, "<tbody>\n"); break;
-        case MD_BLOCK_TR:       RENDER_VERBATIM(r, "<tr>\n"); break;
-        case MD_BLOCK_TH:       render_open_td_block(r, "th", (MD_BLOCK_TD_DETAIL*)detail); break;
-        case MD_BLOCK_TD:       render_open_td_block(r, "td", (MD_BLOCK_TD_DETAIL*)detail); break;
+        case MD_BLOCK_DOC:          /* noop */ break;
+        case MD_BLOCK_QUOTE:        RENDER_VERBATIM(r, "<blockquote>\n"); break;
+        case MD_BLOCK_UL:           RENDER_VERBATIM(r, "<ul>\n"); break;
+        case MD_BLOCK_OL:           render_open_ol_block(r, (const MD_BLOCK_OL_DETAIL*)detail); break;
+        case MD_BLOCK_LI:           render_open_li_block(r, (const MD_BLOCK_LI_DETAIL*)detail); break;
+        case MD_BLOCK_HR:           RENDER_VERBATIM(r, (r->flags & MD_HTML_FLAG_XHTML) ? "<hr />\n" : "<hr>\n"); break;
+        case MD_BLOCK_H:            RENDER_VERBATIM(r, head[((MD_BLOCK_H_DETAIL*)detail)->level - 1]); break;
+        case MD_BLOCK_CODE:         render_open_code_block(r, (const MD_BLOCK_CODE_DETAIL*) detail); break;
+        case MD_BLOCK_HTML:         /* noop */ break;
+        case MD_BLOCK_P:            RENDER_VERBATIM(r, "<p>"); break;
+        case MD_BLOCK_TABLE:        RENDER_VERBATIM(r, "<table>\n"); break;
+        case MD_BLOCK_THEAD:        RENDER_VERBATIM(r, "<thead>\n"); break;
+        case MD_BLOCK_TBODY:        RENDER_VERBATIM(r, "<tbody>\n"); break;
+        case MD_BLOCK_TR:           RENDER_VERBATIM(r, "<tr>\n"); break;
+        case MD_BLOCK_TH:           render_open_td_block(r, "th", (MD_BLOCK_TD_DETAIL*)detail); break;
+        case MD_BLOCK_TD:           render_open_td_block(r, "td", (MD_BLOCK_TD_DETAIL*)detail); break;
+        case MD_BLOCK_ADMONITION:   render_open_admonition_block(r, (const MD_BLOCK_ADMONITION_DETAIL*) detail); break;
     }
 
     return 0;
@@ -412,22 +424,23 @@ leave_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
     MD_HTML* r = (MD_HTML*) userdata;
 
     switch(type) {
-        case MD_BLOCK_DOC:      /*noop*/ break;
-        case MD_BLOCK_QUOTE:    RENDER_VERBATIM(r, "</blockquote>\n"); break;
-        case MD_BLOCK_UL:       RENDER_VERBATIM(r, "</ul>\n"); break;
-        case MD_BLOCK_OL:       RENDER_VERBATIM(r, "</ol>\n"); break;
-        case MD_BLOCK_LI:       RENDER_VERBATIM(r, "</li>\n"); break;
-        case MD_BLOCK_HR:       /*noop*/ break;
-        case MD_BLOCK_H:        RENDER_VERBATIM(r, head[((MD_BLOCK_H_DETAIL*)detail)->level - 1]); break;
-        case MD_BLOCK_CODE:     RENDER_VERBATIM(r, "</code></pre>\n"); break;
-        case MD_BLOCK_HTML:     /* noop */ break;
-        case MD_BLOCK_P:        RENDER_VERBATIM(r, "</p>\n"); break;
-        case MD_BLOCK_TABLE:    RENDER_VERBATIM(r, "</table>\n"); break;
-        case MD_BLOCK_THEAD:    RENDER_VERBATIM(r, "</thead>\n"); break;
-        case MD_BLOCK_TBODY:    RENDER_VERBATIM(r, "</tbody>\n"); break;
-        case MD_BLOCK_TR:       RENDER_VERBATIM(r, "</tr>\n"); break;
-        case MD_BLOCK_TH:       RENDER_VERBATIM(r, "</th>\n"); break;
-        case MD_BLOCK_TD:       RENDER_VERBATIM(r, "</td>\n"); break;
+        case MD_BLOCK_DOC:          /*noop*/ break;
+        case MD_BLOCK_QUOTE:        RENDER_VERBATIM(r, "</blockquote>\n"); break;
+        case MD_BLOCK_UL:           RENDER_VERBATIM(r, "</ul>\n"); break;
+        case MD_BLOCK_OL:           RENDER_VERBATIM(r, "</ol>\n"); break;
+        case MD_BLOCK_LI:           RENDER_VERBATIM(r, "</li>\n"); break;
+        case MD_BLOCK_HR:           /*noop*/ break;
+        case MD_BLOCK_H:            RENDER_VERBATIM(r, head[((MD_BLOCK_H_DETAIL*)detail)->level - 1]); break;
+        case MD_BLOCK_CODE:         RENDER_VERBATIM(r, "</code></pre>\n"); break;
+        case MD_BLOCK_HTML:         /* noop */ break;
+        case MD_BLOCK_P:            RENDER_VERBATIM(r, "</p>\n"); break;
+        case MD_BLOCK_TABLE:        RENDER_VERBATIM(r, "</table>\n"); break;
+        case MD_BLOCK_THEAD:        RENDER_VERBATIM(r, "</thead>\n"); break;
+        case MD_BLOCK_TBODY:        RENDER_VERBATIM(r, "</tbody>\n"); break;
+        case MD_BLOCK_TR:           RENDER_VERBATIM(r, "</tr>\n"); break;
+        case MD_BLOCK_TH:           RENDER_VERBATIM(r, "</th>\n"); break;
+        case MD_BLOCK_TD:           RENDER_VERBATIM(r, "</td>\n"); break;
+        case MD_BLOCK_ADMONITION:   RENDER_VERBATIM(r, "</div>\n"); break;
     }
 
     return 0;

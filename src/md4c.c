@@ -350,8 +350,10 @@ struct MD_VERBATIMLINE_tag {
 
 #if defined MD4C_USE_UTF16
     #define md_strchr wcschr
+    #define md_strlen wcslen
 #else
     #define md_strchr strchr
+    #define md_strlen strlen
 #endif
 
 
@@ -4824,6 +4826,7 @@ struct MD_BLOCK_tag {
      * MD_BLOCK_CODE:   Non-zero if fenced, zero if indented.
      * MD_BLOCK_LI:     Task mark character (0 if not task list item, 'x', 'X' or ' ').
      * MD_BLOCK_TABLE:  Column count (as determined by the table underline).
+     * MD_BLOCK_ADMONITION: Admonition type.
      */
     unsigned data      : 16;
 
@@ -4836,8 +4839,9 @@ struct MD_BLOCK_tag {
 
 struct MD_CONTAINER_tag {
     CHAR ch;
-    unsigned is_loose    : 8;
-    unsigned is_task     : 8;
+    unsigned is_loose       : 1;
+    unsigned is_task        : 1;
+    unsigned is_admonition  : 1;
     unsigned start;
     unsigned mark_indent;
     unsigned contents_indent;
@@ -5047,6 +5051,8 @@ abort:
     return ret;
 }
 
+static const MD_CHAR* MD_ADMONITION_TAGS[] = { _T("note"), _T("tip"), _T("important"), _T("warning"), _T("caution") };
+
 static int
 md_process_all_blocks(MD_CTX* ctx)
 {
@@ -5065,6 +5071,7 @@ md_process_all_blocks(MD_CTX* ctx)
             MD_BLOCK_UL_DETAIL ul;
             MD_BLOCK_OL_DETAIL ol;
             MD_BLOCK_LI_DETAIL li;
+            MD_BLOCK_ADMONITION_DETAIL adm;
         } det;
 
         switch(block->type) {
@@ -5075,7 +5082,7 @@ md_process_all_blocks(MD_CTX* ctx)
 
             case MD_BLOCK_OL:
                 det.ol.start = block->n_lines;
-                det.ol.is_tight =  (block->flags & MD_BLOCK_LOOSE_LIST) ? FALSE : TRUE;
+                det.ol.is_tight = (block->flags & MD_BLOCK_LOOSE_LIST) ? FALSE : TRUE;
                 det.ol.mark_delimiter = (CHAR) block->data;
                 break;
 
@@ -5084,6 +5091,21 @@ md_process_all_blocks(MD_CTX* ctx)
                 det.li.task_mark = (CHAR) block->data;
                 det.li.task_mark_offset = (OFF) block->n_lines;
                 break;
+
+            case MD_BLOCK_ADMONITION:
+            {
+                MD_TEXTTYPE adm_substr_types[1] = { MD_TEXT_NORMAL };
+                MD_OFFSET adm_substr_offsets[2];
+
+                adm_substr_offsets[0] = 0;
+                adm_substr_offsets[1] = md_strlen(MD_ADMONITION_TAGS[block->data]);
+
+                det.adm.type.text = MD_ADMONITION_TAGS[block->data];
+                det.adm.type.size = adm_substr_offsets[1];
+                det.adm.type.substr_types = adm_substr_types;
+                det.adm.type.substr_offsets = adm_substr_offsets;
+                break;
+            }
 
             default:
                 /* noop */
@@ -5094,7 +5116,8 @@ md_process_all_blocks(MD_CTX* ctx)
             if(block->flags & MD_BLOCK_CONTAINER_CLOSER) {
                 MD_LEAVE_BLOCK(block->type, &det);
 
-                if(block->type == MD_BLOCK_UL || block->type == MD_BLOCK_OL || block->type == MD_BLOCK_QUOTE)
+                if(block->type == MD_BLOCK_UL || block->type == MD_BLOCK_OL ||
+                   block->type == MD_BLOCK_QUOTE || block->type == MD_BLOCK_ADMONITION)
                     ctx->n_containers--;
             }
 
@@ -5102,9 +5125,9 @@ md_process_all_blocks(MD_CTX* ctx)
                 MD_ENTER_BLOCK(block->type, &det);
 
                 if(block->type == MD_BLOCK_UL || block->type == MD_BLOCK_OL) {
-                    ctx->containers[ctx->n_containers].is_loose = (block->flags & MD_BLOCK_LOOSE_LIST);
+                    ctx->containers[ctx->n_containers].is_loose = (block->flags & MD_BLOCK_LOOSE_LIST) ? TRUE : FALSE;
                     ctx->n_containers++;
-                } else if(block->type == MD_BLOCK_QUOTE) {
+                } else if(block->type == MD_BLOCK_QUOTE  ||  block->type == MD_BLOCK_ADMONITION) {
                     /* This causes that any text in a block quote, even if
                      * nested inside a tight list item, is wrapped with
                      * <p>...</p>. */
@@ -5881,8 +5904,9 @@ md_leave_child_containers(MD_CTX* ctx, int n_keep)
                 break;
 
             case _T('>'):
-                MD_CHECK(md_push_container_bytes(ctx, MD_BLOCK_QUOTE, 0,
-                                0, MD_BLOCK_CONTAINER_CLOSER));
+                MD_CHECK(md_push_container_bytes(ctx,
+                                (c->is_admonition ? MD_BLOCK_ADMONITION : MD_BLOCK_QUOTE),
+                                0, 0, MD_BLOCK_CONTAINER_CLOSER));
                 break;
 
             default:
@@ -6501,6 +6525,29 @@ md_process_line(MD_CTX* ctx, const MD_LINE_ANALYSIS** p_pivot_line, MD_LINE_ANAL
         ((MD_LINE_ANALYSIS*)pivot_line)->type = MD_LINE_TABLE;
         MD_CHECK(md_add_line_into_current_block(ctx, line));
         return 0;
+    }
+
+    /* Admonition's leading line needs special treatment. */
+    if((ctx->parser.flags & MD_FLAG_ADMONITIONS)  &&
+       ctx->current_block == NULL  &&  ctx->n_block_bytes >= (int)sizeof(MD_BLOCK))
+    {
+        MD_BLOCK* block = (MD_BLOCK*)((char*)ctx->block_bytes + ctx->n_block_bytes - sizeof(MD_BLOCK));
+
+        if(block->type == MD_BLOCK_QUOTE  &&  line->end - line->beg > 3  &&  line->end - line->beg < 16  &&
+           CH(line->beg) == _T('[')  &&  CH(line->beg+1) == _T('!')  &&  CH(line->end-1) == _T(']'))
+        {
+            unsigned i;
+
+            for(i = 0; i < SIZEOF_ARRAY(MD_ADMONITION_TAGS); i++) {
+                if(md_ascii_case_eq(STR(line->beg+2), MD_ADMONITION_TAGS[i], md_strlen(MD_ADMONITION_TAGS[i]))) {
+                    MD_ASSERT(ctx->n_containers > 0  &&  ctx->containers[ctx->n_containers-1].ch == _T('>'));
+                    ctx->containers[ctx->n_containers-1].is_admonition = TRUE;
+                    block->type = MD_BLOCK_ADMONITION;
+                    block->data = i;
+                    return 0;
+                }
+            }
+        }
     }
 
     /* The current block also ends if the line has different type. */

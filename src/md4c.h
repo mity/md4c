@@ -99,7 +99,12 @@ typedef enum MD_BLOCKTYPE {
     MD_BLOCK_TBODY,
     MD_BLOCK_TR,
     MD_BLOCK_TH,
-    MD_BLOCK_TD
+    MD_BLOCK_TD,
+
+    /* Adminition extension.
+     * Detail MD_BLOCK_ADMONITION_DETAIL.
+     * Note: Recognized only when MD_FLAG_ADMONITIONS is enabled. */
+    MD_BLOCK_ADMONITION
 } MD_BLOCKTYPE;
 
 /* Span represents an in-line piece of a document which should be rendered with
@@ -295,6 +300,11 @@ typedef struct MD_BLOCK_TD_DETAIL {
     MD_ALIGN align;
 } MD_BLOCK_TD_DETAIL;
 
+/* Detailed info for MD_BLOCK_ADMONITION. */
+typedef struct MD_BLOCK_ADMONITION_DETAIL {
+    MD_ATTRIBUTE type;          /* One of "note", "tip", "important", "warning", "caution" */
+} MD_BLOCK_ADMONITION_DETAIL;
+
 /* Detailed info for MD_SPAN_A. */
 typedef struct MD_SPAN_A_DETAIL {
     MD_ATTRIBUTE href;
@@ -313,22 +323,23 @@ typedef struct MD_SPAN_WIKILINK {
     MD_ATTRIBUTE target;
 } MD_SPAN_WIKILINK_DETAIL;
 
+
 /* Flags specifying extensions/deviations from CommonMark specification.
  *
  * By default (when MD_PARSER::flags == 0), we follow CommonMark specification.
  * The following flags may allow some extensions or deviations from it.
  */
-#define MD_FLAG_COLLAPSEWHITESPACE          0x0001  /* In MD_TEXT_NORMAL, collapse non-trivial whitespace into single ' ' */
-#define MD_FLAG_PERMISSIVEATXHEADERS        0x0002  /* Do not require space in ATX headers ( ###header ) */
-#define MD_FLAG_PERMISSIVEURLAUTOLINKS      0x0004  /* Recognize URLs as autolinks even without '<', '>' */
-#define MD_FLAG_PERMISSIVEEMAILAUTOLINKS    0x0008  /* Recognize e-mails as autolinks even without '<', '>' and 'mailto:' */
-#define MD_FLAG_NOINDENTEDCODEBLOCKS        0x0010  /* Disable indented code blocks. (Only fenced code works.) */
-#define MD_FLAG_NOHTMLBLOCKS                0x0020  /* Disable raw HTML blocks. */
-#define MD_FLAG_NOHTMLSPANS                 0x0040  /* Disable raw HTML (inline). */
-#define MD_FLAG_TABLES                      0x0100  /* Enable tables extension. */
-#define MD_FLAG_STRIKETHROUGH               0x0200  /* Enable strikethrough extension. */
-#define MD_FLAG_PERMISSIVEWWWAUTOLINKS      0x0400  /* Enable WWW autolinks (even without any scheme prefix, if they begin with 'www.') */
-#define MD_FLAG_TASKLISTS                   0x0800  /* Enable task list extension. */
+#define MD_FLAG_COLLAPSEWHITESPACE          0x1     /* In MD_TEXT_NORMAL, collapse non-trivial whitespace into single ' ' */
+#define MD_FLAG_PERMISSIVEATXHEADERS        0x2     /* Do not require space in ATX headers ( ###header ) */
+#define MD_FLAG_PERMISSIVEURLAUTOLINKS      0x4     /* Recognize URLs as autolinks even without '<', '>' */
+#define MD_FLAG_PERMISSIVEEMAILAUTOLINKS    0x8     /* Recognize e-mails as autolinks even without '<', '>' and 'mailto:' */
+#define MD_FLAG_NOINDENTEDCODEBLOCKS        0x10    /* Disable indented code blocks. (Only fenced code works.) */
+#define MD_FLAG_NOHTMLBLOCKS                0x20    /* Disable raw HTML blocks. */
+#define MD_FLAG_NOHTMLSPANS                 0x40    /* Disable raw HTML (inline). */
+#define MD_FLAG_TABLES                      0x100   /* Enable tables extension. */
+#define MD_FLAG_STRIKETHROUGH               0x200   /* Enable strikethrough extension. */
+#define MD_FLAG_PERMISSIVEWWWAUTOLINKS      0x400   /* Enable WWW autolinks (even without any scheme prefix, if they begin with 'www.') */
+#define MD_FLAG_TASKLISTS                   0x800   /* Enable task list extension. */
 #define MD_FLAG_LATEXMATHSPANS              0x1000  /* Enable $ and $$ containing LaTeX equations. */
 #define MD_FLAG_WIKILINKS                   0x2000  /* Enable wiki links extension. */
 #define MD_FLAG_UNDERLINE                   0x4000  /* Enable underline extension (and disables '_' for normal emphasis). */
@@ -336,6 +347,7 @@ typedef struct MD_SPAN_WIKILINK {
 #define MD_FLAG_SPOILERS                    0x10000 /* Enable ||hidden text|| spoiler spans. */
 #define MD_FLAG_SUPERSCRIPTS                0x20000 /* Enable ^superscript^ spans. */
 #define MD_FLAG_SUBSCRIPTS                  0x40000 /* Enable ~subscript~ spans. */
+#define MD_FLAG_ADMONITIONS                 0x80000 /* Enable admonitions extension. */
 
 #define MD_FLAG_PERMISSIVEAUTOLINKS         (MD_FLAG_PERMISSIVEEMAILAUTOLINKS | MD_FLAG_PERMISSIVEURLAUTOLINKS | MD_FLAG_PERMISSIVEWWWAUTOLINKS)
 #define MD_FLAG_NOHTML                      (MD_FLAG_NOHTMLBLOCKS | MD_FLAG_NOHTMLSPANS)
@@ -350,7 +362,7 @@ typedef struct MD_SPAN_WIKILINK {
  * extensions, bringing the dialect closer to the original, are implemented.
  */
 #define MD_DIALECT_COMMONMARK               0
-#define MD_DIALECT_GITHUB                   (MD_FLAG_PERMISSIVEAUTOLINKS | MD_FLAG_TABLES | MD_FLAG_STRIKETHROUGH | MD_FLAG_TASKLISTS)
+#define MD_DIALECT_GITHUB                   (MD_FLAG_PERMISSIVEAUTOLINKS | MD_FLAG_TABLES | MD_FLAG_STRIKETHROUGH | MD_FLAG_TASKLISTS | MD_FLAG_ADMONITIONS)
 
 /* Parser structure.
  */
