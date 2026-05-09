@@ -53,6 +53,7 @@ struct MD_HTML_tag {
     void* userdata;
     unsigned flags;
     int image_nesting_level;
+    int footnote_count;     /* number of MD_BLOCK_FOOTNOTE_DEF blocks entered */
     char escape_map[256];
 };
 
@@ -377,6 +378,53 @@ render_open_wikilink_span(MD_HTML* r, const MD_SPAN_WIKILINK_DETAIL* det)
  ***  HTML renderer implementation  ***
  **************************************/
 
+static void
+render_open_footnote_ref_span(MD_HTML* r, const MD_SPAN_FOOTNOTE_REF_DETAIL* det)
+{
+    char buf[64];
+    if(det->ref_index <= 1)
+        snprintf(buf, sizeof(buf), "<sup><a href=\"#fn-%u\" id=\"fnref-%u\">%u</a></sup>",
+                 det->index, det->index, det->index);
+    else
+        snprintf(buf, sizeof(buf), "<sup><a href=\"#fn-%u\" id=\"fnref-%u-%u\">%u</a></sup>",
+                 det->index, det->index, det->ref_index, det->index);
+    render_verbatim(r, buf, (MD_SIZE) strlen(buf));
+}
+
+static void
+render_open_footnote_def_block(MD_HTML* r, const MD_BLOCK_FOOTNOTE_DEF_DETAIL* det)
+{
+    char buf[64];
+
+    if(r->footnote_count == 0)
+        RENDER_VERBATIM(r, "<section class=\"footnotes\">\n<ol>\n");
+
+    snprintf(buf, sizeof(buf), "<li id=\"fn-%u\">\n", det->index);
+    render_verbatim(r, buf, (MD_SIZE) strlen(buf));
+    r->footnote_count++;
+}
+
+static void
+render_close_footnote_def_block(MD_HTML* r, const MD_BLOCK_FOOTNOTE_DEF_DETAIL* det)
+{
+    char buf[64];
+    unsigned int ref_index;
+
+    for(ref_index = 1; ref_index <= det->ref_count; ref_index++) {
+        if(ref_index > 1)
+            RENDER_VERBATIM(r, " ");
+        if(ref_index == 1)
+            snprintf(buf, sizeof(buf), "<a href=\"#fnref-%u\" class=\"footnote-backref\">&#8617;</a>",
+                     det->index);
+        else
+            snprintf(buf, sizeof(buf), "<a href=\"#fnref-%u-%u\" class=\"footnote-backref\">&#8617;</a>",
+                     det->index, ref_index);
+        render_verbatim(r, buf, (MD_SIZE) strlen(buf));
+    }
+
+    RENDER_VERBATIM(r, "\n</li>\n");
+}
+
 static int
 enter_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
 {
@@ -398,8 +446,9 @@ enter_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
         case MD_BLOCK_THEAD:    RENDER_VERBATIM(r, "<thead>\n"); break;
         case MD_BLOCK_TBODY:    RENDER_VERBATIM(r, "<tbody>\n"); break;
         case MD_BLOCK_TR:       RENDER_VERBATIM(r, "<tr>\n"); break;
-        case MD_BLOCK_TH:       render_open_td_block(r, "th", (MD_BLOCK_TD_DETAIL*)detail); break;
-        case MD_BLOCK_TD:       render_open_td_block(r, "td", (MD_BLOCK_TD_DETAIL*)detail); break;
+        case MD_BLOCK_TH:               render_open_td_block(r, "th", (MD_BLOCK_TD_DETAIL*)detail); break;
+        case MD_BLOCK_TD:               render_open_td_block(r, "td", (MD_BLOCK_TD_DETAIL*)detail); break;
+        case MD_BLOCK_FOOTNOTE_DEF:     render_open_footnote_def_block(r, (MD_BLOCK_FOOTNOTE_DEF_DETAIL*)detail); break;
     }
 
     return 0;
@@ -412,7 +461,10 @@ leave_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
     MD_HTML* r = (MD_HTML*) userdata;
 
     switch(type) {
-        case MD_BLOCK_DOC:      /*noop*/ break;
+        case MD_BLOCK_DOC:
+            if(r->footnote_count > 0)
+                RENDER_VERBATIM(r, "</ol>\n</section>\n");
+            break;
         case MD_BLOCK_QUOTE:    RENDER_VERBATIM(r, "</blockquote>\n"); break;
         case MD_BLOCK_UL:       RENDER_VERBATIM(r, "</ul>\n"); break;
         case MD_BLOCK_OL:       RENDER_VERBATIM(r, "</ol>\n"); break;
@@ -428,6 +480,7 @@ leave_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
         case MD_BLOCK_TR:       RENDER_VERBATIM(r, "</tr>\n"); break;
         case MD_BLOCK_TH:       RENDER_VERBATIM(r, "</th>\n"); break;
         case MD_BLOCK_TD:       RENDER_VERBATIM(r, "</td>\n"); break;
+        case MD_BLOCK_FOOTNOTE_DEF: render_close_footnote_def_block(r, (MD_BLOCK_FOOTNOTE_DEF_DETAIL*)detail); break;
     }
 
     return 0;
@@ -472,6 +525,7 @@ enter_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
         case MD_SPAN_LATEXMATH:         RENDER_VERBATIM(r, "<x-equation>"); break;
         case MD_SPAN_LATEXMATH_DISPLAY: RENDER_VERBATIM(r, "<x-equation type=\"display\">"); break;
         case MD_SPAN_WIKILINK:          render_open_wikilink_span(r, (MD_SPAN_WIKILINK_DETAIL*) detail); break;
+        case MD_SPAN_FOOTNOTE_REF:      render_open_footnote_ref_span(r, (MD_SPAN_FOOTNOTE_REF_DETAIL*) detail); break;
     }
 
     return 0;
@@ -501,6 +555,7 @@ leave_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
         case MD_SPAN_LATEXMATH:         /*fall through*/
         case MD_SPAN_LATEXMATH_DISPLAY: RENDER_VERBATIM(r, "</x-equation>"); break;
         case MD_SPAN_WIKILINK:          RENDER_VERBATIM(r, "</x-wikilink>"); break;
+        case MD_SPAN_FOOTNOTE_REF:      /* noop: enter_span already emitted full HTML */ break;
     }
 
     return 0;
@@ -539,7 +594,7 @@ md_html(const MD_CHAR* input, MD_SIZE input_size,
         void (*process_output)(const MD_CHAR*, MD_SIZE, void*),
         void* userdata, unsigned parser_flags, unsigned renderer_flags)
 {
-    MD_HTML render = { process_output, userdata, renderer_flags, 0, { 0 } };
+    MD_HTML render = { process_output, userdata, renderer_flags, 0, 0, { 0 } };
     int i;
 
     MD_PARSER parser = {

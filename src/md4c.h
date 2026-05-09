@@ -99,7 +99,14 @@ typedef enum MD_BLOCKTYPE {
     MD_BLOCK_TBODY,
     MD_BLOCK_TR,
     MD_BLOCK_TH,
-    MD_BLOCK_TD
+    MD_BLOCK_TD,
+
+    /* A single footnote definition, rendered at the end of the document.
+     * Detail: Structure MD_BLOCK_FOOTNOTE_DEF_DETAIL.
+     * Note: Used only if extension MD_FLAG_FOOTNOTES is enabled.
+     * Only definitions that are actually referenced in the document are
+     * emitted, in order of first reference. */
+    MD_BLOCK_FOOTNOTE_DEF
 } MD_BLOCKTYPE;
 
 /* Span represents an in-line piece of a document which should be rendered with
@@ -160,7 +167,14 @@ typedef enum MD_SPANTYPE {
     /* <sub>...</sub>
      * Syntax: ~subscript~
      * Note: Recognized only when MD_FLAG_SUBSCRIPTS is enabled. */
-    MD_SPAN_SUBSCRIPT
+    MD_SPAN_SUBSCRIPT,
+
+    /* Footnote reference, e.g. [^1] or [^note].
+     * Syntax: [^label]
+     * Note: Recognized only when MD_FLAG_FOOTNOTES is enabled.
+     * The span is self-contained: no MD_TEXT callbacks fire between enter and
+     * leave. All needed information is in MD_SPAN_FOOTNOTE_REF_DETAIL. */
+    MD_SPAN_FOOTNOTE_REF
 } MD_SPANTYPE;
 
 /* Text is the actual textual contents of span. */
@@ -313,6 +327,20 @@ typedef struct MD_SPAN_WIKILINK {
     MD_ATTRIBUTE target;
 } MD_SPAN_WIKILINK_DETAIL;
 
+/* Detailed info for MD_SPAN_FOOTNOTE_REF. */
+typedef struct MD_SPAN_FOOTNOTE_REF_DETAIL {
+    unsigned int index;     /* 1-based sequential number (order of first reference in document) */
+    unsigned int ref_index; /* 1-based index of this reference among references to the same footnote */
+    MD_ATTRIBUTE label;     /* Raw label text, e.g. "1" or "note" */
+} MD_SPAN_FOOTNOTE_REF_DETAIL;
+
+/* Detailed info for MD_BLOCK_FOOTNOTE_DEF. */
+typedef struct MD_BLOCK_FOOTNOTE_DEF_DETAIL {
+    unsigned int index;     /* 1-based sequential number */
+    unsigned int ref_count; /* Number of references to this footnote */
+    MD_ATTRIBUTE label;     /* Raw label text */
+} MD_BLOCK_FOOTNOTE_DEF_DETAIL;
+
 /* Flags specifying extensions/deviations from CommonMark specification.
  *
  * By default (when MD_PARSER::flags == 0), we follow CommonMark specification.
@@ -336,6 +364,7 @@ typedef struct MD_SPAN_WIKILINK {
 #define MD_FLAG_SPOILERS                    0x10000 /* Enable ||hidden text|| spoiler spans. */
 #define MD_FLAG_SUPERSCRIPTS                0x20000 /* Enable ^superscript^ spans. */
 #define MD_FLAG_SUBSCRIPTS                  0x40000 /* Enable ~subscript~ spans. */
+#define MD_FLAG_FOOTNOTES                   0x80000 /* Enable [^label] footnote references. */
 
 #define MD_FLAG_PERMISSIVEAUTOLINKS         (MD_FLAG_PERMISSIVEEMAILAUTOLINKS | MD_FLAG_PERMISSIVEURLAUTOLINKS | MD_FLAG_PERMISSIVEWWWAUTOLINKS)
 #define MD_FLAG_NOHTML                      (MD_FLAG_NOHTMLBLOCKS | MD_FLAG_NOHTMLSPANS)

@@ -1,0 +1,506 @@
+
+# Footnote References
+
+With the flag `MD_FLAG_FOOTNOTES`, MD4C enables recognition of footnote
+references using the `[^label]` syntax and footnote definitions using
+`[^label]: content` at the start of a paragraph.
+
+A footnote reference is a `[^label]` inline span that renders as a numbered
+superscript linked to the corresponding definition.  Definitions are emitted
+at the end of the document, in order of first reference, each wrapped in a
+`MD_BLOCK_FOOTNOTE_DEF` block.  The HTML renderer outputs a `<section
+class="footnotes">` wrapper with an `<ol>` list.
+
+
+## Basic recognition
+
+```````````````````````````````` example
+Text with a footnote[^1].
+
+[^1]: The footnote content.
+.
+<p>Text with a footnote<sup><a href="#fn-1" id="fnref-1">1</a></sup>.</p>
+<section class="footnotes">
+<ol>
+<li id="fn-1">
+The footnote content.<a href="#fnref-1" class="footnote-backref">&#8617;</a>
+</li>
+</ol>
+</section>
+.
+--ffootnotes
+````````````````````````````````
+
+Word-style label:
+
+```````````````````````````````` example
+See note[^note].
+
+[^note]: This is the note.
+.
+<p>See note<sup><a href="#fn-1" id="fnref-1">1</a></sup>.</p>
+<section class="footnotes">
+<ol>
+<li id="fn-1">
+This is the note.<a href="#fnref-1" class="footnote-backref">&#8617;</a>
+</li>
+</ol>
+</section>
+.
+--ffootnotes
+````````````````````````````````
+
+Multiple footnotes in reference order:
+
+```````````````````````````````` example
+First[^a] and second[^b].
+
+[^a]: Note A.
+[^b]: Note B.
+.
+<p>First<sup><a href="#fn-1" id="fnref-1">1</a></sup> and second<sup><a href="#fn-2" id="fnref-2">2</a></sup>.</p>
+<section class="footnotes">
+<ol>
+<li id="fn-1">
+Note A.<a href="#fnref-1" class="footnote-backref">&#8617;</a>
+</li>
+<li id="fn-2">
+Note B.<a href="#fnref-2" class="footnote-backref">&#8617;</a>
+</li>
+</ol>
+</section>
+.
+--ffootnotes
+````````````````````````````````
+
+Definitions are emitted in reference order, not definition order:
+
+```````````````````````````````` example
+First ref[^b] then[^a].
+
+[^a]: Note A.
+[^b]: Note B.
+.
+<p>First ref<sup><a href="#fn-1" id="fnref-1">1</a></sup> then<sup><a href="#fn-2" id="fnref-2">2</a></sup>.</p>
+<section class="footnotes">
+<ol>
+<li id="fn-1">
+Note B.<a href="#fnref-1" class="footnote-backref">&#8617;</a>
+</li>
+<li id="fn-2">
+Note A.<a href="#fnref-2" class="footnote-backref">&#8617;</a>
+</li>
+</ol>
+</section>
+.
+--ffootnotes
+````````````````````````````````
+
+
+## Opt-in flag
+
+When `MD_FLAG_FOOTNOTES` is not enabled, `[^label]` is treated as literal
+text and `[^label]: content` is treated as a regular paragraph:
+
+```````````````````````````````` example
+Text with [^1].
+
+[^1]: Not a footnote.
+.
+<p>Text with [^1].</p>
+<p>[^1]: Not a footnote.</p>
+.
+````````````````````````````````
+
+
+## Unreferenced definitions
+
+A footnote definition that is never referenced in the document body is not
+emitted in the output:
+
+```````````````````````````````` example
+No reference here.
+
+[^1]: Unreferenced footnote.
+.
+<p>No reference here.</p>
+.
+--ffootnotes
+````````````````````````````````
+
+
+## Unknown label
+
+A reference to an unknown label is left as literal text:
+
+```````````````````````````````` example
+Text with [^unknown].
+
+[^1]: Only this one is defined.
+.
+<p>Text with [^unknown].</p>
+.
+--ffootnotes
+````````````````````````````````
+
+
+## Two references to the same label
+
+When the same label is referenced more than once, both references receive the
+same visible index number but unique backlink ids:
+
+```````````````````````````````` example
+First[^a] and again[^a].
+
+[^a]: The note.
+.
+<p>First<sup><a href="#fn-1" id="fnref-1">1</a></sup> and again<sup><a href="#fn-1" id="fnref-1-2">1</a></sup>.</p>
+<section class="footnotes">
+<ol>
+<li id="fn-1">
+The note.<a href="#fnref-1" class="footnote-backref">&#8617;</a> <a href="#fnref-1-2" class="footnote-backref">&#8617;</a>
+</li>
+</ol>
+</section>
+.
+--ffootnotes
+````````````````````````````````
+
+
+## Inline markup inside footnote content
+
+Emphasis and other inline spans inside the footnote body are parsed normally:
+
+```````````````````````````````` example
+See note[^1].
+
+[^1]: Footnote with **bold** and *italic*.
+.
+<p>See note<sup><a href="#fn-1" id="fnref-1">1</a></sup>.</p>
+<section class="footnotes">
+<ol>
+<li id="fn-1">
+Footnote with <strong>bold</strong> and <em>italic</em>.<a href="#fnref-1" class="footnote-backref">&#8617;</a>
+</li>
+</ol>
+</section>
+.
+--ffootnotes
+````````````````````````````````
+
+
+## Multi-line footnote content
+
+Continuation lines indented by at least two spaces or one tab are part of the
+footnote body:
+
+```````````````````````````````` example
+Text[^1].
+
+[^1]: First line.
+  Second line continued.
+.
+<p>Text<sup><a href="#fn-1" id="fnref-1">1</a></sup>.</p>
+<section class="footnotes">
+<ol>
+<li id="fn-1">
+First line.
+Second line continued.<a href="#fnref-1" class="footnote-backref">&#8617;</a>
+</li>
+</ol>
+</section>
+.
+--ffootnotes
+````````````````````````````````
+
+
+## Interaction with strikethrough
+
+Footnotes and strikethrough can be used in the same document:
+
+```````````````````````````````` example
+~~struck~~ text[^1].
+
+[^1]: A note.
+.
+<p><del>struck</del> text<sup><a href="#fn-1" id="fnref-1">1</a></sup>.</p>
+<section class="footnotes">
+<ol>
+<li id="fn-1">
+A note.<a href="#fnref-1" class="footnote-backref">&#8617;</a>
+</li>
+</ol>
+</section>
+.
+--ffootnotes --fstrikethrough
+````````````````````````````````
+
+
+## Interaction with spoilers
+
+Footnotes and spoiler spans can be used in the same document:
+
+```````````````````````````````` example
+Spoiler ||hidden|| and note[^1].
+
+[^1]: Note.
+.
+<p>Spoiler <x-spoiler>hidden</x-spoiler> and note<sup><a href="#fn-1" id="fnref-1">1</a></sup>.</p>
+<section class="footnotes">
+<ol>
+<li id="fn-1">
+Note.<a href="#fnref-1" class="footnote-backref">&#8617;</a>
+</li>
+</ol>
+</section>
+.
+--ffootnotes --fspoilers
+````````````````````````````````
+
+
+## Interaction with superscripts
+
+Footnotes and superscript spans do not interfere with each other:
+
+```````````````````````````````` example
+Sup ^text^ and note[^1].
+
+[^1]: A note.
+.
+<p>Sup <sup>text</sup> and note<sup><a href="#fn-1" id="fnref-1">1</a></sup>.</p>
+<section class="footnotes">
+<ol>
+<li id="fn-1">
+A note.<a href="#fnref-1" class="footnote-backref">&#8617;</a>
+</li>
+</ol>
+</section>
+.
+--ffootnotes --fsuperscripts
+````````````````````````````````
+
+
+## No definitions at all
+
+When footnotes are enabled but the document contains no `[^label]:` definitions,
+the `md_process_footnote_defs` function returns immediately without output:
+
+```````````````````````````````` example
+Just a paragraph.
+.
+<p>Just a paragraph.</p>
+.
+--ffootnotes
+````````````````````````````````
+
+
+## Mixed referenced and unreferenced definitions
+
+Only referenced definitions are emitted; unreferenced ones are silently dropped:
+
+```````````````````````````````` example
+Only[^1] referenced.
+
+[^1]: Used.
+[^2]: Unused.
+.
+<p>Only<sup><a href="#fn-1" id="fnref-1">1</a></sup> referenced.</p>
+<section class="footnotes">
+<ol>
+<li id="fn-1">
+Used.<a href="#fnref-1" class="footnote-backref">&#8617;</a>
+</li>
+</ol>
+</section>
+.
+--ffootnotes
+````````````````````````````````
+
+
+## Invalid definition syntax is not recognized
+
+### Empty label (`[^]:`)
+
+```````````````````````````````` example
+[^]:
+.
+<p>[^]:</p>
+.
+--ffootnotes
+````````````````````````````````
+
+### Label with no closing bracket
+
+If the label runs to end-of-line without a `]`, the line is not a definition:
+
+```````````````````````````````` example
+[^labelonly
+.
+<p>[^labelonly</p>
+.
+--ffootnotes
+````````````````````````````````
+
+### Closing bracket found but no colon
+
+```````````````````````````````` example
+[^1]! word
+.
+<p>[^1]! word</p>
+.
+--ffootnotes
+````````````````````````````````
+
+
+## Tab-indented continuation
+
+A continuation line indented with a tab is part of the footnote body:
+
+```````````````````````````````` example
+Text[^1].
+
+[^1]: First line.
+	Tab-indented continuation.
+.
+<p>Text<sup><a href="#fn-1" id="fnref-1">1</a></sup>.</p>
+<section class="footnotes">
+<ol>
+<li id="fn-1">
+First line.
+Tab-indented continuation.<a href="#fnref-1" class="footnote-backref">&#8617;</a>
+</li>
+</ol>
+</section>
+.
+--ffootnotes
+````````````````````````````````
+
+
+## Inline reference edge cases
+
+### Unclosed bracket — no matching `]`
+
+A `[^label` with no closing `]` is treated as literal text:
+
+```````````````````````````````` example
+Some [^label and more.
+.
+<p>Some [^label and more.</p>
+.
+--ffootnotes
+````````````````````````````````
+
+### Empty inline label `[^]`
+
+An inline `[^]` (empty label between `^` and `]`) is treated as literal text:
+
+```````````````````````````````` example
+Text [^] here.
+.
+<p>Text [^] here.</p>
+.
+--ffootnotes
+````````````````````````````````
+
+
+## More than eight definitions (triggers realloc growth)
+
+```````````````````````````````` example
+[^1][^2][^3][^4][^5][^6][^7][^8][^9].
+
+[^1]: A.
+[^2]: B.
+[^3]: C.
+[^4]: D.
+[^5]: E.
+[^6]: F.
+[^7]: G.
+[^8]: H.
+[^9]: I.
+.
+<p><sup><a href="#fn-1" id="fnref-1">1</a></sup><sup><a href="#fn-2" id="fnref-2">2</a></sup><sup><a href="#fn-3" id="fnref-3">3</a></sup><sup><a href="#fn-4" id="fnref-4">4</a></sup><sup><a href="#fn-5" id="fnref-5">5</a></sup><sup><a href="#fn-6" id="fnref-6">6</a></sup><sup><a href="#fn-7" id="fnref-7">7</a></sup><sup><a href="#fn-8" id="fnref-8">8</a></sup><sup><a href="#fn-9" id="fnref-9">9</a></sup>.</p>
+<section class="footnotes">
+<ol>
+<li id="fn-1">
+A.<a href="#fnref-1" class="footnote-backref">&#8617;</a>
+</li>
+<li id="fn-2">
+B.<a href="#fnref-2" class="footnote-backref">&#8617;</a>
+</li>
+<li id="fn-3">
+C.<a href="#fnref-3" class="footnote-backref">&#8617;</a>
+</li>
+<li id="fn-4">
+D.<a href="#fnref-4" class="footnote-backref">&#8617;</a>
+</li>
+<li id="fn-5">
+E.<a href="#fnref-5" class="footnote-backref">&#8617;</a>
+</li>
+<li id="fn-6">
+F.<a href="#fnref-6" class="footnote-backref">&#8617;</a>
+</li>
+<li id="fn-7">
+G.<a href="#fnref-7" class="footnote-backref">&#8617;</a>
+</li>
+<li id="fn-8">
+H.<a href="#fnref-8" class="footnote-backref">&#8617;</a>
+</li>
+<li id="fn-9">
+I.<a href="#fnref-9" class="footnote-backref">&#8617;</a>
+</li>
+</ol>
+</section>
+.
+--ffootnotes
+````````````````````````````````
+
+
+## Fallthrough: invalid footnote definition falls through to link reference
+
+A `[^` line that fails the footnote syntax check is retried as a regular link
+reference definition.  Here `[^a b]:` has a space in the label so it is not a
+valid footnote definition; it is consumed as a link reference with label `^a b`.
+The valid `[^1]:` definition that follows is then correctly stored as a footnote:
+
+```````````````````````````````` example
+See[^1].
+
+[^a b]: not-a-footnote
+[^1]: A note.
+.
+<p>See<sup><a href="#fn-1" id="fnref-1">1</a></sup>.</p>
+<section class="footnotes">
+<ol>
+<li id="fn-1">
+A note.<a href="#fnref-1" class="footnote-backref">&#8617;</a>
+</li>
+</ol>
+</section>
+.
+--ffootnotes
+````````````````````````````````
+
+
+## Label is not confused with regular link reference definition
+
+A `[^label]: ...` line would also be a syntactically valid link reference
+definition (label `^1`, destination `...`).  When footnotes are enabled, the
+`[^` prefix is tried as a footnote first, so the line is consumed as a
+footnote definition, not a link:
+
+```````````````````````````````` example
+Note[^1].
+
+[^1]: content
+.
+<p>Note<sup><a href="#fn-1" id="fnref-1">1</a></sup>.</p>
+<section class="footnotes">
+<ol>
+<li id="fn-1">
+content<a href="#fnref-1" class="footnote-backref">&#8617;</a>
+</li>
+</ol>
+</section>
+.
+--ffootnotes
+````````````````````````````````
