@@ -161,7 +161,6 @@ struct MD_FOOTNOTE_DEF_tag {
     unsigned int ref_count;     /* Number of references to this footnote. */
     MD_LINE* content_lines;     /* always heap-allocated; freed by md_free_footnote_defs */
     MD_SIZE n_content_lines;
-    MD_FOOTNOTE_DEF* next;
 };
 
 
@@ -202,7 +201,7 @@ struct MD_CTX_tag {
     MD_FOOTNOTE_DEF* footnote_defs;
     int n_footnote_defs;
     int alloc_footnote_defs;
-    MD_FOOTNOTE_DEF** footnote_hashtable;
+    void** footnote_hashtable;
     int footnote_hashtable_size;
     unsigned int next_footnote_index;   /* 1-based counter for sequential numbering */
 
@@ -2058,55 +2057,191 @@ abort:
     return ret;
 }
 
+typedef struct MD_FOOTNOTE_DEF_LIST_tag MD_FOOTNOTE_DEF_LIST;
+struct MD_FOOTNOTE_DEF_LIST_tag {
+    int n_defs;
+    int alloc_defs;
+    MD_FOOTNOTE_DEF* defs[];  /* Valid items always point into ctx->footnote_defs[] */
+};
+
+static int
+md_footnote_def_cmp(const void* a, const void* b)
+{
+    const MD_FOOTNOTE_DEF* a_def = *(const MD_FOOTNOTE_DEF**)a;
+    const MD_FOOTNOTE_DEF* b_def = *(const MD_FOOTNOTE_DEF**)b;
+
+    if(a_def->hash < b_def->hash)
+        return -1;
+    else if(a_def->hash > b_def->hash)
+        return +1;
+    else
+        return md_link_label_cmp(a_def->label, a_def->label_size, b_def->label, b_def->label_size);
+}
+
+static int
+md_footnote_def_cmp_for_sort(const void* a, const void* b)
+{
+    int cmp;
+
+    cmp = md_footnote_def_cmp(a, b);
+
+    /* Ensure stability of the sorting. */
+    if(cmp == 0) {
+        const MD_FOOTNOTE_DEF* a_def = *(const MD_FOOTNOTE_DEF**)a;
+        const MD_FOOTNOTE_DEF* b_def = *(const MD_FOOTNOTE_DEF**)b;
+
+        if(a_def < b_def)
+            cmp = -1;
+        else if(a_def > b_def)
+            cmp = +1;
+        else
+            cmp = 0;
+    }
+
+    return cmp;
+}
+
 static MD_FOOTNOTE_DEF*
 md_lookup_footnote_def(MD_CTX* ctx, const CHAR* label, SZ label_size)
 {
     unsigned hash;
-    MD_FOOTNOTE_DEF* def;
+    void* bucket;
 
     if(ctx->footnote_hashtable_size == 0)
         return NULL;
-    hash = md_link_label_hash(label, label_size);
 
-    for(def = ctx->footnote_hashtable[hash % ctx->footnote_hashtable_size];
-        def != NULL;
-        def = def->next)
+    hash = md_link_label_hash(label, label_size);
+    bucket = ctx->footnote_hashtable[hash % ctx->footnote_hashtable_size];
+
+    if(bucket == NULL) {
+        return NULL;
+    } else if(ctx->footnote_defs <= (MD_FOOTNOTE_DEF*) bucket  &&
+              (MD_FOOTNOTE_DEF*) bucket < ctx->footnote_defs + ctx->n_footnote_defs)
     {
+        MD_FOOTNOTE_DEF* def = (MD_FOOTNOTE_DEF*) bucket;
         if(def->hash == hash  &&
            md_link_label_cmp(def->label, def->label_size, label, label_size) == 0)
             return def;
+        else
+            return NULL;
+    } else {
+        MD_FOOTNOTE_DEF_LIST* list = (MD_FOOTNOTE_DEF_LIST*) bucket;
+        MD_FOOTNOTE_DEF key_buf;
+        const MD_FOOTNOTE_DEF* key = &key_buf;
+        MD_FOOTNOTE_DEF** ret;
+
+        key_buf.label = (CHAR*) label;
+        key_buf.label_size = label_size;
+        key_buf.hash = hash;
+
+        ret = (MD_FOOTNOTE_DEF**) bsearch(&key, list->defs,
+                    list->n_defs, sizeof(MD_FOOTNOTE_DEF*), md_footnote_def_cmp);
+        if(ret != NULL)
+            return *ret;
+        else
+            return NULL;
     }
-    return NULL;
 }
 
 static int
 md_build_footnote_def_hashtable(MD_CTX* ctx)
 {
-    int i;
+    int i, j;
 
     if(ctx->n_footnote_defs == 0)
         return 0;
 
     ctx->footnote_hashtable_size = (ctx->n_footnote_defs * 5) / 4;
-    ctx->footnote_hashtable = (MD_FOOTNOTE_DEF**) malloc(
-                    ctx->footnote_hashtable_size * sizeof(MD_FOOTNOTE_DEF*));
+    ctx->footnote_hashtable = malloc(ctx->footnote_hashtable_size * sizeof(void*));
     if(ctx->footnote_hashtable == NULL) {
         MD_LOG("malloc() failed.");
-        return -1;
+        goto abort;
     }
-    memset(ctx->footnote_hashtable, 0,
-           ctx->footnote_hashtable_size * sizeof(MD_FOOTNOTE_DEF*));
+    memset(ctx->footnote_hashtable, 0, ctx->footnote_hashtable_size * sizeof(void*));
 
-    /* Insert in reverse order, so duplicate labels still resolve to the first
-     * definition in source order, matching the previous linear lookup. */
-    for(i = ctx->n_footnote_defs - 1; i >= 0; i--) {
+    /* Each member of ctx->footnote_hashtable[] can be:
+     *  -- NULL,
+     *  -- pointer to the MD_FOOTNOTE_DEF in ctx->footnote_defs[], or
+     *  -- pointer to a MD_FOOTNOTE_DEF_LIST, which holds multiple pointers to
+     *     such MD_FOOTNOTE_DEFs.
+     */
+    for(i = 0; i < ctx->n_footnote_defs; i++) {
         MD_FOOTNOTE_DEF* def = &ctx->footnote_defs[i];
-        int bucket = def->hash % ctx->footnote_hashtable_size;
-        def->next = ctx->footnote_hashtable[bucket];
-        ctx->footnote_hashtable[bucket] = def;
+        void* bucket;
+        MD_FOOTNOTE_DEF_LIST* list;
+
+        bucket = ctx->footnote_hashtable[def->hash % ctx->footnote_hashtable_size];
+
+        if(bucket == NULL) {
+            ctx->footnote_hashtable[def->hash % ctx->footnote_hashtable_size] = def;
+            continue;
+        }
+
+        if(ctx->footnote_defs <= (MD_FOOTNOTE_DEF*) bucket  &&
+           (MD_FOOTNOTE_DEF*) bucket < ctx->footnote_defs + ctx->n_footnote_defs)
+        {
+            MD_FOOTNOTE_DEF* old_def = (MD_FOOTNOTE_DEF*) bucket;
+
+            if(md_link_label_cmp(def->label, def->label_size, old_def->label, old_def->label_size) == 0)
+                continue;
+
+            list = (MD_FOOTNOTE_DEF_LIST*) malloc(sizeof(MD_FOOTNOTE_DEF_LIST) + 2 * sizeof(MD_FOOTNOTE_DEF*));
+            if(list == NULL) {
+                MD_LOG("malloc() failed.");
+                goto abort;
+            }
+            list->defs[0] = old_def;
+            list->defs[1] = def;
+            list->n_defs = 2;
+            list->alloc_defs = 2;
+            ctx->footnote_hashtable[def->hash % ctx->footnote_hashtable_size] = list;
+            continue;
+        }
+
+        list = (MD_FOOTNOTE_DEF_LIST*) bucket;
+        if(list->n_defs >= list->alloc_defs) {
+            int alloc_defs = list->alloc_defs + list->alloc_defs / 2;
+            MD_FOOTNOTE_DEF_LIST* list_tmp = (MD_FOOTNOTE_DEF_LIST*) realloc(list,
+                        sizeof(MD_FOOTNOTE_DEF_LIST) + alloc_defs * sizeof(MD_FOOTNOTE_DEF*));
+            if(list_tmp == NULL) {
+                MD_LOG("realloc() failed.");
+                goto abort;
+            }
+            list = list_tmp;
+            list->alloc_defs = alloc_defs;
+            ctx->footnote_hashtable[def->hash % ctx->footnote_hashtable_size] = list;
+        }
+
+        list->defs[list->n_defs] = def;
+        list->n_defs++;
+    }
+
+    /* Sort the complex buckets so we can use bsearch() with them. */
+    for(i = 0; i < ctx->footnote_hashtable_size; i++) {
+        void* bucket = ctx->footnote_hashtable[i];
+        MD_FOOTNOTE_DEF_LIST* list;
+
+        if(bucket == NULL)
+            continue;
+        if(ctx->footnote_defs <= (MD_FOOTNOTE_DEF*) bucket  &&
+           (MD_FOOTNOTE_DEF*) bucket < ctx->footnote_defs + ctx->n_footnote_defs)
+            continue;
+
+        list = (MD_FOOTNOTE_DEF_LIST*) bucket;
+        qsort(list->defs, list->n_defs, sizeof(MD_FOOTNOTE_DEF*), md_footnote_def_cmp_for_sort);
+
+        /* Disable all duplicates in the complex bucket by forcing all such
+         * records to point to the 1st such footnote definition. */
+        for(j = 1; j < list->n_defs; j++) {
+            if(md_footnote_def_cmp(&list->defs[j-1], &list->defs[j]) == 0)
+                list->defs[j] = list->defs[j-1];
+        }
     }
 
     return 0;
+
+abort:
+    return -1;
 }
 
 static void
@@ -2114,10 +2249,23 @@ md_free_footnote_defs(MD_CTX* ctx)
 {
     int i;
 
+    if(ctx->footnote_hashtable != NULL) {
+        for(i = 0; i < ctx->footnote_hashtable_size; i++) {
+            void* bucket = ctx->footnote_hashtable[i];
+            if(bucket == NULL)
+                continue;
+            if(ctx->footnote_defs <= (MD_FOOTNOTE_DEF*) bucket  &&
+               (MD_FOOTNOTE_DEF*) bucket < ctx->footnote_defs + ctx->n_footnote_defs)
+                continue;
+            free(bucket);
+        }
+
+        free(ctx->footnote_hashtable);
+    }
+
     for(i = 0; i < ctx->n_footnote_defs; i++)
         free(ctx->footnote_defs[i].content_lines);
     free(ctx->footnote_defs);
-    free(ctx->footnote_hashtable);
 }
 
 
