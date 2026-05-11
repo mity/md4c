@@ -6529,6 +6529,7 @@ md_process_line(MD_CTX* ctx, const MD_LINE_ANALYSIS** p_pivot_line, MD_LINE_ANAL
 
     /* Admonition's leading line needs special treatment. */
     if((ctx->parser.flags & MD_FLAG_ADMONITIONS)  &&
+       ctx->n_containers > 0  &&  ctx->containers[ctx->n_containers-1].ch == _T('>')  &&
        ctx->current_block == NULL  &&  ctx->n_block_bytes >= (int)sizeof(MD_BLOCK))
     {
         MD_BLOCK* block = (MD_BLOCK*)((char*)ctx->block_bytes + ctx->n_block_bytes - sizeof(MD_BLOCK));
@@ -6540,7 +6541,6 @@ md_process_line(MD_CTX* ctx, const MD_LINE_ANALYSIS** p_pivot_line, MD_LINE_ANAL
 
             for(i = 0; i < SIZEOF_ARRAY(MD_ADMONITION_TAGS); i++) {
                 if(md_ascii_case_eq(STR(line->beg+2), MD_ADMONITION_TAGS[i], md_strlen(MD_ADMONITION_TAGS[i]))) {
-                    MD_ASSERT(ctx->n_containers > 0  &&  ctx->containers[ctx->n_containers-1].ch == _T('>'));
                     ctx->containers[ctx->n_containers-1].is_admonition = TRUE;
                     block->type = MD_BLOCK_ADMONITION;
                     block->data = i;
