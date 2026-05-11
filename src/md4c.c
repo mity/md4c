@@ -5056,6 +5056,8 @@ static const MD_CHAR* MD_ADMONITION_TAGS[] = { _T("note"), _T("tip"), _T("import
 static int
 md_process_all_blocks(MD_CTX* ctx)
 {
+    MD_TEXTTYPE adm_substr_types[1] = { MD_TEXT_NORMAL };
+    MD_OFFSET adm_substr_offsets[2];
     int byte_off = 0;
     int ret = 0;
 
@@ -5093,10 +5095,6 @@ md_process_all_blocks(MD_CTX* ctx)
                 break;
 
             case MD_BLOCK_ADMONITION:
-            {
-                MD_TEXTTYPE adm_substr_types[1] = { MD_TEXT_NORMAL };
-                MD_OFFSET adm_substr_offsets[2];
-
                 adm_substr_offsets[0] = 0;
                 adm_substr_offsets[1] = md_strlen(MD_ADMONITION_TAGS[block->data]);
 
@@ -5105,7 +5103,6 @@ md_process_all_blocks(MD_CTX* ctx)
                 det.adm.type.substr_types = adm_substr_types;
                 det.adm.type.substr_offsets = adm_substr_offsets;
                 break;
-            }
 
             default:
                 /* noop */
