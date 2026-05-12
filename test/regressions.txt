@@ -796,6 +796,14 @@ https://codereview.qt-project.org/c/qt/qtwayland/+/545836
 --fpermissive-autolinks
 ````````````````````````````````
 
+```````````````````````````````` example
+https://www.youtube.com/watch?v=_tEL8bJ7yqU
+.
+<p><a href="https://www.youtube.com/watch?v=_tEL8bJ7yqU">https://www.youtube.com/watch?v=_tEL8bJ7yqU</a></p>
+.
+--fpermissive-autolinks
+````````````````````````````````
+
 
 ## [Issue 271](https://github.com/mity/md4c/issues/271)
 
