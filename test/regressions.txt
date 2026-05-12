@@ -849,3 +849,31 @@ x <- 1
 <pre><code class="language-r">x &lt;- 1
 </code></pre>
 ````````````````````````````````
+
+
+## [Issue 320](https://github.com/mity/md4c/issues/320)
+
+```````````````````````````````` example
+    codeblock
+> [!note]
+> foo
+.
+<pre><code>codeblock
+</code></pre>
+<div class="admonition-note"><p class="admonition-title">note</p><p>foo</p>
+</div>
+.
+--fadmonitions
+````````````````````````````````
+
+```````````````````````````````` example
+> [!noteX]
+> foo
+.
+<blockquote>
+<p>[!noteX]
+foo</p>
+</blockquote>
+.
+--fadmonitions
+````````````````````````````````

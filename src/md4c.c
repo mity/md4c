@@ -6561,10 +6561,13 @@ md_process_line(MD_CTX* ctx, const MD_LINE_ANALYSIS** p_pivot_line, MD_LINE_ANAL
             unsigned i;
 
             for(i = 0; i < SIZEOF_ARRAY(MD_ADMONITION_TAGS); i++) {
-                if(md_ascii_case_eq(STR(line->beg+2), MD_ADMONITION_TAGS[i], md_strlen(MD_ADMONITION_TAGS[i]))) {
+                if(line->end - line->beg == md_strlen(MD_ADMONITION_TAGS[i]) + 3  &&
+                   md_ascii_case_eq(STR(line->beg+2), MD_ADMONITION_TAGS[i], line->end - line->beg - 3))
+                {
                     ctx->containers[ctx->n_containers-1].is_admonition = TRUE;
                     block->type = MD_BLOCK_ADMONITION;
                     block->data = i;
+                    *p_pivot_line = &md_dummy_blank_line;
                     return 0;
                 }
             }
