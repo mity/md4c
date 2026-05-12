@@ -31,6 +31,20 @@ New Features:
 
     Contributed by [Gregory Moskaliuk](https://github.com/hryhoriiK97).
 
+Changes:
+
+  * Permissive autolinks (`MD_FLAG_PERMISSIVExxxAUTOLINKS` flags) have been
+    improved and some links with non-alphanumeric characters are now recognized.
+
+    However please note this will always be a subject of painful search for
+    reasonable trade-off between recognizing more obscure URLs versus opening
+    gates to potential false positives.
+
+    We generally recommend to use standard autolinks as defined by
+    [CommonMark specification](https://spec.commonmark.org/0.31.2/#autolinks)
+    (i.e. enclosed between `<` and `>`), especially for links containing more
+    obscure combinations of non-alphanumeric characters.
+
 
 ## Version 0.5.3
 
