@@ -877,3 +877,15 @@ foo</p>
 .
 --fadmonitions
 ````````````````````````````````
+
+
+## Numeric entity for surrogate code point
+
+Surrogate code points (U+D800..U+DFFF) are not valid Unicode scalar values
+and must be replaced with U+FFFD, like U+0000.
+
+```````````````````````````````` example
+&#xD800; &#xDFFF; &#55296; &#57343;
+.
+<p>� � � �</p>
+````````````````````````````````
