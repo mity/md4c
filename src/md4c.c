@@ -1440,12 +1440,12 @@ md_build_attr_append_substr(MD_CTX* ctx, MD_ATTRIBUTE_BUILD* build,
     if(build->substr_count >= build->substr_alloc) {
         MD_TEXTTYPE* new_substr_types;
         OFF* new_substr_offsets;
-
-        build->substr_alloc = (build->substr_alloc > 0
+        int new_alloc = (build->substr_alloc > 0
                 ? build->substr_alloc + build->substr_alloc / 2
                 : 8);
+
         new_substr_types = (MD_TEXTTYPE*) realloc(build->substr_types,
-                                    build->substr_alloc * sizeof(MD_TEXTTYPE));
+                                    new_alloc * sizeof(MD_TEXTTYPE));
         if(new_substr_types == NULL) {
             MD_LOG("realloc() failed.");
             return -1;
@@ -1454,12 +1454,13 @@ md_build_attr_append_substr(MD_CTX* ctx, MD_ATTRIBUTE_BUILD* build,
 
         /* Note +1 to reserve space for final offset (== raw_size). */
         new_substr_offsets = (OFF*) realloc(build->substr_offsets,
-                                    (build->substr_alloc+1) * sizeof(OFF));
+                                    (new_alloc+1) * sizeof(OFF));
         if(new_substr_offsets == NULL) {
             MD_LOG("realloc() failed.");
             return -1;
         }
         build->substr_offsets = new_substr_offsets;
+        build->substr_alloc = new_alloc;
     }
 
     build->substr_types[build->substr_count] = type;
@@ -2136,7 +2137,7 @@ md_is_link_title(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, OFF beg,
         OFF line_end = lines[line_index].end;
 
         while(off < line_end) {
-            if(CH(off) == _T('\\')  &&  off+1 < ctx->size  &&  (ISPUNCT(off+1) || ISNEWLINE(off+1))) {
+            if(CH(off) == _T('\\')  &&  off+1 < line_end  &&  ISPUNCT(off+1)) {
                 off++;
             } else if(CH(off) == closer_char) {
                 /* Success. */
@@ -2237,17 +2238,18 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lin
     /* So, it _is_ a reference definition. Remember it. */
     if(ctx->n_ref_defs >= ctx->alloc_ref_defs) {
         MD_REF_DEF* new_defs;
-
-        ctx->alloc_ref_defs = (ctx->alloc_ref_defs > 0
+        int new_alloc = (ctx->alloc_ref_defs > 0
                 ? ctx->alloc_ref_defs + ctx->alloc_ref_defs / 2
                 : 16);
-        new_defs = (MD_REF_DEF*) realloc(ctx->ref_defs, ctx->alloc_ref_defs * sizeof(MD_REF_DEF));
+
+        new_defs = (MD_REF_DEF*) realloc(ctx->ref_defs, new_alloc * sizeof(MD_REF_DEF));
         if(new_defs == NULL) {
             MD_LOG("realloc() failed.");
             goto abort;
         }
 
         ctx->ref_defs = new_defs;
+        ctx->alloc_ref_defs = new_alloc;
     }
     def = &ctx->ref_defs[ctx->n_ref_defs];
     memset(def, 0, sizeof(MD_REF_DEF));
