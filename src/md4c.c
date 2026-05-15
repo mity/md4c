@@ -1424,8 +1424,8 @@ struct MD_ATTRIBUTE_BUILD_tag {
     CHAR* text;
     MD_TEXTTYPE* substr_types;
     OFF* substr_offsets;
-    int substr_count;
-    int substr_alloc;
+    SZ substr_count;
+    SZ substr_alloc;
     MD_TEXTTYPE trivial_types[1];
     OFF trivial_offsets[2];
 };
