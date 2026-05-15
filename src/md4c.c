@@ -2137,7 +2137,7 @@ md_is_link_title(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, OFF beg,
         OFF line_end = lines[line_index].end;
 
         while(off < line_end) {
-            if(CH(off) == _T('\\')  &&  off+1 < line_end  &&  ISPUNCT(off+1)) {
+            if(CH(off) == _T('\\')  &&  off+1 < ctx->size  &&  (ISPUNCT(off+1) || ISNEWLINE(off+1))) {
                 off++;
             } else if(CH(off) == closer_char) {
                 /* Success. */
