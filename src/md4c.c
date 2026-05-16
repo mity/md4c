@@ -1441,7 +1441,7 @@ md_build_attr_append_substr(MD_CTX* ctx, MD_ATTRIBUTE_BUILD* build,
     if(build->substr_count >= build->substr_alloc) {
         MD_TEXTTYPE* new_substr_types;
         OFF* new_substr_offsets;
-        int new_alloc = (build->substr_alloc > 0
+        SZ new_alloc = (build->substr_alloc > 0
                 ? build->substr_alloc + build->substr_alloc / 2
                 : 8);
 
@@ -2239,7 +2239,7 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lin
     /* So, it _is_ a reference definition. Remember it. */
     if(ctx->n_ref_defs >= ctx->alloc_ref_defs) {
         MD_REF_DEF* new_defs;
-        int new_alloc = (ctx->alloc_ref_defs > 0
+        SZ new_alloc = (ctx->alloc_ref_defs > 0
                 ? ctx->alloc_ref_defs + ctx->alloc_ref_defs / 2
                 : 16);
 
