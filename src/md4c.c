@@ -276,7 +276,8 @@ enum MD_LINETYPE_tag {
     MD_LINE_HTML,
     MD_LINE_TEXT,
     MD_LINE_TABLE,
-    MD_LINE_TABLEUNDERLINE
+    MD_LINE_TABLEUNDERLINE,
+    MD_LINE_ADMONITIONTAG
 };
 typedef enum MD_LINETYPE_tag MD_LINETYPE;
 
@@ -4862,9 +4863,10 @@ struct MD_BLOCK_tag {
 
 struct MD_CONTAINER_tag {
     CHAR ch;
-    unsigned is_loose       : 1;
-    unsigned is_task        : 1;
-    unsigned is_admonition  : 1;
+    unsigned is_loose           : 1;
+    unsigned is_task            : 1;
+    unsigned is_admonition      : 1;
+    unsigned admonition_type    : 3;
     unsigned start;
     unsigned mark_indent;
     unsigned contents_indent;
@@ -5884,7 +5886,9 @@ md_enter_child_containers(MD_CTX* ctx, int n_children)
                 break;
 
             case _T('>'):
-                MD_CHECK(md_push_container_bytes(ctx, MD_BLOCK_QUOTE, 0, 0, MD_BLOCK_CONTAINER_OPENER));
+                MD_CHECK(md_push_container_bytes(ctx,
+                                (c->is_admonition ? MD_BLOCK_ADMONITION : MD_BLOCK_QUOTE),
+                                0, c->admonition_type, MD_BLOCK_CONTAINER_OPENER));
                 break;
 
             default:
@@ -5926,7 +5930,7 @@ md_leave_child_containers(MD_CTX* ctx, int n_keep)
             case _T('>'):
                 MD_CHECK(md_push_container_bytes(ctx,
                                 (c->is_admonition ? MD_BLOCK_ADMONITION : MD_BLOCK_QUOTE),
-                                0, 0, MD_BLOCK_CONTAINER_CLOSER));
+                                0, c->admonition_type, MD_BLOCK_CONTAINER_CLOSER));
                 break;
 
             default:
@@ -6481,8 +6485,28 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
         ctx->containers[n_parents].task_mark_off = container.task_mark_off;
     }
 
-    if(n_children > 0)
+    if(n_children > 0) {
+        /* Check for admonition tag. */
+        if((ctx->parser.flags & MD_FLAG_ADMONITIONS)  &&  n_children > 0  &&
+           ctx->containers[ctx->n_containers-1].ch == _T('>'))
+        {
+            unsigned i;
+
+            for(i = 0; i < SIZEOF_ARRAY(MD_ADMONITION_TAGS); i++) {
+                if(line->end - line->beg == md_strlen(MD_ADMONITION_TAGS[i]) + 3  &&
+                   md_ascii_case_eq(STR(line->beg+2), MD_ADMONITION_TAGS[i], line->end - line->beg - 3))
+                {
+                    ctx->containers[ctx->n_containers-1].is_admonition = TRUE;
+                    ctx->containers[ctx->n_containers-1].admonition_type = i;
+                    line->type = MD_LINE_ADMONITIONTAG;
+                    break;
+                }
+            }
+        }
+
+        /* Enter all the child container blocks. */
         MD_CHECK(md_enter_child_containers(ctx, n_children));
+    }
 
 abort:
     return ret;
@@ -6547,30 +6571,10 @@ md_process_line(MD_CTX* ctx, const MD_LINE_ANALYSIS** p_pivot_line, MD_LINE_ANAL
         return 0;
     }
 
-    /* Admonition's leading line needs special treatment. */
-    if((ctx->parser.flags & MD_FLAG_ADMONITIONS)  &&
-       ctx->n_containers > 0  &&  ctx->containers[ctx->n_containers-1].ch == _T('>')  &&
-       ctx->current_block == NULL  &&  ctx->n_block_bytes >= (int)sizeof(MD_BLOCK))
-    {
-        MD_BLOCK* block = (MD_BLOCK*)((char*)ctx->block_bytes + ctx->n_block_bytes - sizeof(MD_BLOCK));
-
-        if(block->type == MD_BLOCK_QUOTE  &&  line->end - line->beg > 3  &&  line->end - line->beg < 16  &&
-           CH(line->beg) == _T('[')  &&  CH(line->beg+1) == _T('!')  &&  CH(line->end-1) == _T(']'))
-        {
-            unsigned i;
-
-            for(i = 0; i < SIZEOF_ARRAY(MD_ADMONITION_TAGS); i++) {
-                if(line->end - line->beg == md_strlen(MD_ADMONITION_TAGS[i]) + 3  &&
-                   md_ascii_case_eq(STR(line->beg+2), MD_ADMONITION_TAGS[i], line->end - line->beg - 3))
-                {
-                    ctx->containers[ctx->n_containers-1].is_admonition = TRUE;
-                    block->type = MD_BLOCK_ADMONITION;
-                    block->data = i;
-                    *p_pivot_line = &md_dummy_blank_line;
-                    return 0;
-                }
-            }
-        }
+    /* Admonition tag line. */
+    if(line->type == MD_LINE_ADMONITIONTAG) {
+        MD_ASSERT(ctx->current_block == NULL);
+        return 0;
     }
 
     /* The current block also ends if the line has different type. */
