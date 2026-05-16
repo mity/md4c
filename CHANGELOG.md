@@ -51,6 +51,15 @@ Fixes:
     Fix HTML block recognition in Windows Unicode builds of the parser
     (i.e. when built with `-DMD4C_USE_UTF16`).
 
+  * [#330](https://github.com/mity/md4c/pull/330):
+    The `md2html` utility collects the generated HTML into an in-memory growing
+    buffer and the respective code was not checking whether the size of the
+    buffer doesn't overflow.
+
+    This may have security implications for applications which use `md2html`
+    utility rather than call directly the md4c-html library and which pass the
+    utility a multi-gigabyte input to process.
+
 
 ## Version 0.5.3
 
