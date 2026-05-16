@@ -45,6 +45,12 @@ Changes:
     (i.e. enclosed between `<` and `>`), especially for links containing more
     obscure combinations of non-alphanumeric characters.
 
+Fixes:
+
+  * [#328](https://github.com/mity/md4c/issues/328):
+    Fix HTML block recognition in Windows Unicode builds of the parser
+    (i.e. when built with `-DMD4C_USE_UTF16`).
+
 
 ## Version 0.5.3
 
