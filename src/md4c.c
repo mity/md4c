@@ -5617,7 +5617,7 @@ struct TAG_tag {
 #ifdef X
     #undef X
 #endif
-#define X(name)     { _T(name), (sizeof(name)-1) / sizeof(CHAR) }
+#define X(name)     { _T(name), (sizeof(_T(name))-1) / sizeof(CHAR) }
 #define Xend        { NULL, 0 }
 
 static const TAG t1[] = { X("pre"), X("script"), X("style"), X("textarea"), Xend };
