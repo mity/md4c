@@ -47,6 +47,11 @@ Changes:
 
 Fixes:
 
+  * [#325](https://github.com/mity/md4c/pull/325):
+    The HTML renderer now replaces UTF-16 surrogate codepoints, which should
+    not appear in the valid UTF-8 input, with the replacement character U+FFFD
+    (as it was already doing for invalid codepoints above U+10FFFF).
+
   * [#328](https://github.com/mity/md4c/issues/328):
     Fix HTML block recognition in Windows Unicode builds of the parser
     (i.e. when built with `-DMD4C_USE_UTF16`).
