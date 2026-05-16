@@ -101,6 +101,13 @@ typedef enum MD_BLOCKTYPE {
     MD_BLOCK_TH,
     MD_BLOCK_TD,
 
+    /* A single footnote definition, rendered at the end of the document.
+     * Detail: Structure MD_BLOCK_FOOTNOTE_DEF_DETAIL.
+     * Note: Used only if extension MD_FLAG_FOOTNOTES is enabled.
+     * Only definitions that are actually referenced in the document are
+     * emitted, in order of first reference. */
+    MD_BLOCK_FOOTNOTE_DEF,
+
     /* Adminition extension.
      * Detail MD_BLOCK_ADMONITION_DETAIL.
      * Note: Recognized only when MD_FLAG_ADMONITIONS is enabled. */
@@ -165,7 +172,14 @@ typedef enum MD_SPANTYPE {
     /* <sub>...</sub>
      * Syntax: ~subscript~
      * Note: Recognized only when MD_FLAG_SUBSCRIPTS is enabled. */
-    MD_SPAN_SUBSCRIPT
+    MD_SPAN_SUBSCRIPT,
+
+    /* Footnote reference, e.g. [^1] or [^note].
+     * Syntax: [^label]
+     * Note: Recognized only when MD_FLAG_FOOTNOTES is enabled.
+     * The span is self-contained: no MD_TEXT callbacks fire between enter and
+     * leave. All needed information is in MD_SPAN_FOOTNOTE_REF_DETAIL. */
+    MD_SPAN_FOOTNOTE_REF
 } MD_SPANTYPE;
 
 /* Text is the actual textual contents of span. */
@@ -323,6 +337,19 @@ typedef struct MD_SPAN_WIKILINK {
     MD_ATTRIBUTE target;
 } MD_SPAN_WIKILINK_DETAIL;
 
+/* Detailed info for MD_SPAN_FOOTNOTE_REF. */
+typedef struct MD_SPAN_FOOTNOTE_REF_DETAIL {
+    unsigned int id;        /* 1-based identifier of the referenced footnote */
+    unsigned int ref_id;    /* 1-based identifier of this reference among references to the same footnote */
+    MD_ATTRIBUTE label;     /* Raw label text, e.g. "1" or "note" */
+} MD_SPAN_FOOTNOTE_REF_DETAIL;
+
+/* Detailed info for MD_BLOCK_FOOTNOTE_DEF. */
+typedef struct MD_BLOCK_FOOTNOTE_DEF_DETAIL {
+    unsigned int id;        /* 1-based identifier of this footnote */
+    unsigned int ref_count; /* Number of references to this footnote */
+    MD_ATTRIBUTE label;     /* Raw label text */
+} MD_BLOCK_FOOTNOTE_DEF_DETAIL;
 
 /* Flags specifying extensions/deviations from CommonMark specification.
  *
@@ -348,6 +375,7 @@ typedef struct MD_SPAN_WIKILINK {
 #define MD_FLAG_SUPERSCRIPTS                0x20000 /* Enable ^superscript^ spans. */
 #define MD_FLAG_SUBSCRIPTS                  0x40000 /* Enable ~subscript~ spans. */
 #define MD_FLAG_ADMONITIONS                 0x80000 /* Enable admonitions extension. */
+#define MD_FLAG_FOOTNOTES                   0x100000 /* Enable [^label] footnote references. */
 
 #define MD_FLAG_PERMISSIVEAUTOLINKS         (MD_FLAG_PERMISSIVEEMAILAUTOLINKS | MD_FLAG_PERMISSIVEURLAUTOLINKS | MD_FLAG_PERMISSIVEWWWAUTOLINKS)
 #define MD_FLAG_NOHTML                      (MD_FLAG_NOHTMLBLOCKS | MD_FLAG_NOHTMLSPANS)
@@ -362,7 +390,7 @@ typedef struct MD_SPAN_WIKILINK {
  * extensions, bringing the dialect closer to the original, are implemented.
  */
 #define MD_DIALECT_COMMONMARK               0
-#define MD_DIALECT_GITHUB                   (MD_FLAG_PERMISSIVEAUTOLINKS | MD_FLAG_TABLES | MD_FLAG_STRIKETHROUGH | MD_FLAG_TASKLISTS | MD_FLAG_ADMONITIONS)
+#define MD_DIALECT_GITHUB                   (MD_FLAG_PERMISSIVEAUTOLINKS | MD_FLAG_TABLES | MD_FLAG_STRIKETHROUGH | MD_FLAG_TASKLISTS | MD_FLAG_ADMONITIONS | MD_FLAG_FOOTNOTES)
 
 /* Parser structure.
  */

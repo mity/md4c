@@ -27,6 +27,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stddef.h>
 #include <string.h>
 
 #include "md4c.h"
@@ -149,6 +150,36 @@ typedef struct MD_BLOCK_tag MD_BLOCK;
 typedef struct MD_CONTAINER_tag MD_CONTAINER;
 typedef struct MD_REF_DEF_tag MD_REF_DEF;
 
+/* Forward declaration; full definition is below with MD_LINE_tag. */
+typedef struct MD_LINE_tag MD_LINE;
+
+typedef struct MD_FOOTNOTE_DEF_tag MD_FOOTNOTE_DEF;
+struct MD_FOOTNOTE_DEF_tag {
+    CHAR* label;
+    SZ label_size;
+    unsigned hash;
+    unsigned int index;         /* 0 = unreferenced; 1-based order of first reference */
+    unsigned int ref_count;     /* Number of references to this footnote. */
+    MD_LINE* content_lines;     /* always heap-allocated; freed by md_free_footnote_defs */
+    MD_SIZE n_content_lines;
+};
+
+typedef struct MD_LABEL_HASH_ENTRY_tag MD_LABEL_HASH_ENTRY;
+struct MD_LABEL_HASH_ENTRY_tag {
+    void* def;
+    CHAR* label;
+    SZ label_size;
+    unsigned hash;
+};
+
+typedef struct MD_LABEL_HASH_TABLE_tag MD_LABEL_HASH_TABLE;
+struct MD_LABEL_HASH_TABLE_tag {
+    MD_LABEL_HASH_ENTRY* entries;
+    int n_entries;
+    void** buckets;
+    int n_buckets;
+};
+
 
 /* During analyzes of inline marks, we need to manage stacks of unresolved
  * openers of the given type.
@@ -179,9 +210,15 @@ struct MD_CTX_tag {
     MD_REF_DEF* ref_defs;
     int n_ref_defs;
     int alloc_ref_defs;
-    void** ref_def_hashtable;
-    int ref_def_hashtable_size;
+    MD_LABEL_HASH_TABLE ref_def_hashtable;
     SZ max_ref_def_output;
+
+    /* Footnote definitions. */
+    MD_FOOTNOTE_DEF* footnote_defs;
+    int n_footnote_defs;
+    int alloc_footnote_defs;
+    MD_LABEL_HASH_TABLE footnote_hashtable;
+    unsigned int next_footnote_index;   /* 1-based counter for sequential numbering */
 
     /* Stack of inline/span markers.
      * This is only used for parsing a single block contents but by storing it
@@ -291,7 +328,6 @@ struct MD_LINE_ANALYSIS_tag {
     unsigned indent;        /* Indentation level. */
 };
 
-typedef struct MD_LINE_tag MD_LINE;
 struct MD_LINE_tag {
     OFF beg;
     OFF end;
@@ -1704,42 +1740,43 @@ md_link_label_cmp(const CHAR* a_label, SZ a_size, const CHAR* b_label, SZ b_size
     return 0;
 }
 
-typedef struct MD_REF_DEF_LIST_tag MD_REF_DEF_LIST;
-struct MD_REF_DEF_LIST_tag {
-    int n_ref_defs;
-    int alloc_ref_defs;
-    MD_REF_DEF* ref_defs[];  /* Valid items always  point into ctx->ref_defs[] */
+typedef struct MD_LABEL_HASH_LIST_tag MD_LABEL_HASH_LIST;
+struct MD_LABEL_HASH_LIST_tag {
+    int n_entries;
+    int alloc_entries;
+    MD_LABEL_HASH_ENTRY* entries[];
 };
 
 static int
-md_ref_def_cmp(const void* a, const void* b)
+md_label_hash_entry_cmp(const void* a, const void* b)
 {
-    const MD_REF_DEF* a_ref = *(const MD_REF_DEF**)a;
-    const MD_REF_DEF* b_ref = *(const MD_REF_DEF**)b;
+    const MD_LABEL_HASH_ENTRY* a_entry = *(const MD_LABEL_HASH_ENTRY**)a;
+    const MD_LABEL_HASH_ENTRY* b_entry = *(const MD_LABEL_HASH_ENTRY**)b;
 
-    if(a_ref->hash < b_ref->hash)
+    if(a_entry->hash < b_entry->hash)
         return -1;
-    else if(a_ref->hash > b_ref->hash)
+    else if(a_entry->hash > b_entry->hash)
         return +1;
     else
-        return md_link_label_cmp(a_ref->label, a_ref->label_size, b_ref->label, b_ref->label_size);
+        return md_link_label_cmp(a_entry->label, a_entry->label_size,
+                    b_entry->label, b_entry->label_size);
 }
 
 static int
-md_ref_def_cmp_for_sort(const void* a, const void* b)
+md_label_hash_entry_cmp_for_sort(const void* a, const void* b)
 {
     int cmp;
 
-    cmp = md_ref_def_cmp(a, b);
+    cmp = md_label_hash_entry_cmp(a, b);
 
     /* Ensure stability of the sorting. */
     if(cmp == 0) {
-        const MD_REF_DEF* a_ref = *(const MD_REF_DEF**)a;
-        const MD_REF_DEF* b_ref = *(const MD_REF_DEF**)b;
+        const MD_LABEL_HASH_ENTRY* a_entry = *(const MD_LABEL_HASH_ENTRY**)a;
+        const MD_LABEL_HASH_ENTRY* b_entry = *(const MD_LABEL_HASH_ENTRY**)b;
 
-        if(a_ref < b_ref)
+        if(a_entry < b_entry)
             cmp = -1;
-        else if(a_ref > b_ref)
+        else if(a_entry > b_entry)
             cmp = +1;
         else
             cmp = 0;
@@ -1749,110 +1786,133 @@ md_ref_def_cmp_for_sort(const void* a, const void* b)
 }
 
 static int
-md_build_ref_def_hashtable(MD_CTX* ctx)
+md_build_label_hashtable(MD_CTX* ctx, MD_LABEL_HASH_TABLE* table,
+                         void* defs, int n_defs, size_t def_size,
+                         size_t label_offset, size_t label_size_offset,
+                         size_t hash_offset)
 {
     int i, j;
 
-    if(ctx->n_ref_defs == 0)
+    MD_UNUSED(ctx);
+
+    if(n_defs == 0)
         return 0;
 
-    ctx->ref_def_hashtable_size = (ctx->n_ref_defs * 5) / 4;
-    ctx->ref_def_hashtable = malloc(ctx->ref_def_hashtable_size * sizeof(void*));
-    if(ctx->ref_def_hashtable == NULL) {
+    table->n_entries = n_defs;
+    table->entries = (MD_LABEL_HASH_ENTRY*) malloc(n_defs * sizeof(MD_LABEL_HASH_ENTRY));
+    if(table->entries == NULL) {
         MD_LOG("malloc() failed.");
         goto abort;
     }
-    memset(ctx->ref_def_hashtable, 0, ctx->ref_def_hashtable_size * sizeof(void*));
 
-    /* Each member of ctx->ref_def_hashtable[] can be:
+    table->n_buckets = (n_defs * 5) / 4;
+    table->buckets = malloc(table->n_buckets * sizeof(void*));
+    if(table->buckets == NULL) {
+        MD_LOG("malloc() failed.");
+        goto abort;
+    }
+    memset(table->buckets, 0, table->n_buckets * sizeof(void*));
+
+    /* Each member of table->buckets[] can be:
      *  -- NULL,
-     *  -- pointer to the MD_REF_DEF in ctx->ref_defs[], or
-     *  -- pointer to a MD_REF_DEF_LIST, which holds multiple pointers to
-     *     such MD_REF_DEFs.
+     *  -- pointer to the MD_LABEL_HASH_ENTRY in table->entries[], or
+     *  -- pointer to a MD_LABEL_HASH_LIST, which holds multiple pointers to
+     *     such entries.
      */
-    for(i = 0; i < ctx->n_ref_defs; i++) {
-        MD_REF_DEF* def = &ctx->ref_defs[i];
+    for(i = 0; i < n_defs; i++) {
+        char* def = (char*) defs + i * def_size;
+        MD_LABEL_HASH_ENTRY* entry = &table->entries[i];
         void* bucket;
-        MD_REF_DEF_LIST* list;
+        MD_LABEL_HASH_LIST* list;
 
-        def->hash = md_link_label_hash(def->label, def->label_size);
-        bucket = ctx->ref_def_hashtable[def->hash % ctx->ref_def_hashtable_size];
+        entry->def = def;
+        entry->label = *(CHAR**) (def + label_offset);
+        entry->label_size = *(SZ*) (def + label_size_offset);
+        entry->hash = md_link_label_hash(entry->label, entry->label_size);
+        *(unsigned*) (def + hash_offset) = entry->hash;
+
+        bucket = table->buckets[entry->hash % table->n_buckets];
 
         if(bucket == NULL) {
-            /* The bucket is empty. Make it just point to the def. */
-            ctx->ref_def_hashtable[def->hash % ctx->ref_def_hashtable_size] = def;
+            /* The bucket is empty. Make it just point to the entry. */
+            table->buckets[entry->hash % table->n_buckets] = entry;
             continue;
         }
 
-        if(ctx->ref_defs <= (MD_REF_DEF*) bucket  &&  (MD_REF_DEF*) bucket < ctx->ref_defs + ctx->n_ref_defs) {
-            /* The bucket already contains one ref. def. Lets see whether it
-             * is the same label (ref. def. duplicate) or different one
-             * (hash conflict). */
-            MD_REF_DEF* old_def = (MD_REF_DEF*) bucket;
+        if(table->entries <= (MD_LABEL_HASH_ENTRY*) bucket  &&
+           (MD_LABEL_HASH_ENTRY*) bucket < table->entries + table->n_entries)
+        {
+            /* The bucket already contains one entry. Lets see whether it is the
+             * same label (duplicate) or different one (hash conflict). */
+            MD_LABEL_HASH_ENTRY* old_entry = (MD_LABEL_HASH_ENTRY*) bucket;
 
-            if(md_link_label_cmp(def->label, def->label_size, old_def->label, old_def->label_size) == 0) {
-                /* Duplicate label: Ignore this ref. def. */
+            if(md_link_label_cmp(entry->label, entry->label_size,
+                        old_entry->label, old_entry->label_size) == 0) {
+                /* Duplicate label: Ignore this definition. */
                 continue;
             }
 
-            /* Make the bucket complex, i.e. able to hold more ref. defs. */
-            list = (MD_REF_DEF_LIST*) malloc(sizeof(MD_REF_DEF_LIST) + 2 * sizeof(MD_REF_DEF*));
+            /* Make the bucket complex, i.e. able to hold more entries. */
+            list = (MD_LABEL_HASH_LIST*) malloc(sizeof(MD_LABEL_HASH_LIST) +
+                        2 * sizeof(MD_LABEL_HASH_ENTRY*));
             if(list == NULL) {
                 MD_LOG("malloc() failed.");
                 goto abort;
             }
-            list->ref_defs[0] = old_def;
-            list->ref_defs[1] = def;
-            list->n_ref_defs = 2;
-            list->alloc_ref_defs = 2;
-            ctx->ref_def_hashtable[def->hash % ctx->ref_def_hashtable_size] = list;
+            list->entries[0] = old_entry;
+            list->entries[1] = entry;
+            list->n_entries = 2;
+            list->alloc_entries = 2;
+            table->buckets[entry->hash % table->n_buckets] = list;
             continue;
         }
 
-        /* Append the def to the complex bucket list.
+        /* Append the entry to the complex bucket list.
          *
          * Note in this case we ignore potential duplicates to avoid expensive
          * iterating over the complex bucket. Below, we revisit all the complex
          * buckets and handle it more cheaply after the complex bucket contents
          * is sorted. */
-        list = (MD_REF_DEF_LIST*) bucket;
-        if(list->n_ref_defs >= list->alloc_ref_defs) {
-            int alloc_ref_defs = list->alloc_ref_defs + list->alloc_ref_defs / 2;
-            MD_REF_DEF_LIST* list_tmp = (MD_REF_DEF_LIST*) realloc(list,
-                        sizeof(MD_REF_DEF_LIST) + alloc_ref_defs * sizeof(MD_REF_DEF*));
+        list = (MD_LABEL_HASH_LIST*) bucket;
+        if(list->n_entries >= list->alloc_entries) {
+            int alloc_entries = list->alloc_entries + list->alloc_entries / 2;
+            MD_LABEL_HASH_LIST* list_tmp = (MD_LABEL_HASH_LIST*) realloc(list,
+                        sizeof(MD_LABEL_HASH_LIST) + alloc_entries * sizeof(MD_LABEL_HASH_ENTRY*));
             if(list_tmp == NULL) {
                 MD_LOG("realloc() failed.");
                 goto abort;
             }
             list = list_tmp;
-            list->alloc_ref_defs = alloc_ref_defs;
-            ctx->ref_def_hashtable[def->hash % ctx->ref_def_hashtable_size] = list;
+            list->alloc_entries = alloc_entries;
+            table->buckets[entry->hash % table->n_buckets] = list;
         }
 
-        list->ref_defs[list->n_ref_defs] = def;
-        list->n_ref_defs++;
+        list->entries[list->n_entries] = entry;
+        list->n_entries++;
     }
 
     /* Sort the complex buckets so we can use bsearch() with them. */
-    for(i = 0; i < ctx->ref_def_hashtable_size; i++) {
-        void* bucket = ctx->ref_def_hashtable[i];
-        MD_REF_DEF_LIST* list;
+    for(i = 0; i < table->n_buckets; i++) {
+        void* bucket = table->buckets[i];
+        MD_LABEL_HASH_LIST* list;
 
         if(bucket == NULL)
             continue;
-        if(ctx->ref_defs <= (MD_REF_DEF*) bucket  &&  (MD_REF_DEF*) bucket < ctx->ref_defs + ctx->n_ref_defs)
+        if(table->entries <= (MD_LABEL_HASH_ENTRY*) bucket  &&
+           (MD_LABEL_HASH_ENTRY*) bucket < table->entries + table->n_entries)
             continue;
 
-        list = (MD_REF_DEF_LIST*) bucket;
-        qsort(list->ref_defs, list->n_ref_defs, sizeof(MD_REF_DEF*), md_ref_def_cmp_for_sort);
+        list = (MD_LABEL_HASH_LIST*) bucket;
+        qsort(list->entries, list->n_entries, sizeof(MD_LABEL_HASH_ENTRY*),
+                    md_label_hash_entry_cmp_for_sort);
 
         /* Disable all duplicates in the complex bucket by forcing all such
-         * records to point to the 1st such ref. def. I.e. no matter which
+         * records to point to the 1st such entry. I.e. no matter which
          * record is found during the lookup, it will always point to the right
-         * ref. def. in ctx->ref_defs[]. */
-        for(j = 1; j < list->n_ref_defs; j++) {
-            if(md_ref_def_cmp(&list->ref_defs[j-1], &list->ref_defs[j]) == 0)
-                list->ref_defs[j] = list->ref_defs[j-1];
+         * definition. */
+        for(j = 1; j < list->n_entries; j++) {
+            if(md_label_hash_entry_cmp(&list->entries[j-1], &list->entries[j]) == 0)
+                list->entries[j] = list->entries[j-1];
         }
     }
 
@@ -1863,62 +1923,234 @@ abort:
 }
 
 static void
-md_free_ref_def_hashtable(MD_CTX* ctx)
+md_free_label_hashtable(MD_LABEL_HASH_TABLE* table)
 {
-    if(ctx->ref_def_hashtable != NULL) {
+    if(table->buckets != NULL) {
         int i;
 
-        for(i = 0; i < ctx->ref_def_hashtable_size; i++) {
-            void* bucket = ctx->ref_def_hashtable[i];
+        for(i = 0; i < table->n_buckets; i++) {
+            void* bucket = table->buckets[i];
             if(bucket == NULL)
                 continue;
-            if(ctx->ref_defs <= (MD_REF_DEF*) bucket  &&  (MD_REF_DEF*) bucket < ctx->ref_defs + ctx->n_ref_defs)
+            if(table->entries <= (MD_LABEL_HASH_ENTRY*) bucket  &&
+               (MD_LABEL_HASH_ENTRY*) bucket < table->entries + table->n_entries)
                 continue;
             free(bucket);
         }
 
-        free(ctx->ref_def_hashtable);
+        free(table->buckets);
     }
+
+    free(table->entries);
+}
+
+static void*
+md_lookup_label_hashtable(MD_LABEL_HASH_TABLE* table, const CHAR* label, SZ label_size)
+{
+    unsigned hash;
+    void* bucket;
+
+    if(table->n_buckets == 0)
+        return NULL;
+
+    hash = md_link_label_hash(label, label_size);
+    bucket = table->buckets[hash % table->n_buckets];
+
+    if(bucket == NULL) {
+        return NULL;
+    } else if(table->entries <= (MD_LABEL_HASH_ENTRY*) bucket  &&
+              (MD_LABEL_HASH_ENTRY*) bucket < table->entries + table->n_entries)
+    {
+        MD_LABEL_HASH_ENTRY* entry = (MD_LABEL_HASH_ENTRY*) bucket;
+
+        if(entry->hash == hash  &&
+           md_link_label_cmp(entry->label, entry->label_size, label, label_size) == 0)
+            return entry->def;
+        else
+            return NULL;
+    } else {
+        MD_LABEL_HASH_LIST* list = (MD_LABEL_HASH_LIST*) bucket;
+        MD_LABEL_HASH_ENTRY key_buf;
+        const MD_LABEL_HASH_ENTRY* key = &key_buf;
+        MD_LABEL_HASH_ENTRY** ret;
+
+        key_buf.label = (CHAR*) label;
+        key_buf.label_size = label_size;
+        key_buf.hash = hash;
+
+        ret = (MD_LABEL_HASH_ENTRY**) bsearch(&key, list->entries,
+                    list->n_entries, sizeof(MD_LABEL_HASH_ENTRY*), md_label_hash_entry_cmp);
+        if(ret != NULL)
+            return (*ret)->def;
+        else
+            return NULL;
+    }
+}
+
+static int
+md_build_ref_def_hashtable(MD_CTX* ctx)
+{
+    return md_build_label_hashtable(ctx, &ctx->ref_def_hashtable,
+                ctx->ref_defs, ctx->n_ref_defs, sizeof(MD_REF_DEF),
+                offsetof(MD_REF_DEF, label), offsetof(MD_REF_DEF, label_size),
+                offsetof(MD_REF_DEF, hash));
+}
+
+static void
+md_free_ref_def_hashtable(MD_CTX* ctx)
+{
+    md_free_label_hashtable(&ctx->ref_def_hashtable);
 }
 
 static const MD_REF_DEF*
 md_lookup_ref_def(MD_CTX* ctx, const CHAR* label, SZ label_size)
 {
-    unsigned hash;
-    void* bucket;
+    return (const MD_REF_DEF*) md_lookup_label_hashtable(&ctx->ref_def_hashtable,
+                label, label_size);
+}
 
-    if(ctx->ref_def_hashtable_size == 0)
-        return NULL;
 
-    hash = md_link_label_hash(label, label_size);
-    bucket = ctx->ref_def_hashtable[hash % ctx->ref_def_hashtable_size];
+/*******************************
+ ***  Footnote Definitions   ***
+ *******************************/
 
-    if(bucket == NULL) {
-        return NULL;
-    } else if(ctx->ref_defs <= (MD_REF_DEF*) bucket  &&  (MD_REF_DEF*) bucket < ctx->ref_defs + ctx->n_ref_defs) {
-        const MD_REF_DEF* def = (MD_REF_DEF*) bucket;
+/* Returns 0 if not a footnote definition.
+ * Returns N > 0 (number of lines consumed) if it is one and the definition
+ * was stored successfully.
+ * Returns -1 on memory allocation error.
+ */
+static int
+md_is_footnote_definition(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
+{
+    OFF off;
+    OFF label_beg, label_end;
+    MD_LINE* content_lines = NULL;
+    MD_FOOTNOTE_DEF* def;
+    MD_SIZE n;
+    int ret = 0;
 
-        if(md_link_label_cmp(def->label, def->label_size, label, label_size) == 0)
-            return def;
+    /* Caller guarantees: n_lines >= 1 and lines[0] starts with [^. */
+    MD_ASSERT(n_lines >= 1);
+    off = lines[0].beg;
+    MD_ASSERT(CH(off) == _T('[')  &&  CH(off+1) == _T('^'));
+    off += 2;
+
+    /* Label: non-empty sequence of non-whitespace, non-bracket chars. */
+    label_beg = off;
+    while(off < lines[0].end  &&  CH(off) != _T(']')  &&  !ISWHITESPACE(off)  &&  CH(off) != _T('['))
+        off++;
+    label_end = off;
+    if(label_end == label_beg)
+        return FALSE;
+
+    /* Closing bracket. */
+    if(off >= lines[0].end  ||  CH(off) != _T(']'))
+        return FALSE;
+    off++;
+
+    /* Colon. */
+    if(off >= lines[0].end  ||  CH(off) != _T(':'))
+        return FALSE;
+    off++;
+
+    /* Skip optional whitespace after colon on the first line. */
+    while(off < lines[0].end  &&  ISWHITESPACE(off))
+        off++;
+
+    /* Count continuation lines.
+     *
+     * MD_LINE::beg is already past leading whitespace (md4c strips indentation
+     * before storing lines). We detect indented continuation lines by checking
+     * whether the raw character just before lines[n].beg is a space or tab —
+     * which it will be iff the line had any indentation.
+     *
+     * Blank lines cannot appear inside a paragraph block (they always trigger
+     * a block boundary), so we do not need to handle them here.
+     */
+    n = 1;
+    while(n < n_lines) {
+        OFF lb = lines[n].beg;
+        if(lb > 0  &&  (ctx->text[lb - 1] == _T(' ')  ||  ctx->text[lb - 1] == _T('\t')))
+            n++;
         else
-            return NULL;
-    } else {
-        MD_REF_DEF_LIST* list = (MD_REF_DEF_LIST*) bucket;
-        MD_REF_DEF key_buf;
-        const MD_REF_DEF* key = &key_buf;
-        const MD_REF_DEF** ret;
-
-        key_buf.label = (CHAR*) label;
-        key_buf.label_size = label_size;
-        key_buf.hash = md_link_label_hash(key_buf.label, key_buf.label_size);
-
-        ret = (const MD_REF_DEF**) bsearch(&key, list->ref_defs,
-                    list->n_ref_defs, sizeof(MD_REF_DEF*), md_ref_def_cmp);
-        if(ret != NULL)
-            return *ret;
-        else
-            return NULL;
+            break;
     }
+
+    /* Grow footnote_defs array if needed. */
+    if(ctx->n_footnote_defs >= ctx->alloc_footnote_defs) {
+        MD_FOOTNOTE_DEF* new_defs;
+
+        ctx->alloc_footnote_defs = (ctx->alloc_footnote_defs > 0
+                ? ctx->alloc_footnote_defs + ctx->alloc_footnote_defs / 2
+                : 8);
+        new_defs = (MD_FOOTNOTE_DEF*) realloc(ctx->footnote_defs,
+                        ctx->alloc_footnote_defs * sizeof(MD_FOOTNOTE_DEF));
+        if(new_defs == NULL) {
+            MD_LOG("realloc() failed.");
+            ret = -1;
+            goto abort;
+        }
+        ctx->footnote_defs = new_defs;
+    }
+
+    /* Build content_lines array.
+     * Line 0 content starts after the "[^label]: " prefix.
+     * Lines 1..n-1 are stored verbatim (md4c strips indentation before
+     * handing us MD_LINE, so no further adjustment is needed). */
+    content_lines = (MD_LINE*) malloc(n * sizeof(MD_LINE));
+    if(content_lines == NULL) {
+        MD_LOG("malloc() failed.");
+        ret = -1;
+        goto abort;
+    }
+
+    content_lines[0].beg = off;
+    content_lines[0].end = lines[0].end;
+    if(n > 1)
+        memcpy(content_lines + 1, lines + 1, (n - 1) * sizeof(MD_LINE));
+
+    def = &ctx->footnote_defs[ctx->n_footnote_defs];
+    memset(def, 0, sizeof(MD_FOOTNOTE_DEF));
+    def->label = (CHAR*) STR(label_beg);
+    def->label_size = label_end - label_beg;
+    def->hash = md_link_label_hash(def->label, def->label_size);
+    def->content_lines = content_lines;
+    def->n_content_lines = n;
+
+    ctx->n_footnote_defs++;
+    return (int) n;
+
+abort:
+    free(content_lines);
+    return ret;
+}
+
+static MD_FOOTNOTE_DEF*
+md_lookup_footnote_def(MD_CTX* ctx, const CHAR* label, SZ label_size)
+{
+    return (MD_FOOTNOTE_DEF*) md_lookup_label_hashtable(&ctx->footnote_hashtable,
+                label, label_size);
+}
+
+static int
+md_build_footnote_def_hashtable(MD_CTX* ctx)
+{
+    return md_build_label_hashtable(ctx, &ctx->footnote_hashtable,
+                ctx->footnote_defs, ctx->n_footnote_defs, sizeof(MD_FOOTNOTE_DEF),
+                offsetof(MD_FOOTNOTE_DEF, label), offsetof(MD_FOOTNOTE_DEF, label_size),
+                offsetof(MD_FOOTNOTE_DEF, hash));
+}
+
+static void
+md_free_footnote_defs(MD_CTX* ctx)
+{
+    int i;
+
+    md_free_label_hashtable(&ctx->footnote_hashtable);
+
+    for(i = 0; i < ctx->n_footnote_defs; i++)
+        free(ctx->footnote_defs[i].content_lines);
+    free(ctx->footnote_defs);
 }
 
 
@@ -2558,6 +2790,7 @@ struct MD_MARK_tag {
 #define MD_MARK_OPENER                      0x04  /* Definitely opener. */
 #define MD_MARK_CLOSER                      0x08  /* Definitely closer. */
 #define MD_MARK_RESOLVED                    0x10  /* Resolved in any definite way. */
+#define MD_MARK_FOOTNOTE_REF                0x40  /* '[' opener is a [^label] footnote ref, not a link. */
 
 /* Mark flags specific for various mark types (so they can share bits). */
 #define MD_MARK_EMPH_OC                     0x20  /* Opener/closer mixed candidate. Helper for the "rule of 3". */
@@ -3207,6 +3440,18 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table_m
                 continue;
             }
 
+            /* A potential footnote reference: [^label] */
+            if((ctx->parser.flags & MD_FLAG_FOOTNOTES)  &&
+               ch == _T('[')  &&  off+1 < line->end  &&  CH(off+1) == _T('^'))
+            {
+                OFF tmp = off + 2;  /* skip [^ */
+                ADD_MARK(_T('['), off, tmp, MD_MARK_POTENTIAL_OPENER | MD_MARK_FOOTNOTE_REF);
+                off = tmp;
+                /* One dummy to store the resolved footnote index. */
+                ADD_MARK('D', off, off, 0);
+                continue;
+            }
+
             /* A potential link or its part. */
             if(ch == _T('[')  ||  (ch == _T('!') && off+1 < line->end && CH(off+1) == _T('['))) {
                 OFF tmp = (ch == _T('[') ? off+1 : off+2);
@@ -3496,6 +3741,13 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
         } else {
             next_opener = NULL;
             next_closer = NULL;
+        }
+
+        /* Skip footnote ref openers: they are resolved later in
+         * md_resolve_footnote_refs(). */
+        if(opener->flags & MD_MARK_FOOTNOTE_REF) {
+            opener_index = next_index;
+            continue;
         }
 
         /* If nested ("[ [ ] ]"), we need to make sure that:
@@ -4235,6 +4487,60 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
     }
 }
 
+/* Resolve all footnote references [^label] in the current block.
+ * Called after md_resolve_links(), so all regular links are already resolved.
+ * Footnote opener marks have MD_MARK_FOOTNOTE_REF set and were skipped by
+ * md_resolve_links(). */
+static void
+md_resolve_footnote_refs(MD_CTX* ctx)
+{
+    int i;
+
+    for(i = 0; i < ctx->n_marks; i++) {
+        MD_MARK* opener = &ctx->marks[i];
+        MD_MARK* closer;
+        MD_MARK* index_mark;
+        MD_FOOTNOTE_DEF* def;
+        OFF label_beg, label_end;
+
+        /* Only interested in potential footnote ref openers that have not
+         * yet been resolved (md_resolve_links() skips them). */
+        if(!(opener->flags & MD_MARK_FOOTNOTE_REF))
+            continue;
+        if(opener->next < 0)
+            continue;   /* no matching ']' was found */
+
+        closer = &ctx->marks[opener->next];
+
+        /* Label is the raw text between the opener end and the closer begin.
+         * opener->end points past [^, closer->beg points to ]. */
+        label_beg = opener->end;
+        label_end = closer->beg;
+
+        if(label_beg >= label_end)
+            continue;   /* empty label */
+
+        def = md_lookup_footnote_def(ctx, STR(label_beg), label_end - label_beg);
+        if(def == NULL)
+            continue;   /* unknown label -> leave unresolved -> literal text */
+
+        /* Assign index on first reference. */
+        if(def->index == 0)
+            def->index = ++ctx->next_footnote_index;
+        def->ref_count++;
+
+        /* Store the public callback details in the dummy mark after the opener. */
+        index_mark = opener + 1;
+        MD_ASSERT(index_mark->ch == 'D');
+        index_mark->beg = def->index;
+        index_mark->end = def->ref_count;
+
+        /* Mark as resolved. */
+        opener->flags |= MD_MARK_OPENER | MD_MARK_RESOLVED;
+        closer->flags |= MD_MARK_CLOSER | MD_MARK_RESOLVED;
+    }
+}
+
 /* Analyze marks (build ctx->marks). */
 static int
 md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table_mode)
@@ -4255,8 +4561,13 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table
     ctx->unresolved_link_head = -1;
     ctx->unresolved_link_tail = -1;
 
+    /* (2) Footnote references (if enabled). Must run after links so that
+     * footnote pairs inside resolved links are still found correctly. */
+    if(ctx->parser.flags & MD_FLAG_FOOTNOTES)
+        md_resolve_footnote_refs(ctx);
+
     if(table_mode) {
-        /* (2) Analyze table cell boundaries. */
+        /* (3) Analyze table cell boundaries. */
         MD_ASSERT(n_lines == 1);
         ctx->n_table_cell_boundaries = 0;
         for(i = 0; i < ctx->n_marks; i++) {
@@ -4268,7 +4579,7 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table
         return ret;
     }
 
-    /* (3) Emphasis and strong emphasis; permissive autolinks. */
+    /* (4) Emphasis and strong emphasis; permissive autolinks. */
     md_analyze_link_contents(ctx, lines, n_lines, 0, ctx->n_marks);
 
 abort:
@@ -4364,6 +4675,28 @@ md_enter_leave_span_wikilink(MD_CTX* ctx, int enter, const CHAR* target, SZ targ
 
 abort:
     md_free_attribute(ctx, &target_build);
+    return ret;
+}
+
+static int
+md_enter_leave_span_footnote_ref(MD_CTX* ctx, unsigned int id,
+                                 unsigned int ref_id, const CHAR* label, SZ label_size)
+{
+    MD_ATTRIBUTE_BUILD label_build = { 0 };
+    MD_SPAN_FOOTNOTE_REF_DETAIL det;
+    int ret = 0;
+
+    memset(&det, 0, sizeof(MD_SPAN_FOOTNOTE_REF_DETAIL));
+    det.id = id;
+    det.ref_id = ref_id;
+    MD_CHECK(md_build_attribute(ctx, label, label_size, 0,
+                                &det.label, &label_build));
+
+    MD_ENTER_SPAN(MD_SPAN_FOOTNOTE_REF, &det);
+    MD_LEAVE_SPAN(MD_SPAN_FOOTNOTE_REF, &det);
+
+abort:
+    md_free_attribute(ctx, &label_build);
     return ret;
 }
 
@@ -4503,7 +4836,7 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
                     }
                     break;
 
-                case '[':       /* Link, wiki link, image. */
+                case '[':       /* Footnote reference, link, wiki link, or image. */
                 case '!':
                 case ']':
                 {
@@ -4511,6 +4844,24 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
                     const MD_MARK* closer = &ctx->marks[opener->next];
                     const MD_MARK* dest_mark;
                     const MD_MARK* title_mark;
+
+                    /* Footnote reference: self-contained span, no text emitted.
+                     * Only the opener is ever processed here; the closer mark
+                     * is guaranteed to be skipped by the off-advance below. */
+                    if(opener->flags & MD_MARK_FOOTNOTE_REF) {
+                        MD_MARK* index_mark = (MD_MARK*) opener + 1;
+                        MD_ASSERT(mark->ch != ']');
+                        MD_ASSERT(index_mark->ch == 'D');
+                        MD_CHECK(md_enter_leave_span_footnote_ref(ctx,
+                                      (unsigned int) index_mark->beg,
+                                      (unsigned int) index_mark->end,
+                                      STR(opener->end), closer->beg - opener->end));
+                        /* Redirect the opener's end past the whole [^label]
+                         * so that the post-switch "off = mark->end" skips
+                         * the label text and the closing ]. */
+                        ((MD_MARK*) mark)->end = closer->end;
+                        break;
+                    }
 
                     if ((opener->ch == '[' && closer->ch == ']') &&
                         opener->end - opener->beg >= 2 &&
@@ -5263,11 +5614,11 @@ md_start_new_block(MD_CTX* ctx, const MD_LINE_ANALYSIS* line)
     return 0;
 }
 
-/* Eat from start of current (textual) block any reference definitions and
- * remember them so we can resolve any links referring to them.
+/* Eat from start of current (textual) block any reference definitions and/or
+ * footnote definitions, and remember them.
  *
- * (Reference definitions can only be at start of it as they cannot break
- * a paragraph.)
+ * (Such definitions can only be at start of it as they cannot break a
+ * paragraph.)
  */
 static int
 md_consume_link_reference_definitions(MD_CTX* ctx)
@@ -5276,27 +5627,35 @@ md_consume_link_reference_definitions(MD_CTX* ctx)
     MD_SIZE n_lines = ctx->current_block->n_lines;
     MD_SIZE n = 0;
 
-    /* Compute how many lines at the start of the block form one or more
-     * reference definitions. */
     while(n < n_lines) {
-        int n_link_ref_lines;
+        int n_consumed = 0;
 
-        n_link_ref_lines = md_is_link_reference_definition(ctx,
-                                    lines + n, n_lines - n);
-        /* Not a reference definition? */
-        if(n_link_ref_lines == 0)
+        /* When footnotes are enabled, try footnote definition first for lines
+         * starting with [^, so they are not accidentally consumed as link ref
+         * definitions (which would also match [^label]: url). */
+        if((ctx->parser.flags & MD_FLAG_FOOTNOTES)  &&
+           lines[n].beg + 1 < ctx->size  &&
+           CH(lines[n].beg) == _T('[')  &&  CH(lines[n].beg + 1) == _T('^'))
+        {
+            n_consumed = md_is_footnote_definition(ctx, lines + n, n_lines - n);
+            if(n_consumed < 0)
+                return -1;
+        }
+
+        if(n_consumed == 0) {
+            n_consumed = md_is_link_reference_definition(ctx, lines + n, n_lines - n);
+            if(n_consumed < 0)
+                return -1;
+        }
+
+        if(n_consumed == 0)
             break;
 
-        /* We fail if it is the ref. def. but it could not be stored due
-         * a memory allocation error. */
-        if(n_link_ref_lines < 0)
-            return -1;
-
-        n += n_link_ref_lines;
+        n += n_consumed;
     }
 
-    /* If there was at least one reference definition, we need to remove
-     * its lines from the block, or perhaps even the whole block. */
+    /* If there was at least one definition, we need to remove its lines from
+     * the block, or perhaps even the whole block. */
     if(n > 0) {
         if(n == n_lines) {
             /* Remove complete block. */
@@ -6597,6 +6956,69 @@ abort:
 }
 
 static int
+md_footnote_def_cmp_index(const void* a, const void* b)
+{
+    const MD_FOOTNOTE_DEF* da = (const MD_FOOTNOTE_DEF*) a;
+    const MD_FOOTNOTE_DEF* db = (const MD_FOOTNOTE_DEF*) b;
+
+    /* Unreferenced defs (index == 0) always sort after referenced ones. */
+    if(da->index == 0  &&  db->index == 0) return 0;
+    if(da->index == 0) return +1;
+    if(db->index == 0) return -1;
+    if(da->index < db->index) return -1;
+    if(da->index > db->index) return +1;
+    return 0;
+}
+
+static int
+md_process_footnote_def(MD_CTX* ctx, MD_FOOTNOTE_DEF* def)
+{
+    MD_BLOCK_FOOTNOTE_DEF_DETAIL det;
+    MD_ATTRIBUTE_BUILD label_build = { 0 };
+    int ret = 0;
+
+    memset(&det, 0, sizeof(MD_BLOCK_FOOTNOTE_DEF_DETAIL));
+    det.id = def->index;
+    det.ref_count = def->ref_count;
+    MD_CHECK(md_build_attribute(ctx, def->label, def->label_size, 0,
+                                &det.label, &label_build));
+
+    MD_ENTER_BLOCK(MD_BLOCK_FOOTNOTE_DEF, &det);
+    MD_CHECK(md_process_normal_block_contents(ctx, def->content_lines,
+                                              def->n_content_lines));
+    MD_LEAVE_BLOCK(MD_BLOCK_FOOTNOTE_DEF, &det);
+
+abort:
+    md_free_attribute(ctx, &label_build);
+    return ret;
+}
+
+/* Render footnote definitions that were actually referenced, in reference order.
+ * Called from md_process_doc() after md_process_all_blocks(). */
+static int
+md_process_footnote_defs(MD_CTX* ctx)
+{
+    int i;
+    int ret = 0;
+
+    if(ctx->n_footnote_defs == 0  ||  ctx->next_footnote_index == 0)
+        return 0;
+
+    /* Sort defs by index so we emit in reference order. */
+    qsort(ctx->footnote_defs, ctx->n_footnote_defs,
+          sizeof(MD_FOOTNOTE_DEF), md_footnote_def_cmp_index);
+
+    for(i = 0; i < ctx->n_footnote_defs; i++) {
+        if(ctx->footnote_defs[i].index == 0)
+            break;
+        MD_CHECK(md_process_footnote_def(ctx, &ctx->footnote_defs[i]));
+    }
+
+abort:
+    return ret;
+}
+
+static int
 md_process_doc(MD_CTX *ctx)
 {
     const MD_LINE_ANALYSIS* pivot_line = &md_dummy_blank_line;
@@ -6618,10 +7040,16 @@ md_process_doc(MD_CTX *ctx)
     md_end_current_block(ctx);
 
     MD_CHECK(md_build_ref_def_hashtable(ctx));
+    if(ctx->parser.flags & MD_FLAG_FOOTNOTES)
+        MD_CHECK(md_build_footnote_def_hashtable(ctx));
 
     /* Process all blocks. */
     MD_CHECK(md_leave_child_containers(ctx, 0));
     MD_CHECK(md_process_all_blocks(ctx));
+
+    /* Emit footnote definitions that were referenced, in reference order. */
+    if(ctx->parser.flags & MD_FLAG_FOOTNOTES)
+        MD_CHECK(md_process_footnote_defs(ctx));
 
     MD_LEAVE_BLOCK(MD_BLOCK_DOC, NULL);
 
@@ -6696,6 +7124,7 @@ md_parse(const MD_CHAR* text, MD_SIZE size, const MD_PARSER* parser, void* userd
     /* Clean-up. */
     md_free_ref_defs(&ctx);
     md_free_ref_def_hashtable(&ctx);
+    md_free_footnote_defs(&ctx);
     free(ctx.buffer);
     free(ctx.marks);
     free(ctx.block_bytes);

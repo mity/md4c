@@ -270,6 +270,8 @@ static const CMDLINE_OPTION cmdline_options[] = {
     {  0,  "fverbatim-entities",            'E', 0 },
     {  0,  "fwiki-links",                   'K', 0 },
 
+    {  0,  "ffootnotes",                    'N', 0 },
+
     {  0,  "fno-html-blocks",               'F', 0 },
     {  0,  "fno-html-spans",                'G', 0 },
     {  0,  "fno-html",                      'H', 0 },
@@ -324,6 +326,7 @@ usage(void)
         "      --fstrikethrough Enable strike-through spans\n"
         "      --fsuperscripts  Enable superscript spans (^text^)\n"
         "      --fsubscripts    Enable subscript spans (~text~)\n"
+        "      --ffootnotes     Enable footnote references ([^label])\n"
         "      --ftables        Enable tables\n"
         "      --ftasklists     Enable task lists\n"
         "      --funderline     Enable underline spans\n"
@@ -406,6 +409,7 @@ cmdline_callback(int opt, char const* value, void* data)
         case 'K':   parser_flags |= MD_FLAG_WIKILINKS; break;
         case 'X':   parser_flags |= MD_FLAG_TASKLISTS; break;
         case '_':   parser_flags |= MD_FLAG_UNDERLINE; break;
+        case 'N':   parser_flags |= MD_FLAG_FOOTNOTES; break;
         case 'B':   parser_flags |= MD_FLAG_HARD_SOFT_BREAKS; break;
 
         default:
