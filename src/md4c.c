@@ -4125,7 +4125,7 @@ md_analyze_permissive_autolink(MD_CTX* ctx, int mark_index)
         /* Scan for path segment. */
         if(end < line_end  &&  CH(end) == _T('/')) {
             if(md_analyze_permissive_autolink_segment(ctx, end+1, line_end, &end, FALSE,
-                        _T('/'), _T(".+-_"), NULL, &right_cursor) < 0)
+                        _T('/'), _T(".+-_~"), NULL, &right_cursor) < 0)
                 return;
 
             /* Path can also end with additional '/' if its a directory. */

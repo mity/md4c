@@ -908,3 +908,15 @@ tle"
 <p><a href="/url" title="ti
 tle">foo</a></p>
 ````````````````````````````````
+
+
+## [Issue 331](https://github.com/mity/md4c/issues/331)
+
+```````````````````````````````` example
+https://example.com/~username
+.
+<p><a href="https://example.com/~username">https://example.com/~username</a></p>
+.
+--fpermissive-autolinks
+````````````````````````````````
+
