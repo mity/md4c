@@ -276,8 +276,7 @@ enum MD_LINETYPE_tag {
     MD_LINE_HTML,
     MD_LINE_TEXT,
     MD_LINE_TABLE,
-    MD_LINE_TABLEUNDERLINE,
-    MD_LINE_ADMONITIONTAG
+    MD_LINE_TABLEUNDERLINE
 };
 typedef enum MD_LINETYPE_tag MD_LINETYPE;
 
@@ -6502,7 +6501,7 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
                 {
                     ctx->containers[ctx->n_containers-1].is_admonition = TRUE;
                     ctx->containers[ctx->n_containers-1].admonition_type = i;
-                    line->type = MD_LINE_ADMONITIONTAG;
+                    line->type = MD_LINE_BLANK;
                     break;
                 }
             }
@@ -6572,12 +6571,6 @@ md_process_line(MD_CTX* ctx, const MD_LINE_ANALYSIS** p_pivot_line, MD_LINE_ANAL
         MD_ASSERT(pivot_line != &md_dummy_blank_line);
         ((MD_LINE_ANALYSIS*)pivot_line)->type = MD_LINE_TABLE;
         MD_CHECK(md_add_line_into_current_block(ctx, line));
-        return 0;
-    }
-
-    /* Admonition tag line. */
-    if(line->type == MD_LINE_ADMONITIONTAG) {
-        MD_ASSERT(ctx->current_block == NULL);
         return 0;
     }
 

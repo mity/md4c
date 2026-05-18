@@ -920,3 +920,32 @@ https://example.com/~username
 --fpermissive-autolinks
 ````````````````````````````````
 
+
+## [Issue 331](https://github.com/mity/md4c/issues/331)
+
+```````````````````````````````` example
+https://example.com/~username
+.
+<p><a href="https://example.com/~username">https://example.com/~username</a></p>
+.
+--fpermissive-autolinks
+````````````````````````````````
+
+
+## [Issue 334](https://github.com/mity/md4c/issues/334)
+
+
+```````````````````````````````` example
+foo
+>[!tip]
+>-
+.
+<p>foo</p>
+<div class="admonition-tip"><p class="admonition-title">tip</p>
+<ul>
+<li></li>
+</ul>
+</div>
+.
+--fadmonitions
+````````````````````````````````
