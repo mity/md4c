@@ -6490,7 +6490,9 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
     if(n_children > 0) {
         /* Check for admonition tag. */
         if((ctx->parser.flags & MD_FLAG_ADMONITIONS)  &&  n_children > 0  &&
-           ctx->containers[ctx->n_containers-1].ch == _T('>'))
+           ctx->containers[ctx->n_containers-1].ch == _T('>')  &&
+           3 < line->end - line->beg  && line->end - line->beg < 16  &&
+           CH(line->beg) == _T('[') && CH(line->beg+1) == _T('!') && CH(line->end-1) == _T(']'))
         {
             unsigned i;
 
