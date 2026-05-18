@@ -949,3 +949,19 @@ foo
 .
 --fadmonitions
 ````````````````````````````````
+
+
+## [Issue 336](https://github.com/mity/md4c/issues/336)
+
+```````````````````````````````` example
+>     [!tip]
+> foo
+.
+<blockquote>
+<pre><code>[!tip]
+</code></pre>
+<p>foo</p>
+</blockquote>
+.
+--fadmonitions
+````````````````````````````````
