@@ -52,9 +52,10 @@ Fixes:
     not appear in the valid UTF-8 input, with the replacement character U+FFFD
     (as it was already doing for invalid codepoints above U+10FFFF).
 
-  * [#328](https://github.com/mity/md4c/issues/328):
-    Fix HTML block recognition in Windows Unicode builds of the parser
-    (i.e. when built with `-DMD4C_USE_UTF16`).
+  * [#328](https://github.com/mity/md4c/issues/328),
+    [#338](https://github.com/mity/md4c/issues/338):
+    Fix several bugs of Windows Unicode builds of the parser (i.e. when built
+    with `-DMD4C_USE_UTF16`).
 
   * [#330](https://github.com/mity/md4c/pull/330):
     The `md2html` utility collects the generated HTML into an in-memory growing
