@@ -1304,7 +1304,7 @@ md_is_html_cdata(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, OFF beg, OF
 
     if(off + open_size >= lines[0].end)
         return FALSE;
-    if(memcmp(STR(off), open_str, open_size) != 0)
+    if(memcmp(STR(off), open_str, open_size * sizeof(CHAR)) != 0)
         return FALSE;
     off += open_size;
 
@@ -1524,7 +1524,7 @@ md_build_attribute(MD_CTX* ctx, const CHAR* raw_text, SZ raw_size,
         while(raw_off < raw_size) {
             if(raw_text[raw_off] == _T('\0')) {
                 MD_CHECK(md_build_attr_append_substr(ctx, build, MD_TEXT_NULLCHAR, off));
-                memcpy(build->text + off, raw_text + raw_off, 1);
+                memcpy(build->text + off, raw_text + raw_off, sizeof(CHAR));
                 off++;
                 raw_off++;
                 continue;
@@ -1535,7 +1535,7 @@ md_build_attribute(MD_CTX* ctx, const CHAR* raw_text, SZ raw_size,
 
                 if(md_is_entity_str(ctx, raw_text, raw_off, raw_size, &ent_end)) {
                     MD_CHECK(md_build_attr_append_substr(ctx, build, MD_TEXT_ENTITY, off));
-                    memcpy(build->text + off, raw_text + raw_off, ent_end - raw_off);
+                    memcpy(build->text + off, raw_text + raw_off, (ent_end - raw_off) * sizeof(CHAR));
                     off += ent_end - raw_off;
                     raw_off = ent_end;
                     continue;
