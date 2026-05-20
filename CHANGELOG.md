@@ -6,6 +6,17 @@
 
 New Features:
 
+  * Add GFM-like footnote extension, enabled with the flag `MD_FLAG_FOOTNOTES`.
+
+    Syntax example:
+    ```
+    Here is a simple footnote[^1]. With some additional text after it.
+
+    [^1]: My reference.
+    ```
+
+    Contributed by [Gregory Moskaliuk](https://github.com/hryhoriiK97).
+
   * Add extension recognizing GFM-like admonitions, as e.g.
 
     ```
