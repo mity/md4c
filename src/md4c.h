@@ -101,6 +101,13 @@ typedef enum MD_BLOCKTYPE {
     MD_BLOCK_TH,
     MD_BLOCK_TD,
 
+    /* Container for all referenced footnote definitions, rendered at the end
+     * of the document.
+     * Detail: NULL.
+     * Note: Used only if extension MD_FLAG_FOOTNOTES is enabled, and only when
+     * at least one footnote definition is referenced. */
+    MD_BLOCK_FOOTNOTE_DEF_SECTION,
+
     /* A single footnote definition, rendered at the end of the document.
      * Detail: Structure MD_BLOCK_FOOTNOTE_DEF_DETAIL.
      * Note: Used only if extension MD_FLAG_FOOTNOTES is enabled.

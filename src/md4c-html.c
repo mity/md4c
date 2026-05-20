@@ -53,7 +53,6 @@ struct MD_HTML_tag {
     void* userdata;
     unsigned flags;
     int image_nesting_level;
-    int footnote_count;     /* number of MD_BLOCK_FOOTNOTE_DEF blocks entered */
     char escape_map[256];
 };
 
@@ -405,12 +404,8 @@ render_open_footnote_def_block(MD_HTML* r, const MD_BLOCK_FOOTNOTE_DEF_DETAIL* d
 {
     char buf[64];
 
-    if(r->footnote_count == 0)
-        RENDER_VERBATIM(r, "<section class=\"footnotes\">\n<ol>\n");
-
     snprintf(buf, sizeof(buf), "<li id=\"fn-%u\">\n", det->id);
     render_verbatim(r, buf, (MD_SIZE) strlen(buf));
-    r->footnote_count++;
 }
 
 static void
@@ -453,6 +448,7 @@ enter_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
         case MD_BLOCK_TR:       RENDER_VERBATIM(r, "<tr>\n"); break;
         case MD_BLOCK_TH:       render_open_td_block(r, "th", (MD_BLOCK_TD_DETAIL*)detail); break;
         case MD_BLOCK_TD:       render_open_td_block(r, "td", (MD_BLOCK_TD_DETAIL*)detail); break;
+        case MD_BLOCK_FOOTNOTE_DEF_SECTION: RENDER_VERBATIM(r, "<section class=\"footnotes\">\n<ol>\n"); break;
         case MD_BLOCK_FOOTNOTE_DEF: render_open_footnote_def_block(r, (MD_BLOCK_FOOTNOTE_DEF_DETAIL*)detail); break;
         case MD_BLOCK_ADMONITION:   render_open_admonition_block(r, (const MD_BLOCK_ADMONITION_DETAIL*) detail); break;
     }
@@ -467,10 +463,7 @@ leave_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
     MD_HTML* r = (MD_HTML*) userdata;
 
     switch(type) {
-        case MD_BLOCK_DOC:
-            if(r->footnote_count > 0)
-                RENDER_VERBATIM(r, "</ol>\n</section>\n");
-            break;
+        case MD_BLOCK_DOC:      /* noop */ break;
         case MD_BLOCK_QUOTE:    RENDER_VERBATIM(r, "</blockquote>\n"); break;
         case MD_BLOCK_UL:       RENDER_VERBATIM(r, "</ul>\n"); break;
         case MD_BLOCK_OL:       RENDER_VERBATIM(r, "</ol>\n"); break;
@@ -486,6 +479,7 @@ leave_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
         case MD_BLOCK_TR:       RENDER_VERBATIM(r, "</tr>\n"); break;
         case MD_BLOCK_TH:       RENDER_VERBATIM(r, "</th>\n"); break;
         case MD_BLOCK_TD:       RENDER_VERBATIM(r, "</td>\n"); break;
+        case MD_BLOCK_FOOTNOTE_DEF_SECTION: RENDER_VERBATIM(r, "</ol>\n</section>\n"); break;
         case MD_BLOCK_FOOTNOTE_DEF: render_close_footnote_def_block(r, (MD_BLOCK_FOOTNOTE_DEF_DETAIL*)detail); break;
         case MD_BLOCK_ADMONITION:   RENDER_VERBATIM(r, "</div>\n"); break;
     }
@@ -601,7 +595,7 @@ md_html(const MD_CHAR* input, MD_SIZE input_size,
         void (*process_output)(const MD_CHAR*, MD_SIZE, void*),
         void* userdata, unsigned parser_flags, unsigned renderer_flags)
 {
-    MD_HTML render = { process_output, userdata, renderer_flags, 0, 0, { 0 } };
+    MD_HTML render = { process_output, userdata, renderer_flags, 0, { 0 } };
     int i;
 
     MD_PARSER parser = {

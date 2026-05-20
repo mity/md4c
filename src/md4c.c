@@ -7003,11 +7003,15 @@ md_process_footnote_defs(MD_CTX* ctx)
     qsort(ctx->footnote_defs, ctx->n_footnote_defs,
           sizeof(MD_FOOTNOTE_DEF), md_footnote_def_cmp_index);
 
+    MD_ENTER_BLOCK(MD_BLOCK_FOOTNOTE_DEF_SECTION, NULL);
+
     for(i = 0; i < ctx->n_footnote_defs; i++) {
         if(ctx->footnote_defs[i].index == 0)
             break;
         MD_CHECK(md_process_footnote_def(ctx, &ctx->footnote_defs[i]));
     }
+
+    MD_LEAVE_BLOCK(MD_BLOCK_FOOTNOTE_DEF_SECTION, NULL);
 
 abort:
     return ret;
