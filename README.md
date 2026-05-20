@@ -99,6 +99,10 @@ extensions:
 
 * With the flag `MD_FLAG_TASKLISTS`, GitHub-style task lists are supported.
 
+* With the flag `MD_FLAG_FOOTNOTES`, footnote references and definitions are
+  supported (e.g. `[^note]` and `[^note]: Footnote text`). Referenced
+  definitions are emitted at the end of the document in first-reference order.
+
 * With the flag `MD_FLAG_STRIKETHROUGH`, strike-through spans are enabled
   (text enclosed in tilde marks, e.g. `~foo bar~`).
 
