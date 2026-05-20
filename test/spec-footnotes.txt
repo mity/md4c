@@ -19,11 +19,11 @@ Text with a footnote[^1].
 
 [^1]: The footnote content.
 .
-<p>Text with a footnote<sup><a href="#fn-1" id="fnref-1">1</a></sup>.</p>
+<p>Text with a footnote<sup><a href="#fn-1" id="fnref-1-1">1</a></sup>.</p>
 <section class="footnotes">
 <ol>
 <li id="fn-1">
-The footnote content.<a href="#fnref-1" class="footnote-backref">&#8617;</a>
+The footnote content.<a href="#fnref-1-1" class="footnote-backref">&#8617;</a>
 </li>
 </ol>
 </section>
@@ -38,11 +38,11 @@ See note[^note].
 
 [^note]: This is the note.
 .
-<p>See note<sup><a href="#fn-1" id="fnref-1">1</a></sup>.</p>
+<p>See note<sup><a href="#fn-1" id="fnref-1-1">1</a></sup>.</p>
 <section class="footnotes">
 <ol>
 <li id="fn-1">
-This is the note.<a href="#fnref-1" class="footnote-backref">&#8617;</a>
+This is the note.<a href="#fnref-1-1" class="footnote-backref">&#8617;</a>
 </li>
 </ol>
 </section>
@@ -58,14 +58,14 @@ First[^a] and second[^b].
 [^a]: Note A.
 [^b]: Note B.
 .
-<p>First<sup><a href="#fn-1" id="fnref-1">1</a></sup> and second<sup><a href="#fn-2" id="fnref-2">2</a></sup>.</p>
+<p>First<sup><a href="#fn-1" id="fnref-1-1">1</a></sup> and second<sup><a href="#fn-2" id="fnref-2-1">2</a></sup>.</p>
 <section class="footnotes">
 <ol>
 <li id="fn-1">
-Note A.<a href="#fnref-1" class="footnote-backref">&#8617;</a>
+Note A.<a href="#fnref-1-1" class="footnote-backref">&#8617;</a>
 </li>
 <li id="fn-2">
-Note B.<a href="#fnref-2" class="footnote-backref">&#8617;</a>
+Note B.<a href="#fnref-2-1" class="footnote-backref">&#8617;</a>
 </li>
 </ol>
 </section>
@@ -81,14 +81,14 @@ First ref[^b] then[^a].
 [^a]: Note A.
 [^b]: Note B.
 .
-<p>First ref<sup><a href="#fn-1" id="fnref-1">1</a></sup> then<sup><a href="#fn-2" id="fnref-2">2</a></sup>.</p>
+<p>First ref<sup><a href="#fn-1" id="fnref-1-1">1</a></sup> then<sup><a href="#fn-2" id="fnref-2-1">2</a></sup>.</p>
 <section class="footnotes">
 <ol>
 <li id="fn-1">
-Note B.<a href="#fnref-1" class="footnote-backref">&#8617;</a>
+Note B.<a href="#fnref-1-1" class="footnote-backref">&#8617;</a>
 </li>
 <li id="fn-2">
-Note A.<a href="#fnref-2" class="footnote-backref">&#8617;</a>
+Note A.<a href="#fnref-2-1" class="footnote-backref">&#8617;</a>
 </li>
 </ol>
 </section>
@@ -154,11 +154,11 @@ First[^a] and again[^a].
 
 [^a]: The note.
 .
-<p>First<sup><a href="#fn-1" id="fnref-1">1</a></sup> and again<sup><a href="#fn-1" id="fnref-1-2">1</a></sup>.</p>
+<p>First<sup><a href="#fn-1" id="fnref-1-1">1</a></sup> and again<sup><a href="#fn-1" id="fnref-1-2">1</a></sup>.</p>
 <section class="footnotes">
 <ol>
 <li id="fn-1">
-The note.<a href="#fnref-1" class="footnote-backref">&#8617;</a> <a href="#fnref-1-2" class="footnote-backref">&#8617;</a>
+The note.<a href="#fnref-1-1" class="footnote-backref">&#8617;</a> <a href="#fnref-1-2" class="footnote-backref">&#8617;</a>
 </li>
 </ol>
 </section>
@@ -176,11 +176,11 @@ See note[^1].
 
 [^1]: Footnote with **bold** and *italic*.
 .
-<p>See note<sup><a href="#fn-1" id="fnref-1">1</a></sup>.</p>
+<p>See note<sup><a href="#fn-1" id="fnref-1-1">1</a></sup>.</p>
 <section class="footnotes">
 <ol>
 <li id="fn-1">
-Footnote with <strong>bold</strong> and <em>italic</em>.<a href="#fnref-1" class="footnote-backref">&#8617;</a>
+Footnote with <strong>bold</strong> and <em>italic</em>.<a href="#fnref-1-1" class="footnote-backref">&#8617;</a>
 </li>
 </ol>
 </section>
@@ -200,12 +200,12 @@ Text[^1].
 [^1]: First line.
   Second line continued.
 .
-<p>Text<sup><a href="#fn-1" id="fnref-1">1</a></sup>.</p>
+<p>Text<sup><a href="#fn-1" id="fnref-1-1">1</a></sup>.</p>
 <section class="footnotes">
 <ol>
 <li id="fn-1">
 First line.
-Second line continued.<a href="#fnref-1" class="footnote-backref">&#8617;</a>
+Second line continued.<a href="#fnref-1-1" class="footnote-backref">&#8617;</a>
 </li>
 </ol>
 </section>
@@ -223,11 +223,11 @@ Footnotes and strikethrough can be used in the same document:
 
 [^1]: A note.
 .
-<p><del>struck</del> text<sup><a href="#fn-1" id="fnref-1">1</a></sup>.</p>
+<p><del>struck</del> text<sup><a href="#fn-1" id="fnref-1-1">1</a></sup>.</p>
 <section class="footnotes">
 <ol>
 <li id="fn-1">
-A note.<a href="#fnref-1" class="footnote-backref">&#8617;</a>
+A note.<a href="#fnref-1-1" class="footnote-backref">&#8617;</a>
 </li>
 </ol>
 </section>
@@ -245,11 +245,11 @@ Spoiler ||hidden|| and note[^1].
 
 [^1]: Note.
 .
-<p>Spoiler <x-spoiler>hidden</x-spoiler> and note<sup><a href="#fn-1" id="fnref-1">1</a></sup>.</p>
+<p>Spoiler <x-spoiler>hidden</x-spoiler> and note<sup><a href="#fn-1" id="fnref-1-1">1</a></sup>.</p>
 <section class="footnotes">
 <ol>
 <li id="fn-1">
-Note.<a href="#fnref-1" class="footnote-backref">&#8617;</a>
+Note.<a href="#fnref-1-1" class="footnote-backref">&#8617;</a>
 </li>
 </ol>
 </section>
@@ -267,11 +267,11 @@ Sup ^text^ and note[^1].
 
 [^1]: A note.
 .
-<p>Sup <sup>text</sup> and note<sup><a href="#fn-1" id="fnref-1">1</a></sup>.</p>
+<p>Sup <sup>text</sup> and note<sup><a href="#fn-1" id="fnref-1-1">1</a></sup>.</p>
 <section class="footnotes">
 <ol>
 <li id="fn-1">
-A note.<a href="#fnref-1" class="footnote-backref">&#8617;</a>
+A note.<a href="#fnref-1-1" class="footnote-backref">&#8617;</a>
 </li>
 </ol>
 </section>
@@ -304,11 +304,11 @@ Only[^1] referenced.
 [^1]: Used.
 [^2]: Unused.
 .
-<p>Only<sup><a href="#fn-1" id="fnref-1">1</a></sup> referenced.</p>
+<p>Only<sup><a href="#fn-1" id="fnref-1-1">1</a></sup> referenced.</p>
 <section class="footnotes">
 <ol>
 <li id="fn-1">
-Used.<a href="#fnref-1" class="footnote-backref">&#8617;</a>
+Used.<a href="#fnref-1-1" class="footnote-backref">&#8617;</a>
 </li>
 </ol>
 </section>
@@ -362,12 +362,12 @@ Text[^1].
 [^1]: First line.
 	Tab-indented continuation.
 .
-<p>Text<sup><a href="#fn-1" id="fnref-1">1</a></sup>.</p>
+<p>Text<sup><a href="#fn-1" id="fnref-1-1">1</a></sup>.</p>
 <section class="footnotes">
 <ol>
 <li id="fn-1">
 First line.
-Tab-indented continuation.<a href="#fnref-1" class="footnote-backref">&#8617;</a>
+Tab-indented continuation.<a href="#fnref-1-1" class="footnote-backref">&#8617;</a>
 </li>
 </ol>
 </section>
@@ -418,35 +418,35 @@ Text [^] here.
 [^8]: H.
 [^9]: I.
 .
-<p><sup><a href="#fn-1" id="fnref-1">1</a></sup><sup><a href="#fn-2" id="fnref-2">2</a></sup><sup><a href="#fn-3" id="fnref-3">3</a></sup><sup><a href="#fn-4" id="fnref-4">4</a></sup><sup><a href="#fn-5" id="fnref-5">5</a></sup><sup><a href="#fn-6" id="fnref-6">6</a></sup><sup><a href="#fn-7" id="fnref-7">7</a></sup><sup><a href="#fn-8" id="fnref-8">8</a></sup><sup><a href="#fn-9" id="fnref-9">9</a></sup>.</p>
+<p><sup><a href="#fn-1" id="fnref-1-1">1</a></sup><sup><a href="#fn-2" id="fnref-2-1">2</a></sup><sup><a href="#fn-3" id="fnref-3-1">3</a></sup><sup><a href="#fn-4" id="fnref-4-1">4</a></sup><sup><a href="#fn-5" id="fnref-5-1">5</a></sup><sup><a href="#fn-6" id="fnref-6-1">6</a></sup><sup><a href="#fn-7" id="fnref-7-1">7</a></sup><sup><a href="#fn-8" id="fnref-8-1">8</a></sup><sup><a href="#fn-9" id="fnref-9-1">9</a></sup>.</p>
 <section class="footnotes">
 <ol>
 <li id="fn-1">
-A.<a href="#fnref-1" class="footnote-backref">&#8617;</a>
+A.<a href="#fnref-1-1" class="footnote-backref">&#8617;</a>
 </li>
 <li id="fn-2">
-B.<a href="#fnref-2" class="footnote-backref">&#8617;</a>
+B.<a href="#fnref-2-1" class="footnote-backref">&#8617;</a>
 </li>
 <li id="fn-3">
-C.<a href="#fnref-3" class="footnote-backref">&#8617;</a>
+C.<a href="#fnref-3-1" class="footnote-backref">&#8617;</a>
 </li>
 <li id="fn-4">
-D.<a href="#fnref-4" class="footnote-backref">&#8617;</a>
+D.<a href="#fnref-4-1" class="footnote-backref">&#8617;</a>
 </li>
 <li id="fn-5">
-E.<a href="#fnref-5" class="footnote-backref">&#8617;</a>
+E.<a href="#fnref-5-1" class="footnote-backref">&#8617;</a>
 </li>
 <li id="fn-6">
-F.<a href="#fnref-6" class="footnote-backref">&#8617;</a>
+F.<a href="#fnref-6-1" class="footnote-backref">&#8617;</a>
 </li>
 <li id="fn-7">
-G.<a href="#fnref-7" class="footnote-backref">&#8617;</a>
+G.<a href="#fnref-7-1" class="footnote-backref">&#8617;</a>
 </li>
 <li id="fn-8">
-H.<a href="#fnref-8" class="footnote-backref">&#8617;</a>
+H.<a href="#fnref-8-1" class="footnote-backref">&#8617;</a>
 </li>
 <li id="fn-9">
-I.<a href="#fnref-9" class="footnote-backref">&#8617;</a>
+I.<a href="#fnref-9-1" class="footnote-backref">&#8617;</a>
 </li>
 </ol>
 </section>
@@ -468,11 +468,11 @@ See[^1].
 [^a b]: not-a-footnote
 [^1]: A note.
 .
-<p>See<sup><a href="#fn-1" id="fnref-1">1</a></sup>.</p>
+<p>See<sup><a href="#fn-1" id="fnref-1-1">1</a></sup>.</p>
 <section class="footnotes">
 <ol>
 <li id="fn-1">
-A note.<a href="#fnref-1" class="footnote-backref">&#8617;</a>
+A note.<a href="#fnref-1-1" class="footnote-backref">&#8617;</a>
 </li>
 </ol>
 </section>
@@ -493,11 +493,11 @@ Note[^1].
 
 [^1]: content
 .
-<p>Note<sup><a href="#fn-1" id="fnref-1">1</a></sup>.</p>
+<p>Note<sup><a href="#fn-1" id="fnref-1-1">1</a></sup>.</p>
 <section class="footnotes">
 <ol>
 <li id="fn-1">
-content<a href="#fnref-1" class="footnote-backref">&#8617;</a>
+content<a href="#fnref-1-1" class="footnote-backref">&#8617;</a>
 </li>
 </ol>
 </section>
