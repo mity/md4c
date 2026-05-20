@@ -1340,7 +1340,7 @@ md_is_html_cdata(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, OFF beg, OF
 
     if(off + open_size >= lines[0].end)
         return FALSE;
-    if(memcmp(STR(off), open_str, open_size) != 0)
+    if(memcmp(STR(off), open_str, open_size * sizeof(CHAR)) != 0)
         return FALSE;
     off += open_size;
 
@@ -1460,8 +1460,8 @@ struct MD_ATTRIBUTE_BUILD_tag {
     CHAR* text;
     MD_TEXTTYPE* substr_types;
     OFF* substr_offsets;
-    int substr_count;
-    int substr_alloc;
+    SZ substr_count;
+    SZ substr_alloc;
     MD_TEXTTYPE trivial_types[1];
     OFF trivial_offsets[2];
 };
@@ -1476,27 +1476,27 @@ md_build_attr_append_substr(MD_CTX* ctx, MD_ATTRIBUTE_BUILD* build,
     if(build->substr_count >= build->substr_alloc) {
         MD_TEXTTYPE* new_substr_types;
         OFF* new_substr_offsets;
-
-        build->substr_alloc = (build->substr_alloc > 0
+        SZ new_alloc = (build->substr_alloc > 0
                 ? build->substr_alloc + build->substr_alloc / 2
                 : 8);
+
         new_substr_types = (MD_TEXTTYPE*) realloc(build->substr_types,
-                                    build->substr_alloc * sizeof(MD_TEXTTYPE));
+                                    new_alloc * sizeof(MD_TEXTTYPE));
         if(new_substr_types == NULL) {
             MD_LOG("realloc() failed.");
             return -1;
         }
+        build->substr_types = new_substr_types;
+
         /* Note +1 to reserve space for final offset (== raw_size). */
         new_substr_offsets = (OFF*) realloc(build->substr_offsets,
-                                    (build->substr_alloc+1) * sizeof(OFF));
+                                    (new_alloc+1) * sizeof(OFF));
         if(new_substr_offsets == NULL) {
             MD_LOG("realloc() failed.");
-            free(new_substr_types);
             return -1;
         }
-
-        build->substr_types = new_substr_types;
         build->substr_offsets = new_substr_offsets;
+        build->substr_alloc = new_alloc;
     }
 
     build->substr_types[build->substr_count] = type;
@@ -1560,7 +1560,7 @@ md_build_attribute(MD_CTX* ctx, const CHAR* raw_text, SZ raw_size,
         while(raw_off < raw_size) {
             if(raw_text[raw_off] == _T('\0')) {
                 MD_CHECK(md_build_attr_append_substr(ctx, build, MD_TEXT_NULLCHAR, off));
-                memcpy(build->text + off, raw_text + raw_off, 1);
+                memcpy(build->text + off, raw_text + raw_off, sizeof(CHAR));
                 off++;
                 raw_off++;
                 continue;
@@ -1571,7 +1571,7 @@ md_build_attribute(MD_CTX* ctx, const CHAR* raw_text, SZ raw_size,
 
                 if(md_is_entity_str(ctx, raw_text, raw_off, raw_size, &ent_end)) {
                     MD_CHECK(md_build_attr_append_substr(ctx, build, MD_TEXT_ENTITY, off));
-                    memcpy(build->text + off, raw_text + raw_off, ent_end - raw_off);
+                    memcpy(build->text + off, raw_text + raw_off, (ent_end - raw_off) * sizeof(CHAR));
                     off += ent_end - raw_off;
                     raw_off = ent_end;
                     continue;
@@ -2470,17 +2470,18 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lin
     /* So, it _is_ a reference definition. Remember it. */
     if(ctx->n_ref_defs >= ctx->alloc_ref_defs) {
         MD_REF_DEF* new_defs;
-
-        ctx->alloc_ref_defs = (ctx->alloc_ref_defs > 0
+        SZ new_alloc = (ctx->alloc_ref_defs > 0
                 ? ctx->alloc_ref_defs + ctx->alloc_ref_defs / 2
                 : 16);
-        new_defs = (MD_REF_DEF*) realloc(ctx->ref_defs, ctx->alloc_ref_defs * sizeof(MD_REF_DEF));
+
+        new_defs = (MD_REF_DEF*) realloc(ctx->ref_defs, new_alloc * sizeof(MD_REF_DEF));
         if(new_defs == NULL) {
             MD_LOG("realloc() failed.");
             goto abort;
         }
 
         ctx->ref_defs = new_defs;
+        ctx->alloc_ref_defs = new_alloc;
     }
     def = &ctx->ref_defs[ctx->n_ref_defs];
     memset(def, 0, sizeof(MD_REF_DEF));
@@ -4250,139 +4251,163 @@ md_scan_right_for_resolved_mark(MD_CTX* ctx, MD_MARK* mark_from, OFF off, MD_MAR
     return NULL;
 }
 
+static int
+md_analyze_permissive_autolink_segment(MD_CTX* ctx, OFF off, OFF end, OFF* p_end,
+            int scan_backwards, MD_CHAR component_delim, const MD_CHAR* word_extra,
+            const MD_CHAR* word_delims, MD_MARK** p_cursor)
+{
+    int n_components = 0;
+    int n_open_brackets = 0;
+    int seen_word_delim = TRUE;
+    int seen_component_delim = TRUE;
+    OFF component_beg = off;
+
+    if(word_extra == NULL)
+        word_extra = _T("");
+    if(word_delims == NULL)
+        word_delims = _T("");
+
+    while(off != end) {
+        if(scan_backwards)
+            off--;
+
+        /* Only accept extra and delimiter characters if they're not part of a
+         * resolved mark. */
+        if(!ISALNUM(off)  &&  !ISWHITESPACE(off)) {
+            if((!scan_backwards && md_scan_right_for_resolved_mark(ctx, *p_cursor, off, p_cursor) != NULL)  ||
+               (scan_backwards && md_scan_left_for_resolved_mark(ctx, *p_cursor, off, p_cursor) != NULL)) {
+                if(scan_backwards)
+                    off++;
+                break;
+            }
+        }
+
+        /* The autolink can be _inside_ brackets so we disallow unbalanced bracket pairs in the URL.
+         * (Note the brackets are not allowed in e-mail username, so we happily skip this in that case.) */
+        if(!scan_backwards) {
+            if(CH(off) == _T('(')) {
+                n_open_brackets++;
+            } else if(CH(off) == _T(')')) {
+                if(n_open_brackets <= 0)
+                    break;
+                n_open_brackets--;
+            }
+        }
+
+        if(ISALNUM(off)  ||  ISANYOF(off, word_extra)) {
+            seen_word_delim = FALSE;
+            seen_component_delim = FALSE;
+        } else {
+            if(seen_word_delim)
+                break;
+
+            if(ISANYOF(off, word_delims)) {
+                seen_word_delim = TRUE;
+            } else if(component_delim != _T('\0')  &&  CH(off) == component_delim) {
+                if(seen_component_delim)
+                    break;
+                seen_component_delim = TRUE;
+                component_beg = off;
+                n_components++;
+            } else {
+                if(scan_backwards)
+                    off++;
+                break;
+            }
+        }
+
+        if(!scan_backwards)
+            off++;
+    }
+
+    /* Rollback falsely consumed delimiter. */
+    if(seen_word_delim || seen_component_delim)
+        off = (scan_backwards ? off+1 : off-1);
+
+    if(off != component_beg)
+        n_components++;
+
+    if(n_open_brackets != 0)
+        return -1;
+
+    *p_end = off;
+    return n_components;
+}
+
 static void
 md_analyze_permissive_autolink(MD_CTX* ctx, int mark_index)
 {
-    static const struct {
-        const MD_CHAR start_char;
-        const MD_CHAR delim_char;
-        const MD_CHAR* allowed_nonalnum_chars_inside;
-        const MD_CHAR* allowed_nonalnum_chars_anywhere;
-        int min_components;
-        const MD_CHAR optional_end_char;
-    } URL_MAP[] = {
-        { _T('\0'), _T('.'),  _T(".-_"),      _T(""),   2, _T('\0') },    /* host, mandatory */
-        { _T('/'),  _T('/'),  _T("/._"),      _T("+-"), 0, _T('/') },     /* path */
-        { _T('?'),  _T('&'),  _T("&.-+_=()"), _T(""),   1, _T('\0') },    /* query */
-        { _T('#'),  _T('\0'), _T(".-+_") ,    _T(""),   1, _T('\0') }     /* fragment */
-    };
-
     MD_MARK* opener = &ctx->marks[mark_index];
     MD_MARK* closer = &ctx->marks[mark_index + 1];  /* The dummy. */
-    OFF line_beg = closer->beg;     /* md_collect_mark() set this for us */
+    OFF line_beg = closer->beg;     /* md_collect_mark() sets this for us */
     OFF line_end = closer->end;     /* ditto */
     OFF beg = opener->beg;
     OFF end = opener->end;
     MD_MARK* left_cursor = opener;
-    int left_boundary_ok = FALSE;
     MD_MARK* right_cursor = opener;
-    int right_boundary_ok = FALSE;
-    unsigned i;
 
     MD_ASSERT(closer->ch == 'D');
 
+    /* E-mail requires the user name (before '@', i.e. scanning backwards). */
     if(opener->ch == '@') {
         MD_ASSERT(CH(opener->beg) == _T('@'));
-
-        /* Scan backwards for the user name (before '@'). */
-        while(beg > line_beg) {
-            if(ISALNUM(beg-1))
-                beg--;
-            else if(beg >= line_beg+2  &&  ISALNUM(beg-2)  &&
-                        ISANYOF(beg-1, _T(".-_+"))  &&
-                        md_scan_left_for_resolved_mark(ctx, left_cursor, beg-1, &left_cursor) == NULL  &&
-                        ISALNUM(beg))
-                beg--;
-            else
-                break;
-        }
-        if(beg == opener->beg)      /* empty user name */
+        if(md_analyze_permissive_autolink_segment(ctx, beg, line_beg, &beg, TRUE,
+                _T('\0'), NULL, _T(".-_+"), &left_cursor) < 1)
             return;
     }
 
     /* Verify there's line boundary, whitespace, allowed punctuation or
      * resolved opener mark just before the suspected autolink. */
-    if(beg == line_beg  ||  ISUNICODEWHITESPACEBEFORE(beg)  ||  ISANYOF(beg-1, _T("({["))) {
-        left_boundary_ok = TRUE;
-    } else {
-        MD_MARK* left_mark;
+    if(beg > line_beg  &&  !ISUNICODEWHITESPACEBEFORE(beg)  &&  !ISANYOF(beg-1, _T("({["))) {
+        MD_MARK* mark;
 
-        left_mark = md_scan_left_for_resolved_mark(ctx, left_cursor, beg-1, &left_cursor);
-        if(left_mark != NULL  &&  (left_mark->flags & MD_MARK_OPENER))
-            left_boundary_ok = TRUE;
+        mark = md_scan_left_for_resolved_mark(ctx, left_cursor, beg-1, &left_cursor);
+        if(mark == NULL  ||  !(mark->flags & MD_MARK_OPENER))
+            return;
     }
-    if(!left_boundary_ok)
+
+    /* Scan for hostname segment. Hostname is mandatory and requires at least two
+     * components delimited with a dot. */
+    if(md_analyze_permissive_autolink_segment(ctx, end, line_end, &end, FALSE,
+            _T('.'), NULL, _T("-_"), &right_cursor) < 2)
         return;
 
-    for(i = 0; i < SIZEOF_ARRAY(URL_MAP); i++) {
-        int n_components = 0;
-        int n_open_brackets = 0;
-        int component_len = 0;
+    if(opener->ch != '@') {
+        /* Scan for path segment. */
+        if(end < line_end  &&  CH(end) == _T('/')) {
+            if(md_analyze_permissive_autolink_segment(ctx, end+1, line_end, &end, FALSE,
+                        _T('/'), _T(".+-_~"), NULL, &right_cursor) < 0)
+                return;
 
-        if(URL_MAP[i].start_char != _T('\0')) {
-            if(end >= line_end  ||  CH(end) != URL_MAP[i].start_char)
-                continue;
-            if(URL_MAP[i].min_components > 0  &&  (end+1 >= line_end  ||  !ISALNUM(end+1)))
-                continue;
-            end++;
+            /* Path can also end with additional '/' if its a directory. */
+            if(end < line_end  &&  CH(end) == _T('/'))
+                end++;
         }
 
-        while(end < line_end) {
-            if(ISALNUM(end)  ||  ISANYOF(end, URL_MAP[i].allowed_nonalnum_chars_anywhere)) {
-                if(n_components == 0)
-                    n_components++;
-                component_len++;
-                end++;
-            } else if(component_len > 0  &&  CH(end) == URL_MAP[i].delim_char  &&  end+1 < line_end  &&
-                      (ISALNUM(end+1)  ||  ISANYOF(end+1, URL_MAP[i].allowed_nonalnum_chars_anywhere))) {
-                n_components++;
-                component_len = 0;
-                end++;
-            } else if(ISANYOF(end, URL_MAP[i].allowed_nonalnum_chars_inside)  &&
-                      md_scan_right_for_resolved_mark(ctx, right_cursor, end, &right_cursor) == NULL  &&
-                      ((end > line_beg && (ISALNUM(end-1) || CH(end-1) == _T(')')))  ||  CH(end) == _T('('))  &&
-                      ((end+1 < line_end && (ISALNUM(end+1) || CH(end+1) == _T('(')))  ||  CH(end) == _T(')')))
-            {
-                /* brackets have to be balanced. */
-                if(CH(end) == _T('(')) {
-                    n_open_brackets++;
-                } else if(CH(end) == _T(')')) {
-                    if(n_open_brackets <= 0)
-                        break;
-                    n_open_brackets--;
-                }
-
-                component_len++;
-                end++;
-            } else {
-                break;
-            }
+        /* Scan for query segment. */
+        if(end < line_end  &&  CH(end) == _T('?')) {
+            if(md_analyze_permissive_autolink_segment(ctx, end+1, line_end, &end, FALSE,
+                        _T('&'), _T("._=()"), _T("+-"), &right_cursor) < 0)
+                return;
         }
 
-        if(end < line_end  &&  URL_MAP[i].optional_end_char != _T('\0')  &&
-                CH(end) == URL_MAP[i].optional_end_char)
-            end++;
-
-        if(n_components < URL_MAP[i].min_components  ||  n_open_brackets != 0)
-            return;
-
-        if(opener->ch == '@')   /* E-mail autolinks wants only the host. */
-            break;
+        /* Scan for fragment segment. */
+        if(end < line_end  &&  CH(end) == _T('#')) {
+            if(md_analyze_permissive_autolink_segment(ctx, end+1, line_end, &end, FALSE,
+                        _T('\0'), NULL, _T(".-+_"), &right_cursor) < 0)
+                return;
+        }
     }
 
     /* Verify there's line boundary, whitespace, allowed punctuation or
      * resolved closer mark just after the suspected autolink. */
-    if(end == line_end  ||  ISUNICODEWHITESPACE(end)  ||  ISANYOF(end, _T(")}].!?,;"))) {
-        right_boundary_ok = TRUE;
-    } else {
-        MD_MARK* right_mark;
+    if(end < line_end  &&  !ISUNICODEWHITESPACE(end)  &&  !ISANYOF(end, _T(")}].!?,;"))) {
+        MD_MARK* mark;
 
-        right_mark = md_scan_right_for_resolved_mark(ctx, right_cursor, end, &right_cursor);
-        if(right_mark != NULL  &&  (right_mark->flags & MD_MARK_CLOSER))
-            right_boundary_ok = TRUE;
+        mark = md_scan_right_for_resolved_mark(ctx, right_cursor, end, &right_cursor);
+        if(mark == NULL  ||  !(mark->flags & MD_MARK_CLOSER))
+            return;
     }
-    if(!right_boundary_ok)
-        return;
 
     /* Success, we are an autolink. */
     opener->beg = beg;
@@ -5190,9 +5215,10 @@ struct MD_BLOCK_tag {
 
 struct MD_CONTAINER_tag {
     CHAR ch;
-    unsigned is_loose       : 1;
-    unsigned is_task        : 1;
-    unsigned is_admonition  : 1;
+    unsigned is_loose           : 1;
+    unsigned is_task            : 1;
+    unsigned is_admonition      : 1;
+    unsigned admonition_type    : 3;
     unsigned start;
     unsigned mark_indent;
     unsigned contents_indent;
@@ -5407,6 +5433,8 @@ static const MD_CHAR* MD_ADMONITION_TAGS[] = { _T("note"), _T("tip"), _T("import
 static int
 md_process_all_blocks(MD_CTX* ctx)
 {
+    MD_TEXTTYPE adm_substr_types[1] = { MD_TEXT_NORMAL };
+    MD_OFFSET adm_substr_offsets[2];
     int byte_off = 0;
     int ret = 0;
 
@@ -5444,10 +5472,6 @@ md_process_all_blocks(MD_CTX* ctx)
                 break;
 
             case MD_BLOCK_ADMONITION:
-            {
-                MD_TEXTTYPE adm_substr_types[1] = { MD_TEXT_NORMAL };
-                MD_OFFSET adm_substr_offsets[2];
-
                 adm_substr_offsets[0] = 0;
                 adm_substr_offsets[1] = md_strlen(MD_ADMONITION_TAGS[block->data]);
 
@@ -5456,7 +5480,6 @@ md_process_all_blocks(MD_CTX* ctx)
                 det.adm.type.substr_types = adm_substr_types;
                 det.adm.type.substr_offsets = adm_substr_offsets;
                 break;
-            }
 
             default:
                 /* noop */
@@ -5956,7 +5979,7 @@ struct TAG_tag {
 #ifdef X
     #undef X
 #endif
-#define X(name)     { _T(name), (sizeof(name)-1) / sizeof(CHAR) }
+#define X(name)     { _T(name), (sizeof(_T(name))-1) / sizeof(CHAR) }
 #define Xend        { NULL, 0 }
 
 static const TAG t1[] = { X("pre"), X("script"), X("style"), X("textarea"), Xend };
@@ -6223,7 +6246,9 @@ md_enter_child_containers(MD_CTX* ctx, int n_children)
                 break;
 
             case _T('>'):
-                MD_CHECK(md_push_container_bytes(ctx, MD_BLOCK_QUOTE, 0, 0, MD_BLOCK_CONTAINER_OPENER));
+                MD_CHECK(md_push_container_bytes(ctx,
+                                (c->is_admonition ? MD_BLOCK_ADMONITION : MD_BLOCK_QUOTE),
+                                0, c->admonition_type, MD_BLOCK_CONTAINER_OPENER));
                 break;
 
             default:
@@ -6265,7 +6290,7 @@ md_leave_child_containers(MD_CTX* ctx, int n_keep)
             case _T('>'):
                 MD_CHECK(md_push_container_bytes(ctx,
                                 (c->is_admonition ? MD_BLOCK_ADMONITION : MD_BLOCK_QUOTE),
-                                0, 0, MD_BLOCK_CONTAINER_CLOSER));
+                                0, c->admonition_type, MD_BLOCK_CONTAINER_CLOSER));
                 break;
 
             default:
@@ -6820,8 +6845,30 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
         ctx->containers[n_parents].task_mark_off = container.task_mark_off;
     }
 
-    if(n_children > 0)
+    if(n_children > 0) {
+        /* Check for admonition tag. */
+        if((ctx->parser.flags & MD_FLAG_ADMONITIONS)  &&  n_children > 0  &&
+           ctx->containers[ctx->n_containers-1].ch == _T('>')  &&  line->type == MD_LINE_TEXT  &&
+           3 < line->end - line->beg  && line->end - line->beg < 16  &&
+           CH(line->beg) == _T('[') && CH(line->beg+1) == _T('!') && CH(line->end-1) == _T(']'))
+        {
+            unsigned i;
+
+            for(i = 0; i < SIZEOF_ARRAY(MD_ADMONITION_TAGS); i++) {
+                if(line->end - line->beg == md_strlen(MD_ADMONITION_TAGS[i]) + 3  &&
+                   md_ascii_case_eq(STR(line->beg+2), MD_ADMONITION_TAGS[i], line->end - line->beg - 3))
+                {
+                    ctx->containers[ctx->n_containers-1].is_admonition = TRUE;
+                    ctx->containers[ctx->n_containers-1].admonition_type = i;
+                    line->type = MD_LINE_BLANK;
+                    break;
+                }
+            }
+        }
+
+        /* Enter all the child container blocks. */
         MD_CHECK(md_enter_child_containers(ctx, n_children));
+    }
 
 abort:
     return ret;
@@ -6884,29 +6931,6 @@ md_process_line(MD_CTX* ctx, const MD_LINE_ANALYSIS** p_pivot_line, MD_LINE_ANAL
         ((MD_LINE_ANALYSIS*)pivot_line)->type = MD_LINE_TABLE;
         MD_CHECK(md_add_line_into_current_block(ctx, line));
         return 0;
-    }
-
-    /* Admonition's leading line needs special treatment. */
-    if((ctx->parser.flags & MD_FLAG_ADMONITIONS)  &&
-       ctx->current_block == NULL  &&  ctx->n_block_bytes >= (int)sizeof(MD_BLOCK))
-    {
-        MD_BLOCK* block = (MD_BLOCK*)((char*)ctx->block_bytes + ctx->n_block_bytes - sizeof(MD_BLOCK));
-
-        if(block->type == MD_BLOCK_QUOTE  &&  line->end - line->beg > 3  &&  line->end - line->beg < 16  &&
-           CH(line->beg) == _T('[')  &&  CH(line->beg+1) == _T('!')  &&  CH(line->end-1) == _T(']'))
-        {
-            unsigned i;
-
-            for(i = 0; i < SIZEOF_ARRAY(MD_ADMONITION_TAGS); i++) {
-                if(md_ascii_case_eq(STR(line->beg+2), MD_ADMONITION_TAGS[i], md_strlen(MD_ADMONITION_TAGS[i]))) {
-                    MD_ASSERT(ctx->n_containers > 0  &&  ctx->containers[ctx->n_containers-1].ch == _T('>'));
-                    ctx->containers[ctx->n_containers-1].is_admonition = TRUE;
-                    block->type = MD_BLOCK_ADMONITION;
-                    block->data = i;
-                    return 0;
-                }
-            }
-        }
     }
 
     /* The current block also ends if the line has different type. */

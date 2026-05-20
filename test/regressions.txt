@@ -796,6 +796,14 @@ https://codereview.qt-project.org/c/qt/qtwayland/+/545836
 --fpermissive-autolinks
 ````````````````````````````````
 
+```````````````````````````````` example
+https://www.youtube.com/watch?v=_tEL8bJ7yqU
+.
+<p><a href="https://www.youtube.com/watch?v=_tEL8bJ7yqU">https://www.youtube.com/watch?v=_tEL8bJ7yqU</a></p>
+.
+--fpermissive-autolinks
+````````````````````````````````
+
 
 ## [Issue 271](https://github.com/mity/md4c/issues/271)
 
@@ -840,4 +848,120 @@ x <- 1
 </code></pre>
 <pre><code class="language-r">x &lt;- 1
 </code></pre>
+````````````````````````````````
+
+
+## [Issue 320](https://github.com/mity/md4c/issues/320)
+
+```````````````````````````````` example
+    codeblock
+> [!note]
+> foo
+.
+<pre><code>codeblock
+</code></pre>
+<div class="admonition-note"><p class="admonition-title">note</p><p>foo</p>
+</div>
+.
+--fadmonitions
+````````````````````````````````
+
+```````````````````````````````` example
+> [!noteX]
+> foo
+.
+<blockquote>
+<p>[!noteX]
+foo</p>
+</blockquote>
+.
+--fadmonitions
+````````````````````````````````
+
+
+## Numeric entity for surrogate code point
+
+Surrogate code points (U+D800..U+DFFF) are not valid Unicode scalar values
+and must be replaced with U+FFFD, like U+0000.
+
+```````````````````````````````` example
+&#xD800; &#xDFFF; &#55296; &#57343;
+.
+<p>� � � �</p>
+````````````````````````````````
+
+
+## Backslash + newline as soft line break inside a link title
+
+Per CommonMark, a backslash before a line ending is a recognized escape that
+produces a soft line break. This must work inside link titles too -- the
+HTML renderer doesn't distinguish soft breaks from regular newlines, but a
+custom renderer would, so the parser must treat `\\` + newline as an escape
+rather than a literal backslash followed by content.
+
+```````````````````````````````` example
+[foo]: /url "ti\
+tle"
+
+[foo]
+.
+<p><a href="/url" title="ti
+tle">foo</a></p>
+````````````````````````````````
+
+
+## [Issue 331](https://github.com/mity/md4c/issues/331)
+
+```````````````````````````````` example
+https://example.com/~username
+.
+<p><a href="https://example.com/~username">https://example.com/~username</a></p>
+.
+--fpermissive-autolinks
+````````````````````````````````
+
+
+## [Issue 331](https://github.com/mity/md4c/issues/331)
+
+```````````````````````````````` example
+https://example.com/~username
+.
+<p><a href="https://example.com/~username">https://example.com/~username</a></p>
+.
+--fpermissive-autolinks
+````````````````````````````````
+
+
+## [Issue 334](https://github.com/mity/md4c/issues/334)
+
+
+```````````````````````````````` example
+foo
+>[!tip]
+>-
+.
+<p>foo</p>
+<div class="admonition-tip"><p class="admonition-title">tip</p>
+<ul>
+<li></li>
+</ul>
+</div>
+.
+--fadmonitions
+````````````````````````````````
+
+
+## [Issue 336](https://github.com/mity/md4c/issues/336)
+
+```````````````````````````````` example
+>     [!tip]
+> foo
+.
+<blockquote>
+<pre><code>[!tip]
+</code></pre>
+<p>foo</p>
+</blockquote>
+.
+--fadmonitions
 ````````````````````````````````

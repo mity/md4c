@@ -31,6 +31,41 @@ New Features:
 
     Contributed by [Gregory Moskaliuk](https://github.com/hryhoriiK97).
 
+Changes:
+
+  * Permissive autolinks (`MD_FLAG_PERMISSIVExxxAUTOLINKS` flags) have been
+    improved and some links with non-alphanumeric characters are now recognized.
+
+    However please note this will always be a subject of painful search for
+    reasonable trade-off between recognizing more obscure URLs versus opening
+    gates to potential false positives.
+
+    We generally recommend to use standard autolinks as defined by
+    [CommonMark specification](https://spec.commonmark.org/0.31.2/#autolinks)
+    (i.e. enclosed between `<` and `>`), especially for links containing more
+    obscure combinations of non-alphanumeric characters.
+
+Fixes:
+
+  * [#325](https://github.com/mity/md4c/pull/325):
+    The HTML renderer now replaces UTF-16 surrogate codepoints, which should
+    not appear in the valid UTF-8 input, with the replacement character U+FFFD
+    (as it was already doing for invalid codepoints above U+10FFFF).
+
+  * [#328](https://github.com/mity/md4c/issues/328),
+    [#338](https://github.com/mity/md4c/issues/338):
+    Fix several bugs of Windows Unicode builds of the parser (i.e. when built
+    with `-DMD4C_USE_UTF16`).
+
+  * [#330](https://github.com/mity/md4c/pull/330):
+    The `md2html` utility collects the generated HTML into an in-memory growing
+    buffer and the respective code was not checking whether the size of the
+    buffer doesn't overflow.
+
+    This may have security implications for applications which use `md2html`
+    utility rather than call directly the md4c-html library and which pass the
+    utility a multi-gigabyte input to process.
+
 
 ## Version 0.5.3
 

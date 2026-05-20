@@ -98,8 +98,16 @@ membuf_grow(struct membuffer* buf, size_t new_asize)
 static void
 membuf_append(struct membuffer* buf, const char* data, MD_SIZE size)
 {
-    if(buf->asize < buf->size + size)
-        membuf_grow(buf, buf->size + buf->size / 2 + size);
+    if(size > (size_t)-1 - buf->size) {
+        fprintf(stderr, "membuf_append: size overflow.\n");
+        exit(1);
+    }
+    if(buf->asize < buf->size + size) {
+        size_t new_asize = buf->size + buf->size / 2 + size;
+        if(new_asize < buf->size + size)
+            new_asize = buf->size + size;
+        membuf_grow(buf, new_asize);
+    }
     memcpy(buf->data + buf->size, data, size);
     buf->size += size;
 }
