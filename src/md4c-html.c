@@ -393,7 +393,7 @@ render_open_wikilink_span(MD_HTML* r, const MD_SPAN_WIKILINK_DETAIL* det)
 static void
 render_open_footnote_ref_span(MD_HTML* r, const MD_SPAN_FOOTNOTE_REF_DETAIL* det)
 {
-    char buf[64];
+    char buf[128];
 
     snprintf(buf, sizeof(buf), "<sup><a href=\"#fn-%u\" id=\"fnref-%u-%u\">%u</a></sup>",
              det->id, det->id, det->ref_id, det->id);
@@ -416,7 +416,7 @@ render_open_footnote_def_block(MD_HTML* r, const MD_BLOCK_FOOTNOTE_DEF_DETAIL* d
 static void
 render_close_footnote_def_block(MD_HTML* r, const MD_BLOCK_FOOTNOTE_DEF_DETAIL* det)
 {
-    char buf[64];
+    char buf[128];
     unsigned int ref_index;
 
     for(ref_index = 1; ref_index <= det->ref_count; ref_index++) {
