@@ -342,6 +342,9 @@ Software using MD4C:
 * [Qt](https://www.qt.io/):
   Cross-platform C++ GUI framework.
 
+* [react-native-enriched-markdown](https://github.com/software-mansion-labs/react-native-enriched-markdown):
+  A React Native markdown renderer powered by MD4C.
+
 * [Textosaurus](https://github.com/martinrotter/textosaurus):
   Cross-platform text editor based on Qt and Scintilla.
 
