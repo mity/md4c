@@ -15,6 +15,17 @@ Raw HTML block:
 <gi att1=tok1 att2=tok2>
 ````````````````````````````````
 
+
+## Footnote definition with bracketed link text
+
+```````````````````````````````` example
+[^x]:
+[**x*]()
+.
+.
+--ffootnotes
+````````````````````````````````
+
 Inline:
 
 ```````````````````````````````` example

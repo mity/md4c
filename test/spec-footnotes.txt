@@ -191,8 +191,7 @@ Footnote with <strong>bold</strong> and <em>italic</em>.<a href="#fnref-1-1" cla
 
 ## Multi-line footnote content
 
-Continuation lines indented by at least two spaces or one tab are part of the
-footnote body:
+Following paragraph lines are part of the footnote body:
 
 ```````````````````````````````` example
 Text[^1].
@@ -206,6 +205,45 @@ Text[^1].
 <li id="fn-1">
 First line.
 Second line continued.<a href="#fnref-1-1" class="footnote-backref">&#8617;</a>
+</li>
+</ol>
+</section>
+.
+--ffootnotes
+````````````````````````````````
+
+
+```````````````````````````````` example
+Text[^1].
+
+[^1]: First line.
+Second line continued.
+.
+<p>Text<sup><a href="#fn-1" id="fnref-1-1">1</a></sup>.</p>
+<section class="footnotes">
+<ol>
+<li id="fn-1">
+First line.
+Second line continued.<a href="#fnref-1-1" class="footnote-backref">&#8617;</a>
+</li>
+</ol>
+</section>
+.
+--ffootnotes
+````````````````````````````````
+
+
+```````````````````````````````` example
+Text[^1].
+
+[^1]:
+Continued after empty first line.
+.
+<p>Text<sup><a href="#fn-1" id="fnref-1-1">1</a></sup>.</p>
+<section class="footnotes">
+<ol>
+<li id="fn-1">
+Continued after empty first line.<a href="#fnref-1-1" class="footnote-backref">&#8617;</a>
 </li>
 </ol>
 </section>
