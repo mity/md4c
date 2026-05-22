@@ -2026,6 +2026,7 @@ md_is_footnote_definition(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
     MD_LINE* content_lines = NULL;
     MD_FOOTNOTE_DEF* def;
     MD_SIZE n;
+    MD_SIZE n_content_lines;
     int ret = 0;
 
     /* Caller guarantees: n_lines >= 1 and lines[0] starts with [^. */
@@ -2056,23 +2057,29 @@ md_is_footnote_definition(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
     while(off < lines[0].end  &&  ISWHITESPACE(off))
         off++;
 
-    /* Count continuation lines.
-     *
-     * MD_LINE::beg is already past leading whitespace (md4c strips indentation
-     * before storing lines). We detect indented continuation lines by checking
-     * whether the raw character just before lines[n].beg is a space or tab —
-     * which it will be iff the line had any indentation.
+    /* Count continuation lines. GitHub-style footnotes allow the rest of the
+     * paragraph block to form the footnote body, including unindented lines.
      *
      * Blank lines cannot appear inside a paragraph block (they always trigger
-     * a block boundary), so we do not need to handle them here.
-     */
+     * a block boundary), so we do not need to handle them here. Stop before a
+     * following line which itself starts a new footnote definition. */
     n = 1;
     while(n < n_lines) {
-        OFF lb = lines[n].beg;
-        if(lb > 0  &&  (ctx->text[lb - 1] == _T(' ')  ||  ctx->text[lb - 1] == _T('\t')))
-            n++;
-        else
-            break;
+        OFF def_off = lines[n].beg;
+
+        if(def_off + 3 < lines[n].end  &&  CH(def_off) == _T('[')  &&  CH(def_off+1) == _T('^')) {
+            OFF tmp = def_off + 2;
+
+            while(tmp < lines[n].end  &&  CH(tmp) != _T(']')  &&
+                  !ISWHITESPACE(tmp)  &&  CH(tmp) != _T('['))
+                tmp++;
+
+            if(tmp > def_off + 2  &&  tmp + 1 < lines[n].end  &&
+               CH(tmp) == _T(']')  &&  CH(tmp+1) == _T(':'))
+                break;
+        }
+
+        n++;
     }
 
     /* Grow footnote_defs array if needed. */
@@ -2096,17 +2103,22 @@ md_is_footnote_definition(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
      * Line 0 content starts after the "[^label]: " prefix.
      * Lines 1..n-1 are stored verbatim (md4c strips indentation before
      * handing us MD_LINE, so no further adjustment is needed). */
-    content_lines = (MD_LINE*) malloc(n * sizeof(MD_LINE));
+    n_content_lines = (off >= lines[0].end  &&  n > 1) ? n - 1 : n;
+    content_lines = (MD_LINE*) malloc(n_content_lines * sizeof(MD_LINE));
     if(content_lines == NULL) {
         MD_LOG("malloc() failed.");
         ret = -1;
         goto abort;
     }
 
-    content_lines[0].beg = off;
-    content_lines[0].end = lines[0].end;
-    if(n > 1)
-        memcpy(content_lines + 1, lines + 1, (n - 1) * sizeof(MD_LINE));
+    if(n_content_lines < n) {
+        memcpy(content_lines, lines + 1, n_content_lines * sizeof(MD_LINE));
+    } else {
+        content_lines[0].beg = off;
+        content_lines[0].end = lines[0].end;
+        if(n > 1)
+            memcpy(content_lines + 1, lines + 1, (n - 1) * sizeof(MD_LINE));
+    }
 
     def = &ctx->footnote_defs[ctx->n_footnote_defs];
     memset(def, 0, sizeof(MD_FOOTNOTE_DEF));
@@ -2114,7 +2126,7 @@ md_is_footnote_definition(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
     def->label_size = label_end - label_beg;
     def->hash = md_link_label_hash(def->label, def->label_size);
     def->content_lines = content_lines;
-    def->n_content_lines = n;
+    def->n_content_lines = n_content_lines;
 
     ctx->n_footnote_defs++;
     return (int) n;
@@ -4504,7 +4516,7 @@ md_resolve_footnote_refs(MD_CTX* ctx)
 
         /* Only interested in potential footnote ref openers that have not
          * yet been resolved (md_resolve_links() skips them). */
-        if(!(opener->flags & MD_MARK_FOOTNOTE_REF))
+        if(opener->ch != _T('[')  ||  !(opener->flags & MD_MARK_FOOTNOTE_REF))
             continue;
         if(opener->next < 0)
             continue;   /* no matching ']' was found */
