@@ -1603,9 +1603,9 @@ abort:
 }
 
 
-/*********************************************
- ***  Dictionary of Reference Definitions  ***
- *********************************************/
+/**************************************************
+ ***  Hashtable (with a text label as its key)  ***
+ **************************************************/
 
 #define MD_FNV1A_BASE       2166136261U
 #define MD_FNV1A_PRIME      16777619U
@@ -1625,25 +1625,12 @@ md_fnv1a(unsigned base, const void* data, size_t n)
     return hash;
 }
 
-
-struct MD_REF_DEF_tag {
-    CHAR* label;
-    CHAR* title;
-    unsigned hash;
-    SZ label_size;
-    SZ title_size;
-    OFF dest_beg;
-    OFF dest_end;
-    unsigned char label_needs_free : 1;
-    unsigned char title_needs_free : 1;
-};
-
 /* Label equivalence is quite complicated with regards to whitespace and case
  * folding. This complicates computing a hash of it as well as direct comparison
  * of two labels. */
 
 static unsigned
-md_link_label_hash(const CHAR* label, SZ size)
+md_label_hash(const CHAR* label, SZ size)
 {
     unsigned hash = MD_FNV1A_BASE;
     OFF off;
@@ -1674,8 +1661,8 @@ md_link_label_hash(const CHAR* label, SZ size)
 }
 
 static OFF
-md_link_label_cmp_load_fold_info(const CHAR* label, OFF off, SZ size,
-                                 MD_UNICODE_FOLD_INFO* fold_info)
+md_label_cmp_load_fold_info(const CHAR* label, OFF off, SZ size,
+                            MD_UNICODE_FOLD_INFO* fold_info)
 {
     unsigned codepoint;
     SZ char_size;
@@ -1703,7 +1690,7 @@ whitespace:
 }
 
 static int
-md_link_label_cmp(const CHAR* a_label, SZ a_size, const CHAR* b_label, SZ b_size)
+md_label_cmp(const CHAR* a_label, SZ a_size, const CHAR* b_label, SZ b_size)
 {
     OFF a_off;
     OFF b_off;
@@ -1721,11 +1708,11 @@ md_link_label_cmp(const CHAR* a_label, SZ a_size, const CHAR* b_label, SZ b_size
         /* If needed, load fold info for next char. */
         if(a_fi_off >= a_fi.n_codepoints) {
             a_fi_off = 0;
-            a_off = md_link_label_cmp_load_fold_info(a_label, a_off, a_size, &a_fi);
+            a_off = md_label_cmp_load_fold_info(a_label, a_off, a_size, &a_fi);
         }
         if(b_fi_off >= b_fi.n_codepoints) {
             b_fi_off = 0;
-            b_off = md_link_label_cmp_load_fold_info(b_label, b_off, b_size, &b_fi);
+            b_off = md_label_cmp_load_fold_info(b_label, b_off, b_size, &b_fi);
         }
 
         cmp = b_fi.codepoints[b_fi_off] - a_fi.codepoints[a_fi_off];
@@ -1757,7 +1744,7 @@ md_label_hash_entry_cmp(const void* a, const void* b)
     else if(a_entry->hash > b_entry->hash)
         return +1;
     else
-        return md_link_label_cmp(a_entry->label, a_entry->label_size,
+        return md_label_cmp(a_entry->label, a_entry->label_size,
                     b_entry->label, b_entry->label_size);
 }
 
@@ -1777,8 +1764,6 @@ md_label_hash_entry_cmp_for_sort(const void* a, const void* b)
             cmp = -1;
         else if(a_entry > b_entry)
             cmp = +1;
-        else
-            cmp = 0;
     }
 
     return cmp;
@@ -1827,7 +1812,7 @@ md_build_label_hashtable(MD_CTX* ctx, MD_LABEL_HASH_TABLE* table,
         entry->def = def;
         entry->label = *(CHAR**) (def + label_offset);
         entry->label_size = *(SZ*) (def + label_size_offset);
-        entry->hash = md_link_label_hash(entry->label, entry->label_size);
+        entry->hash = md_label_hash(entry->label, entry->label_size);
         *(unsigned*) (def + hash_offset) = entry->hash;
 
         bucket = table->buckets[entry->hash % table->n_buckets];
@@ -1845,7 +1830,7 @@ md_build_label_hashtable(MD_CTX* ctx, MD_LABEL_HASH_TABLE* table,
              * same label (duplicate) or different one (hash conflict). */
             MD_LABEL_HASH_ENTRY* old_entry = (MD_LABEL_HASH_ENTRY*) bucket;
 
-            if(md_link_label_cmp(entry->label, entry->label_size,
+            if(md_label_cmp(entry->label, entry->label_size,
                         old_entry->label, old_entry->label_size) == 0) {
                 /* Duplicate label: Ignore this definition. */
                 continue;
@@ -1952,7 +1937,7 @@ md_lookup_label_hashtable(MD_LABEL_HASH_TABLE* table, const CHAR* label, SZ labe
     if(table->n_buckets == 0)
         return NULL;
 
-    hash = md_link_label_hash(label, label_size);
+    hash = md_label_hash(label, label_size);
     bucket = table->buckets[hash % table->n_buckets];
 
     if(bucket == NULL) {
@@ -1963,7 +1948,7 @@ md_lookup_label_hashtable(MD_LABEL_HASH_TABLE* table, const CHAR* label, SZ labe
         MD_LABEL_HASH_ENTRY* entry = (MD_LABEL_HASH_ENTRY*) bucket;
 
         if(entry->hash == hash  &&
-           md_link_label_cmp(entry->label, entry->label_size, label, label_size) == 0)
+           md_label_cmp(entry->label, entry->label_size, label, label_size) == 0)
             return entry->def;
         else
             return NULL;
@@ -1985,6 +1970,23 @@ md_lookup_label_hashtable(MD_LABEL_HASH_TABLE* table, const CHAR* label, SZ labe
             return NULL;
     }
 }
+
+
+/************************************
+ ***  Link Reference Definitions  ***
+ ************************************/
+
+struct MD_REF_DEF_tag {
+    CHAR* label;
+    CHAR* title;
+    unsigned hash;
+    SZ label_size;
+    SZ title_size;
+    OFF dest_beg;
+    OFF dest_end;
+    unsigned char label_needs_free : 1;
+    unsigned char title_needs_free : 1;
+};
 
 static int
 md_build_ref_def_hashtable(MD_CTX* ctx)
@@ -2124,7 +2126,7 @@ md_is_footnote_definition(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
     memset(def, 0, sizeof(MD_FOOTNOTE_DEF));
     def->label = (CHAR*) STR(label_beg);
     def->label_size = label_end - label_beg;
-    def->hash = md_link_label_hash(def->label, def->label_size);
+    def->hash = md_label_hash(def->label, def->label_size);
     def->content_lines = content_lines;
     def->n_content_lines = n_content_lines;
 
