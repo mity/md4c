@@ -149,35 +149,34 @@ typedef struct MD_MARK_tag MD_MARK;
 typedef struct MD_BLOCK_tag MD_BLOCK;
 typedef struct MD_CONTAINER_tag MD_CONTAINER;
 typedef struct MD_REF_DEF_tag MD_REF_DEF;
+typedef struct MD_FOOTNOTE_DEF_tag MD_FOOTNOTE_DEF;
 
 /* Forward declaration; full definition is below with MD_LINE_tag. */
 typedef struct MD_LINE_tag MD_LINE;
 
-typedef struct MD_FOOTNOTE_DEF_tag MD_FOOTNOTE_DEF;
-struct MD_FOOTNOTE_DEF_tag {
-    CHAR* label;
-    SZ label_size;
-    unsigned hash;
-    unsigned int index;         /* 0 = unreferenced; 1-based order of first reference */
-    unsigned int ref_count;     /* Number of references to this footnote. */
-    MD_LINE* content_lines;     /* always heap-allocated; freed by md_free_footnote_defs */
-    MD_SIZE n_content_lines;
-};
-
 typedef struct MD_LABEL_HASH_ENTRY_tag MD_LABEL_HASH_ENTRY;
 struct MD_LABEL_HASH_ENTRY_tag {
-    void* def;
-    CHAR* label;
+    const CHAR* label;
     SZ label_size;
     unsigned hash;
 };
 
 typedef struct MD_LABEL_HASH_TABLE_tag MD_LABEL_HASH_TABLE;
 struct MD_LABEL_HASH_TABLE_tag {
-    MD_LABEL_HASH_ENTRY* entries;
-    int n_entries;
+    /* Flat array of all records. */
+    union {
+        void* defs;
+        MD_REF_DEF* ref_defs;
+        MD_FOOTNOTE_DEF* footnote_defs;
+    };
+    unsigned def_size;
+    unsigned n_defs;
+    unsigned alloc_defs;
+
+    /* The hashtable itself, where the actual entries are pointers into the
+     * array defs[] above. */
     void** buckets;
-    int n_buckets;
+    unsigned n_buckets;
 };
 
 
@@ -207,18 +206,12 @@ struct MD_CTX_tag {
     unsigned alloc_buffer;
 
     /* Reference definitions. */
-    MD_REF_DEF* ref_defs;
-    int n_ref_defs;
-    int alloc_ref_defs;
     MD_LABEL_HASH_TABLE ref_def_hashtable;
     SZ max_ref_def_output;
 
     /* Footnote definitions. */
-    MD_FOOTNOTE_DEF* footnote_defs;
-    int n_footnote_defs;
-    int alloc_footnote_defs;
     MD_LABEL_HASH_TABLE footnote_hashtable;
-    unsigned int next_footnote_index;   /* 1-based counter for sequential numbering */
+    unsigned next_footnote_index;   /* 1-based counter for sequential numbering */
 
     /* Stack of inline/span markers.
      * This is only used for parsing a single block contents but by storing it
@@ -1728,8 +1721,8 @@ md_label_cmp(const CHAR* a_label, SZ a_size, const CHAR* b_label, SZ b_size)
 
 typedef struct MD_LABEL_HASH_LIST_tag MD_LABEL_HASH_LIST;
 struct MD_LABEL_HASH_LIST_tag {
-    int n_entries;
-    int alloc_entries;
+    unsigned n_entries;
+    unsigned alloc_entries;
     MD_LABEL_HASH_ENTRY* entries[];
 };
 
@@ -1770,26 +1763,24 @@ md_label_hash_entry_cmp_for_sort(const void* a, const void* b)
 }
 
 static int
-md_build_label_hashtable(MD_CTX* ctx, MD_LABEL_HASH_TABLE* table,
-                         void* defs, int n_defs, size_t def_size,
-                         size_t label_offset, size_t label_size_offset,
-                         size_t hash_offset)
+md_is_complex_label_bucket(MD_LABEL_HASH_TABLE* table, void* bucket)
 {
-    int i, j;
+    if(bucket == NULL)
+        return FALSE;
 
-    MD_UNUSED(ctx);
+    return (MD_LABEL_HASH_ENTRY*) bucket < (MD_LABEL_HASH_ENTRY*) table->defs  ||
+           (MD_LABEL_HASH_ENTRY*) bucket >= (MD_LABEL_HASH_ENTRY*)((char*)table->defs + table->n_defs * table->def_size);
+}
 
-    if(n_defs == 0)
+static int
+md_build_label_hashtable(MD_CTX* ctx, MD_LABEL_HASH_TABLE* table)
+{
+    unsigned i, j;
+
+    if(table->n_defs == 0)
         return 0;
 
-    table->n_entries = n_defs;
-    table->entries = (MD_LABEL_HASH_ENTRY*) malloc(n_defs * sizeof(MD_LABEL_HASH_ENTRY));
-    if(table->entries == NULL) {
-        MD_LOG("malloc() failed.");
-        goto abort;
-    }
-
-    table->n_buckets = (n_defs * 5) / 4;
+    table->n_buckets = (table->n_defs * 5) / 4;
     table->buckets = malloc(table->n_buckets * sizeof(void*));
     if(table->buckets == NULL) {
         MD_LOG("malloc() failed.");
@@ -1799,40 +1790,30 @@ md_build_label_hashtable(MD_CTX* ctx, MD_LABEL_HASH_TABLE* table,
 
     /* Each member of table->buckets[] can be:
      *  -- NULL,
-     *  -- pointer to the MD_LABEL_HASH_ENTRY in table->entries[], or
+     *  -- pointer to the MD_LABEL_HASH_ENTRY, or
      *  -- pointer to a MD_LABEL_HASH_LIST, which holds multiple pointers to
      *     such entries.
      */
-    for(i = 0; i < n_defs; i++) {
-        char* def = (char*) defs + i * def_size;
-        MD_LABEL_HASH_ENTRY* entry = &table->entries[i];
-        void* bucket;
+    for(i = 0; i < table->n_defs; i++) {
+        MD_LABEL_HASH_ENTRY* entry = (MD_LABEL_HASH_ENTRY*) ((char*) table->defs + i * table->def_size);
+        void** p_bucket = &table->buckets[entry->hash % table->n_buckets];
         MD_LABEL_HASH_LIST* list;
 
-        entry->def = def;
-        entry->label = *(CHAR**) (def + label_offset);
-        entry->label_size = *(SZ*) (def + label_size_offset);
-        entry->hash = md_label_hash(entry->label, entry->label_size);
-        *(unsigned*) (def + hash_offset) = entry->hash;
-
-        bucket = table->buckets[entry->hash % table->n_buckets];
-
-        if(bucket == NULL) {
+        if(*p_bucket == NULL) {
             /* The bucket is empty. Make it just point to the entry. */
-            table->buckets[entry->hash % table->n_buckets] = entry;
+            *p_bucket = entry;
             continue;
         }
 
-        if(table->entries <= (MD_LABEL_HASH_ENTRY*) bucket  &&
-           (MD_LABEL_HASH_ENTRY*) bucket < table->entries + table->n_entries)
+        if(!md_is_complex_label_bucket(table, *p_bucket))
         {
             /* The bucket already contains one entry. Lets see whether it is the
              * same label (duplicate) or different one (hash conflict). */
-            MD_LABEL_HASH_ENTRY* old_entry = (MD_LABEL_HASH_ENTRY*) bucket;
+            MD_LABEL_HASH_ENTRY* old_entry = (MD_LABEL_HASH_ENTRY*) *p_bucket;
 
             if(md_label_cmp(entry->label, entry->label_size,
                         old_entry->label, old_entry->label_size) == 0) {
-                /* Duplicate label: Ignore this definition. */
+                /* Duplicate label: We may ignore this definition. */
                 continue;
             }
 
@@ -1847,7 +1828,7 @@ md_build_label_hashtable(MD_CTX* ctx, MD_LABEL_HASH_TABLE* table,
             list->entries[1] = entry;
             list->n_entries = 2;
             list->alloc_entries = 2;
-            table->buckets[entry->hash % table->n_buckets] = list;
+            *p_bucket = list;
             continue;
         }
 
@@ -1857,9 +1838,9 @@ md_build_label_hashtable(MD_CTX* ctx, MD_LABEL_HASH_TABLE* table,
          * iterating over the complex bucket. Below, we revisit all the complex
          * buckets and handle it more cheaply after the complex bucket contents
          * is sorted. */
-        list = (MD_LABEL_HASH_LIST*) bucket;
+        list = (MD_LABEL_HASH_LIST*) *p_bucket;
         if(list->n_entries >= list->alloc_entries) {
-            int alloc_entries = list->alloc_entries + list->alloc_entries / 2;
+            size_t alloc_entries = list->alloc_entries + list->alloc_entries / 2;
             MD_LABEL_HASH_LIST* list_tmp = (MD_LABEL_HASH_LIST*) realloc(list,
                         sizeof(MD_LABEL_HASH_LIST) + alloc_entries * sizeof(MD_LABEL_HASH_ENTRY*));
             if(list_tmp == NULL) {
@@ -1882,8 +1863,8 @@ md_build_label_hashtable(MD_CTX* ctx, MD_LABEL_HASH_TABLE* table,
 
         if(bucket == NULL)
             continue;
-        if(table->entries <= (MD_LABEL_HASH_ENTRY*) bucket  &&
-           (MD_LABEL_HASH_ENTRY*) bucket < table->entries + table->n_entries)
+
+        if(!md_is_complex_label_bucket(table, bucket))
             continue;
 
         list = (MD_LABEL_HASH_LIST*) bucket;
@@ -1907,32 +1888,30 @@ abort:
 }
 
 static void
-md_free_label_hashtable(MD_LABEL_HASH_TABLE* table)
+md_free_label_hashtable(MD_CTX* ctx, MD_LABEL_HASH_TABLE* table)
 {
+    MD_UNUSED(ctx);
+
     if(table->buckets != NULL) {
-        int i;
+        unsigned i;
 
         for(i = 0; i < table->n_buckets; i++) {
             void* bucket = table->buckets[i];
-            if(bucket == NULL)
-                continue;
-            if(table->entries <= (MD_LABEL_HASH_ENTRY*) bucket  &&
-               (MD_LABEL_HASH_ENTRY*) bucket < table->entries + table->n_entries)
-                continue;
-            free(bucket);
+            if(md_is_complex_label_bucket(table, bucket))
+                free(bucket);
         }
 
         free(table->buckets);
     }
-
-    free(table->entries);
 }
 
-static void*
-md_lookup_label_hashtable(MD_LABEL_HASH_TABLE* table, const CHAR* label, SZ label_size)
+static const MD_LABEL_HASH_ENTRY*
+md_lookup_label_hashtable(MD_CTX* ctx, MD_LABEL_HASH_TABLE* table, const CHAR* label, SZ label_size)
 {
     unsigned hash;
     void* bucket;
+
+    MD_UNUSED(ctx);
 
     if(table->n_buckets == 0)
         return NULL;
@@ -1942,14 +1921,12 @@ md_lookup_label_hashtable(MD_LABEL_HASH_TABLE* table, const CHAR* label, SZ labe
 
     if(bucket == NULL) {
         return NULL;
-    } else if(table->entries <= (MD_LABEL_HASH_ENTRY*) bucket  &&
-              (MD_LABEL_HASH_ENTRY*) bucket < table->entries + table->n_entries)
-    {
+    } else if(!md_is_complex_label_bucket(table, bucket)) {
         MD_LABEL_HASH_ENTRY* entry = (MD_LABEL_HASH_ENTRY*) bucket;
 
         if(entry->hash == hash  &&
            md_label_cmp(entry->label, entry->label_size, label, label_size) == 0)
-            return entry->def;
+            return entry;
         else
             return NULL;
     } else {
@@ -1965,10 +1942,43 @@ md_lookup_label_hashtable(MD_LABEL_HASH_TABLE* table, const CHAR* label, SZ labe
         ret = (MD_LABEL_HASH_ENTRY**) bsearch(&key, list->entries,
                     list->n_entries, sizeof(MD_LABEL_HASH_ENTRY*), md_label_hash_entry_cmp);
         if(ret != NULL)
-            return (*ret)->def;
+            return *ret;
         else
             return NULL;
     }
+}
+
+static void*
+md_add_label_def(MD_CTX* ctx, MD_LABEL_HASH_TABLE* table, const CHAR* label, SZ label_size)
+{
+    MD_LABEL_HASH_ENTRY* entry;
+
+    if(table->n_defs >= table->alloc_defs) {
+        size_t new_alloc_defs;
+        void* new_defs;
+
+        new_alloc_defs = (table->alloc_defs > 0
+                ? table->alloc_defs + table->alloc_defs / 2
+                : 8);
+        new_defs = realloc(table->defs, new_alloc_defs * table->def_size);
+        if(new_defs == NULL) {
+            MD_LOG("realloc() failed.");
+            return NULL;
+        }
+
+        table->defs = new_defs;
+        table->alloc_defs = new_alloc_defs;
+    }
+
+    entry = (MD_LABEL_HASH_ENTRY*)((char*)table->defs + table->n_defs * table->def_size);
+    memset(entry, 0, table->def_size);
+    entry->label = label;
+    entry->label_size = label_size;
+    entry->hash = md_label_hash(label, label_size);
+
+    table->n_defs++;
+
+    return entry;
 }
 
 
@@ -1977,10 +1987,8 @@ md_lookup_label_hashtable(MD_LABEL_HASH_TABLE* table, const CHAR* label, SZ labe
  ************************************/
 
 struct MD_REF_DEF_tag {
-    CHAR* label;
+    MD_LABEL_HASH_ENTRY entry;
     CHAR* title;
-    unsigned hash;
-    SZ label_size;
     SZ title_size;
     OFF dest_beg;
     OFF dest_end;
@@ -1991,29 +1999,29 @@ struct MD_REF_DEF_tag {
 static int
 md_build_ref_def_hashtable(MD_CTX* ctx)
 {
-    return md_build_label_hashtable(ctx, &ctx->ref_def_hashtable,
-                ctx->ref_defs, ctx->n_ref_defs, sizeof(MD_REF_DEF),
-                offsetof(MD_REF_DEF, label), offsetof(MD_REF_DEF, label_size),
-                offsetof(MD_REF_DEF, hash));
-}
-
-static void
-md_free_ref_def_hashtable(MD_CTX* ctx)
-{
-    md_free_label_hashtable(&ctx->ref_def_hashtable);
+    return md_build_label_hashtable(ctx, &ctx->ref_def_hashtable);
 }
 
 static const MD_REF_DEF*
 md_lookup_ref_def(MD_CTX* ctx, const CHAR* label, SZ label_size)
 {
-    return (const MD_REF_DEF*) md_lookup_label_hashtable(&ctx->ref_def_hashtable,
-                label, label_size);
+    return (const MD_REF_DEF*) md_lookup_label_hashtable(ctx,
+                &ctx->ref_def_hashtable, label, label_size);
 }
 
 
 /*******************************
  ***  Footnote Definitions   ***
  *******************************/
+
+typedef struct MD_FOOTNOTE_DEF_tag MD_FOOTNOTE_DEF;
+struct MD_FOOTNOTE_DEF_tag {
+    MD_LABEL_HASH_ENTRY entry;
+    unsigned int index;         /* 0 = unreferenced; 1-based order of first reference */
+    unsigned int ref_count;     /* Number of references to this footnote. */
+    MD_LINE* content_lines;     /* always heap-allocated; freed by md_free_footnote_defs */
+    MD_SIZE n_content_lines;
+};
 
 /* Returns 0 if not a footnote definition.
  * Returns N > 0 (number of lines consumed) if it is one and the definition
@@ -2084,23 +2092,6 @@ md_is_footnote_definition(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
         n++;
     }
 
-    /* Grow footnote_defs array if needed. */
-    if(ctx->n_footnote_defs >= ctx->alloc_footnote_defs) {
-        MD_FOOTNOTE_DEF* new_defs;
-
-        ctx->alloc_footnote_defs = (ctx->alloc_footnote_defs > 0
-                ? ctx->alloc_footnote_defs + ctx->alloc_footnote_defs / 2
-                : 8);
-        new_defs = (MD_FOOTNOTE_DEF*) realloc(ctx->footnote_defs,
-                        ctx->alloc_footnote_defs * sizeof(MD_FOOTNOTE_DEF));
-        if(new_defs == NULL) {
-            MD_LOG("realloc() failed.");
-            ret = -1;
-            goto abort;
-        }
-        ctx->footnote_defs = new_defs;
-    }
-
     /* Build content_lines array.
      * Line 0 content starts after the "[^label]: " prefix.
      * Lines 1..n-1 are stored verbatim (md4c strips indentation before
@@ -2122,15 +2113,15 @@ md_is_footnote_definition(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
             memcpy(content_lines + 1, lines + 1, (n - 1) * sizeof(MD_LINE));
     }
 
-    def = &ctx->footnote_defs[ctx->n_footnote_defs];
-    memset(def, 0, sizeof(MD_FOOTNOTE_DEF));
-    def->label = (CHAR*) STR(label_beg);
-    def->label_size = label_end - label_beg;
-    def->hash = md_label_hash(def->label, def->label_size);
+    def = (MD_FOOTNOTE_DEF*) md_add_label_def(ctx, &ctx->footnote_hashtable,
+                (CHAR*) STR(label_beg), label_end - label_beg);
+    if(def == NULL) {
+        ret = -1;
+        goto abort;
+    }
     def->content_lines = content_lines;
     def->n_content_lines = n_content_lines;
 
-    ctx->n_footnote_defs++;
     return (int) n;
 
 abort:
@@ -2141,29 +2132,26 @@ abort:
 static MD_FOOTNOTE_DEF*
 md_lookup_footnote_def(MD_CTX* ctx, const CHAR* label, SZ label_size)
 {
-    return (MD_FOOTNOTE_DEF*) md_lookup_label_hashtable(&ctx->footnote_hashtable,
-                label, label_size);
+    return (MD_FOOTNOTE_DEF*) md_lookup_label_hashtable(ctx,
+                &ctx->footnote_hashtable, label, label_size);
 }
 
 static int
 md_build_footnote_def_hashtable(MD_CTX* ctx)
 {
-    return md_build_label_hashtable(ctx, &ctx->footnote_hashtable,
-                ctx->footnote_defs, ctx->n_footnote_defs, sizeof(MD_FOOTNOTE_DEF),
-                offsetof(MD_FOOTNOTE_DEF, label), offsetof(MD_FOOTNOTE_DEF, label_size),
-                offsetof(MD_FOOTNOTE_DEF, hash));
+    return md_build_label_hashtable(ctx, &ctx->footnote_hashtable);
 }
 
 static void
 md_free_footnote_defs(MD_CTX* ctx)
 {
-    int i;
+    unsigned i;
 
-    md_free_label_hashtable(&ctx->footnote_hashtable);
+    md_free_label_hashtable(ctx, &ctx->footnote_hashtable);
 
-    for(i = 0; i < ctx->n_footnote_defs; i++)
-        free(ctx->footnote_defs[i].content_lines);
-    free(ctx->footnote_defs);
+    for(i = 0; i < ctx->footnote_hashtable.n_defs; i++)
+        free(ctx->footnote_hashtable.footnote_defs[i].content_lines);
+    free(ctx->footnote_hashtable.footnote_defs);
 }
 
 
@@ -2481,33 +2469,24 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lin
     if(off < lines[line_index].end)
         return FALSE;
 
-    /* So, it _is_ a reference definition. Remember it. */
-    if(ctx->n_ref_defs >= ctx->alloc_ref_defs) {
-        MD_REF_DEF* new_defs;
-        SZ new_alloc = (ctx->alloc_ref_defs > 0
-                ? ctx->alloc_ref_defs + ctx->alloc_ref_defs / 2
-                : 16);
-
-        new_defs = (MD_REF_DEF*) realloc(ctx->ref_defs, new_alloc * sizeof(MD_REF_DEF));
-        if(new_defs == NULL) {
-            MD_LOG("realloc() failed.");
-            goto abort;
-        }
-
-        ctx->ref_defs = new_defs;
-        ctx->alloc_ref_defs = new_alloc;
-    }
-    def = &ctx->ref_defs[ctx->n_ref_defs];
-    memset(def, 0, sizeof(MD_REF_DEF));
-
     if(label_is_multiline) {
+        CHAR* label;
+        SZ label_size;
+
         MD_CHECK(md_merge_lines_alloc(ctx, label_contents_beg, label_contents_end,
                     lines + label_contents_line_index, n_lines - label_contents_line_index,
-                    _T(' '), &def->label, &def->label_size));
+                    _T(' '), &label, &label_size));
+        def = (MD_REF_DEF*) md_add_label_def(ctx, &ctx->ref_def_hashtable, label, label_size);
+        if(def == NULL) {
+            free(label);
+            goto abort;
+        }
         def->label_needs_free = TRUE;
     } else {
-        def->label = (CHAR*) STR(label_contents_beg);
-        def->label_size = label_contents_end - label_contents_beg;
+        def = (MD_REF_DEF*) md_add_label_def(ctx, &ctx->ref_def_hashtable,
+                    STR(label_contents_beg), label_contents_end - label_contents_beg);
+        if(def == NULL)
+            goto abort;
     }
 
     if(title_is_multiline) {
@@ -2524,13 +2503,12 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lin
     def->dest_end = dest_contents_end;
 
     /* Success. */
-    ctx->n_ref_defs++;
     return line_index + 1;
 
 abort:
     /* Failure. */
     if(def != NULL  &&  def->label_needs_free)
-        free(def->label);
+        free((CHAR*) def->entry.label);
     if(def != NULL  &&  def->title_needs_free)
         free(def->title);
     return ret;
@@ -2582,7 +2560,7 @@ md_is_link_reference(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
 
     if(def != NULL) {
         /* See https://github.com/mity/md4c/issues/238 */
-        MD_SIZE output_size_estimation = def->label_size + def->title_size + def->dest_end - def->dest_beg;
+        MD_SIZE output_size_estimation = def->entry.label_size + def->title_size + def->dest_end - def->dest_beg;
         if(output_size_estimation < ctx->max_ref_def_output) {
             ctx->max_ref_def_output -= output_size_estimation;
             ret = TRUE;
@@ -2695,18 +2673,20 @@ abort:
 static void
 md_free_ref_defs(MD_CTX* ctx)
 {
-    int i;
+    unsigned i;
 
-    for(i = 0; i < ctx->n_ref_defs; i++) {
-        MD_REF_DEF* def = &ctx->ref_defs[i];
+    md_free_label_hashtable(ctx, &ctx->ref_def_hashtable);
+
+    for(i = 0; i < ctx->ref_def_hashtable.n_defs; i++) {
+        MD_REF_DEF* def = &ctx->ref_def_hashtable.ref_defs[i];
 
         if(def->label_needs_free)
-            free(def->label);
+            free((void*) def->entry.label);
         if(def->title_needs_free)
             free(def->title);
     }
 
-    free(ctx->ref_defs);
+    free(ctx->ref_def_hashtable.ref_defs);
 }
 
 
@@ -6989,7 +6969,7 @@ md_process_footnote_def(MD_CTX* ctx, MD_FOOTNOTE_DEF* def)
     memset(&det, 0, sizeof(MD_BLOCK_FOOTNOTE_DEF_DETAIL));
     det.id = def->index;
     det.ref_count = def->ref_count;
-    MD_CHECK(md_build_attribute(ctx, def->label, def->label_size, 0,
+    MD_CHECK(md_build_attribute(ctx, def->entry.label, def->entry.label_size, 0,
                                 &det.label, &label_build));
 
     MD_ENTER_BLOCK(MD_BLOCK_FOOTNOTE_DEF, &det);
@@ -7007,22 +6987,23 @@ abort:
 static int
 md_process_footnote_defs(MD_CTX* ctx)
 {
-    int i;
+    unsigned i;
     int ret = 0;
 
-    if(ctx->n_footnote_defs == 0  ||  ctx->next_footnote_index == 0)
+    if(ctx->footnote_hashtable.n_defs == 0  ||  ctx->next_footnote_index == 0)
         return 0;
 
     /* Sort defs by index so we emit in reference order. */
-    qsort(ctx->footnote_defs, ctx->n_footnote_defs,
+    qsort(ctx->footnote_hashtable.defs, ctx->footnote_hashtable.n_defs,
           sizeof(MD_FOOTNOTE_DEF), md_footnote_def_cmp_index);
 
     MD_ENTER_BLOCK(MD_BLOCK_FOOTNOTE_DEF_SECTION, NULL);
 
-    for(i = 0; i < ctx->n_footnote_defs; i++) {
-        if(ctx->footnote_defs[i].index == 0)
+    for(i = 0; i < ctx->footnote_hashtable.n_defs; i++) {
+        MD_FOOTNOTE_DEF* def = &ctx->footnote_hashtable.footnote_defs[i];
+        if(def->index == 0)
             break;
-        MD_CHECK(md_process_footnote_def(ctx, &ctx->footnote_defs[i]));
+        MD_CHECK(md_process_footnote_def(ctx, def));
     }
 
     MD_LEAVE_BLOCK(MD_BLOCK_FOOTNOTE_DEF_SECTION, NULL);
@@ -7120,7 +7101,9 @@ md_parse(const MD_CHAR* text, MD_SIZE size, const MD_PARSER* parser, void* userd
     ctx.code_indent_offset = (ctx.parser.flags & MD_FLAG_NOINDENTEDCODEBLOCKS) ? (OFF)(-1) : 4;
     md_build_mark_char_map(&ctx);
     ctx.doc_ends_with_newline = (size > 0  &&  ISNEWLINE_(text[size-1]));
+    ctx.ref_def_hashtable.def_size = sizeof(MD_REF_DEF);
     ctx.max_ref_def_output = 16 * MIN(size, (MD_SIZE)(1024 * 1024 / 16));
+    ctx.footnote_hashtable.def_size = sizeof(MD_FOOTNOTE_DEF);
 
     /* Reset all mark stacks and lists. */
     for(i = 0; i < (int) SIZEOF_ARRAY(ctx.opener_stacks); i++)
@@ -7136,7 +7119,6 @@ md_parse(const MD_CHAR* text, MD_SIZE size, const MD_PARSER* parser, void* userd
 
     /* Clean-up. */
     md_free_ref_defs(&ctx);
-    md_free_ref_def_hashtable(&ctx);
     md_free_footnote_defs(&ctx);
     free(ctx.buffer);
     free(ctx.marks);
