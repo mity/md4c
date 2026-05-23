@@ -56,6 +56,10 @@ Changes:
     (i.e. enclosed between `<` and `>`), especially for links containing more
     obscure combinations of non-alphanumeric characters.
 
+  * Better detection (and suppression) of too sparse tables, which would
+    otherwise generate too disproportionately large output.
+    (See [#345](https://github.com/mity/md4c/pull/345) for more information.)
+
 Fixes:
 
   * [#325](https://github.com/mity/md4c/pull/325):

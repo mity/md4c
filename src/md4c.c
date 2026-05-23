@@ -129,12 +129,6 @@
  * resolving would be then O(n^2). */
 #define CODESPAN_MARK_MAXLEN    32
 
-/* We limit column count of tables to prevent quadratic explosion of output
- * from pathological input of a table thousands of columns and thousands
- * of rows where rows are requested with as little as single character
- * per-line, relying on us to "helpfully" fill all the missing "<td></td>". */
-#define TABLE_MAXCOLCOUNT       128
-
 
 /************************
  ***  Internal Types  ***
@@ -5336,7 +5330,7 @@ abort:
 }
 
 static int
-md_process_leaf_block(MD_CTX* ctx, const MD_BLOCK* block)
+md_process_leaf_block(MD_CTX* ctx, MD_BLOCK* block)
 {
     union {
         MD_BLOCK_H_DETAIL header;
@@ -5348,6 +5342,31 @@ md_process_leaf_block(MD_CTX* ctx, const MD_BLOCK* block)
     int is_in_tight_list;
     int clean_fence_code_detail = FALSE;
     int ret = 0;
+
+    /* For large tables check the table density: If it's too low, lets suppress
+     * its interpretation as a table, as a safety measure against quadratic
+     * output size explosion. See https://github.com/mity/md4c/issues/345 */
+    if(block->type == MD_BLOCK_TABLE) {
+        unsigned n_cols = block->data;
+        unsigned n_rows = block->n_lines;
+
+        if(n_cols > 32  &&  n_rows > 4096 / n_cols) {
+            const MD_LINE* lines = (const MD_LINE*)(block + 1);
+            SZ table_input_size = n_rows;
+            unsigned i;
+
+            for(i = 0; i < n_cols; i++)
+                table_input_size += lines[i].end - lines[i].beg;
+
+            if(table_input_size / n_cols < n_rows / 4) {
+                /* Number of characters encoding the table in the input is
+                 * lower then 25% of all cells to be generated? */
+                MD_LOG("Suppressing too sparse table "
+                       "(see https://github.com/mity/md4c/issues/345)");
+                block->type = MD_BLOCK_P;
+            }
+        }
+    }
 
     memset(&det, 0, sizeof(det));
 
@@ -5869,10 +5888,6 @@ md_is_table_underline(MD_CTX* ctx, OFF beg, OFF* p_end, unsigned* p_col_count)
             off++;
 
         col_count++;
-        if(col_count > TABLE_MAXCOLCOUNT) {
-            MD_LOG("Suppressing table (column_count >" STRINGIZE(TABLE_MAXCOLCOUNT) ")");
-            return FALSE;
-        }
 
         /* Pipe delimiter (optional at the end of line). */
         while(off < ctx->size  &&  ISWHITESPACE(off))
