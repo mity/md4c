@@ -3677,7 +3677,7 @@ md_analyze_bracket(MD_CTX* ctx, int mark_index)
      * link in the right order, from inside to outside in case of nested
      * brackets.
      *
-     * The resolving itself is deferred to md_resolve_links().
+     * The resolving itself is deferred to md_resolve_brackets().
      */
 
     MD_MARK* mark = &ctx->marks[mark_index];
@@ -3698,7 +3698,7 @@ md_analyze_bracket(MD_CTX* ctx, int mark_index)
         opener->next = mark_index;
         mark->prev = opener_index;
 
-        /* Add the pair into a list of potential links for md_resolve_links().
+        /* Add the pair into a list of potential brackets for md_resolve_brackets().
          * Note we misuse opener->prev for this as opener->next points to its
          * closer. */
         if(ctx->unresolved_link_tail >= 0)
@@ -3714,145 +3714,125 @@ md_analyze_bracket(MD_CTX* ctx, int mark_index)
 static void md_analyze_link_contents(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
                                      int mark_beg, int mark_end);
 
+/* Try to resolve a bracket pair as a wiki link '[[destination]]' or
+ * '[[destination|label]]'.
+ * Returns 1 if resolved, 0 if not a wiki link, -1 on error. */
 static int
-md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
+md_resolve_bracket_wikilink(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
+                            int opener_index, int closer_index,
+                            MD_MARK* opener, MD_MARK* closer,
+                            MD_MARK* next_opener, MD_MARK* next_closer,
+                            OFF* last_link_beg, OFF* last_link_end,
+                            int* p_opener_index)
 {
-    int opener_index = ctx->unresolved_link_head;
-    OFF last_link_beg = 0;
-    OFF last_link_end = 0;
-    OFF last_img_beg = 0;
-    OFF last_img_end = 0;
+    MD_MARK* delim = NULL;
+    int delim_index;
+    OFF dest_beg, dest_end;
+    int is_wikilink;
 
-    while(opener_index >= 0) {
-        MD_MARK* opener = &ctx->marks[opener_index];
-        int closer_index = opener->next;
-        MD_MARK* closer = &ctx->marks[closer_index];
-        int next_index = opener->prev;
-        MD_MARK* next_opener;
-        MD_MARK* next_closer;
-        MD_LINK_ATTR attr;
-        int is_link = FALSE;
+    if(!(ctx->parser.flags & MD_FLAG_WIKILINKS))
+        return 0;
 
-        if(next_index >= 0) {
-            next_opener = &ctx->marks[next_index];
-            next_closer = &ctx->marks[next_opener->next];
+    if(opener->end - opener->beg != 1)
+        return 0;
+
+    if(next_opener == NULL  ||  next_opener->ch != '[')
+        return 0;
+    if(next_opener->beg != opener->beg - 1  ||  next_opener->end - next_opener->beg != 1)
+        return 0;
+
+    if(next_closer == NULL  ||  next_closer->ch != ']')
+        return 0;
+    if(next_closer->beg != closer->beg + 1  ||  next_closer->end - next_closer->beg != 1)
+        return 0;
+
+    is_wikilink = TRUE;
+
+    /* We don't allow destination to be longer than 100 characters.
+     * Lets scan to see whether there is '|'. (If not then the whole
+     * wiki-link has to be below the 100 characters.) */
+    delim_index = opener_index + 1;
+    while(delim_index < closer_index) {
+        MD_MARK* m = &ctx->marks[delim_index];
+        if(m->ch == '|') {
+            delim = m;
+            break;
+        }
+        if(m->ch != 'D') {
+            if(m->beg - opener->end > 100)
+                break;
+            if(m->ch != 'D'  &&  (m->flags & MD_MARK_OPENER))
+                delim_index = m->next;
+        }
+        delim_index++;
+    }
+
+    dest_beg = opener->end;
+    dest_end = (delim != NULL) ? delim->beg : closer->beg;
+    if(dest_end - dest_beg == 0 || dest_end - dest_beg > 100)
+        is_wikilink = FALSE;
+
+    /* There may not be any new line in the destination. */
+    if(is_wikilink) {
+        OFF off;
+        for(off = dest_beg; off < dest_end; off++) {
+            if(ISNEWLINE(off)) {
+                is_wikilink = FALSE;
+                break;
+            }
+        }
+    }
+
+    if(!is_wikilink)
+        return 0;
+
+    md_pop_openers(ctx, opener_index);
+
+    if(delim != NULL) {
+        if(delim->end < closer->beg) {
+            md_disable_marks(ctx, opener_index+1, delim_index);
+            delim->flags |= MD_MARK_RESOLVED;
+            opener->end = delim->beg;
         } else {
-            next_opener = NULL;
-            next_closer = NULL;
+            /* The pipe is just before the closer: [[foo|]] */
+            md_disable_marks(ctx, opener_index+1, closer_index);
+            closer->beg = delim->beg;
         }
+    }
 
-        /* Skip footnote ref openers: they are resolved later in
-         * md_resolve_footnote_refs(). */
-        if(opener->flags & MD_MARK_FOOTNOTE_REF) {
-            opener_index = next_index;
-            continue;
-        }
+    opener->beg = next_opener->beg;
+    opener->next = closer_index;
+    opener->flags |= MD_MARK_OPENER | MD_MARK_RESOLVED;
 
-        /* If nested ("[ [ ] ]"), we need to make sure that:
-         *   - The outer does not end inside of (...) belonging to the inner.
-         *   - The outer cannot be link if the inner is link (i.e. not image).
-         *
-         * (Note we here analyze from inner to outer as the marks are ordered
-         * by closer->beg.)
-         */
-        if((opener->beg < last_link_beg  &&  closer->end < last_link_end)  ||
-           (opener->beg < last_img_beg  &&  closer->end < last_img_end)  ||
-           (opener->beg < last_link_end  &&  opener->ch == '['))
-        {
-            opener_index = next_index;
-            continue;
-        }
+    closer->end = next_closer->end;
+    closer->prev = opener_index;
+    closer->flags |= MD_MARK_CLOSER | MD_MARK_RESOLVED;
 
-        /* Recognize and resolve wiki links.
-         * Wiki-links maybe '[[destination]]' or '[[destination|label]]'.
-         */
-        if ((ctx->parser.flags & MD_FLAG_WIKILINKS) &&
-            (opener->end - opener->beg == 1) &&         /* not image */
-            next_opener != NULL &&                      /* double '[' opener */
-            next_opener->ch == '[' &&
-            (next_opener->beg == opener->beg - 1) &&
-            (next_opener->end - next_opener->beg == 1) &&
-            next_closer != NULL &&                      /* double ']' closer */
-            next_closer->ch == ']' &&
-            (next_closer->beg == closer->beg + 1) &&
-            (next_closer->end - next_closer->beg == 1))
-        {
-            MD_MARK* delim = NULL;
-            int delim_index;
-            OFF dest_beg, dest_end;
+    *last_link_beg = opener->beg;
+    *last_link_end = closer->end;
 
-            is_link = TRUE;
+    if(delim != NULL)
+        md_analyze_link_contents(ctx, lines, n_lines, delim_index+1, closer_index);
 
-            /* We don't allow destination to be longer than 100 characters.
-             * Lets scan to see whether there is '|'. (If not then the whole
-             * wiki-link has to be below the 100 characters.) */
-            delim_index = opener_index + 1;
-            while(delim_index < closer_index) {
-                MD_MARK* m = &ctx->marks[delim_index];
-                if(m->ch == '|') {
-                    delim = m;
-                    break;
-                }
-                if(m->ch != 'D') {
-                    if(m->beg - opener->end > 100)
-                        break;
-                    if(m->ch != 'D'  &&  (m->flags & MD_MARK_OPENER))
-                        delim_index = m->next;
-                }
-                delim_index++;
-            }
+    *p_opener_index = next_opener->prev;
+    return 1;
+}
 
-            dest_beg = opener->end;
-            dest_end = (delim != NULL) ? delim->beg : closer->beg;
-            if(dest_end - dest_beg == 0 || dest_end - dest_beg > 100)
-                is_link = FALSE;
+/* Try to resolve a bracket pair as a CommonMark link or image.
+ * Returns -1 on error, 0 otherwise. */
+static int
+md_resolve_bracket_link(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
+                        int opener_index, int closer_index,
+                        MD_MARK* opener, MD_MARK* closer,
+                        MD_MARK* next_opener, MD_MARK* next_closer,
+                        int* p_next_index,
+                        OFF* last_link_beg, OFF* last_link_end,
+                        OFF* last_img_beg, OFF* last_img_end)
+{
+    MD_LINK_ATTR attr;
+    int is_link = FALSE;
 
-            /* There may not be any new line in the destination. */
-            if(is_link) {
-                OFF off;
-                for(off = dest_beg; off < dest_end; off++) {
-                    if(ISNEWLINE(off)) {
-                        is_link = FALSE;
-                        break;
-                    }
-                }
-            }
-
-            if(is_link) {
-                md_pop_openers(ctx, opener_index);
-
-                if(delim != NULL) {
-                    if(delim->end < closer->beg) {
-                        md_disable_marks(ctx, opener_index+1, delim_index);
-                        delim->flags |= MD_MARK_RESOLVED;
-                        opener->end = delim->beg;
-                    } else {
-                        /* The pipe is just before the closer: [[foo|]] */
-                        md_disable_marks(ctx, opener_index+1, closer_index);
-                        closer->beg = delim->beg;
-                    }
-                }
-
-                opener->beg = next_opener->beg;
-                opener->next = closer_index;
-                opener->flags |= MD_MARK_OPENER | MD_MARK_RESOLVED;
-
-                closer->end = next_closer->end;
-                closer->prev = opener_index;
-                closer->flags |= MD_MARK_CLOSER | MD_MARK_RESOLVED;
-
-                last_link_beg = opener->beg;
-                last_link_end = closer->end;
-
-                if(delim != NULL)
-                    md_analyze_link_contents(ctx, lines, n_lines, delim_index+1, closer_index);
-
-                opener_index = next_opener->prev;
-                continue;
-            }
-        }
-
-        if(next_opener != NULL  &&  next_opener->beg == closer->end) {
+    if(next_opener != NULL  &&  next_opener->beg == closer->end) {
             if(next_closer->beg > closer->end + 1) {
                 /* Might be full reference link. */
                 if(!(next_opener->flags & MD_MARK_HASNESTEDBRACKETS))
@@ -3872,9 +3852,9 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
 
                 /* Do not analyze the label as a standalone link in the next
                  * iteration. */
-                next_index = ctx->marks[next_index].prev;
+                *p_next_index = ctx->marks[*p_next_index].prev;
             }
-        } else {
+    } else {
             if(closer->end < ctx->size  &&  CH(closer->end) == _T('(')) {
                 /* Might be inline link. */
                 OFF inline_link_end = UINT_MAX;
@@ -3943,11 +3923,11 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
             ctx->marks[opener_index+2].prev = attr.title_size;
 
             if(opener->ch == '[') {
-                last_link_beg = opener->beg;
-                last_link_end = closer->end;
+                *last_link_beg = opener->beg;
+                *last_link_end = closer->end;
             } else {
-                last_img_beg = opener->beg;
-                last_img_end = closer->end;
+                *last_img_beg = opener->beg;
+                *last_img_end = closer->end;
             }
 
             md_analyze_link_contents(ctx, lines, n_lines, opener_index+1, closer_index);
@@ -3981,8 +3961,127 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
             }
         }
 
+    return 0;
+}
+
+/* Resolve footnote references [^label] in the current block. */
+static void
+md_resolve_bracket_footnotes(MD_CTX* ctx)
+{
+    int i;
+
+    for(i = 0; i < ctx->n_marks; i++) {
+        MD_MARK* opener = &ctx->marks[i];
+        MD_MARK* closer;
+        MD_MARK* index_mark;
+        MD_FOOTNOTE_DEF* def;
+        OFF label_beg, label_end;
+
+        if(opener->ch != _T('[')  ||  !(opener->flags & MD_MARK_FOOTNOTE_REF))
+            continue;
+        if(opener->next < 0)
+            continue;   /* no matching ']' was found */
+
+        closer = &ctx->marks[opener->next];
+
+        /* Label is the raw text between the opener end and the closer begin.
+         * opener->end points past [^, closer->beg points to ]. */
+        label_beg = opener->end;
+        label_end = closer->beg;
+
+        if(label_beg >= label_end)
+            continue;   /* empty label */
+
+        def = md_lookup_footnote_def(ctx, STR(label_beg), label_end - label_beg);
+        if(def == NULL)
+            continue;   /* unknown label -> leave unresolved -> literal text */
+
+        /* Assign index on first reference. */
+        if(def->index == 0)
+            def->index = ++ctx->next_footnote_index;
+        def->ref_count++;
+
+        /* Store the public callback details in the dummy mark after the opener. */
+        index_mark = opener + 1;
+        MD_ASSERT(index_mark->ch == 'D');
+        index_mark->beg = def->index;
+        index_mark->end = def->ref_count;
+
+        /* Mark as resolved. */
+        opener->flags |= MD_MARK_OPENER | MD_MARK_RESOLVED;
+        closer->flags |= MD_MARK_CLOSER | MD_MARK_RESOLVED;
+    }
+}
+
+/* Resolve bracket pairs as links, wiki links, or (in a 2nd pass) footnotes. */
+static int
+md_resolve_brackets(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
+{
+    int opener_index = ctx->unresolved_link_head;
+    OFF last_link_beg = 0;
+    OFF last_link_end = 0;
+    OFF last_img_beg = 0;
+    OFF last_img_end = 0;
+    int ret;
+
+    while(opener_index >= 0) {
+        MD_MARK* opener = &ctx->marks[opener_index];
+        int closer_index = opener->next;
+        MD_MARK* closer = &ctx->marks[closer_index];
+        int next_index = opener->prev;
+        MD_MARK* next_opener;
+        MD_MARK* next_closer;
+
+        if(next_index >= 0) {
+            next_opener = &ctx->marks[next_index];
+            next_closer = &ctx->marks[next_opener->next];
+        } else {
+            next_opener = NULL;
+            next_closer = NULL;
+        }
+
+        /* Footnote refs are resolved in the 2nd pass below. Wiki links must be
+         * recognized before that pass so that [^...] inside a destination is
+         * disabled rather than turned into a footnote or a strange link. */
+        if(opener->flags & MD_MARK_FOOTNOTE_REF) {
+            opener_index = next_index;
+            continue;
+        }
+
+        /* If nested ("[ [ ] ]"), we need to make sure that:
+         *   - The outer does not end inside of (...) belonging to the inner.
+         *   - The outer cannot be link if the inner is link (i.e. not image).
+         *
+         * (Note we here analyze from inner to outer as the marks are ordered
+         * by closer->beg.)
+         */
+        if((opener->beg < last_link_beg  &&  closer->end < last_link_end)  ||
+           (opener->beg < last_img_beg  &&  closer->end < last_img_end)  ||
+           (opener->beg < last_link_end  &&  opener->ch == '['))
+        {
+            opener_index = next_index;
+            continue;
+        }
+
+        ret = md_resolve_bracket_wikilink(ctx, lines, n_lines, opener_index, closer_index,
+                        opener, closer, next_opener, next_closer,
+                        &last_link_beg, &last_link_end, &opener_index);
+        if(ret < 0)
+            return -1;
+        if(ret > 0)
+            continue;
+
+        ret = md_resolve_bracket_link(ctx, lines, n_lines, opener_index, closer_index,
+                        opener, closer, next_opener, next_closer, &next_index,
+                        &last_link_beg, &last_link_end, &last_img_beg, &last_img_end);
+        if(ret < 0)
+            return -1;
+
         opener_index = next_index;
     }
+
+    if(ctx->parser.flags & MD_FLAG_FOOTNOTES)
+        md_resolve_bracket_footnotes(ctx);
 
     return 0;
 }
@@ -4485,60 +4584,6 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
     }
 }
 
-/* Resolve all footnote references [^label] in the current block.
- * Called after md_resolve_links(), so all regular links are already resolved.
- * Footnote opener marks have MD_MARK_FOOTNOTE_REF set and were skipped by
- * md_resolve_links(). */
-static void
-md_resolve_footnote_refs(MD_CTX* ctx)
-{
-    int i;
-
-    for(i = 0; i < ctx->n_marks; i++) {
-        MD_MARK* opener = &ctx->marks[i];
-        MD_MARK* closer;
-        MD_MARK* index_mark;
-        MD_FOOTNOTE_DEF* def;
-        OFF label_beg, label_end;
-
-        /* Only interested in potential footnote ref openers that have not
-         * yet been resolved (md_resolve_links() skips them). */
-        if(opener->ch != _T('[')  ||  !(opener->flags & MD_MARK_FOOTNOTE_REF))
-            continue;
-        if(opener->next < 0)
-            continue;   /* no matching ']' was found */
-
-        closer = &ctx->marks[opener->next];
-
-        /* Label is the raw text between the opener end and the closer begin.
-         * opener->end points past [^, closer->beg points to ]. */
-        label_beg = opener->end;
-        label_end = closer->beg;
-
-        if(label_beg >= label_end)
-            continue;   /* empty label */
-
-        def = md_lookup_footnote_def(ctx, STR(label_beg), label_end - label_beg);
-        if(def == NULL)
-            continue;   /* unknown label -> leave unresolved -> literal text */
-
-        /* Assign index on first reference. */
-        if(def->index == 0)
-            def->index = ++ctx->next_footnote_index;
-        def->ref_count++;
-
-        /* Store the public callback details in the dummy mark after the opener. */
-        index_mark = opener + 1;
-        MD_ASSERT(index_mark->ch == 'D');
-        index_mark->beg = def->index;
-        index_mark->end = def->ref_count;
-
-        /* Mark as resolved. */
-        opener->flags |= MD_MARK_OPENER | MD_MARK_RESOLVED;
-        closer->flags |= MD_MARK_CLOSER | MD_MARK_RESOLVED;
-    }
-}
-
 /* Analyze marks (build ctx->marks). */
 static int
 md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table_mode)
@@ -4552,20 +4597,15 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table
     /* Collect all marks. */
     MD_CHECK(md_collect_marks(ctx, lines, n_lines, table_mode));
 
-    /* (1) Links. */
+    /* (1) Bracket spans: links, wiki links, footnotes. */
     md_analyze_marks(ctx, lines, n_lines, 0, ctx->n_marks, _T("[]!"), NULL);
-    MD_CHECK(md_resolve_links(ctx, lines, n_lines));
+    MD_CHECK(md_resolve_brackets(ctx, lines, n_lines));
     BRACKET_OPENERS.top = -1;
     ctx->unresolved_link_head = -1;
     ctx->unresolved_link_tail = -1;
 
-    /* (2) Footnote references (if enabled). Must run after links so that
-     * footnote pairs inside resolved links are still found correctly. */
-    if(ctx->parser.flags & MD_FLAG_FOOTNOTES)
-        md_resolve_footnote_refs(ctx);
-
     if(table_mode) {
-        /* (3) Analyze table cell boundaries. */
+        /* (2) Analyze table cell boundaries. */
         MD_ASSERT(n_lines == 1);
         ctx->n_table_cell_boundaries = 0;
         for(i = 0; i < ctx->n_marks; i++) {
@@ -4577,7 +4617,7 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table
         return ret;
     }
 
-    /* (4) Emphasis and strong emphasis; permissive autolinks. */
+    /* (3) Emphasis and strong emphasis; permissive autolinks. */
     md_analyze_link_contents(ctx, lines, n_lines, 0, ctx->n_marks);
 
 abort:
