@@ -2940,8 +2940,19 @@ md_disable_marks(MD_CTX* ctx, int mark_index0, int mark_index1)
     int i;
 
     for(i = mark_index0; i < mark_index1; i++) {
-        ctx->marks[i].ch = 'D';
-        ctx->marks[i].flags = 0;
+        MD_MARK* mark = &ctx->marks[i];
+
+        /* A footnote ref closer may fall outside the disabled range (e.g. when
+         * it is disabled as part of a wiki-link destination). */
+        if(mark->ch == _T('[')  &&  (mark->flags & MD_MARK_FOOTNOTE_REF)  &&
+           mark->next >= 0  &&  mark->next >= mark_index1)
+        {
+            ctx->marks[mark->next].ch = 'D';
+            ctx->marks[mark->next].flags = 0;
+        }
+
+        mark->ch = 'D';
+        mark->flags = 0;
     }
 }
 
@@ -4834,13 +4845,10 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
 
                     /* Footnote reference: self-contained span, no text emitted.
                      * Only the opener is ever processed here; the closer mark
-                     * is skipped by the off-advance below. If another resolved
-                     * mark (e.g. a wiki-link '|' delimiter) is emitted first,
-                     * we may reach the closer before the opener. */
-                    if((opener->flags & MD_MARK_FOOTNOTE_REF)  &&  opener->ch == _T('[')  &&
-                       mark->ch != _T(']'))
-                    {
+                     * is guaranteed to be skipped by the off-advance below. */
+                    if(opener->flags & MD_MARK_FOOTNOTE_REF) {
                         MD_MARK* index_mark = (MD_MARK*) opener + 1;
+                        MD_ASSERT(mark->ch != ']');
                         MD_ASSERT(index_mark->ch == 'D');
                         MD_CHECK(md_enter_leave_span_footnote_ref(ctx,
                                       (unsigned int) index_mark->beg,
