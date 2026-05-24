@@ -2777,18 +2777,18 @@ struct MD_MARK_tag {
 #define MD_MARK_OPENER                      0x04  /* Definitely opener. */
 #define MD_MARK_CLOSER                      0x08  /* Definitely closer. */
 #define MD_MARK_RESOLVED                    0x10  /* Resolved in any definite way. */
-#define MD_MARK_FOOTNOTE_REF                0x40  /* '[' opener is a [^label] footnote ref, not a link. */
 
-/* Mark flags specific for various mark types (so they can share bits). */
+/* Mark flags specific for just some mark type(s) (so the bits can be reused). */
 #define MD_MARK_EMPH_OC                     0x20  /* Opener/closer mixed candidate. Helper for the "rule of 3". */
 #define MD_MARK_EMPH_MOD3_0                 0x40
 #define MD_MARK_EMPH_MOD3_1                 0x80
 #define MD_MARK_EMPH_MOD3_2                 (0x40 | 0x80)
 #define MD_MARK_EMPH_MOD3_MASK              (0x40 | 0x80)
 #define MD_MARK_AUTOLINK                    0x20  /* Distinguisher for '<', '>'. */
-#define MD_MARK_AUTOLINK_MISSING_MAILTO     0x40
-#define MD_MARK_VALIDPERMISSIVEAUTOLINK     0x20  /* For permissive autolinks. */
-#define MD_MARK_HASNESTEDBRACKETS           0x20  /* For '[' to rule out invalid link labels early */
+#define MD_MARK_AUTOLINK_MISSING_MAILTO     0x40  /* For '@' */
+#define MD_MARK_VALIDPERMISSIVEAUTOLINK     0x20  /* For '@', ':', '.'. */
+#define MD_MARK_BRACKET_HASNESTED           0x40  /* For '[' to rule out invalid link labels early. */
+#define MD_MARK_BRACKET_FOOTNOTEREF         0x80  /* For '['. */
 
 static MD_MARKSTACK*
 md_emph_stack(MD_CTX* ctx, MD_CHAR ch, unsigned flags)
@@ -2944,7 +2944,7 @@ md_disable_marks(MD_CTX* ctx, int mark_index0, int mark_index1)
 
         /* A footnote ref closer may fall outside the disabled range (e.g. when
          * it is disabled as part of a wiki-link destination). */
-        if(mark->ch == _T('[')  &&  (mark->flags & MD_MARK_FOOTNOTE_REF)  &&
+        if(mark->ch == _T('[')  &&  (mark->flags & MD_MARK_BRACKET_FOOTNOTEREF)  &&
            mark->next >= 0  &&  mark->next >= mark_index1)
         {
             ctx->marks[mark->next].ch = 'D';
@@ -3443,7 +3443,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table_m
                ch == _T('[')  &&  off+1 < line->end  &&  CH(off+1) == _T('^'))
             {
                 OFF tmp = off + 2;  /* skip [^ */
-                ADD_MARK(_T('['), off, tmp, MD_MARK_POTENTIAL_OPENER | MD_MARK_FOOTNOTE_REF);
+                ADD_MARK(_T('['), off, tmp, MD_MARK_POTENTIAL_OPENER | MD_MARK_BRACKET_FOOTNOTEREF);
                 off = tmp;
                 /* One dummy to store the resolved footnote index. */
                 ADD_MARK('D', off, off, 0);
@@ -3684,7 +3684,7 @@ md_analyze_bracket(MD_CTX* ctx, int mark_index)
 
     if(mark->flags & MD_MARK_POTENTIAL_OPENER) {
         if(BRACKET_OPENERS.top >= 0)
-            ctx->marks[BRACKET_OPENERS.top].flags |= MD_MARK_HASNESTEDBRACKETS;
+            ctx->marks[BRACKET_OPENERS.top].flags |= MD_MARK_BRACKET_HASNESTED;
 
         md_mark_stack_push(ctx, &BRACKET_OPENERS, mark_index);
         return;
@@ -3835,11 +3835,11 @@ md_resolve_bracket_link(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
     if(next_opener != NULL  &&  next_opener->beg == closer->end) {
             if(next_closer->beg > closer->end + 1) {
                 /* Might be full reference link. */
-                if(!(next_opener->flags & MD_MARK_HASNESTEDBRACKETS))
+                if(!(next_opener->flags & MD_MARK_BRACKET_HASNESTED))
                     is_link = md_is_link_reference(ctx, lines, n_lines, next_opener->beg, next_closer->end, &attr);
             } else {
                 /* Might be shortcut reference link. */
-                if(!(opener->flags & MD_MARK_HASNESTEDBRACKETS))
+                if(!(opener->flags & MD_MARK_BRACKET_HASNESTED))
                     is_link = md_is_link_reference(ctx, lines, n_lines, opener->beg, closer->end, &attr);
             }
 
@@ -3897,7 +3897,7 @@ md_resolve_bracket_link(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
 
             if(!is_link) {
                 /* Might be collapsed reference link. */
-                if(!(opener->flags & MD_MARK_HASNESTEDBRACKETS))
+                if(!(opener->flags & MD_MARK_BRACKET_HASNESTED))
                     is_link = md_is_link_reference(ctx, lines, n_lines, opener->beg, closer->end, &attr);
                 if(is_link < 0)
                     return -1;
@@ -3977,7 +3977,7 @@ md_resolve_bracket_footnotes(MD_CTX* ctx)
         MD_FOOTNOTE_DEF* def;
         OFF label_beg, label_end;
 
-        if(opener->ch != _T('[')  ||  !(opener->flags & MD_MARK_FOOTNOTE_REF))
+        if(opener->ch != _T('[')  ||  !(opener->flags & MD_MARK_BRACKET_FOOTNOTEREF))
             continue;
         if(opener->next < 0)
             continue;   /* no matching ']' was found */
@@ -4043,7 +4043,7 @@ md_resolve_brackets(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
         /* Footnote refs are resolved in the 2nd pass below. Wiki links must be
          * recognized before that pass so that [^...] inside a destination is
          * disabled rather than turned into a footnote or a strange link. */
-        if(opener->flags & MD_MARK_FOOTNOTE_REF) {
+        if(opener->flags & MD_MARK_BRACKET_FOOTNOTEREF) {
             opener_index = next_index;
             continue;
         }
@@ -4886,7 +4886,7 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
                     /* Footnote reference: self-contained span, no text emitted.
                      * Only the opener is ever processed here; the closer mark
                      * is guaranteed to be skipped by the off-advance below. */
-                    if(opener->flags & MD_MARK_FOOTNOTE_REF) {
+                    if(opener->flags & MD_MARK_BRACKET_FOOTNOTEREF) {
                         MD_MARK* index_mark = (MD_MARK*) opener + 1;
                         MD_ASSERT(mark->ch != ']');
                         MD_ASSERT(index_mark->ch == 'D');
