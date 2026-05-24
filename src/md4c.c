@@ -2787,6 +2787,7 @@ struct MD_MARK_tag {
 #define MD_MARK_AUTOLINK                    0x20  /* Distinguisher for '<', '>'. */
 #define MD_MARK_AUTOLINK_MISSING_MAILTO     0x40  /* For '@' */
 #define MD_MARK_VALIDPERMISSIVEAUTOLINK     0x20  /* For '@', ':', '.'. */
+#define MD_MARK_BRACKET_CANBEIMAGE          0x20  /* For '[', if can be expanded to the left to eat '!'. */
 #define MD_MARK_BRACKET_HASNESTED           0x40  /* For '[' to rule out invalid link labels early. */
 #define MD_MARK_BRACKET_FOOTNOTEREF         0x80  /* For '['. */
 
@@ -3452,9 +3453,14 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table_m
 
             /* A potential link or its part. */
             if(ch == _T('[')  ||  (ch == _T('!') && off+1 < line->end && CH(off+1) == _T('['))) {
-                OFF tmp = (ch == _T('[') ? off+1 : off+2);
-                ADD_MARK(ch, off, tmp, MD_MARK_POTENTIAL_OPENER);
-                off = tmp;
+                if(ch == _T('!')) {
+                    ADD_MARK(ch, off+1, off+2, MD_MARK_POTENTIAL_OPENER | MD_MARK_BRACKET_CANBEIMAGE);
+                    off += 2;
+                } else {
+                    ADD_MARK(ch, off, off+1, MD_MARK_POTENTIAL_OPENER);
+                    off += 1;
+                }
+
                 /* Two dummies to make enough place for data we need if it is
                  * a link. */
                 ADD_MARK('D', off, off, 0);
@@ -3911,18 +3917,18 @@ md_resolve_bracket_link(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
 
             /* If it is a link, we store the destination and title in the two
              * dummy marks after the opener. */
-            MD_ASSERT(ctx->marks[opener_index+1].ch == 'D');
+            MD_ASSERT(ctx->marks[opener_index+1].ch == _T('D'));
             ctx->marks[opener_index+1].beg = attr.dest_beg;
             ctx->marks[opener_index+1].end = attr.dest_end;
 
-            MD_ASSERT(ctx->marks[opener_index+2].ch == 'D');
+            MD_ASSERT(ctx->marks[opener_index+2].ch == _D('D'));
             md_mark_store_ptr(ctx, opener_index+2, attr.title);
             /* The title might or might not have been allocated for us. */
             if(attr.title_needs_free)
                 md_mark_stack_push(ctx, &ctx->ptr_stack, opener_index+2);
             ctx->marks[opener_index+2].prev = attr.title_size;
 
-            if(opener->ch == '[') {
+            if(opener->ch == _T('[')) {
                 *last_link_beg = opener->beg;
                 *last_link_end = closer->end;
             } else {
@@ -4003,7 +4009,7 @@ md_resolve_bracket_footnotes(MD_CTX* ctx)
 
         /* Store the public callback details in the dummy mark after the opener. */
         index_mark = opener + 1;
-        MD_ASSERT(index_mark->ch == 'D');
+        MD_ASSERT(index_mark->ch == _T('D'));
         index_mark->beg = def->index;
         index_mark->end = def->ref_count;
 
@@ -4024,6 +4030,8 @@ md_resolve_brackets(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
     OFF last_img_end = 0;
     int ret;
 
+    /* Note we here analyze from inner to outer as the marks are ordered
+     * by closer->beg. */
     while(opener_index >= 0) {
         MD_MARK* opener = &ctx->marks[opener_index];
         int closer_index = opener->next;
@@ -4040,25 +4048,27 @@ md_resolve_brackets(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
             next_closer = NULL;
         }
 
-        /* Footnote refs are resolved in the 2nd pass below. Wiki links must be
-         * recognized before that pass so that [^...] inside a destination is
-         * disabled rather than turned into a footnote or a strange link. */
-        if(opener->flags & MD_MARK_BRACKET_FOOTNOTEREF) {
-            opener_index = next_index;
-            continue;
+        /* We can perhaps be an image? */
+        if(opener->flags & MD_MARK_BRACKET_CANBEIMAGE) {
+            opener->ch = _T('!');
+            opener->beg--;
         }
 
         /* If nested ("[ [ ] ]"), we need to make sure that:
          *   - The outer does not end inside of (...) belonging to the inner.
-         *   - The outer cannot be link if the inner is link (i.e. not image).
-         *
-         * (Note we here analyze from inner to outer as the marks are ordered
-         * by closer->beg.)
-         */
+         *   - The outer cannot be link if the inner is link (but this does not apply to images). */
         if((opener->beg < last_link_beg  &&  closer->end < last_link_end)  ||
            (opener->beg < last_img_beg  &&  closer->end < last_img_end)  ||
-           (opener->beg < last_link_end  &&  opener->ch == '['))
+           (opener->beg < last_link_end  &&  opener->ch != _T('!')))
         {
+            opener_index = next_index;
+            continue;
+        }
+
+        /* Footnote refs are resolved in the 2nd pass below. Wiki links must be
+         * recognized before that pass so that [^...] inside a destination is
+         * disabled rather than turned into a footnote or a strange link. */
+        if(opener->flags & MD_MARK_BRACKET_FOOTNOTEREF) {
             opener_index = next_index;
             continue;
         }
