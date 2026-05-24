@@ -2941,7 +2941,7 @@ md_disable_marks(MD_CTX* ctx, int mark_index0, int mark_index1)
 
     for(i = mark_index0; i < mark_index1; i++) {
         ctx->marks[i].ch = 'D';
-        ctx->marks[i].flags &= ~MD_MARK_RESOLVED;
+        ctx->marks[i].flags = 0;
     }
 }
 
@@ -3812,7 +3812,7 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
 
                 if(delim != NULL) {
                     if(delim->end < closer->beg) {
-                        md_disable_marks(ctx, delim_index+1, delim_index);
+                        md_disable_marks(ctx, opener_index+1, delim_index);
                         delim->flags |= MD_MARK_RESOLVED;
                         opener->end = delim->beg;
                     } else {
@@ -4834,10 +4834,13 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
 
                     /* Footnote reference: self-contained span, no text emitted.
                      * Only the opener is ever processed here; the closer mark
-                     * is guaranteed to be skipped by the off-advance below. */
-                    if(opener->flags & MD_MARK_FOOTNOTE_REF) {
+                     * is skipped by the off-advance below. If another resolved
+                     * mark (e.g. a wiki-link '|' delimiter) is emitted first,
+                     * we may reach the closer before the opener. */
+                    if((opener->flags & MD_MARK_FOOTNOTE_REF)  &&  opener->ch == _T('[')  &&
+                       mark->ch != _T(']'))
+                    {
                         MD_MARK* index_mark = (MD_MARK*) opener + 1;
-                        MD_ASSERT(mark->ch != ']');
                         MD_ASSERT(index_mark->ch == 'D');
                         MD_CHECK(md_enter_leave_span_footnote_ref(ctx,
                                       (unsigned int) index_mark->beg,

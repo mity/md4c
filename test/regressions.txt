@@ -26,6 +26,19 @@ Raw HTML block:
 --ffootnotes
 ````````````````````````````````
 
+
+## Footnote reference inside wiki-link destination
+
+```````````````````````````````` example
+[[[^|]]]
+[^|]:
+.
+<p><x-wikilink data-target="[^">]</x-wikilink>
+[^|]:</p>
+.
+--ffootnotes --fwiki-links
+````````````````````````````````
+
 Inline:
 
 ```````````````````````````````` example
