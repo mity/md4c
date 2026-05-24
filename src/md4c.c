@@ -3742,12 +3742,12 @@ md_resolve_bracket_wikilink(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
     if(opener->end - opener->beg != 1)
         return 0;
 
-    if(next_opener == NULL  ||  next_opener->ch != '[')
+    if(next_opener == NULL  ||  next_opener->ch != _T('['))
         return 0;
     if(next_opener->beg != opener->beg - 1  ||  next_opener->end - next_opener->beg != 1)
         return 0;
 
-    if(next_closer == NULL  ||  next_closer->ch != ']')
+    if(next_closer == NULL  ||  next_closer->ch != _T(']'))
         return 0;
     if(next_closer->beg != closer->beg + 1  ||  next_closer->end - next_closer->beg != 1)
         return 0;
@@ -3760,14 +3760,14 @@ md_resolve_bracket_wikilink(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
     delim_index = opener_index + 1;
     while(delim_index < closer_index) {
         MD_MARK* m = &ctx->marks[delim_index];
-        if(m->ch == '|') {
+        if(m->ch == _T('|')) {
             delim = m;
             break;
         }
-        if(m->ch != 'D') {
+        if(m->ch != _T('D')) {
             if(m->beg - opener->end > 100)
                 break;
-            if(m->ch != 'D'  &&  (m->flags & MD_MARK_OPENER))
+            if(m->ch != _T('D')  &&  (m->flags & MD_MARK_OPENER))
                 delim_index = m->next;
         }
         delim_index++;
@@ -3839,133 +3839,133 @@ md_resolve_bracket_link(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
     int is_link = FALSE;
 
     if(next_opener != NULL  &&  next_opener->beg == closer->end) {
-            if(next_closer->beg > closer->end + 1) {
-                /* Might be full reference link. */
-                if(!(next_opener->flags & MD_MARK_BRACKET_HASNESTED))
-                    is_link = md_is_link_reference(ctx, lines, n_lines, next_opener->beg, next_closer->end, &attr);
-            } else {
-                /* Might be shortcut reference link. */
-                if(!(opener->flags & MD_MARK_BRACKET_HASNESTED))
-                    is_link = md_is_link_reference(ctx, lines, n_lines, opener->beg, closer->end, &attr);
-            }
+        if(next_closer->beg > closer->end + 1) {
+            /* Might be full reference link. */
+            if(!(next_opener->flags & MD_MARK_BRACKET_HASNESTED))
+                is_link = md_is_link_reference(ctx, lines, n_lines, next_opener->beg, next_closer->end, &attr);
+        } else {
+            /* Might be shortcut reference link. */
+            if(!(opener->flags & MD_MARK_BRACKET_HASNESTED))
+                is_link = md_is_link_reference(ctx, lines, n_lines, opener->beg, closer->end, &attr);
+        }
 
+        if(is_link < 0)
+            return -1;
+
+        if(is_link) {
+            /* Eat the 2nd "[...]". */
+            closer->end = next_closer->end;
+
+            /* Do not analyze the label as a standalone link in the next
+             * iteration. */
+            *p_next_index = ctx->marks[*p_next_index].prev;
+        }
+    } else {
+        if(closer->end < ctx->size  &&  CH(closer->end) == _T('(')) {
+            /* Might be inline link. */
+            OFF inline_link_end = UINT_MAX;
+            int following_mark_index = closer_index + 1;
+
+            is_link = md_is_inline_link_spec(ctx, lines, n_lines, closer->end, &inline_link_end, &attr);
             if(is_link < 0)
                 return -1;
 
+            /* Check the closing ')' is not inside an already resolved range
+             * (i.e. a range with a higher priority), e.g. a code span. */
             if(is_link) {
-                /* Eat the 2nd "[...]". */
-                closer->end = next_closer->end;
+                while(following_mark_index < ctx->n_marks) {
+                    MD_MARK* mark = &ctx->marks[following_mark_index];
 
-                /* Do not analyze the label as a standalone link in the next
-                 * iteration. */
-                *p_next_index = ctx->marks[*p_next_index].prev;
-            }
-    } else {
-            if(closer->end < ctx->size  &&  CH(closer->end) == _T('(')) {
-                /* Might be inline link. */
-                OFF inline_link_end = UINT_MAX;
-                int following_mark_index = closer_index + 1;
-
-                is_link = md_is_inline_link_spec(ctx, lines, n_lines, closer->end, &inline_link_end, &attr);
-                if(is_link < 0)
-                    return -1;
-
-                /* Check the closing ')' is not inside an already resolved range
-                 * (i.e. a range with a higher priority), e.g. a code span. */
-                if(is_link) {
-                    while(following_mark_index < ctx->n_marks) {
-                        MD_MARK* mark = &ctx->marks[following_mark_index];
-
-                        if(mark->beg >= inline_link_end)
+                    if(mark->beg >= inline_link_end)
+                        break;
+                    if((mark->flags & (MD_MARK_OPENER | MD_MARK_RESOLVED)) == (MD_MARK_OPENER | MD_MARK_RESOLVED)) {
+                        if(ctx->marks[mark->next].beg >= inline_link_end) {
+                            /* Cancel the link status. */
+                            if(attr.title_needs_free)
+                                free(attr.title);
+                            is_link = FALSE;
                             break;
-                        if((mark->flags & (MD_MARK_OPENER | MD_MARK_RESOLVED)) == (MD_MARK_OPENER | MD_MARK_RESOLVED)) {
-                            if(ctx->marks[mark->next].beg >= inline_link_end) {
-                                /* Cancel the link status. */
-                                if(attr.title_needs_free)
-                                    free(attr.title);
-                                is_link = FALSE;
-                                break;
-                            }
-
-                            following_mark_index = mark->next + 1;
-                        } else {
-                            following_mark_index++;
                         }
+
+                        following_mark_index = mark->next + 1;
+                    } else {
+                        following_mark_index++;
                     }
                 }
-
-                if(is_link) {
-                    /* Eat the "(...)" */
-                    closer->end = inline_link_end;
-                    md_disable_marks(ctx, closer_index+1, following_mark_index);
-                }
             }
 
-            if(!is_link) {
-                /* Might be collapsed reference link. */
-                if(!(opener->flags & MD_MARK_BRACKET_HASNESTED))
-                    is_link = md_is_link_reference(ctx, lines, n_lines, opener->beg, closer->end, &attr);
-                if(is_link < 0)
-                    return -1;
+            if(is_link) {
+                /* Eat the "(...)" */
+                closer->end = inline_link_end;
+                md_disable_marks(ctx, closer_index+1, following_mark_index);
             }
         }
 
-        if(is_link) {
-            /* Resolve the brackets as a link. */
-            opener->flags |= MD_MARK_OPENER | MD_MARK_RESOLVED;
-            closer->flags |= MD_MARK_CLOSER | MD_MARK_RESOLVED;
+        if(!is_link) {
+            /* Might be collapsed reference link. */
+            if(!(opener->flags & MD_MARK_BRACKET_HASNESTED))
+                is_link = md_is_link_reference(ctx, lines, n_lines, opener->beg, closer->end, &attr);
+            if(is_link < 0)
+                return -1;
+        }
+    }
 
-            /* If it is a link, we store the destination and title in the two
-             * dummy marks after the opener. */
-            MD_ASSERT(ctx->marks[opener_index+1].ch == _T('D'));
-            ctx->marks[opener_index+1].beg = attr.dest_beg;
-            ctx->marks[opener_index+1].end = attr.dest_end;
+    if(is_link) {
+        /* Resolve the brackets as a link. */
+        opener->flags |= MD_MARK_OPENER | MD_MARK_RESOLVED;
+        closer->flags |= MD_MARK_CLOSER | MD_MARK_RESOLVED;
 
-            MD_ASSERT(ctx->marks[opener_index+2].ch == _D('D'));
-            md_mark_store_ptr(ctx, opener_index+2, attr.title);
-            /* The title might or might not have been allocated for us. */
-            if(attr.title_needs_free)
-                md_mark_stack_push(ctx, &ctx->ptr_stack, opener_index+2);
-            ctx->marks[opener_index+2].prev = attr.title_size;
+        /* If it is a link, we store the destination and title in the two
+         * dummy marks after the opener. */
+        MD_ASSERT(ctx->marks[opener_index+1].ch == _T('D'));
+        ctx->marks[opener_index+1].beg = attr.dest_beg;
+        ctx->marks[opener_index+1].end = attr.dest_end;
 
-            if(opener->ch == _T('[')) {
-                *last_link_beg = opener->beg;
-                *last_link_end = closer->end;
-            } else {
-                *last_img_beg = opener->beg;
-                *last_img_end = closer->end;
-            }
+        MD_ASSERT(ctx->marks[opener_index+2].ch == _T('D'));
+        md_mark_store_ptr(ctx, opener_index+2, attr.title);
+        /* The title might or might not have been allocated for us. */
+        if(attr.title_needs_free)
+            md_mark_stack_push(ctx, &ctx->ptr_stack, opener_index+2);
+        ctx->marks[opener_index+2].prev = attr.title_size;
 
-            md_analyze_link_contents(ctx, lines, n_lines, opener_index+1, closer_index);
+        if(opener->ch == _T('[')) {
+            *last_link_beg = opener->beg;
+            *last_link_end = closer->end;
+        } else {
+            *last_img_beg = opener->beg;
+            *last_img_end = closer->end;
+        }
 
-            /* If the link text is formed by nothing but permissive autolink,
-             * suppress the autolink.
-             * See https://github.com/mity/md4c/issues/152 for more info. */
-            if(ctx->parser.flags & MD_FLAG_PERMISSIVEAUTOLINKS) {
-                MD_MARK* first_nested;
-                MD_MARK* last_nested;
+        md_analyze_link_contents(ctx, lines, n_lines, opener_index+1, closer_index);
 
-                first_nested = opener + 1;
-                while(first_nested->ch == _T('D')  &&  first_nested < closer)
-                    first_nested++;
+        /* If the link text is formed by nothing but permissive autolink,
+         * suppress the autolink.
+         * See https://github.com/mity/md4c/issues/152 for more info. */
+        if(ctx->parser.flags & MD_FLAG_PERMISSIVEAUTOLINKS) {
+            MD_MARK* first_nested;
+            MD_MARK* last_nested;
 
-                last_nested = closer - 1;
-                while(first_nested->ch == _T('D')  &&  last_nested > opener)
-                    last_nested--;
+            first_nested = opener + 1;
+            while(first_nested->ch == _T('D')  &&  first_nested < closer)
+                first_nested++;
 
-                if((first_nested->flags & MD_MARK_RESOLVED)  &&
-                   first_nested->beg == opener->end  &&
-                   ISANYOF_(first_nested->ch, _T("@:."))  &&
-                   first_nested->next == (last_nested - ctx->marks)  &&
-                   last_nested->end == closer->beg)
-                {
-                    first_nested->ch = _T('D');
-                    first_nested->flags &= ~MD_MARK_RESOLVED;
-                    last_nested->ch = _T('D');
-                    last_nested->flags &= ~MD_MARK_RESOLVED;
-                }
+            last_nested = closer - 1;
+            while(first_nested->ch == _T('D')  &&  last_nested > opener)
+                last_nested--;
+
+            if((first_nested->flags & MD_MARK_RESOLVED)  &&
+               first_nested->beg == opener->end  &&
+               ISANYOF_(first_nested->ch, _T("@:."))  &&
+               first_nested->next == (last_nested - ctx->marks)  &&
+               last_nested->end == closer->beg)
+            {
+                first_nested->ch = _T('D');
+                first_nested->flags &= ~MD_MARK_RESOLVED;
+                last_nested->ch = _T('D');
+                last_nested->flags &= ~MD_MARK_RESOLVED;
             }
         }
+    }
 
     return 0;
 }
