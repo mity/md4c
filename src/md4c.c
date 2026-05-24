@@ -3722,7 +3722,7 @@ static void md_analyze_link_contents(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE 
 
 /* Try to resolve a bracket pair as a wiki link '[[destination]]' or
  * '[[destination|label]]'.
- * Returns 1 if resolved, 0 if not a wiki link, -1 on error. */
+ * Returns TRUE if resolved, FALSE if not a wiki link, -1 on error. */
 static int
 md_resolve_bracket_wikilink(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
                             int opener_index, int closer_index,
@@ -3734,25 +3734,19 @@ md_resolve_bracket_wikilink(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
     MD_MARK* delim = NULL;
     int delim_index;
     OFF dest_beg, dest_end;
-    int is_wikilink;
+    OFF off;
 
     if(!(ctx->parser.flags & MD_FLAG_WIKILINKS))
-        return 0;
+        return FALSE;
 
-    if(opener->end - opener->beg != 1)
-        return 0;
+    if(opener->ch != _T('[')  ||  opener->end - opener->beg != 1  ||
+       next_opener == NULL  ||  next_opener->ch != _T('[')  ||  next_opener->end - next_opener->beg != 1  ||
+       next_closer == NULL  ||  next_closer->ch != _T(']')  ||  next_closer->end - next_closer->beg != 1)
+        return FALSE;
 
-    if(next_opener == NULL  ||  next_opener->ch != _T('['))
-        return 0;
-    if(next_opener->beg != opener->beg - 1  ||  next_opener->end - next_opener->beg != 1)
-        return 0;
-
-    if(next_closer == NULL  ||  next_closer->ch != _T(']'))
-        return 0;
-    if(next_closer->beg != closer->beg + 1  ||  next_closer->end - next_closer->beg != 1)
-        return 0;
-
-    is_wikilink = TRUE;
+    /* Check that the next_opener and next_closer are nested properly. */
+    if(next_opener->beg != opener->beg - 1  ||  next_closer->beg != closer->beg + 1)
+        return FALSE;
 
     /* We don't allow destination to be longer than 100 characters.
      * Lets scan to see whether there is '|'. (If not then the whole
@@ -3776,21 +3770,13 @@ md_resolve_bracket_wikilink(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
     dest_beg = opener->end;
     dest_end = (delim != NULL) ? delim->beg : closer->beg;
     if(dest_end - dest_beg == 0 || dest_end - dest_beg > 100)
-        is_wikilink = FALSE;
+        return FALSE;
 
     /* There may not be any new line in the destination. */
-    if(is_wikilink) {
-        OFF off;
-        for(off = dest_beg; off < dest_end; off++) {
-            if(ISNEWLINE(off)) {
-                is_wikilink = FALSE;
-                break;
-            }
-        }
+    for(off = dest_beg; off < dest_end; off++) {
+        if(ISNEWLINE(off))
+            return FALSE;
     }
-
-    if(!is_wikilink)
-        return 0;
 
     md_pop_openers(ctx, opener_index);
 
@@ -3821,7 +3807,7 @@ md_resolve_bracket_wikilink(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
         md_analyze_link_contents(ctx, lines, n_lines, delim_index+1, closer_index);
 
     *p_opener_index = next_opener->prev;
-    return 1;
+    return TRUE;
 }
 
 /* Try to resolve a bracket pair as a CommonMark link or image.
