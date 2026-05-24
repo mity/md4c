@@ -2940,8 +2940,19 @@ md_disable_marks(MD_CTX* ctx, int mark_index0, int mark_index1)
     int i;
 
     for(i = mark_index0; i < mark_index1; i++) {
-        ctx->marks[i].ch = 'D';
-        ctx->marks[i].flags &= ~MD_MARK_RESOLVED;
+        MD_MARK* mark = &ctx->marks[i];
+
+        /* A footnote ref closer may fall outside the disabled range (e.g. when
+         * it is disabled as part of a wiki-link destination). */
+        if(mark->ch == _T('[')  &&  (mark->flags & MD_MARK_FOOTNOTE_REF)  &&
+           mark->next >= 0  &&  mark->next >= mark_index1)
+        {
+            ctx->marks[mark->next].ch = 'D';
+            ctx->marks[mark->next].flags = 0;
+        }
+
+        mark->ch = 'D';
+        mark->flags = 0;
     }
 }
 
@@ -3812,7 +3823,7 @@ md_resolve_links(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
 
                 if(delim != NULL) {
                     if(delim->end < closer->beg) {
-                        md_disable_marks(ctx, delim_index+1, delim_index);
+                        md_disable_marks(ctx, opener_index+1, delim_index);
                         delim->flags |= MD_MARK_RESOLVED;
                         opener->end = delim->beg;
                     } else {
