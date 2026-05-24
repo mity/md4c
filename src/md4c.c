@@ -2943,15 +2943,6 @@ md_disable_marks(MD_CTX* ctx, int mark_index0, int mark_index1)
     for(i = mark_index0; i < mark_index1; i++) {
         MD_MARK* mark = &ctx->marks[i];
 
-        /* A footnote ref closer may fall outside the disabled range (e.g. when
-         * it is disabled as part of a wiki-link destination). */
-        if(mark->ch == _T('[')  &&  (mark->flags & MD_MARK_BRACKET_FOOTNOTEREF)  &&
-           mark->next >= 0  &&  mark->next >= mark_index1)
-        {
-            ctx->marks[mark->next].ch = 'D';
-            ctx->marks[mark->next].flags = 0;
-        }
-
         mark->ch = 'D';
         mark->flags = 0;
     }
