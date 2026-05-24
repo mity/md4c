@@ -2789,7 +2789,7 @@ struct MD_MARK_tag {
 #define MD_MARK_VALIDPERMISSIVEAUTOLINK     0x20  /* For '@', ':', '.'. */
 #define MD_MARK_BRACKET_CANBEIMAGE          0x20  /* For '[', if can be expanded to the left to eat '!'. */
 #define MD_MARK_BRACKET_HASNESTED           0x40  /* For '[' to rule out invalid link labels early. */
-#define MD_MARK_BRACKET_FOOTNOTEREF         0x80  /* For '['. */
+#define MD_MARK_BRACKET_FOOTNOTEREF         0x80  /* For '[', To distinguish footnotes. */
 
 static MD_MARKSTACK*
 md_emph_stack(MD_CTX* ctx, MD_CHAR ch, unsigned flags)
@@ -3439,19 +3439,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table_m
                 continue;
             }
 
-            /* A potential footnote reference: [^label] */
-            if((ctx->parser.flags & MD_FLAG_FOOTNOTES)  &&
-               ch == _T('[')  &&  off+1 < line->end  &&  CH(off+1) == _T('^'))
-            {
-                OFF tmp = off + 2;  /* skip [^ */
-                ADD_MARK(_T('['), off, tmp, MD_MARK_POTENTIAL_OPENER | MD_MARK_BRACKET_FOOTNOTEREF);
-                off = tmp;
-                /* One dummy to store the resolved footnote index. */
-                ADD_MARK('D', off, off, 0);
-                continue;
-            }
-
-            /* A potential link or its part. */
+            /* A potential link, footnote and similar or its part. */
             if(ch == _T('[')  ||  (ch == _T('!') && off+1 < line->end && CH(off+1) == _T('['))) {
                 if(ch == _T('!')) {
                     ADD_MARK(ch, off+1, off+2, MD_MARK_POTENTIAL_OPENER | MD_MARK_BRACKET_CANBEIMAGE);
@@ -3793,12 +3781,8 @@ md_resolve_bracket_wikilink(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
     }
 
     opener->beg = next_opener->beg;
-    opener->next = closer_index;
-    opener->flags |= MD_MARK_OPENER | MD_MARK_RESOLVED;
-
     closer->end = next_closer->end;
-    closer->prev = opener_index;
-    closer->flags |= MD_MARK_CLOSER | MD_MARK_RESOLVED;
+    md_resolve_range(ctx, opener_index, closer_index);
 
     *last_link_beg = opener->beg;
     *last_link_end = closer->end;
@@ -3807,6 +3791,59 @@ md_resolve_bracket_wikilink(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
         md_analyze_link_contents(ctx, lines, n_lines, delim_index+1, closer_index);
 
     *p_opener_index = next_opener->prev;
+    return TRUE;
+}
+
+/* Resolve footnote references [^label] in the current block. */
+static int
+md_resolve_bracket_footnote(MD_CTX* ctx, MD_MARK* opener, MD_MARK* closer,
+                            OFF* last_link_beg, OFF* last_link_end,
+                            int* p_opener_index)
+{
+    MD_MARK* index_mark;
+    MD_FOOTNOTE_DEF* def;
+    OFF label_beg, label_end;
+
+    if(!(ctx->parser.flags & MD_FLAG_FOOTNOTES))
+        return FALSE;
+    if(opener->ch != _T('[')  ||  opener->end >= ctx->size  ||  CH(opener->end) != _T('^'))
+        return FALSE;
+
+    /* Expand the opener to eat the '^' */
+    opener->end++;
+
+    closer = &ctx->marks[opener->next];
+
+    /* Label is the raw text between the opener end and the closer begin.
+     * opener->end points past [^, closer->beg points to ]. */
+    label_beg = opener->end;
+    label_end = closer->beg;
+
+    if(label_beg >= label_end)
+        return FALSE;   /* empty label */
+
+    def = md_lookup_footnote_def(ctx, STR(label_beg), label_end - label_beg);
+    if(def == NULL)
+        return FALSE;
+
+    /* Assign index on first reference. */
+    if(def->index == 0)
+        def->index = ++ctx->next_footnote_index;
+    def->ref_count++;
+
+    /* Store the public callback details in the dummy mark after the opener. */
+    index_mark = opener + 1;
+    MD_ASSERT(index_mark->ch == _T('D'));
+    index_mark->beg = def->index;
+    index_mark->end = def->ref_count;
+
+    /* Mark as resolved. */
+    opener->flags |= MD_MARK_OPENER | MD_MARK_RESOLVED | MD_MARK_BRACKET_FOOTNOTEREF;
+    closer->flags |= MD_MARK_CLOSER | MD_MARK_RESOLVED | MD_MARK_BRACKET_FOOTNOTEREF;
+    *last_link_beg = opener->beg;
+    *last_link_end = closer->end;
+
+    *p_opener_index = opener->prev;
     return TRUE;
 }
 
@@ -3956,55 +3993,6 @@ md_resolve_bracket_link(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
     return 0;
 }
 
-/* Resolve footnote references [^label] in the current block. */
-static void
-md_resolve_bracket_footnotes(MD_CTX* ctx)
-{
-    int i;
-
-    for(i = 0; i < ctx->n_marks; i++) {
-        MD_MARK* opener = &ctx->marks[i];
-        MD_MARK* closer;
-        MD_MARK* index_mark;
-        MD_FOOTNOTE_DEF* def;
-        OFF label_beg, label_end;
-
-        if(opener->ch != _T('[')  ||  !(opener->flags & MD_MARK_BRACKET_FOOTNOTEREF))
-            continue;
-        if(opener->next < 0)
-            continue;   /* no matching ']' was found */
-
-        closer = &ctx->marks[opener->next];
-
-        /* Label is the raw text between the opener end and the closer begin.
-         * opener->end points past [^, closer->beg points to ]. */
-        label_beg = opener->end;
-        label_end = closer->beg;
-
-        if(label_beg >= label_end)
-            continue;   /* empty label */
-
-        def = md_lookup_footnote_def(ctx, STR(label_beg), label_end - label_beg);
-        if(def == NULL)
-            continue;   /* unknown label -> leave unresolved -> literal text */
-
-        /* Assign index on first reference. */
-        if(def->index == 0)
-            def->index = ++ctx->next_footnote_index;
-        def->ref_count++;
-
-        /* Store the public callback details in the dummy mark after the opener. */
-        index_mark = opener + 1;
-        MD_ASSERT(index_mark->ch == _T('D'));
-        index_mark->beg = def->index;
-        index_mark->end = def->ref_count;
-
-        /* Mark as resolved. */
-        opener->flags |= MD_MARK_OPENER | MD_MARK_RESOLVED;
-        closer->flags |= MD_MARK_CLOSER | MD_MARK_RESOLVED;
-    }
-}
-
 /* Resolve bracket pairs as links, wiki links, or (in a 2nd pass) footnotes. */
 static int
 md_resolve_brackets(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
@@ -4051,13 +4039,12 @@ md_resolve_brackets(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
             continue;
         }
 
-        /* Footnote refs are resolved in the 2nd pass below. Wiki links must be
-         * recognized before that pass so that [^...] inside a destination is
-         * disabled rather than turned into a footnote or a strange link. */
-        if(opener->flags & MD_MARK_BRACKET_FOOTNOTEREF) {
-            opener_index = next_index;
+        ret = md_resolve_bracket_footnote(ctx, opener, closer,
+                        &last_link_beg, &last_link_end, &opener_index);
+        if(ret < 0)
+            return -1;
+        if(ret > 0)
             continue;
-        }
 
         ret = md_resolve_bracket_wikilink(ctx, lines, n_lines, opener_index, closer_index,
                         opener, closer, next_opener, next_closer,
@@ -4075,9 +4062,6 @@ md_resolve_brackets(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
 
         opener_index = next_index;
     }
-
-    if(ctx->parser.flags & MD_FLAG_FOOTNOTES)
-        md_resolve_bracket_footnotes(ctx);
 
     return 0;
 }
