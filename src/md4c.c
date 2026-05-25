@@ -5416,7 +5416,7 @@ md_process_leaf_block(MD_CTX* ctx, MD_BLOCK* block)
             SZ table_input_size = n_rows;
             unsigned i;
 
-            for(i = 0; i < n_cols; i++)
+            for(i = 0; i < n_rows; i++)
                 table_input_size += lines[i].end - lines[i].beg;
 
             if(table_input_size / n_cols < n_rows / 4) {
