@@ -163,7 +163,7 @@ process_file(const char* in_path, FILE* in, FILE* out)
 
         /* Override parser and renderer flags with those from the test case. */
         p_flags = ((unsigned*)buf_in.data)[0];
-        r_flags = ((unsigned*)buf_in.data)[1];
+        r_flags = ((unsigned*)buf_in.data)[1] | MD_HTML_FLAG_DEBUG;
 
         /* And get rid of them from the text input to the parser. */
         memmove(buf_in.data, buf_in.data + 2 * sizeof(unsigned),
