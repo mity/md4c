@@ -1,0 +1,257 @@
+
+# Highlight Spans
+
+With the flag `MD_FLAG_HIGHLIGHT`, MD4C enables recognition of inline
+highlight spans using the `==text==` syntax. A pair of equals signs on each
+side wraps the content, which the HTML renderer outputs as `<mark>`.
+
+
+## Basic recognition
+
+```````````````````````````````` example
+==Hello, world!==
+.
+<p><mark>Hello, world!</mark></p>
+.
+--fhighlight
+````````````````````````````````
+
+Highlight spans may appear inline alongside normal text:
+
+```````````````````````````````` example
+This is ==very important== text.
+.
+<p>This is <mark>very important</mark> text.</p>
+.
+--fhighlight
+````````````````````````````````
+
+Multiple independent highlight spans may appear in the same paragraph:
+
+```````````````````````````````` example
+==first== and ==second==
+.
+<p><mark>first</mark> and <mark>second</mark></p>
+.
+--fhighlight
+````````````````````````````````
+
+
+## Flag required
+
+Without `MD_FLAG_HIGHLIGHT` the `==` sequence is treated as literal text:
+
+```````````````````````````````` example
+==highlight==
+.
+<p>==highlight==</p>
+.
+````````````````````````````````
+
+
+## Nested inline spans
+
+Emphasis inside a highlight span:
+
+```````````````````````````````` example
+==very *important* text==
+.
+<p><mark>very <em>important</em> text</mark></p>
+.
+--fhighlight
+````````````````````````````````
+
+Strong emphasis inside a highlight span:
+
+```````````````````````````````` example
+==**bold** and _italic_==
+.
+<p><mark><strong>bold</strong> and <em>italic</em></mark></p>
+.
+--fhighlight
+````````````````````````````````
+
+Inline code inside a highlight span:
+
+```````````````````````````````` example
+==highlighted `code`==
+.
+<p><mark>highlighted <code>code</code></mark></p>
+.
+--fhighlight
+````````````````````````````````
+
+A link inside a highlight span:
+
+```````````````````````````````` example
+==highlighted [link](http://example.com)==
+.
+<p><mark>highlighted <a href="http://example.com">link</a></mark></p>
+.
+--fhighlight
+````````````````````````````````
+
+A highlight span inside a link:
+
+```````````````````````````````` example
+[==highlighted link==](http://example.com)
+.
+<p><a href="http://example.com"><mark>highlighted link</mark></a></p>
+.
+--fhighlight
+````````````````````````````````
+
+
+## Whitespace rules
+
+An equals delimiter cannot open a highlight span when immediately followed by
+whitespace:
+
+```````````````````````````````` example
+== highlight==
+.
+<p>== highlight==</p>
+.
+--fhighlight
+````````````````````````````````
+
+An equals delimiter cannot close a highlight span when immediately preceded by
+whitespace:
+
+```````````````````````````````` example
+==highlight ==
+.
+<p>==highlight ==</p>
+.
+--fhighlight
+````````````````````````````````
+
+
+## Delimiter length
+
+Single equals signs are not highlight delimiters:
+
+```````````````````````````````` example
+=highlight=
+.
+<p>=highlight=</p>
+.
+--fhighlight
+````````````````````````````````
+
+Longer equals runs are not split into highlight delimiters:
+
+```````````````````````````````` example
+===highlight===
+.
+<p>===highlight===</p>
+.
+--fhighlight
+````````````````````````````````
+
+
+## Unmatched delimiters
+
+An opening delimiter with no matching closer is literal:
+
+```````````````````````````````` example
+==highlight
+.
+<p>==highlight</p>
+.
+--fhighlight
+````````````````````````````````
+
+A closing delimiter with no matching opener is literal:
+
+```````````````````````````````` example
+highlight==
+.
+<p>highlight==</p>
+.
+--fhighlight
+````````````````````````````````
+
+
+## Paragraph boundary stops resolution
+
+A highlight span cannot cross a paragraph boundary:
+
+```````````````````````````````` example
+This ==has a
+
+new paragraph==.
+.
+<p>This ==has a</p>
+<p>new paragraph==.</p>
+.
+--fhighlight
+````````````````````````````````
+
+
+## Suppression inside code
+
+Equals signs inside code spans are treated as literal text:
+
+```````````````````````````````` example
+`==code==`
+.
+<p><code>==code==</code></p>
+.
+--fhighlight
+````````````````````````````````
+
+Equals signs inside fenced code blocks are treated as literal text:
+
+```````````````````````````````` example
+```
+==code==
+```
+.
+<pre><code>==code==
+</code></pre>
+.
+--fhighlight
+````````````````````````````````
+
+
+## Interaction with other extensions
+
+Highlight may appear inside a spoiler span:
+
+```````````````````````````````` example
+||==highlighted spoiler==||
+.
+<p><x-spoiler><mark>highlighted spoiler</mark></x-spoiler></p>
+.
+--fhighlight --fspoilers
+````````````````````````````````
+
+Highlight may appear inside strikethrough:
+
+```````````````````````````````` example
+~~==highlighted deletion==~~
+.
+<p><del><mark>highlighted deletion</mark></del></p>
+.
+--fhighlight --fstrikethrough
+````````````````````````````````
+
+Highlight may appear inside table cells:
+
+```````````````````````````````` example
+| Feature | Status |
+| --- | --- |
+| Highlight | ==done== |
+.
+<table>
+<thead>
+<tr><th>Feature</th><th>Status</th></tr>
+</thead>
+<tbody>
+<tr><td>Highlight</td><td><mark>done</mark></td></tr>
+</tbody>
+</table>
+.
+--fhighlight --ftables
+````````````````````````````````

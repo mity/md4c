@@ -222,7 +222,7 @@ struct MD_CTX_tag {
 #endif
 
     /* For resolving of inline spans. */
-    MD_MARKSTACK opener_stacks[18];
+    MD_MARKSTACK opener_stacks[19];
 #define ASTERISK_OPENERS_oo_mod3_0      (ctx->opener_stacks[0])     /* Opener-only */
 #define ASTERISK_OPENERS_oo_mod3_1      (ctx->opener_stacks[1])
 #define ASTERISK_OPENERS_oo_mod3_2      (ctx->opener_stacks[2])
@@ -241,6 +241,7 @@ struct MD_CTX_tag {
 #define DOLLAR_OPENERS                  (ctx->opener_stacks[15])
 #define PIPE_OPENERS                    (ctx->opener_stacks[16])
 #define CARET_OPENERS                   (ctx->opener_stacks[17])
+#define EQUAL_OPENERS                   (ctx->opener_stacks[18])
 
     /* Stack of dummies which need to call free() for pointers stored in them.
      * These are constructed during inline parsing and freed after all the block
@@ -2733,6 +2734,7 @@ md_free_ref_defs(MD_CTX* ctx)
  *  ';': Maybe end of entity.
  *  '<': Maybe start of raw HTML or autolink.
  *  '>': Maybe end of raw HTML or autolink.
+ *  '=': Maybe highlight start/end (needs MD_FLAG_HIGHLIGHT).
  *  '[': Maybe start of link label or link text.
  *  '!': Equivalent of '[' for image.
  *  ']': Maybe end of link label or link text.
@@ -2974,6 +2976,9 @@ md_build_mark_char_map(MD_CTX* ctx)
 
     if(ctx->parser.flags & MD_FLAG_LATEXMATHSPANS)
         ctx->mark_char_map['$'] = 1;
+
+    if(ctx->parser.flags & MD_FLAG_HIGHLIGHT)
+        ctx->mark_char_map['='] = 1;
 
     if(ctx->parser.flags & MD_FLAG_PERMISSIVEEMAILAUTOLINKS)
         ctx->mark_char_map['@'] = 1;
@@ -3554,6 +3559,30 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table_m
                         flags &= ~MD_MARK_POTENTIAL_CLOSER;
                     if(flags != 0)
                         ADD_MARK(ch, off, off + 1, flags);
+                }
+
+                off = tmp;
+                continue;
+            }
+
+            /* A potential highlight start/end: ==text== */
+            if(ch == _T('=') && (ctx->parser.flags & MD_FLAG_HIGHLIGHT)) {
+                OFF tmp = off + 1;
+
+                while(tmp < line->end && CH(tmp) == _T('='))
+                    tmp++;
+
+                /* Only exactly two equals signs form a highlight delimiter. */
+                if(tmp - off == 2) {
+                    unsigned flags = MD_MARK_POTENTIAL_OPENER | MD_MARK_POTENTIAL_CLOSER;
+
+                    /* Cannot open before whitespace; cannot close after whitespace. */
+                    if(tmp >= line->end  ||  ISUNICODEWHITESPACE(tmp))
+                        flags &= ~MD_MARK_POTENTIAL_OPENER;
+                    if(off == line->beg  ||  ISUNICODEWHITESPACEBEFORE(off))
+                        flags &= ~MD_MARK_POTENTIAL_CLOSER;
+                    if(flags != 0)
+                        ADD_MARK(ch, off, tmp, flags);
                 }
 
                 off = tmp;
@@ -4276,6 +4305,27 @@ md_analyze_spoiler(MD_CTX* ctx, int mark_index)
         md_mark_stack_push(ctx, &PIPE_OPENERS, mark_index);
 }
 
+static void
+md_analyze_highlight(MD_CTX* ctx, int mark_index)
+{
+    MD_MARK* mark = &ctx->marks[mark_index];
+
+    /* Only "==" is recognized as a highlight mark. */
+    if(mark->end - mark->beg != 2)
+        return;
+
+    if((mark->flags & MD_MARK_POTENTIAL_CLOSER)  &&  EQUAL_OPENERS.top >= 0) {
+        int opener_index = EQUAL_OPENERS.top;
+
+        md_pop_openers(ctx, opener_index);
+        md_resolve_range(ctx, opener_index, mark_index);
+        return;
+    }
+
+    if(mark->flags & MD_MARK_POTENTIAL_OPENER)
+        md_mark_stack_push(ctx, &EQUAL_OPENERS, mark_index);
+}
+
 static MD_MARK*
 md_scan_left_for_resolved_mark(MD_CTX* ctx, MD_MARK* mark_from, OFF off, MD_MARK** p_cursor)
 {
@@ -4542,6 +4592,7 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
             case ':':   /* Pass through. */
             case '@':   md_analyze_permissive_autolink(ctx, i); break;
             case '|':   md_analyze_spoiler(ctx, i); break;
+            case '=':   md_analyze_highlight(ctx, i); break;
         }
 
         if(mark->flags & MD_MARK_RESOLVED) {
@@ -4608,6 +4659,8 @@ md_analyze_link_contents(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
     emph_mark_types[n_emph_mark_types++] = _T('_');
     if(ctx->parser.flags & MD_FLAG_LATEXMATHSPANS)
         emph_mark_types[n_emph_mark_types++] = _T('$');
+    if(ctx->parser.flags & MD_FLAG_HIGHLIGHT)
+        emph_mark_types[n_emph_mark_types++] = _T('=');
     if(ctx->parser.flags & MD_FLAG_SPOILERS)
         emph_mark_types[n_emph_mark_types++] = _T('|');
     if(ctx->parser.flags & MD_FLAG_SUPERSCRIPTS)
@@ -4832,6 +4885,15 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
                             MD_ENTER_SPAN(MD_SPAN_SPOILER, NULL);
                         else
                             MD_LEAVE_SPAN(MD_SPAN_SPOILER, NULL);
+                    }
+                    break;
+
+                case '=':
+                    if(mark->end - mark->beg == 2) {
+                        if(mark->flags & MD_MARK_OPENER)
+                            MD_ENTER_SPAN(MD_SPAN_MARK, NULL);
+                        else
+                            MD_LEAVE_SPAN(MD_SPAN_MARK, NULL);
                     }
                     break;
 

@@ -186,7 +186,12 @@ typedef enum MD_SPANTYPE {
      * Note: Recognized only when MD_FLAG_FOOTNOTES is enabled.
      * The span is self-contained: no MD_TEXT callbacks fire between enter and
      * leave. All needed information is in MD_SPAN_FOOTNOTE_REF_DETAIL. */
-    MD_SPAN_FOOTNOTE_REF
+    MD_SPAN_FOOTNOTE_REF,
+
+    /* <mark>...</mark>
+     * Syntax: ==highlight==
+     * Note: Recognized only when MD_FLAG_HIGHLIGHT is enabled. */
+    MD_SPAN_MARK
 } MD_SPANTYPE;
 
 /* Text is the actual textual contents of span. */
@@ -383,6 +388,7 @@ typedef struct MD_BLOCK_FOOTNOTE_DEF_DETAIL {
 #define MD_FLAG_SUBSCRIPTS                  0x40000 /* Enable ~subscript~ spans. */
 #define MD_FLAG_ADMONITIONS                 0x80000 /* Enable admonitions extension. */
 #define MD_FLAG_FOOTNOTES                   0x100000 /* Enable [^label] footnote references. */
+#define MD_FLAG_HIGHLIGHT                   0x200000 /* Enable ==highlight== spans. */
 
 #define MD_FLAG_PERMISSIVEAUTOLINKS         (MD_FLAG_PERMISSIVEEMAILAUTOLINKS | MD_FLAG_PERMISSIVEURLAUTOLINKS | MD_FLAG_PERMISSIVEWWWAUTOLINKS)
 #define MD_FLAG_NOHTML                      (MD_FLAG_NOHTMLBLOCKS | MD_FLAG_NOHTMLSPANS)

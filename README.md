@@ -119,6 +119,10 @@ extensions:
   outputs `<sub>`. When used together with `MD_FLAG_STRIKETHROUGH`, single
   tilde renders as subscript and double tilde `~~text~~` as strikethrough.
 
+* With the flag `MD_FLAG_HIGHLIGHT`, highlight spans are enabled
+  (text enclosed in double equals marks, e.g. `==important==`). The HTML
+  renderer outputs `<mark>`.
+
 * With the flag `MD_FLAG_PERMISSIVEURLAUTOLINKS` permissive URL autolinks
   (not enclosed in `<` and `>`) are supported.
 
