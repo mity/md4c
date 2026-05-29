@@ -3,7 +3,7 @@
 # This scripts attempts to build the project via cov-build utility, and prepare
 # a package for uploading to the coverity scan service.
 #
-# (See http://scan.coverity.com for more info.)
+# (See https://scan.coverity.com for more info.)
 
 set -e
 
@@ -67,4 +67,3 @@ cov-build --dir cov-int "$BUILD_TOOL"
 $MKZIP "$OUTPUT" "cov-int"
 cd "$ROOT_DIR"
 rm -rf "$BUILD_DIR"
-
