@@ -1,6 +1,6 @@
 /*
  * C Reusables
- * <http://github.com/mity/c-reusables>
+ * <https://github.com/mity/c-reusables>
  *
  * Copyright (c) 2017-2020 Martin Mitáš
  *
@@ -202,4 +202,3 @@ cmdline_read(const CMDLINE_OPTION* options, int argc, char** argv,
 
     return ret;
 }
-

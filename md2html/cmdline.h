@@ -1,6 +1,6 @@
 /*
  * C Reusables
- * <http://github.com/mity/c-reusables>
+ * <https://github.com/mity/c-reusables>
  *
  * Copyright (c) 2017 Martin Mitáš
  *
