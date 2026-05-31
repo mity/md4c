@@ -6,6 +6,17 @@
 
 New Features:
 
+  * Add highlight span extension, enabled with the flag `MD_FLAG_HIGHLIGHT`.
+
+    Syntax example:
+    ```
+    ==highlighted text==
+    ```
+
+    The HTML renderer outputs `<mark>`.
+
+    Contributed by [Gregory Moskaliuk](https://github.com/hryhoriiK97).
+
   * Add GFM-like footnote extension, enabled with the flag `MD_FLAG_FOOTNOTES`.
 
     Syntax example:

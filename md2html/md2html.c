@@ -255,6 +255,7 @@ static const CMDLINE_OPTION cmdline_options[] = {
     {  0,  "fcollapse-whitespace",          'W', 0 },
     {  0,  "ffootnotes",                    'N', 0 },
     {  0,  "fhard-soft-breaks",             'B', 0 },
+    {  0,  "fhighlight",                    'M', 0 },
     {  0,  "flatex-math",                   'L', 0 },
     {  0,  "fpermissive-atx-headers",       'A', 0 },
     {  0,  "fpermissive-autolinks",         'V', 0 },
@@ -322,6 +323,7 @@ usage(void)
         "      --fpermissive-autolinks\n"
         "                       Same as --fpermissive-email-autolinks --fpermissive-url-autolinks\n"
         "                       --fpermissive-www-autolinks\n"
+        "      --fhighlight    Enable highlight spans (==text==)\n"
         "      --fspoilers      Enable spoiler spans (||hidden text||)\n"
         "      --fstrikethrough Enable strike-through spans\n"
         "      --fsubscripts    Enable subscript spans (~text~)\n"
@@ -389,6 +391,7 @@ cmdline_callback(int opt, char const* value, void* data)
 
         case 'D':   parser_flags |= MD_FLAG_ADMONITIONS; break;
         case 'E':   renderer_flags |= MD_HTML_FLAG_VERBATIM_ENTITIES; break;
+        case 'M':   parser_flags |= MD_FLAG_HIGHLIGHT; break;
         case 'A':   parser_flags |= MD_FLAG_PERMISSIVEATXHEADERS; break;
         case 'I':   parser_flags |= MD_FLAG_NOINDENTEDCODEBLOCKS; break;
         case 'F':   parser_flags |= MD_FLAG_NOHTMLBLOCKS; break;
