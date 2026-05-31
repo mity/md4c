@@ -1,4 +1,4 @@
-.TH MD2HTML 1 "June 2019" "" "General Commands Manual"
+.TH MD2HTML 1 "April 2026" "" "General Commands"
 .nh
 .ad l
 .
@@ -25,6 +25,10 @@ Write output to \fIOUTFILE\fR instead of \fBstdout\fR(3)
 Generate full HTML document, including header
 .
 .TP
+.BR -x ", " --xhtml
+Generate XHTML instead of HTML
+.
+.TP
 .BR -s ", " --stat
 Measure time of input parsing
 .
@@ -43,7 +47,7 @@ Display version and exit
 CommonMark (the default)
 .
 .TP
-.B --github
+.B --gfm ", " --github
 Github Flavored Markdown
 .
 .PP
@@ -52,12 +56,24 @@ Note: dialect options are equivalent to some combination of flags below.
 .SS Markdown extension options:
 .
 .TP
+.B --fadmonitions
+Enable admonitions
+.
+.TP
 .B --fcollapse-whitespace
 Collapse non-trivial whitespace
 .
 .TP
-.B --fverbatim-entities
-Do not translate entities
+.B --ffootnotes
+Enable footnote references ([^label])
+.
+.TP
+.B --fhard-soft-breaks
+Force all soft breaks to act as hard breaks
+.
+.TP
+.B --flatex-math
+Enable LaTeX style mathematics spans
 .
 .TP
 .B --fpermissive-atx-headers
@@ -69,7 +85,7 @@ Allow URL autolinks without "<" and ">" delimiters
 .
 .TP
 .B --fpermissive-www-autolinks
-Allow WWW autolinks without any scheme (e.g. "www.example.com")
+Allow WWW autolinks without any scheme (e.g., "www.example.com")
 .
 .TP
 .B --fpermissive-email-autolinks
@@ -78,9 +94,40 @@ Allow e-mail autolinks without "<", ">" and "mailto:"
 .TP
 .B --fpermissive-autolinks
 Enable all 3 of the above permissive autolinks options
+.
 .TP
-.B --fhard-soft-breaks
-Force all soft breaks to act as hard breaks
+.B --fspoilers
+Enable spoiler spans (||hidden text||)
+.
+.TP
+.B --fstrikethrough
+Enable strikethrough spans
+.
+.TP
+.B --fsubscripts
+Enable subscript spans (~text~)
+.
+.TP
+.B --fsuperscripts
+Enable superscript spans (^text^)\n"
+.
+.TP
+.B --ftables
+Enable tables
+.
+.TP
+.B --ftasklists
+Enable task lists
+.
+.TP
+.B --funderline
+Enable underline spans
+.
+.TP
+.B --fwiki-links
+Enable wiki links
+.
+.SS Markdown suppression options:
 .
 .TP
 .B --fno-indented-code
@@ -99,18 +146,24 @@ Disable raw HTML spans
 Same as \fB--fno-html-blocks --fno-html-spans\fR
 .
 .TP
-.B --ftables
-Enable tables
+.B --fno-indented-code
+Disable indented code blocks
+.
+.SS HTML generator options:
 .
 .TP
-.B --fstrikethrough
-Enable strikethrough spans
+.B --fverbatim-entities
+Do not translate entities
 .
 .TP
-.B --ftasklists
-Enable task lists
+.B --html-title=TITLE
+Sets the title of the document
+.
+.TP
+.B --html-css=URL
+In full HTML or XHTML mode add a css link
 .
 .SH SEE ALSO
 .
-https://github.com/mity/md4c
+.UR https://github.com/mity/md4c
 .
