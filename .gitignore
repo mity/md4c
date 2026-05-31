@@ -1,3 +1,4 @@
+# ---> C
 # Prerequisites
 *.d
 
@@ -35,7 +36,6 @@
 *.i*86
 *.x86_64
 *.hex
-pfft
 
 # Debug files
 *.dSYM/
@@ -52,28 +52,41 @@ Module.symvers
 Mkfile.old
 dkms.conf
 
-# Temp files
-*.swp
-*.tmp
-*~
-~*
-*.e
+# debug information files
+*.dwo
 
-# autotools
-/aclocal.m4
-/autom4te.cache/
-/build/
-/build-aux/
-conf*.dir/
-/config.h
-/config.log
-/config.status
-/configure
-.deps/
-.dirstamp
+# ---> Python
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[codz]
+*$py.class
+
+# ---> CMake
+CMakeLists.txt.user
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+Testing
 Makefile
-Makefile.in
-stamp-*
-*.stamp
-*.stamp-*
-.Tpo
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps
+CMakeUserPresets.json
+
+# ---> Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+build/
+bld/
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+msbuild.log
+msbuild.err
+msbuild.wrn

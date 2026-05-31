@@ -1,6 +1,6 @@
 /*
  * MD4C: Markdown parser for C
- * (http://github.com/mity/md4c)
+ * (https://github.com/mity/md4c)
  *
  * Copyright (c) 2016-2026 Martin Mitáš
  *
@@ -104,10 +104,11 @@ render_html_escaped(MD_HTML* r, const MD_CHAR* data, MD_SIZE size)
 
         if(off < size) {
             switch(data[off]) {
+                case '"':   RENDER_VERBATIM(r, "&quot;"); break;
                 case '&':   RENDER_VERBATIM(r, "&amp;"); break;
+                case '\'':  RENDER_VERBATIM(r, "&#x27;"); break;
                 case '<':   RENDER_VERBATIM(r, "&lt;"); break;
                 case '>':   RENDER_VERBATIM(r, "&gt;"); break;
-                case '"':   RENDER_VERBATIM(r, "&quot;"); break;
             }
             off++;
         } else {
@@ -616,7 +617,7 @@ md_html(const MD_CHAR* input, MD_SIZE input_size,
     for(i = 0; i < 256; i++) {
         unsigned char ch = (unsigned char) i;
 
-        if(strchr("\"&<>", ch) != NULL)
+        if(strchr("\"&'<>", ch) != NULL)
             render.escape_map[i] |= NEED_HTML_ESC_FLAG;
 
         if(!ISALNUM(ch)  &&  strchr("~-_.+!*(),%#@?=;:/$", ch) == NULL)

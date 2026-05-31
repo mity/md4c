@@ -1,6 +1,6 @@
 /*
  * MD4C: Markdown parser for C
- * (http://github.com/mity/md4c)
+ * (https://github.com/mity/md4c)
  *
  * Copyright (c) 2016-2026 Martin Mitáš
  *

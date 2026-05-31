@@ -1,6 +1,6 @@
 /*
  * MD4C: Markdown parser for C
- * (http://github.com/mity/md4c)
+ * (https://github.com/mity/md4c)
  *
  * Copyright (c) 2016-2026 Martin Mitáš
  *
@@ -253,25 +253,24 @@ static const CMDLINE_OPTION cmdline_options[] = {
 
     {  0,  "fadmonitions",                  'D', 0 },
     {  0,  "fcollapse-whitespace",          'W', 0 },
+    {  0,  "ffootnotes",                    'N', 0 },
+    {  0,  "fhard-soft-breaks",             'B', 0 },
     {  0,  "fhighlight",                    'M', 0 },
     {  0,  "flatex-math",                   'L', 0 },
     {  0,  "fpermissive-atx-headers",       'A', 0 },
     {  0,  "fpermissive-autolinks",         'V', 0 },
-    {  0,  "fhard-soft-breaks",             'B', 0 },
     {  0,  "fpermissive-email-autolinks",   '@', 0 },
     {  0,  "fpermissive-url-autolinks",     'U', 0 },
     {  0,  "fpermissive-www-autolinks",     '.', 0 },
     {  0,  "fspoilers",                     'P', 0 },
     {  0,  "fstrikethrough",                'S', 0 },
-    {  0,  "fsuperscripts",                 '^', 0 },
     {  0,  "fsubscripts",                   '~', 0 },
+    {  0,  "fsuperscripts",                 '^', 0 },
     {  0,  "ftables",                       'T', 0 },
     {  0,  "ftasklists",                    'X', 0 },
     {  0,  "funderline",                    '_', 0 },
     {  0,  "fverbatim-entities",            'E', 0 },
     {  0,  "fwiki-links",                   'K', 0 },
-
-    {  0,  "ffootnotes",                    'N', 0 },
 
     {  0,  "fno-html-blocks",               'F', 0 },
     {  0,  "fno-html-spans",                'G', 0 },
@@ -309,26 +308,26 @@ usage(void)
         "      --fadmonitions   Enable admonitions\n"
         "      --fcollapse-whitespace\n"
         "                       Collapse non-trivial whitespace\n"
+        "      --ffootnotes     Enable footnote references ([^label])\n"
+        "      --fhard-soft-breaks\n"
+        "                       Force all soft breaks to act as hard breaks\n"
         "      --flatex-math    Enable LaTeX style mathematics spans\n"
         "      --fpermissive-atx-headers\n"
         "                       Allow ATX headers without delimiting space\n"
+        "      --fpermissive-email-autolinks  \n"
+        "                       Allow e-mail autolinks without '<', '>' and 'mailto:'\n"
         "      --fpermissive-url-autolinks\n"
         "                       Allow URL autolinks without '<', '>'\n"
         "      --fpermissive-www-autolinks\n"
         "                       Allow WWW autolinks without any scheme (e.g. 'www.example.com')\n"
-        "      --fpermissive-email-autolinks  \n"
-        "                       Allow e-mail autolinks without '<', '>' and 'mailto:'\n"
         "      --fpermissive-autolinks\n"
-        "                       Same as --fpermissive-url-autolinks --fpermissive-www-autolinks\n"
-        "                       --fpermissive-email-autolinks\n"
-        "      --fhard-soft-breaks\n"
-        "                       Force all soft breaks to act as hard breaks\n"
+        "                       Same as --fpermissive-email-autolinks --fpermissive-url-autolinks\n"
+        "                       --fpermissive-www-autolinks\n"
         "      --fhighlight    Enable highlight spans (==text==)\n"
         "      --fspoilers      Enable spoiler spans (||hidden text||)\n"
         "      --fstrikethrough Enable strike-through spans\n"
-        "      --fsuperscripts  Enable superscript spans (^text^)\n"
         "      --fsubscripts    Enable subscript spans (~text~)\n"
-        "      --ffootnotes     Enable footnote references ([^label])\n"
+        "      --fsuperscripts  Enable superscript spans (^text^)\n"
         "      --ftables        Enable tables\n"
         "      --ftasklists     Enable task lists\n"
         "      --funderline     Enable underline spans\n"
