@@ -4034,6 +4034,13 @@ md_resolve_brackets(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
         MD_MARK* next_opener;
         MD_MARK* next_closer;
 
+        if(opener->ch == _T('D')) {
+            /* We could have this disabled in previous iterations, and
+             * processing would be just burning CPU cycles. */
+            opener_index = next_index;
+            continue;
+        }
+
         if(next_index >= 0) {
             next_opener = &ctx->marks[next_index];
             next_closer = &ctx->marks[next_opener->next];
