@@ -1,9 +1,9 @@
 
 # MD4C Readme
 
-* Home: http://github.com/mity/md4c
-* Wiki: http://github.com/mity/md4c/wiki
-* Issue tracker: http://github.com/mity/md4c/issues
+* Home: https://github.com/mity/md4c
+* Wiki: https://github.com/mity/md4c/wiki
+* Issue tracker: https://github.com/mity/md4c/issues
 
 MD4C stands for "Markdown for C" and that's exactly what this project is about.
 
@@ -13,8 +13,8 @@ MD4C stands for "Markdown for C" and that's exactly what this project is about.
 In short, Markdown is the markup language this `README.md` file is written in.
 
 The following resources can explain more if you are unfamiliar with it:
-* [Wikipedia article](http://en.wikipedia.org/wiki/Markdown)
-* [CommonMark site](http://commonmark.org)
+* [Wikipedia article](https://en.wikipedia.org/wiki/Markdown)
+* [CommonMark site](https://commonmark.org)
 
 
 ## What is MD4C
@@ -22,7 +22,7 @@ The following resources can explain more if you are unfamiliar with it:
 MD4C is a Markdown parser implementation in C, with the following features:
 
 * **Compliance:** Generally, MD4C aims to be compliant to the latest version of
-  [CommonMark specification](http://spec.commonmark.org/). Currently, we are
+  [CommonMark specification](https://spec.commonmark.org/). Currently, we are
   fully compliant to CommonMark 0.31.
 
 * **Extensions:** MD4C supports some commonly requested and accepted extensions.
@@ -87,7 +87,7 @@ chunks into a buffer or writes them to a file.
 ## Markdown Extensions
 
 The default behavior is to recognize only Markdown syntax defined by the
-[CommonMark specification](http://spec.commonmark.org/).
+[CommonMark specification](https://spec.commonmark.org/).
 
 However, with appropriate flags, the behavior can be tuned to enable some
 extensions:
@@ -219,7 +219,7 @@ preprocessor macros (as specified at the time MD4C is being built):
 The API of the parser is quite well documented in the comments in the `md4c.h`.
 Similarly, the markdown-to-html API is described in its header `md4c-html.h`.
 
-There is also a [project wiki](http://github.com/mity/md4c/wiki) which provides
+There is also a [project wiki](https://github.com/mity/md4c/wiki) which provides
 some more comprehensive documentation. However, note it is incomplete and some
 details may be somewhat outdated.
 
