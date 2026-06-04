@@ -92,6 +92,10 @@ Fixes:
     utility rather than call directly the md4c-html library and which pass the
     utility a multi-gigabyte input to process.
 
+  * [#368](https://github.com/mity/md4c/pull/368):
+    Fix check that the standard CommonMark URI autolink's scheme must begin with
+    an alpha-numerical character, not any ASCII character.
+
 
 ## Version 0.5.3
 
