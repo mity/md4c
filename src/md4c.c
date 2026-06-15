@@ -3133,7 +3133,7 @@ md_is_autolink_uri(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end)
     MD_ASSERT(CH(beg) == _T('<'));
 
     /* Check for scheme. */
-    if(off >= max_end  ||  !ISASCII(off))
+    if(off >= max_end  ||  !ISALNUM(off))
         return FALSE;
     off++;
     while(1) {
