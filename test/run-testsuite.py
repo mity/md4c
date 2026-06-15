@@ -37,7 +37,7 @@ def print_test_header(test):
         % (test['example'], test['start_line'], test['end_line'], test['section']))
 
 def do_test(test, normalize, prev_result):
-    prog = Prog(prog=args.program, default_options=test['cmdline_options'])
+    prog = Prog(cmdline=args.program, default_options=test['cmdline_options'])
     [retcode, actual_html_bytes, err]= prog.to_html(test['markdown'])
     if retcode != 0:
         if prev_result != 'error':

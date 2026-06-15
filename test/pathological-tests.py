@@ -129,8 +129,8 @@ pathological = {
 
 whitespace_re = re.compile('/s+/')
 
-def run_pathological(q, inp, prog):
-    prog = Prog(prog=prog)
+def run_pathological(q, inp, argv):
+    prog = Prog(cmdline=argv)
     q.put(prog.to_html(inp))
 
 def run_tests(args):
@@ -147,10 +147,10 @@ def run_tests(args):
     for description in pathological:
         if len(pathological[description]) == 2:
             (inp, regex) = pathological[description]
-            prog = Prog(prog=args.program)
+            prog = Prog(cmdline=args.program)
         else:
             (inp, regex, default_options) = pathological[description]
-            prog = Prog(prog=args.program, default_options=default_options)
+            prog = Prog(cmdline=args.program, default_options=default_options)
 
         start = timer()
         p = multiprocessing.Process(
