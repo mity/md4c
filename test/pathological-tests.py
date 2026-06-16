@@ -124,14 +124,11 @@ pathological = {
             re.compile(r"<p>(\]\(\[\r?\n){49999}\]\(\[</p>")),
     "many link ref. def. instantiations":
             (("[x]: " + "x" * 50000 + "\n[x]" * 50000),
-            re.compile(""))
+            re.compile("")),
+    "reference collisions": hash_collisions()
 }
 
 whitespace_re = re.compile('/s+/')
-
-def run_pathological(q, inp, argv):
-    prog = Prog(cmdline=argv)
-    q.put(prog.to_html(inp))
 
 def run_tests(args):
     allowed_failures = {"many references": True}
