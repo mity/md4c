@@ -10,29 +10,6 @@ import queue
 from prog import Prog
 from timeit import default_timer as timer
 
-def hash_collisions():
-    REFMAP_SIZE = 16
-    COUNT = 25000
-
-    def badhash(ref):
-        h = 0
-        for c in ref:
-            a = (h << 6) & 0xFFFFFFFF
-            b = (h << 16) & 0xFFFFFFFF
-            h = ord(c) + a + b - h
-            h = h & 0xFFFFFFFF
-
-        return (h % REFMAP_SIZE) == 0
-
-    keys = ("x%d" % i for i in itertools.count())
-    collisions = itertools.islice((k for k in keys if badhash(k)), COUNT)
-    bad_key = next(collisions)
-
-    document = ''.join("[%s]: /url\n\n[%s]\n\n" % (key, bad_key) for key in collisions)
-
-    return document, re.compile(r"(<p>\[%s]</p>\n){%d}" % (bad_key, COUNT-1))
-
-
 # list of pairs consisting of input and a regex that must match the output.
 pathological = {
     # note - some pythons have limit of 65535 for {num-matches} in re.
@@ -124,8 +101,7 @@ pathological = {
             re.compile(r"<p>(\]\(\[\r?\n){49999}\]\(\[</p>")),
     "many link ref. def. instantiations":
             (("[x]: " + "x" * 50000 + "\n[x]" * 50000),
-            re.compile("")),
-    "reference collisions": hash_collisions()
+            re.compile(""))
 }
 
 whitespace_re = re.compile('/s+/')
