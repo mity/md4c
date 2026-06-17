@@ -7198,6 +7198,12 @@ md_parse(const MD_CHAR* text, MD_SIZE size, const MD_PARSER* parser, void* userd
         return -1;
     }
 
+    if(size > (MD_SIZE)(INT_MAX / 16)) {
+        if(parser->debug_log != NULL)
+            parser->debug_log("Input too large.", userdata);
+        return -1;
+    }
+
     /* Setup context structure. */
     memset(&ctx, 0, sizeof(MD_CTX));
     ctx.text = text;
