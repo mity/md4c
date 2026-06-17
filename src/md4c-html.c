@@ -577,7 +577,16 @@ text_callback(MD_TEXTTYPE type, const MD_CHAR* text, MD_SIZE size, void* userdat
                                         : " "));
                                 break;
         case MD_TEXT_SOFTBR:    RENDER_VERBATIM(r, (r->image_nesting_level == 0 ? "\n" : " ")); break;
-        case MD_TEXT_HTML:      render_verbatim(r, text, size); break;
+        case MD_TEXT_HTML:      /* When inside a Markdown image label, the text falls into
+                                 * the alt="..." attribute opened by render_open_img_span().
+                                 * Raw HTML must be escaped there, exactly like normal text,
+                                 * otherwise it breaks out of the attribute. Compare the
+                                 * image_nesting_level handling in enter_span_callback(). */
+                                if(r->image_nesting_level == 0)
+                                    render_verbatim(r, text, size);
+                                else
+                                    render_html_escaped(r, text, size);
+                                break;
         case MD_TEXT_ENTITY:    render_entity(r, text, size, render_html_escaped); break;
         default:                render_html_escaped(r, text, size); break;
     }

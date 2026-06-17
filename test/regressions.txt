@@ -1027,3 +1027,16 @@ http://example.com>
 <p>&lt;
 http://example.com&gt;</p>
 ````````````````````````````````
+
+
+## Raw HTML in an image label must not break out of the alt attribute
+
+The image label is rendered into the `alt="..."` attribute, so any raw
+HTML span in it has to be escaped like normal text instead of being
+emitted verbatim.
+
+```````````````````````````````` example
+![<x title=" y" onerror="alert(1)">](/url)
+.
+<p><img src="/url" alt="&lt;x title=&quot; y&quot; onerror=&quot;alert(1)&quot;&gt;"></p>
+````````````````````````````````
