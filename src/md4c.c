@@ -5125,7 +5125,7 @@ md_analyze_table_alignment(MD_CTX* ctx, OFF beg, OFF end, MD_ALIGN* align, int n
     while(n_align > 0) {
         int index = 0;  /* index into align_map[] */
 
-        while(CH(off) != _T('-'))
+        while(off < end  &&  CH(off) != _T('-'))
             off++;
         if(off > beg  &&  CH(off-1) == _T(':'))
             index |= 1;
