@@ -5069,8 +5069,13 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
                 if(off > tmp)
                     MD_TEXT(text_type, STR(tmp), off-tmp);
 
-                /* and new lines are transformed into single spaces. */
-                if(off == line->end)
+                /* and new lines are transformed into single spaces. Emit the
+                 * space when off rests on an interior newline still preceding
+                 * the closer. Testing off == line->end here instead drops the
+                 * space when the line ends in whitespace, because the loop
+                 * above advances off past line->end over the trailing blanks
+                 * (CommonMark code-span examples 335, 337, 640). */
+                if(off < mark->beg  &&  ISNEWLINE(off))
                     MD_TEXT(text_type, _T(" "), 1);
             } else if(text_type == MD_TEXT_HTML) {
                 /* Inside raw HTML, we output the new line verbatim, including
