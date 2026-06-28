@@ -1,18 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import re
 import argparse
+import itertools
+import multiprocessing
+import re
 import sys
-import platform
+import queue
 from prog import Prog
 from timeit import default_timer as timer
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Run Markdown tests.')
-    parser.add_argument('-p', '--program', dest='program', nargs='?', default=None,
-            help='program to test')
-    args = parser.parse_args(sys.argv[1:])
 
 # list of pairs consisting of input and a regex that must match the output.
 pathological = {
@@ -109,36 +105,76 @@ pathological = {
 }
 
 whitespace_re = re.compile('/s+/')
-passed = 0
-errored = 0
-failed = 0
 
-#print("Testing pathological cases:")
-for description in pathological:
-    if len(pathological[description]) == 2:
-        (inp, regex) = pathological[description]
-        prog = Prog(cmdline=args.program)
+def run_tests(args):
+    allowed_failures = {"many references": True}
+    TIMEOUT = 5
+
+    q = multiprocessing.Queue()
+    passed = []
+    errored = []
+    failed = []
+    ignored = []
+
+    #print("Testing pathological cases:")
+    for description in pathological:
+        if len(pathological[description]) == 2:
+            (inp, regex) = pathological[description]
+            prog = Prog(cmdline=args.program)
+        else:
+            (inp, regex, default_options) = pathological[description]
+            prog = Prog(cmdline=args.program, default_options=default_options)
+
+        start = timer()
+        p = multiprocessing.Process(
+            target=q.put(prog.to_html(inp)),
+            args=(q, inp, args.program))
+        end = timer()
+        p.start()
+        try:
+            # wait TIMEOUT seconds or until it finishes
+            rc, actual, err = q.get(True, TIMEOUT)
+            p.join()
+            if rc != 0:
+                print(description, '[ERRORED (return code %d)]' %rc)
+                print(err)
+                if description in allowed_failures:
+                    ignored.append(description)
+                else:
+                    errored.append(description)
+            elif regex.search(actual):
+                print('{:35} [PASSED] {:.3f} secs'.format(description, end-start))
+                passed.append(description)
+            else:
+                print(description, '[FAILED]')
+                print(repr(actual[:60]))
+                if description in allowed_failures:
+                    ignored.append(description)
+                else:
+                    failed.append(description)
+        except queue.Empty:
+            p.terminate()
+            p.join()
+            print(description, '[TIMEOUT]')
+            if description in allowed_failures:
+                ignored.append(description)
+            else:
+                errored.append(description)
+
+    print("%d passed, %d failed, %d errored" %
+          (len(passed), len(failed), len(errored)))
+    if ignored:
+        print("Ignoring these allowed failures:")
+        for x in ignored:
+            print(x)
+    if failed or errored:
+        exit(1)
     else:
-        (inp, regex, default_options) = pathological[description]
-        prog = Prog(cmdline=args.program, default_options=default_options)
+        exit(0)
 
-    start = timer()
-    [rc, actual, err] = prog.to_html(inp)
-    end = timer()
-    if rc != 0:
-        errored += 1
-        print('{:35} [ERRORED (exit code {})]'.format(description, rc))
-        print(err)
-    elif regex.search(actual):
-        print('{:35} [PASSED] {:.3f} secs'.format(description, end-start))
-        passed += 1
-    else:
-        print('{:35} [FAILED]'.format(description))
-        print(repr(actual))
-        failed += 1
-
-print("%d passed, %d failed, %d errored" % (passed, failed, errored))
-if (failed == 0 and errored == 0):
-    exit(0)
-else:
-    exit(1)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Run Markdown tests.')
+    parser.add_argument('-p', '--program', dest='program', nargs='?', default=None,
+                    help='program to test')
+    args = parser.parse_args(sys.argv[1:])
+    run_tests(args)

@@ -39,7 +39,7 @@ if __name__ == "__main__":
             "pathological-tests.py",
             "-p", str(program)
     ]
-    subprocess.run(args)
+    p = subprocess.run(args)
     if p.returncode != 0:
         err_count += 1
 

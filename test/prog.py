@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from subprocess import *
+from subprocess import Popen, PIPE
 import platform
 import os
 

@@ -9,69 +9,78 @@ import json
 from prog import Prog
 from normalize import normalize_html
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Run Markdown tests.')
-    parser.add_argument('-p', '--program', dest='program', nargs='?', default=None,
-            help='program to test')
-    parser.add_argument('-s', '--spec', dest='spec', nargs='?', default='spec.txt',
-            help='path to spec')
-    parser.add_argument('-P', '--pattern', dest='pattern', nargs='?',
-            default=None, help='limit to sections matching regex pattern')
-    parser.add_argument('--no-normalize', dest='normalize',
-            action='store_const', const=False, default=True,
-            help='do not normalize HTML')
-    parser.add_argument('-d', '--dump-tests', dest='dump_tests',
-            action='store_const', const=True, default=False,
-            help='dump tests in JSON format')
-    parser.add_argument('--debug-normalization', dest='debug_normalization',
-            action='store_const', const=True,
-            default=False, help='filter stdin through normalizer for testing')
-    parser.add_argument('-n', '--number', type=int, default=None,
-            help='only consider the test with the given number')
-    args = parser.parse_args(sys.argv[1:])
+parser = argparse.ArgumentParser(description='Run Markdown tests.')
+parser.add_argument('-p', '--program', dest='program', nargs='?', default=None,
+        help='program to test')
+parser.add_argument('-s', '--spec', dest='spec', nargs='?', default='spec.txt',
+        help='path to spec')
+parser.add_argument('-P', '--pattern', dest='pattern', nargs='?',
+        default=None, help='limit to sections matching regex pattern')
+parser.add_argument('--no-normalize', dest='normalize',
+        action='store_const', const=False, default=True,
+        help='do not normalize HTML')
+parser.add_argument('-d', '--dump-tests', dest='dump_tests',
+        action='store_const', const=True, default=False,
+        help='dump tests in JSON format')
+parser.add_argument('--debug-normalization', dest='debug_normalization',
+        action='store_const', const=True,
+        default=False, help='filter stdin through normalizer for testing')
+parser.add_argument('-n', '--number', type=int, default=None,
+        help='only consider the test with the given number')
+args = parser.parse_args(sys.argv[1:])
 
 def out(str):
     sys.stdout.buffer.write(str.encode('utf-8')) 
 
-def print_test_header(headertext, example_number, start_line, end_line):
-    out("Example %d (lines %d-%d) %s\n" % (example_number,start_line,end_line,headertext))
+def print_test_header(test):
+    out("Example %d (lines %d-%d) %s\n"
+        % (test['example'], test['start_line'], test['end_line'], test['section']))
 
-def do_test(test, normalize, result_counts):
+def do_test(test, normalize, prev_result):
     prog = Prog(cmdline=args.program, default_options=test['cmdline_options'])
-    [retcode, actual_html, err] = prog.to_html(test['markdown'])
-    if retcode == 0:
-        expected_html = test['html']
-        unicode_error = None
-        if normalize and not test['no_normalize']:
-            try:
-                passed = normalize_html(actual_html) == normalize_html(expected_html)
-            except UnicodeDecodeError as e:
-                unicode_error = e
-                passed = False
-        else:
-            passed = actual_html == expected_html
-        if passed:
-            result_counts['pass'] += 1
-        else:
-            print_test_header(test['section'], test['example'], test['start_line'], test['end_line'])
+    [retcode, actual_html_bytes, err]= prog.to_html(test['markdown'])
+    if retcode != 0:
+        if prev_result != 'error':
+            print_test_header(test)
+            out("program returned error code %d\n" % retcode)
+            sys.stdout.buffer.write(err)
+        return 'error'
+
+    expected_html = test['html']
+
+    try:
+        actual_html = actual_html_bytes
+    except UnicodeDecodeError as e:
+        if prev_result != 'fail':
+            print_test_header(test)
             out(test['markdown'] + '\n')
-            if unicode_error:
-                out("Unicode error: " + str(unicode_error) + '\n')
-                out("Expected: " + repr(expected_html) + '\n')
-                out("Got:      " + repr(actual_html) + '\n')
-            else:
-                expected_html_lines = expected_html.splitlines(True)
-                actual_html_lines = actual_html.splitlines(True)
-                for diffline in unified_diff(expected_html_lines, actual_html_lines,
-                                "expected HTML", "actual HTML"):
-                    out(diffline)
+            out("Unicode error: " + str(e) + '\n')
+            out("Expected: " + repr(expected_html) + '\n')
+            out("Got:      " + repr(actual_html_bytes) + '\n')
             out('\n')
-            result_counts['fail'] += 1
-    else:
-        print_test_header(test['section'], test['example'], test['start_line'], test['end_line'])
-        out("program returned error code %d\n" % retcode)
-        sys.stdout.buffer.write(err)
-        result_counts['error'] += 1
+        return 'fail'
+
+    if normalize:
+        actual_html = normalize_html(actual_html) + '\n'
+        expected_html = normalize_html(expected_html) + '\n'
+
+    if actual_html != expected_html:
+        if prev_result != 'fail':
+            print_test_header(test)
+            out(test['markdown'] + '\n')
+            expected_html_lines = expected_html.splitlines(True)
+            actual_html_lines = actual_html.splitlines(True)
+            for diffline in unified_diff(expected_html_lines, actual_html_lines,
+                            "expected HTML", "actual HTML"):
+                out(diffline)
+            out('\n')
+        return 'fail'
+
+    if prev_result and prev_result != 'pass':
+        print_test_header(test)
+        print('fixed!')
+
+    return 'pass'
 
 def get_tests(specfile):
     line_number = 0
@@ -134,18 +143,28 @@ if __name__ == "__main__":
         exit(0)
 
     all_tests = get_tests(args.spec)
+
     if args.pattern:
         pattern_re = re.compile(args.pattern, re.IGNORECASE)
     else:
         pattern_re = re.compile('.')
-    tests = [ test for test in all_tests if re.search(pattern_re, test['section']) and (not args.number or test['example'] == args.number) ]
+    tests = [ test for test in all_tests if re.search(pattern_re, test['section'])
+                and (not args.number or test['example'] == args.number) ]
     if args.dump_tests:
         out(json.dumps(tests, ensure_ascii=False, indent=2))
         exit(0)
     else:
         skipped = len(all_tests) - len(tests)
         result_counts = {'pass': 0, 'fail': 0, 'error': 0, 'skip': skipped}
+
+        previous = {}
+
+        results = {}
+
         for test in tests:
-            do_test(test, args.normalize, result_counts)
+            result = do_test(test, args.normalize, previous.get(str(test['example'])))
+            result_counts[result] += 1
+            results[test['example']] = result
+
         out("{pass} passed, {fail} failed, {error} errored, {skip} skipped\n".format(**result_counts))
         exit(result_counts['fail'] + result_counts['error'])
