@@ -1,9 +1,37 @@
 {
   "name": "md4c",
-  "version": "0.4.7",
-  "description": "Markdown for C - CommonMark parser",
+  "version": "0.5.3",
+  "description": "Fast, SAX-like Markdown parser implementation in C compliant with the CommonMark specification.",
+  "keywords": [
+    "markdown",
+    "parser",
+    "commonmark",
+    "html",
+    "text"
+  ],
+  "authors": [
+    {
+      "name": "Martin Mitáš",
+      "url": "https://github.com/mity"
+    }
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/mity/md4c",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mity/md4c"
+  },
   "build": {
     "includeDir": "src",
     "srcDir": "src"
-  }
+  },
+  "frameworks": [
+    "arduino"
+  ],
+  "platforms": [
+    "espressif32",
+    "espressif8266",
+    "ststm32",
+    "raspberrypi"
+  ]
 }
