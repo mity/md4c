@@ -6,6 +6,14 @@ project(MD4C
     LANGUAGES C
 )
 
+if(IDF_TARGET)
+    idf_component_register(
+        SRC_DIRS "src"
+        INCLUDE_DIRS "src"
+    )
+    return() # Stops executing the desktop configurations below when building for ESP32
+endif()
+
 option(BUILD_MD2HTML_EXECUTABLE "Whether to compile the md2html executable" ON)
 
 

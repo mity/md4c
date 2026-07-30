@@ -26,7 +26,8 @@
     "srcDir": "src"
   },
   "frameworks": [
-    "arduino"
+    "arduino",
+    "espidf"
   ],
   "platforms": [
     "espressif32",
