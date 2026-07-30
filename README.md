@@ -304,23 +304,27 @@ MD4C is covered with MIT license, see the file `LICENSE.md`.
 
 ## Links to Related Projects
 
-Ports and bindings to other languages:
-
-* [commonmark-d](https://github.com/AuburnSounds/commonmark-d):
-  Port of MD4C to D language.
-
-* [markdown-wasm](https://github.com/rsms/markdown-wasm):
-  Port of MD4C to WebAssembly.
+Bindings:
 
 * [md4lean](https://github.com/acmepjz/md4lean):
-  [Lean](https://lean-lang.org/) bindings for MD4C.
+  [Lean](https://lean-lang.org/) bindings.
 
 * [PECL MD4C](https://pecl.php.net/package/md4c):
-  PHP bindings for MD4C.
+  PHP bindings.
 
 * [PyMD4C](https://github.com/dominickpastore/pymd4c):
-  Python bindings for MD4C.
+  Python bindings.
 
+Ports:
+
+* [commonmark-d](https://github.com/AuburnSounds/commonmark-d):
+  Port to D language.
+
+* [markdown-wasm](https://github.com/rsms/markdown-wasm):
+  Port to WebAssembly.
+
+* [Microsoft.UI.Reactor](https://github.com/microsoft/microsoft-ui-reactor):
+  Includes port to C#.
 
 Software using MD4C:
 
