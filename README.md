@@ -335,7 +335,7 @@ Software using MD4C:
   Markdown renderer for [Dear ImGui](https://github.com/ocornut/imgui).
 
 * [LibreOffice](https://www.libreoffice.org/):
-  An open source office suite.
+  An open-source office suite.
 
 * [lnav](https://lnav.org/):
   A log file viewer for the terminal that can also render markdown.
@@ -343,8 +343,14 @@ Software using MD4C:
 * [MarkDown Monolith Assembler](https://github.com/1Hyena/mdma):
   A command line tool for building browser-based books.
 
+* [Marknote](https://github.com/KDE/marknote):
+  A simple markdown note management app for KDE.
+
 * [Mdview MTX](https://github.com/step-/mdview):
   GTK markdown viewer and CLI converter.
+
+* [ONLYOFFICE](https://www.onlyoffice.com/)
+  An open-source office suite.
 
 * [QOwnNotes](https://www.qownnotes.org/):
   A plain-text file notepad and todo-list manager with markdown support and
