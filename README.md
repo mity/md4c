@@ -95,6 +95,9 @@ extensions:
 * With the flag `MD_FLAG_COLLAPSEWHITESPACE`, a non-trivial whitespace is
   collapsed into a single space.
 
+* With the flag `MD_FLAG_HARD_SOFT_BREAKS`, all soft breaks (newlines) in the
+  Markdown input are treated as hard breaks (i.e. as `<br>` in HTML output).
+
 * With the flag `MD_FLAG_TABLES`, GitHub-style tables are supported.
 
 * With the flag `MD_FLAG_TASKLISTS`, GitHub-style task lists are supported.
