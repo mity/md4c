@@ -1,0 +1,194 @@
+
+# Preserve blank lines
+
+By default MD4C (like CommonMark) treats any run of blank lines between two
+blocks as a single block boundary and discards how many blank lines it
+consisted of.
+
+With the flag `MD_FLAG_PRESERVEBLANKLINES`, each such run is instead reported
+as a single block `MD_BLOCK_BLANK` whose detail (`MD_BLOCK_BLANK_DETAIL`) holds
+the count of blank lines forming the separation. This lets applications
+reproduce the vertical spacing of the source; it is a deviation from
+CommonMark.
+
+The `md2html` renderer used for these tests renders each such block as `count`
+paragraphs holding a non-breaking space, so the count is visible in the output.
+
+A run of several blank lines between two blocks is reported with its full
+count:
+
+```````````````````````````````` example
+Paragraph one.
+
+
+
+Paragraph two.
+.
+<p>Paragraph one.</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>Paragraph two.</p>
+.
+--fpreserve-blank-lines
+````````````````````````````````
+
+Even an ordinary single blank line separating two blocks is reported (with
+count 1):
+
+```````````````````````````````` example
+foo
+
+bar
+.
+<p>foo</p>
+<p>&nbsp;</p>
+<p>bar</p>
+.
+--fpreserve-blank-lines
+````````````````````````````````
+
+Blank lines leading the document are reported:
+
+```````````````````````````````` example
+
+
+foo
+.
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>foo</p>
+.
+--fpreserve-blank-lines
+````````````````````````````````
+
+Blank lines trailing the document are reported:
+
+```````````````````````````````` example
+foo
+
+
+.
+<p>foo</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+.
+--fpreserve-blank-lines
+````````````````````````````````
+
+Blank lines preceding a container are reported before it:
+
+```````````````````````````````` example
+foo
+
+
+> quote
+.
+<p>foo</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<blockquote>
+<p>quote</p>
+</blockquote>
+.
+--fpreserve-blank-lines
+````````````````````````````````
+
+Blank lines inside a block quote are reported inside it:
+
+```````````````````````````````` example
+> foo
+>
+>
+> bar
+.
+<blockquote>
+<p>foo</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>bar</p>
+</blockquote>
+.
+--fpreserve-blank-lines
+````````````````````````````````
+
+Blank lines inside a block quote followed by blank lines after it are split on
+the boundary: the ones inside the quote are reported inside it, and the ones
+after it are reported at the outer level.
+
+```````````````````````````````` example
+> foo
+>
+>
+
+bar
+.
+<blockquote>
+<p>foo</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+</blockquote>
+<p>&nbsp;</p>
+<p>bar</p>
+.
+--fpreserve-blank-lines
+````````````````````````````````
+
+Blank lines separating two block quotes are reported between them:
+
+```````````````````````````````` example
+> foo
+
+
+> bar
+.
+<blockquote>
+<p>foo</p>
+</blockquote>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<blockquote>
+<p>bar</p>
+</blockquote>
+.
+--fpreserve-blank-lines
+````````````````````````````````
+
+Blank lines inside a fenced code block are part of its verbatim contents and
+are not reported as `MD_BLOCK_BLANK`:
+
+```````````````````````````````` example
+```
+foo
+
+
+
+bar
+```
+.
+<pre><code>foo
+
+
+
+bar
+</code></pre>
+.
+--fpreserve-blank-lines
+````````````````````````````````
+
+Likewise, blank lines inside an indented code block are not reported:
+
+```````````````````````````````` example
+    foo
+
+
+    bar
+.
+<pre><code>foo
+
+
+bar
+</code></pre>
+.
+--fpreserve-blank-lines
+````````````````````````````````
