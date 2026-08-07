@@ -6,6 +6,16 @@
 
 New Features:
 
+  * Add blank line preservation, enabled with the flag
+    `MD_FLAG_PRESERVEBLANKLINES`.
+
+    Normally any run of blank lines separating two blocks is collapsed into a
+    single block boundary. With the flag, each run is instead reported as a
+    block `MD_BLOCK_BLANK` whose detail (`MD_BLOCK_BLANK_DETAIL`) holds the
+    number of blank lines. This is a deviation from CommonMark, intended for
+    WYSIWYG-like applications which need to reproduce the vertical spacing of
+    the source.
+
   * Add highlight span extension, enabled with the flag `MD_FLAG_HIGHLIGHT`.
 
     Syntax example:
