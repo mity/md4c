@@ -370,7 +370,7 @@ typedef struct MD_BLOCK_FOOTNOTE_DEF_DETAIL {
 
 /* Detailed info for MD_BLOCK_BLANK. */
 typedef struct MD_BLOCK_BLANK_DETAIL {
-    unsigned count;         /* Count of blank lines forming the block separation */
+    unsigned line_count;    /* Count of blank lines forming the block separation */
 } MD_BLOCK_BLANK_DETAIL;
 
 /* Flags specifying extensions/deviations from CommonMark specification.

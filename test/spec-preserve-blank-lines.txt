@@ -11,11 +11,13 @@ the count of blank lines forming the separation. This lets applications
 reproduce the vertical spacing of the source; it is a deviation from
 CommonMark.
 
-The `md2html` renderer used for these tests renders each such block as `count`
-paragraphs holding a non-breaking space, so the count is visible in the output.
+The `md2html` renderer used for these tests renders a run of `line_count` blank
+lines as `line_count - 1` `<br>` elements: one blank line is the ordinary block
+separation CommonMark already implies (and is already visible as the boundary
+between the two blocks), so only the surplus blank lines are shown.
 
-A run of several blank lines between two blocks is reported with its full
-count:
+A run of several blank lines between two blocks renders as `line_count - 1`
+`<br>` elements:
 
 ```````````````````````````````` example
 Paragraph one.
@@ -25,16 +27,17 @@ Paragraph one.
 Paragraph two.
 .
 <p>Paragraph one.</p>
-<p>&nbsp;</p>
-<p>&nbsp;</p>
-<p>&nbsp;</p>
+<br>
+<br>
 <p>Paragraph two.</p>
 .
 --fpreserve-blank-lines
 ````````````````````````````````
 
-Even an ordinary single blank line separating two blocks is reported (with
-count 1):
+An ordinary single blank line separating two blocks is still reported by the
+parser (as a `MD_BLOCK_BLANK` with `line_count` 1), but this renderer shows
+nothing extra for it, as that first blank line is the block separation already
+implied by the boundary between the two paragraphs:
 
 ```````````````````````````````` example
 foo
@@ -42,7 +45,6 @@ foo
 bar
 .
 <p>foo</p>
-<p>&nbsp;</p>
 <p>bar</p>
 .
 --fpreserve-blank-lines
@@ -55,8 +57,7 @@ Blank lines leading the document are reported:
 
 foo
 .
-<p>&nbsp;</p>
-<p>&nbsp;</p>
+<br>
 <p>foo</p>
 .
 --fpreserve-blank-lines
@@ -70,8 +71,7 @@ foo
 
 .
 <p>foo</p>
-<p>&nbsp;</p>
-<p>&nbsp;</p>
+<br>
 .
 --fpreserve-blank-lines
 ````````````````````````````````
@@ -85,8 +85,7 @@ foo
 > quote
 .
 <p>foo</p>
-<p>&nbsp;</p>
-<p>&nbsp;</p>
+<br>
 <blockquote>
 <p>quote</p>
 </blockquote>
@@ -104,8 +103,7 @@ Blank lines inside a block quote are reported inside it:
 .
 <blockquote>
 <p>foo</p>
-<p>&nbsp;</p>
-<p>&nbsp;</p>
+<br>
 <p>bar</p>
 </blockquote>
 .
@@ -125,10 +123,8 @@ bar
 .
 <blockquote>
 <p>foo</p>
-<p>&nbsp;</p>
-<p>&nbsp;</p>
+<br>
 </blockquote>
-<p>&nbsp;</p>
 <p>bar</p>
 .
 --fpreserve-blank-lines
@@ -145,8 +141,7 @@ Blank lines separating two block quotes are reported between them:
 <blockquote>
 <p>foo</p>
 </blockquote>
-<p>&nbsp;</p>
-<p>&nbsp;</p>
+<br>
 <blockquote>
 <p>bar</p>
 </blockquote>

@@ -326,8 +326,7 @@ after
 .
 <div>
 x
-<p>&nbsp;</p>
-<p>&nbsp;</p>
+<br>
 <p>after</p>
 .
 --fpreserve-blank-lines
@@ -345,8 +344,7 @@ makes the list loose):
 .
 <ul>
 <li><p>a</p>
-<p>&nbsp;</p>
-<p>&nbsp;</p>
+<br>
 </li>
 <li><p>b</p>
 </li>
@@ -367,8 +365,7 @@ para
 .
 <ul>
 <li>a</li>
-<li>b<p>&nbsp;</p>
-<p>&nbsp;</p>
+<li>b<br>
 </li>
 </ul>
 <p>para</p>
@@ -388,8 +385,7 @@ container (here the inner list item inside the block quote):
 <blockquote>
 <ul>
 <li><p>a</p>
-<p>&nbsp;</p>
-<p>&nbsp;</p>
+<br>
 </li>
 <li><p>b</p>
 </li>
@@ -399,16 +395,40 @@ container (here the inner list item inside the block quote):
 --fpreserve-blank-lines
 ````````````````````````````````
 
+Blank lines are split on a container boundary honouring proper nesting: a run
+of blank lines that continues the block quote (with the `>` mark) is reported
+inside it, while a following run of blank lines that no longer continues it is
+reported at the outer level:
+
+```````````````````````````````` example
+> quote with trailing blank lines inside of it.
+>
+>
+
+
+after the block quote.
+.
+<blockquote>
+<p>quote with trailing blank lines inside of it.</p>
+<br>
+</blockquote>
+<br>
+<p>after the block quote.</p>
+.
+--fpreserve-blank-lines
+````````````````````````````````
+
 A line consisting only of spaces or tabs is a blank line and is counted (the
-second line below contains three spaces):
+second and third lines below contain three spaces each):
 
 ```````````````````````````````` example
 foo
    
+   
 bar
 .
 <p>foo</p>
-<p>&nbsp;</p>
+<br>
 <p>bar</p>
 .
 --fpreserve-blank-lines
@@ -429,14 +449,11 @@ para
 end
 .
 <p>para</p>
-<p>&nbsp;</p>
-<p>&nbsp;</p>
+<br>
 <h1>H</h1>
-<p>&nbsp;</p>
-<p>&nbsp;</p>
+<br>
 <hr>
-<p>&nbsp;</p>
-<p>&nbsp;</p>
+<br>
 <p>end</p>
 .
 --fpreserve-blank-lines

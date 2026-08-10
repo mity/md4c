@@ -430,8 +430,10 @@ static void
 render_blank_block(MD_HTML* r, const MD_BLOCK_BLANK_DETAIL* det)
 {
     unsigned i;
-    for(i = 0; i < det->count; i++)
-        RENDER_VERBATIM(r, "<p>&nbsp;</p>\n");
+    /* The first blank line is the ordinary block separation CommonMark already
+     * implies; render only the surplus (line_count - 1) as <br>. */
+    for(i = 1; i < det->line_count; i++)
+        RENDER_VERBATIM(r, (r->flags & MD_HTML_FLAG_XHTML) ? "<br/>\n" : "<br>\n");
 }
 
 static int

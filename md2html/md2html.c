@@ -325,7 +325,7 @@ usage(void)
         "                       Same as --fpermissive-email-autolinks --fpermissive-url-autolinks\n"
         "                       --fpermissive-www-autolinks\n"
         "      --fpreserve-blank-lines\n"
-        "                       Report blank line runs (as MD_BLOCK_BLANK)\n"
+        "                       Render extra blank lines between blocks as <br>\n"
         "      --fhighlight    Enable highlight spans (==text==)\n"
         "      --fspoilers      Enable spoiler spans (||hidden text||)\n"
         "      --fstrikethrough Enable strike-through spans\n"

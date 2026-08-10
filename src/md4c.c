@@ -5497,7 +5497,7 @@ md_process_leaf_block(MD_CTX* ctx, MD_BLOCK* block)
             break;
 
         case MD_BLOCK_BLANK:
-            det.blank.count = block->data;
+            det.blank.line_count = block->data;
             break;
 
         default:
@@ -5865,9 +5865,7 @@ md_add_line_into_current_block(MD_CTX* ctx, const MD_LINE_ANALYSIS* analysis)
     return 0;
 }
 
-/* Report any pending blank lines as a single MD_BLOCK_BLANK. Called just before
- * a leaf or container block is pushed, so the blank block lands on the correct
- * side of the boundary. No-op unless MD_FLAG_PRESERVEBLANKLINES is enabled. */
+/* Part of the MD_FLAG_PRESERVEBLANKLINES implementation. */
 static int
 md_flush_blank_lines(MD_CTX* ctx)
 {
