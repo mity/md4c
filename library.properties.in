@@ -1,0 +1,11 @@
+name=md4c
+version=@PROJECT_VERSION@
+author=Martin Mitáš
+maintainer=Martin Mitáš
+sentence=Fast, SAX-like Markdown parser implementation in C.
+paragraph=A highly optimized Markdown parser compliant with the latest version of the CommonMark specification. Easy to stream and parse documents directly on embedded devices.
+category=Data Processing
+url=https://github.com/mity/md4c
+architectures=*
+includes=md4c.h
+license=MIT

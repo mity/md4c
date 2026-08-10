@@ -1,6 +1,6 @@
 {
   "name": "md4c",
-  "version": "0.5.3",
+  "version": "@PROJECT_VERSION@",
   "description": "Fast, SAX-like Markdown parser implementation in C compliant with the CommonMark specification.",
   "keywords": [
     "markdown",
