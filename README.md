@@ -314,6 +314,9 @@ MD4C is covered with MIT license, see the file `LICENSE.md`.
 
 Bindings:
 
+* [md4c gem](https://codeberg.org/gemmaro/ruby-md4c):
+  Ruby bindings.
+
 * [md4lean](https://github.com/acmepjz/md4lean):
   [Lean](https://lean-lang.org/) bindings.
 
