@@ -262,6 +262,7 @@ static const CMDLINE_OPTION cmdline_options[] = {
     {  0,  "fpermissive-email-autolinks",   '@', 0 },
     {  0,  "fpermissive-url-autolinks",     'U', 0 },
     {  0,  "fpermissive-www-autolinks",     '.', 0 },
+    {  0,  "fpreserve-blank-lines",         'Y', 0 },
     {  0,  "fspoilers",                     'P', 0 },
     {  0,  "fstrikethrough",                'S', 0 },
     {  0,  "fsubscripts",                   '~', 0 },
@@ -323,6 +324,8 @@ usage(void)
         "      --fpermissive-autolinks\n"
         "                       Same as --fpermissive-email-autolinks --fpermissive-url-autolinks\n"
         "                       --fpermissive-www-autolinks\n"
+        "      --fpreserve-blank-lines\n"
+        "                       Render extra blank lines between blocks as <br>\n"
         "      --fhighlight    Enable highlight spans (==text==)\n"
         "      --fspoilers      Enable spoiler spans (||hidden text||)\n"
         "      --fstrikethrough Enable strike-through spans\n"
@@ -413,6 +416,7 @@ cmdline_callback(int opt, char const* value, void* data)
         case '_':   parser_flags |= MD_FLAG_UNDERLINE; break;
         case 'N':   parser_flags |= MD_FLAG_FOOTNOTES; break;
         case 'B':   parser_flags |= MD_FLAG_HARD_SOFT_BREAKS; break;
+        case 'Y':   parser_flags |= MD_FLAG_PRESERVEBLANKLINES; break;
 
         default:
             fprintf(stderr, "Illegal option: %s\n", value);

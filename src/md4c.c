@@ -275,6 +275,10 @@ struct MD_CTX_tag {
     int n_block_bytes;
     int alloc_block_bytes;
 
+    /* Pending count of blank lines not yet reported as MD_BLOCK_BLANK.
+     * Used only with MD_FLAG_PRESERVEBLANKLINES. */
+    unsigned n_blank_lines;
+
     /* For container block analysis. */
     MD_CONTAINER* containers;
     int n_containers;
@@ -5432,6 +5436,7 @@ md_process_leaf_block(MD_CTX* ctx, MD_BLOCK* block)
         MD_BLOCK_H_DETAIL header;
         MD_BLOCK_CODE_DETAIL code;
         MD_BLOCK_TABLE_DETAIL table;
+        MD_BLOCK_BLANK_DETAIL blank;
     } det;
     MD_ATTRIBUTE_BUILD info_build = { 0 };
     MD_ATTRIBUTE_BUILD lang_build = { 0 };
@@ -5491,6 +5496,10 @@ md_process_leaf_block(MD_CTX* ctx, MD_BLOCK* block)
             det.table.body_row_count = block->n_lines - 2;
             break;
 
+        case MD_BLOCK_BLANK:
+            det.blank.line_count = block->data;
+            break;
+
         default:
             /* Noop. */
             break;
@@ -5502,7 +5511,8 @@ md_process_leaf_block(MD_CTX* ctx, MD_BLOCK* block)
     /* Process the block contents accordingly to is type. */
     switch(block->type) {
         case MD_BLOCK_HR:
-            /* noop */
+        case MD_BLOCK_BLANK:
+            /* noop (no contents) */
             break;
 
         case MD_BLOCK_CODE:
@@ -5855,6 +5865,28 @@ md_add_line_into_current_block(MD_CTX* ctx, const MD_LINE_ANALYSIS* analysis)
     return 0;
 }
 
+/* Part of the MD_FLAG_PRESERVEBLANKLINES implementation. */
+static int
+md_flush_blank_lines(MD_CTX* ctx)
+{
+    MD_BLOCK* block;
+
+    if(ctx->n_blank_lines == 0)
+        return 0;
+
+    block = (MD_BLOCK*) md_push_block_bytes(ctx, sizeof(MD_BLOCK));
+    if(block == NULL)
+        return -1;
+
+    block->type = MD_BLOCK_BLANK;
+    block->flags = 0;
+    block->data = ctx->n_blank_lines;
+    block->n_lines = 0;
+
+    ctx->n_blank_lines = 0;
+    return 0;
+}
+
 static int
 md_push_container_bytes(MD_CTX* ctx, MD_BLOCKTYPE type, unsigned start,
                         unsigned data, unsigned flags)
@@ -5862,6 +5894,7 @@ md_push_container_bytes(MD_CTX* ctx, MD_BLOCKTYPE type, unsigned start,
     MD_BLOCK* block;
     int ret = 0;
 
+    MD_CHECK(md_flush_blank_lines(ctx));
     MD_CHECK(md_end_current_block(ctx));
 
     block = (MD_BLOCK*) md_push_block_bytes(ctx, sizeof(MD_BLOCK));
@@ -6988,9 +7021,18 @@ md_process_line(MD_CTX* ctx, const MD_LINE_ANALYSIS** p_pivot_line, MD_LINE_ANAL
     /* Blank line ends current leaf block. */
     if(line->type == MD_LINE_BLANK) {
         MD_CHECK(md_end_current_block(ctx));
+        /* Count only genuinely empty lines: some non-blank lines (e.g. a closing
+         * code fence) are internally retyped as MD_LINE_BLANK but still hold
+         * their text (beg < end), and must not be counted. */
+        if((ctx->parser.flags & MD_FLAG_PRESERVEBLANKLINES)  &&  line->beg >= line->end)
+            ctx->n_blank_lines++;
         *p_pivot_line = &md_dummy_blank_line;
         return 0;
     }
+
+    /* The blank lines preceding this block (if any) form a block separation
+     * which we report before the block itself. */
+    MD_CHECK(md_flush_blank_lines(ctx));
 
     if(line->enforce_new_block)
         MD_CHECK(md_end_current_block(ctx));
@@ -7150,6 +7192,8 @@ md_process_doc(MD_CTX *ctx)
 
     /* Process all blocks. */
     MD_CHECK(md_leave_child_containers(ctx, 0));
+    /* Report any blank lines trailing the document. */
+    MD_CHECK(md_flush_blank_lines(ctx));
     MD_CHECK(md_process_all_blocks(ctx));
 
     /* Emit footnote definitions that were referenced, in reference order. */

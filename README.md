@@ -98,6 +98,11 @@ extensions:
 * With the flag `MD_FLAG_HARD_SOFT_BREAKS`, all soft breaks (newlines) in the
   Markdown input are treated as hard breaks (i.e. as `<br>` in HTML output).
 
+* With the flag `MD_FLAG_PRESERVEBLANKLINES`, each run of blank lines between
+  blocks is reported as a `MD_BLOCK_BLANK` carrying the number of blank lines,
+  instead of being collapsed into a single block boundary. This is a deviation
+  from CommonMark, intended for WYSIWYG-like applications.
+
 * With the flag `MD_FLAG_TABLES`, GitHub-style tables are supported.
 
 * With the flag `MD_FLAG_TASKLISTS`, GitHub-style task lists are supported.

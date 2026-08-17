@@ -426,6 +426,16 @@ render_close_footnote_def_block(MD_HTML* r, const MD_BLOCK_FOOTNOTE_DEF_DETAIL* 
     RENDER_VERBATIM(r, "\n</li>\n");
 }
 
+static void
+render_blank_block(MD_HTML* r, const MD_BLOCK_BLANK_DETAIL* det)
+{
+    unsigned i;
+    /* The first blank line is the ordinary block separation CommonMark already
+     * implies; render only the surplus (line_count - 1) as <br>. */
+    for(i = 1; i < det->line_count; i++)
+        RENDER_VERBATIM(r, (r->flags & MD_HTML_FLAG_XHTML) ? "<br/>\n" : "<br>\n");
+}
+
 static int
 enter_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
 {
@@ -452,6 +462,7 @@ enter_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
         case MD_BLOCK_FOOTNOTE_DEF_SECTION: RENDER_VERBATIM(r, "<section class=\"footnotes\">\n<ol>\n"); break;
         case MD_BLOCK_FOOTNOTE_DEF: render_open_footnote_def_block(r, (MD_BLOCK_FOOTNOTE_DEF_DETAIL*)detail); break;
         case MD_BLOCK_ADMONITION:   render_open_admonition_block(r, (const MD_BLOCK_ADMONITION_DETAIL*) detail); break;
+        case MD_BLOCK_BLANK:    render_blank_block(r, (const MD_BLOCK_BLANK_DETAIL*) detail); break;
     }
 
     return 0;
@@ -483,6 +494,7 @@ leave_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
         case MD_BLOCK_FOOTNOTE_DEF_SECTION: RENDER_VERBATIM(r, "</ol>\n</section>\n"); break;
         case MD_BLOCK_FOOTNOTE_DEF: render_close_footnote_def_block(r, (MD_BLOCK_FOOTNOTE_DEF_DETAIL*)detail); break;
         case MD_BLOCK_ADMONITION:   RENDER_VERBATIM(r, "</div>\n"); break;
+        case MD_BLOCK_BLANK:    /* noop (fully emitted on enter) */ break;
     }
 
     return 0;

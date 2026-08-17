@@ -295,3 +295,166 @@ foo  bar → baz
 .
 --fcollapse-whitespace
 ````````````````````````````````
+
+
+## Flag `MD_FLAG_PRESERVEBLANKLINES`
+
+A closing code fence is internally retyped as a blank line but still holds its
+text, so it must not be counted as a blank line separation.
+
+```````````````````````````````` example
+```
+foo
+```
+bar
+.
+<pre><code>foo
+</code></pre>
+<p>bar</p>
+.
+--fpreserve-blank-lines
+````````````````````````````````
+
+A blank line ending an HTML block is a genuine blank line and is reported.
+
+```````````````````````````````` example
+<div>
+x
+
+
+after
+.
+<div>
+x
+<br>
+<p>after</p>
+.
+--fpreserve-blank-lines
+````````````````````````````````
+
+Blank lines attach to the innermost container open where they occur. Blank
+lines between two list items are reported inside the preceding item (which also
+makes the list loose):
+
+```````````````````````````````` example
+* a
+
+
+* b
+.
+<ul>
+<li><p>a</p>
+<br>
+</li>
+<li><p>b</p>
+</li>
+</ul>
+.
+--fpreserve-blank-lines
+````````````````````````````````
+
+Consistently, blank lines trailing the last item (before a following paragraph
+that ends the list) are reported inside that last item:
+
+```````````````````````````````` example
+* a
+* b
+
+
+para
+.
+<ul>
+<li>a</li>
+<li>b<br>
+</li>
+</ul>
+<p>para</p>
+.
+--fpreserve-blank-lines
+````````````````````````````````
+
+Blank lines nested several containers deep attach to the innermost open
+container (here the inner list item inside the block quote):
+
+```````````````````````````````` example
+> * a
+>
+>
+> * b
+.
+<blockquote>
+<ul>
+<li><p>a</p>
+<br>
+</li>
+<li><p>b</p>
+</li>
+</ul>
+</blockquote>
+.
+--fpreserve-blank-lines
+````````````````````````````````
+
+Blank lines are split on a container boundary honouring proper nesting: a run
+of blank lines that continues the block quote (with the `>` mark) is reported
+inside it, while a following run of blank lines that no longer continues it is
+reported at the outer level:
+
+```````````````````````````````` example
+> quote with trailing blank lines inside of it.
+>
+>
+
+
+after the block quote.
+.
+<blockquote>
+<p>quote with trailing blank lines inside of it.</p>
+<br>
+</blockquote>
+<br>
+<p>after the block quote.</p>
+.
+--fpreserve-blank-lines
+````````````````````````````````
+
+A line consisting only of spaces or tabs is a blank line and is counted (the
+second and third lines below contain three spaces each):
+
+```````````````````````````````` example
+foo
+   
+   
+bar
+.
+<p>foo</p>
+<br>
+<p>bar</p>
+.
+--fpreserve-blank-lines
+````````````````````````````````
+
+Blank lines neighbouring an ATX heading and a thematic break are reported:
+
+```````````````````````````````` example
+para
+
+
+# H
+
+
+---
+
+
+end
+.
+<p>para</p>
+<br>
+<h1>H</h1>
+<br>
+<hr>
+<br>
+<p>end</p>
+.
+--fpreserve-blank-lines
+````````````````````````````````
