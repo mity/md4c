@@ -1844,7 +1844,7 @@ md_build_label_hashtable(MD_CTX* ctx, MD_LABEL_HASH_TABLE* table)
                 goto abort;
             }
             list = list_tmp;
-            list->alloc_entries = alloc_entries;
+            list->alloc_entries = (unsigned) alloc_entries;
             table->buckets[entry->hash % table->n_buckets] = list;
         }
 
@@ -1963,7 +1963,7 @@ md_add_label_def(MD_CTX* ctx, MD_LABEL_HASH_TABLE* table, const CHAR* label, SZ 
         }
 
         table->defs = new_defs;
-        table->alloc_defs = new_alloc_defs;
+        table->alloc_defs = (unsigned) new_alloc_defs;
     }
 
     entry = (MD_LABEL_HASH_ENTRY*)((char*)table->defs + table->n_defs * table->def_size);
@@ -5649,7 +5649,7 @@ md_process_all_blocks(MD_CTX* ctx)
 
             case MD_BLOCK_ADMONITION:
                 adm_substr_offsets[0] = 0;
-                adm_substr_offsets[1] = md_strlen(MD_ADMONITION_TAGS[block->data]);
+                adm_substr_offsets[1] = (unsigned) md_strlen(MD_ADMONITION_TAGS[block->data]);
 
                 det.adm.type.text = MD_ADMONITION_TAGS[block->data];
                 det.adm.type.size = adm_substr_offsets[1];
