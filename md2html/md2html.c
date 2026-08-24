@@ -256,6 +256,7 @@ static const CMDLINE_OPTION cmdline_options[] = {
     {  0,  "ffootnotes",                    'N', 0 },
     {  0,  "fhard-soft-breaks",             'B', 0 },
     {  0,  "fhighlight",                    'M', 0 },
+    {  0,  "finsert",                       'C', 0 },
     {  0,  "flatex-math",                   'L', 0 },
     {  0,  "fpermissive-atx-headers",       'A', 0 },
     {  0,  "fpermissive-autolinks",         'V', 0 },
@@ -312,6 +313,7 @@ usage(void)
         "      --ffootnotes     Enable footnote references ([^label])\n"
         "      --fhard-soft-breaks\n"
         "                       Force all soft breaks to act as hard breaks\n"
+        "      --finsert        Enable insert spans (++text++)\n"
         "      --flatex-math    Enable LaTeX style mathematics spans\n"
         "      --fpermissive-atx-headers\n"
         "                       Allow ATX headers without delimiting space\n"
@@ -395,6 +397,7 @@ cmdline_callback(int opt, char const* value, void* data)
         case 'D':   parser_flags |= MD_FLAG_ADMONITIONS; break;
         case 'E':   renderer_flags |= MD_HTML_FLAG_VERBATIM_ENTITIES; break;
         case 'M':   parser_flags |= MD_FLAG_HIGHLIGHT; break;
+        case 'C':   parser_flags |= MD_FLAG_INSERT; break;
         case 'A':   parser_flags |= MD_FLAG_PERMISSIVEATXHEADERS; break;
         case 'I':   parser_flags |= MD_FLAG_NOINDENTEDCODEBLOCKS; break;
         case 'F':   parser_flags |= MD_FLAG_NOHTMLBLOCKS; break;

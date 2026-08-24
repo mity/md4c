@@ -151,6 +151,11 @@ typedef enum MD_SPANTYPE {
     /* <code>...</code> */
     MD_SPAN_CODE,
 
+    /* <ins>...</ins>
+     * Syntax: ++insert++
+     * Note: Recognized only when MD_FLAG_INSERT is enabled. */
+    MD_SPAN_INS,
+
     /* <del>...</del>
      * Note: Recognized only when MD_FLAG_STRIKETHROUGH is enabled.
      */
@@ -400,6 +405,7 @@ typedef struct MD_BLOCK_BLANK_DETAIL {
 #define MD_FLAG_FOOTNOTES                   0x100000 /* Enable [^label] footnote references. */
 #define MD_FLAG_HIGHLIGHT                   0x200000 /* Enable ==highlight== spans. */
 #define MD_FLAG_PRESERVEBLANKLINES          0x400000 /* Report blank line runs as MD_BLOCK_BLANK. */
+#define MD_FLAG_INSERT                      0x800000 /* Enable insert extension. */
 
 #define MD_FLAG_PERMISSIVEAUTOLINKS         (MD_FLAG_PERMISSIVEEMAILAUTOLINKS | MD_FLAG_PERMISSIVEURLAUTOLINKS | MD_FLAG_PERMISSIVEWWWAUTOLINKS)
 #define MD_FLAG_NOHTML                      (MD_FLAG_NOHTMLBLOCKS | MD_FLAG_NOHTMLSPANS)

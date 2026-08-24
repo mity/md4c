@@ -131,6 +131,10 @@ extensions:
   (text enclosed in double equals marks, e.g. `==important==`). The HTML
   renderer outputs `<mark>`.
 
+* With the flag `MD_FLAG_INSERT`, insert spans are enabled
+  (text enclosed in double plus marks, e.g. `++foo bar++`). The HTML
+  renderer outputs `<ins>`.
+
 * With the flag `MD_FLAG_PERMISSIVEURLAUTOLINKS` permissive URL autolinks
   (not enclosed in `<` and `>`) are supported.
 
