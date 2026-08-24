@@ -1,0 +1,270 @@
+
+# Insert
+
+With the flag `MD_FLAG_INSERT`, MD4C enables recognition of insert spans
+using the `++text++` syntax. A pair of plus signs on each side wraps
+the content, which the HTML renderer outputs as `<ins>`.
+
+
+## Basic recognition
+
+```````````````````````````````` example
+++Hello, world!++
+.
+<p><ins>Hello, world!</ins></p>
+.
+--finsert
+````````````````````````````````
+
+Multiple independent insert spans may appear in the same paragraph:
+
+```````````````````````````````` example
+++first++ and ++second++
+.
+<p><ins>first</ins> and <ins>second</ins></p>
+.
+--finsert
+````````````````````````````````
+
+Insert may open after regular text characters:
+
+```````````````````````````````` example
+colo++u++r
+.
+<p>colo<ins>u</ins>r</p>
+.
+--finsert
+````````````````````````````````
+
+
+## Opt-in behavior / Flag required
+
+Without `MD_FLAG_INSERT` the `++` sequence is treated as literal text:
+
+```````````````````````````````` example
+++insert++
+.
+<p>++insert++</p>
+.
+````````````````````````````````
+
+
+## Nested inline spans
+
+Emphasis inside an insert span:
+
+```````````````````````````````` example
+++very *important* text++
+.
+<p><ins>very <em>important</em> text</ins></p>
+.
+--finsert
+````````````````````````````````
+
+Strong emphasis inside an insert span:
+
+```````````````````````````````` example
+++**bold** and _italic_++
+.
+<p><ins><strong>bold</strong> and <em>italic</em></ins></p>
+.
+--finsert
+````````````````````````````````
+
+Inline code inside an insert span:
+
+```````````````````````````````` example
+++inserted `code`++
+.
+<p><ins>inserted <code>code</code></ins></p>
+.
+--finsert
+````````````````````````````````
+
+A link inside an insert span:
+
+```````````````````````````````` example
+++inserted [link](http://example.com)++
+.
+<p><ins>inserted <a href="http://example.com">link</a></ins></p>
+.
+--finsert
+````````````````````````````````
+
+Insert may appear inside link text:
+
+```````````````````````````````` example
+[inserted ++text++](http://example.com)
+.
+<p><a href="http://example.com">inserted <ins>text</ins></a></p>
+.
+--finsert
+````````````````````````````````
+
+
+## Whitespace rules
+
+An insert delimiter cannot open an insert span when immediately followed
+by whitespace:
+
+```````````````````````````````` example
+++ insert++
+.
+<p>++ insert++</p>
+.
+--finsert
+````````````````````````````````
+
+An insert delimiter cannot close an insert span when immediately preceded
+by whitespace:
+
+```````````````````````````````` example
+++insert ++
+.
+<p>++insert ++</p>
+.
+--finsert
+````````````````````````````````
+
+
+## Delimiter length
+
+A single plus sign is not insert delimiters:
+
+```````````````````````````````` example
++insert+
+.
+<p>+insert+</p>
+.
+--finsert
+````````````````````````````````
+
+Longer plus sign runs are not split into insert delimiters:
+
+```````````````````````````````` example
++++insert+++
+.
+<p>+++insert+++</p>
+.
+--finsert
+````````````````````````````````
+
+
+## Unmatched delimiters
+
+An opening delimiter with no matching closer is literal:
+
+```````````````````````````````` example
+++insert
+.
+<p>++insert</p>
+.
+--finsert
+````````````````````````````````
+
+A closing delimiter with no matching opener is literal:
+
+```````````````````````````````` example
+insert++
+.
+<p>insert++</p>
+.
+--finsert
+````````````````````````````````
+
+If the length of the opener and closer doesn't match, the insert is
+not recognized.
+
+```````````````````````````````` example
+This ++text+++ is curious.
+.
+<p>This ++text+++ is curious.</p>
+.
+--finsert
+````````````````````````````````
+
+
+## Paragraph boundary stops resolution
+
+An insert span cannot cross a paragraph boundary:
+
+```````````````````````````````` example
+This ++has a
+
+new paragraph++.
+.
+<p>This ++has a</p>
+<p>new paragraph++.</p>
+.
+--finsert
+````````````````````````````````
+
+
+## Suppression inside code
+
+Plus signs inside code spans are treated as literal text:
+
+```````````````````````````````` example
+`++code++`
+.
+<p><code>++code++</code></p>
+.
+--finsert
+````````````````````````````````
+
+Plus signs inside fenced code blocks are treated as literal text:
+
+```````````````````````````````` example
+```
+++code++
+```
+.
+<pre><code>++code++
+</code></pre>
+.
+--finsert
+````````````````````````````````
+
+
+## Interaction with other extensions
+
+Insert may appear inside table cells:
+
+```````````````````````````````` example
+| Feature | Status |
+| --- | --- |
+| Insert | ++done++ |
+.
+<table>
+<thead>
+<tr><th>Feature</th><th>Status</th></tr>
+</thead>
+<tbody>
+<tr><td>Insert</td><td><ins>done</ins></td></tr>
+</tbody>
+</table>
+.
+--finsert --ftables
+````````````````````````````````
+
+### Spoilers (requires `MD_FLAG_SPOILERS`)
+
+Insert may appear inside a spoiler span:
+
+```````````````````````````````` example
+||++inserted spoiler++||
+.
+<p><x-spoiler><ins>inserted spoiler</ins></x-spoiler></p>
+.
+--finsert --fspoilers
+````````````````````````````````
+
+A spoiler span may appear inside an insert:
+
+```````````````````````````````` example
+++||inserted spoiler||++
+.
+<p><ins><x-spoiler>inserted spoiler</x-spoiler></ins></p>
+.
+--finsert --fspoilers
+````````````````````````````````
