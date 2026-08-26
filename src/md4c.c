@@ -2009,7 +2009,6 @@ md_lookup_ref_def(MD_CTX* ctx, const CHAR* label, SZ label_size)
  ***  Footnote Definitions   ***
  *******************************/
 
-typedef struct MD_FOOTNOTE_DEF_tag MD_FOOTNOTE_DEF;
 struct MD_FOOTNOTE_DEF_tag {
     MD_LABEL_HASH_ENTRY entry;
     unsigned int index;         /* 0 = unreferenced; 1-based order of first reference */
