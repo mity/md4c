@@ -4590,17 +4590,17 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
 
         /* Analyze the mark. */
         switch(mark->ch) {
-            case '[':   /* Pass through. */
-            case '!':   /* Pass through. */
+            case '[':   MD_FALLTHROUGH();
+            case '!':   MD_FALLTHROUGH();
             case ']':   md_analyze_bracket(ctx, i); break;
             case '&':   md_analyze_entity(ctx, i); break;
-            case '_':   /* Pass through. */
+            case '_':   MD_FALLTHROUGH();
             case '*':   md_analyze_emph(ctx, i); break;
             case '~':   md_analyze_tilde(ctx, i); break;
             case '^':   md_analyze_caret(ctx, i); break;
             case '$':   md_analyze_dollar(ctx, i); break;
-            case '.':   /* Pass through. */
-            case ':':   /* Pass through. */
+            case '.':   MD_FALLTHROUGH();
+            case ':':   MD_FALLTHROUGH();
             case '@':   md_analyze_permissive_autolink(ctx, i); break;
             case '|':   md_analyze_spoiler(ctx, i); break;
             case '=':   md_analyze_highlight(ctx, i); break;
@@ -6297,7 +6297,7 @@ md_is_html_block_end_condition(MD_CTX* ctx, OFF beg, OFF* p_end)
         case 5:
             return (md_line_contains(ctx, beg, _T("]]>"), 3, p_end) ? 5 : FALSE);
 
-        case 6:     /* Pass through */
+        case 6:     MD_FALLTHROUGH();
         case 7:
             if(beg >= ctx->size  ||  ISNEWLINE(beg)) {
                 /* Blank line ends types 6 and 7. */
