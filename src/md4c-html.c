@@ -45,6 +45,15 @@
     #define snprintf _snprintf
 #endif
 
+/* For falling through case labels in switch statements. */
+#if defined __clang__ && __clang_major__ >= 12
+    #define MD_FALLTHROUGH()        __attribute__((fallthrough))
+#elif defined __GNUC__ && __GNUC__ >= 7
+    #define MD_FALLTHROUGH()        __attribute__((fallthrough))
+#else
+    #define MD_FALLTHROUGH()        ((void)0)
+#endif
+
 
 
 typedef struct MD_HTML_tag MD_HTML;
@@ -568,7 +577,7 @@ leave_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
         case MD_SPAN_SUPERSCRIPT:       RENDER_VERBATIM(r, "</sup>"); break;
         case MD_SPAN_SUBSCRIPT:         RENDER_VERBATIM(r, "</sub>"); break;
         case MD_SPAN_MARK:              RENDER_VERBATIM(r, "</mark>"); break;
-        case MD_SPAN_LATEXMATH:         /*fall through*/
+        case MD_SPAN_LATEXMATH:         MD_FALLTHROUGH();
         case MD_SPAN_LATEXMATH_DISPLAY: RENDER_VERBATIM(r, "</x-equation>"); break;
         case MD_SPAN_WIKILINK:          RENDER_VERBATIM(r, "</x-wikilink>"); break;
         case MD_SPAN_FOOTNOTE_REF:      /* noop: enter_span already emitted full HTML */ break;
