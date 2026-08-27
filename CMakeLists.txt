@@ -18,18 +18,42 @@ if(IDF_TARGET)
 endif()
 
 if(NOT IDF_TARGET)
-    option(BUILD_MD2HTML_EXECUTABLE "Whether to compile the md2html executable" ON)
-
-
+    # Some heuristics for what targets (and how) we actually build:
+    set(BUILD_SHARED_LIBS_default ON)
+    set(BUILD_HTML_LIBRARY_default ON)
+    set(BUILDMD2HTML_EXECUTABLE_default ON)
     if(WIN32)
-        # On Windows, given there is no standard lib install dir etc., we rather
-        # by default build static lib.
-        option(BUILD_SHARED_LIBS "Build using shared libraries" OFF)
-    else()
-        # On Linux, MD4C is slowly being adding into some distros which prefer
-        # shared lib.
-        option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
+        # On Windows, given there is no standard lib install dir etc., we
+        # rather by default build static lib.
+        set(BUILD_SHARED_LIBS_default OFF)
     endif()
+    if(NOT PROJECT_IS_TOP_LEVEL)
+        # When we're embedded into a bigger project, most likely the outer
+        # project only needs the libs.
+        set(BUILDMD2HTML_EXECUTABLE_default OFF)
+    endif()
+
+    # Allow the user to override the defaults:
+    option(
+        BUILD_SHARED_LIBS
+        "Build using shared libraries"
+        ${BUILD_SHARED_LIBS_default}
+    )
+    option(
+        BUILD_HTML_LIBRARY
+        "Whether to compile the libmd-html library"
+        ${BUILD_HTML_LIBRARY_default}
+    )
+    option(
+        BUILD_MD2HTML_EXECUTABLE
+        "Whether to compile the md2html command line tool (requires libmd-html)"
+        ${BUILDMD2HTML_EXECUTABLE_default}
+    )
+
+    if(BUILD_MD2HTML_EXECUTABLE AND NOT BUILD_HTML_LIBRARY)
+        message(FATAL_ERROR "BUILD_MD2HTML_EXECUTABLE requires BUILD_HTML_LIBRARY=ON")
+    endif()
+
 
     set(CMAKE_CONFIGURATION_TYPES Debug Release RelWithDebInfo MinSizeRel)
     if(NOT CMAKE_BUILD_TYPE)
@@ -39,7 +63,6 @@ if(NOT IDF_TARGET)
             set(CMAKE_BUILD_TYPE "Release")
         endif()
     endif()
-
 
     if(CMAKE_C_COMPILER_ID MATCHES GNU|Clang)
         add_compile_options(-Wall -Wextra -Wshadow)
@@ -67,7 +90,5 @@ if(NOT IDF_TARGET)
     include(GNUInstallDirs)
 
     add_subdirectory(src)
-    if (BUILD_MD2HTML_EXECUTABLE)
-        add_subdirectory(md2html)
-    endif ()
+    add_subdirectory(md2html)
 endif()
