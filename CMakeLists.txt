@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.14)
 
 project(MD4C
     VERSION "0.5.3"
@@ -6,9 +6,35 @@ project(MD4C
     LANGUAGES C
 )
 
-configure_file(idf_component.yml.in    ${CMAKE_CURRENT_SOURCE_DIR}/idf_component.yml    @ONLY)
-configure_file(library.json.in         ${CMAKE_CURRENT_SOURCE_DIR}/library.json         @ONLY)
-configure_file(library.properties.in   ${CMAKE_CURRENT_SOURCE_DIR}/library.properties   @ONLY)
+# Some embedded platforms need the following files to exist even before
+# CMake's configure time. Hence we have them directly in the repo, but lets
+# at least check, they're up to date.
+#
+# If not, after a review of the generated one in the build dir need to be
+# committed as replacement of the respective pre-generated one. Unless we
+# do some really significant change like directory restructuring or introduce
+# some lib dependencies, it should be just about keeping the version in sync
+# between these files.
+configure_file(idf_component.yml.in    idf_component.yml.expected    @ONLY)
+configure_file(library.json.in         library.json.expected         @ONLY)
+configure_file(library.properties.in   library.properties.expected   @ONLY)
+
+function(CheckPregeneratedFile rel_path)
+    execute_process(
+        COMMAND ${CMAKE_COMMAND} -E compare_files --ignore-eol
+        ${CMAKE_SOURCE_DIR}/${rel_path}
+        ${CMAKE_BINARY_DIR}/${rel_path}.expected
+        RESULT_VARIABLE compare_result
+    )
+    if(NOT compare_result EQUAL 0)
+        message(FATAL_ERROR "The pre-generated ${rel_path} file is not up to date.")
+    endif()
+endfunction()
+
+CheckPregeneratedFile(idf_component.yml)
+CheckPregeneratedFile(library.json)
+CheckPregeneratedFile(library.properties)
+
 
 if(IDF_TARGET)
     idf_component_register(
