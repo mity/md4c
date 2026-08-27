@@ -1,0 +1,17 @@
+version: "@PROJECT_VERSION@"
+description: "Fast, SAX-like Markdown parser implementation in C compliant with the CommonMark specification."
+url: "https://github.com/mity/md4c"
+maintainers:
+  - "Martin Mitáš <https://github.com/mity>"
+targets:
+  - esp32
+  - esp32s2
+  - esp32s3
+  - esp32c2
+  - esp32c3
+  - esp32c6
+  - esp32h2
+  - esp32p4
+  - linux
+dependencies:
+  idf: ">=5.3"
