@@ -579,7 +579,7 @@ leave_span_callback(MD_SPANTYPE type, void* detail, void* userdata)
         case MD_SPAN_SUPERSCRIPT:       RENDER_VERBATIM(r, "</sup>"); break;
         case MD_SPAN_SUBSCRIPT:         RENDER_VERBATIM(r, "</sub>"); break;
         case MD_SPAN_MARK:              RENDER_VERBATIM(r, "</mark>"); break;
-        case MD_SPAN_LATEXMATH:         MD_FALLTHROUGH();
+        case MD_SPAN_LATEXMATH:         {MD_FALLTHROUGH();}
         case MD_SPAN_LATEXMATH_DISPLAY: RENDER_VERBATIM(r, "</x-equation>"); break;
         case MD_SPAN_WIKILINK:          RENDER_VERBATIM(r, "</x-wikilink>"); break;
         case MD_SPAN_FOOTNOTE_REF:      /* noop: enter_span already emitted full HTML */ break;
