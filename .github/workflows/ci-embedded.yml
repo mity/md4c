@@ -44,7 +44,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: platformio/platformio-core-action@v1
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+          key: ${{ runner.os }}-pio
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install PlatformIO Core
+        run: pip install --upgrade platformio
 
       - name: Compile md4c with the ESP-IDF framework
         run: pio ci test/embedded/smoke.cpp --board=esp32dev --lib=. -O framework=espidf -O build_unflags=-fuse-cxa-atexit
