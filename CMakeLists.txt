@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.14)
 
 project(MD4C
     VERSION "0.5.3"
@@ -6,9 +6,35 @@ project(MD4C
     LANGUAGES C
 )
 
-configure_file(idf_component.yml.in    ${CMAKE_CURRENT_SOURCE_DIR}/idf_component.yml    @ONLY)
-configure_file(library.json.in         ${CMAKE_CURRENT_SOURCE_DIR}/library.json         @ONLY)
-configure_file(library.properties.in   ${CMAKE_CURRENT_SOURCE_DIR}/library.properties   @ONLY)
+# Some embedded platforms need the following files to exist even before
+# CMake's configure time. Hence we have them directly in the repo, but lets
+# at least check, they're up to date.
+#
+# If not, after a review of the generated one in the build dir need to be
+# committed as replacement of the respective pre-generated one. Unless we
+# do some really significant change like directory restructuring or introduce
+# some lib dependencies, it should be just about keeping the version in sync
+# between these files.
+configure_file(idf_component.yml.in    idf_component.yml.expected    @ONLY)
+configure_file(library.json.in         library.json.expected         @ONLY)
+configure_file(library.properties.in   library.properties.expected   @ONLY)
+
+function(CheckPregeneratedFile rel_path)
+    execute_process(
+        COMMAND ${CMAKE_COMMAND} -E compare_files --ignore-eol
+        ${CMAKE_SOURCE_DIR}/${rel_path}
+        ${CMAKE_BINARY_DIR}/${rel_path}.expected
+        RESULT_VARIABLE compare_result
+    )
+    if(NOT compare_result EQUAL 0)
+        message(FATAL_ERROR "The pre-generated ${rel_path} file is not up to date.")
+    endif()
+endfunction()
+
+CheckPregeneratedFile(idf_component.yml)
+CheckPregeneratedFile(library.json)
+CheckPregeneratedFile(library.properties)
+
 
 if(IDF_TARGET)
     idf_component_register(
@@ -18,18 +44,42 @@ if(IDF_TARGET)
 endif()
 
 if(NOT IDF_TARGET)
-    option(BUILD_MD2HTML_EXECUTABLE "Whether to compile the md2html executable" ON)
-
-
+    # Some heuristics for what targets (and how) we actually build:
+    set(BUILD_SHARED_LIBS_default ON)
+    set(BUILD_HTML_LIBRARY_default ON)
+    set(BUILDMD2HTML_EXECUTABLE_default ON)
     if(WIN32)
-        # On Windows, given there is no standard lib install dir etc., we rather
-        # by default build static lib.
-        option(BUILD_SHARED_LIBS "Build using shared libraries" OFF)
-    else()
-        # On Linux, MD4C is slowly being adding into some distros which prefer
-        # shared lib.
-        option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
+        # On Windows, given there is no standard lib install dir etc., we
+        # rather by default build static lib.
+        set(BUILD_SHARED_LIBS_default OFF)
     endif()
+    if(NOT PROJECT_IS_TOP_LEVEL)
+        # When we're embedded into a bigger project, most likely the outer
+        # project only needs the libs.
+        set(BUILDMD2HTML_EXECUTABLE_default OFF)
+    endif()
+
+    # Allow the user to override the defaults:
+    option(
+        BUILD_SHARED_LIBS
+        "Build using shared libraries"
+        ${BUILD_SHARED_LIBS_default}
+    )
+    option(
+        BUILD_HTML_LIBRARY
+        "Whether to compile the libmd-html library"
+        ${BUILD_HTML_LIBRARY_default}
+    )
+    option(
+        BUILD_MD2HTML_EXECUTABLE
+        "Whether to compile the md2html command line tool (requires libmd-html)"
+        ${BUILDMD2HTML_EXECUTABLE_default}
+    )
+
+    if(BUILD_MD2HTML_EXECUTABLE AND NOT BUILD_HTML_LIBRARY)
+        message(FATAL_ERROR "BUILD_MD2HTML_EXECUTABLE requires BUILD_HTML_LIBRARY=ON")
+    endif()
+
 
     set(CMAKE_CONFIGURATION_TYPES Debug Release RelWithDebInfo MinSizeRel)
     if(NOT CMAKE_BUILD_TYPE)
@@ -39,7 +89,6 @@ if(NOT IDF_TARGET)
             set(CMAKE_BUILD_TYPE "Release")
         endif()
     endif()
-
 
     if(CMAKE_C_COMPILER_ID MATCHES GNU|Clang)
         add_compile_options(-Wall -Wextra -Wshadow)
@@ -67,7 +116,5 @@ if(NOT IDF_TARGET)
     include(GNUInstallDirs)
 
     add_subdirectory(src)
-    if (BUILD_MD2HTML_EXECUTABLE)
-        add_subdirectory(md2html)
-    endif ()
+    add_subdirectory(md2html)
 endif()
