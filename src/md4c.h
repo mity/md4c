@@ -294,34 +294,34 @@ typedef struct MD_ATTRIBUTE {
 
 /* Detailed info for MD_BLOCK_UL. */
 typedef struct MD_BLOCK_UL_DETAIL {
-    int is_tight;           /* Non-zero if tight list, zero if loose. */
-    MD_CHAR mark;           /* Item bullet character in MarkDown source of the list, e.g. '-', '+', '*'. */
+    int is_tight;               /* Non-zero if tight list, zero if loose. */
+    MD_CHAR mark;               /* Item bullet character in MarkDown source of the list, e.g. '-', '+', '*'. */
 } MD_BLOCK_UL_DETAIL;
 
 /* Detailed info for MD_BLOCK_OL. */
 typedef struct MD_BLOCK_OL_DETAIL {
-    unsigned start;         /* Start index of the ordered list. */
-    int is_tight;           /* Non-zero if tight list, zero if loose. */
-    MD_CHAR mark_delimiter; /* Character delimiting the item marks in MarkDown source, e.g. '.' or ')' */
+    unsigned start;             /* Start index of the ordered list. */
+    int is_tight;               /* Non-zero if tight list, zero if loose. */
+    MD_CHAR mark_delimiter;     /* Character delimiting the item marks in MarkDown source, e.g. '.' or ')' */
 } MD_BLOCK_OL_DETAIL;
 
 /* Detailed info for MD_BLOCK_LI. */
 typedef struct MD_BLOCK_LI_DETAIL {
-    int is_task;            /* Can be non-zero only with MD_FLAG_TASKLISTS */
-    MD_CHAR task_mark;      /* If is_task, then one of 'x', 'X' or ' '. Undefined otherwise. */
-    MD_OFFSET task_mark_offset;  /* If is_task, then offset in the input of the char between '[' and ']'. */
+    int is_task;                /* Can be non-zero only with MD_FLAG_TASKLISTS */
+    MD_CHAR task_mark;          /* If is_task, then one of 'x', 'X' or ' '. Undefined otherwise. */
+    MD_OFFSET task_mark_offset; /* If is_task, then offset in the input of the char between '[' and ']'. */
 } MD_BLOCK_LI_DETAIL;
 
 /* Detailed info for MD_BLOCK_H. */
 typedef struct MD_BLOCK_H_DETAIL {
-    unsigned level;         /* Header level (1 - 6) */
+    unsigned level;             /* Header level (1 - 6) */
 } MD_BLOCK_H_DETAIL;
 
 /* Detailed info for MD_BLOCK_CODE. */
 typedef struct MD_BLOCK_CODE_DETAIL {
     MD_ATTRIBUTE info;
     MD_ATTRIBUTE lang;
-    MD_CHAR fence_char;     /* The character used for fenced code block; or zero for indented code block. */
+    MD_CHAR fence_char;         /* The character used for fenced code block; or zero for indented code block. */
 } MD_BLOCK_CODE_DETAIL;
 
 /* Detailed info for MD_BLOCK_TABLE. */
@@ -361,21 +361,21 @@ typedef struct MD_SPAN_WIKILINK {
 
 /* Detailed info for MD_SPAN_FOOTNOTE_REF. */
 typedef struct MD_SPAN_FOOTNOTE_REF_DETAIL {
-    unsigned int id;        /* 1-based identifier of the referenced footnote */
-    unsigned int ref_id;    /* 1-based identifier of this reference among references to the same footnote */
-    MD_ATTRIBUTE label;     /* Raw label text, e.g. "1" or "note" */
+    unsigned int id;            /* 1-based identifier of the referenced footnote */
+    unsigned int ref_id;        /* 1-based identifier of this reference among references to the same footnote */
+    MD_ATTRIBUTE label;         /* Raw label text, e.g. "1" or "note" */
 } MD_SPAN_FOOTNOTE_REF_DETAIL;
 
 /* Detailed info for MD_BLOCK_FOOTNOTE_DEF. */
 typedef struct MD_BLOCK_FOOTNOTE_DEF_DETAIL {
-    unsigned int id;        /* 1-based identifier of this footnote */
-    unsigned int ref_count; /* Number of references to this footnote */
-    MD_ATTRIBUTE label;     /* Raw label text */
+    unsigned int id;            /* 1-based identifier of this footnote */
+    unsigned int ref_count;     /* Number of references to this footnote */
+    MD_ATTRIBUTE label;         /* Raw label text */
 } MD_BLOCK_FOOTNOTE_DEF_DETAIL;
 
 /* Detailed info for MD_BLOCK_BLANK. */
 typedef struct MD_BLOCK_BLANK_DETAIL {
-    unsigned line_count;    /* Count of blank lines forming the block separation */
+    unsigned line_count;        /* Count of blank lines forming the block separation */
 } MD_BLOCK_BLANK_DETAIL;
 
 /* Flags specifying extensions/deviations from CommonMark specification.
