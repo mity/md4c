@@ -92,40 +92,17 @@ The default behavior is to recognize only Markdown syntax defined by the
 However, with appropriate flags, the behavior can be tuned to enable some
 extensions:
 
+* With the flag `MD_FLAG_ADMONITIONS`, GitHub-style admonitions are recognized.
+
 * With the flag `MD_FLAG_COLLAPSEWHITESPACE`, a non-trivial whitespace is
   collapsed into a single space.
-
-* With the flag `MD_FLAG_HARD_SOFT_BREAKS`, all soft breaks (newlines) in the
-  Markdown input are treated as hard breaks (i.e. as `<br>` in HTML output).
-
-* With the flag `MD_FLAG_PRESERVEBLANKLINES`, each run of blank lines between
-  blocks is reported as a `MD_BLOCK_BLANK` carrying the number of blank lines,
-  instead of being collapsed into a single block boundary. This is a deviation
-  from CommonMark, intended for WYSIWYG-like applications.
-
-* With the flag `MD_FLAG_TABLES`, GitHub-style tables are supported.
-
-* With the flag `MD_FLAG_TASKLISTS`, GitHub-style task lists are supported.
 
 * With the flag `MD_FLAG_FOOTNOTES`, footnote references and definitions are
   supported (e.g. `[^note]` and `[^note]: Footnote text`). Referenced
   definitions are emitted at the end of the document in first-reference order.
 
-* With the flag `MD_FLAG_STRIKETHROUGH`, strike-through spans are enabled
-  (text enclosed in tilde marks, e.g. `~foo bar~`).
-
-* With the flag `MD_FLAG_SPOILERS`, spoiler spans are enabled
-  (text enclosed in double pipe marks, e.g. `||hidden text||`). (Note that the
-  HTML renderer outputs them in a custom tag `<x-spoiler>`.)
-
-* With the flag `MD_FLAG_SUPERSCRIPTS`, superscript spans are enabled
-  (text enclosed in caret marks, e.g. `x^2^`). The HTML renderer outputs
-  `<sup>`.
-
-* With the flag `MD_FLAG_SUBSCRIPTS`, subscript spans are enabled
-  (text enclosed in single tilde marks, e.g. `H~2~O`). The HTML renderer
-  outputs `<sub>`. When used together with `MD_FLAG_STRIKETHROUGH`, single
-  tilde renders as subscript and double tilde `~~text~~` as strikethrough.
+* With the flag `MD_FLAG_HARD_SOFT_BREAKS`, all soft breaks (newlines) in the
+  Markdown input are treated as hard breaks (i.e. as `<br>` in HTML output).
 
 * With the flag `MD_FLAG_HIGHLIGHT`, highlight spans are enabled
   (text enclosed in double equals marks, e.g. `==important==`). The HTML
@@ -135,28 +112,54 @@ extensions:
   (text enclosed in double plus marks, e.g. `++foo bar++`). The HTML
   renderer outputs `<ins>`.
 
-* With the flag `MD_FLAG_PERMISSIVEURLAUTOLINKS` permissive URL autolinks
-  (not enclosed in `<` and `>`) are supported.
+* With the flag `MD_FLAG_LATEXMATHSPANS`, LaTeX math spans (`$...$`) and
+  LaTeX display math spans (`$$...$$`) are supported. (Note though that the
+  HTML renderer outputs them verbatim in a custom tag `<x-equation>`.)
+
+* With the flag `MD_FLAG_PERMISSIVEATXHEADERS`, the delimiting space is
+  not required with ATX headers
 
 * With the flag `MD_FLAG_PERMISSIVEEMAILAUTOLINKS`, permissive e-mail
   autolinks (not enclosed in `<` and `>`) are supported.
 
-* With the flag `MD_FLAG_PERMISSIVEWWWAUTOLINKS` permissive WWW autolinks
+* With the flag `MD_FLAG_PERMISSIVEURLAUTOLINKS`, permissive URL autolinks
+  (not enclosed in `<` and `>`) are supported.
+
+* With the flag `MD_FLAG_PERMISSIVEWWWAUTOLINKS`, permissive WWW autolinks
   without any scheme specified (e.g. `www.example.com`) are supported. MD4C
   then assumes `http:` scheme.
 
-* With the flag `MD_FLAG_LATEXMATHSPANS` LaTeX math spans (`$...$`) and
-  LaTeX display math spans (`$$...$$`) are supported. (Note though that the
-  HTML renderer outputs them verbatim in a custom tag `<x-equation>`.)
+* With the flag `MD_FLAG_PRESERVEBLANKLINES`, each run of blank lines between
+  blocks is reported as a `MD_BLOCK_BLANK` carrying the number of blank lines,
+  instead of being collapsed into a single block boundary. This is a deviation
+  from CommonMark, intended for WYSIWYG-like applications.
 
-* With the flag `MD_FLAG_WIKILINKS`, wiki-style links (`[[link label]]` and
-  `[[target article|link label]]`) are supported. (Note that the HTML renderer
-  outputs them in a custom tag `<x-wikilink>`.)
+* With the flag `MD_FLAG_SPOILERS`, spoiler spans are enabled
+  (text enclosed in double pipe marks, e.g. `||hidden text||`). (Note that
+  the HTML renderer outputs them in a custom tag `<x-spoiler>`.)
+
+* With the flag `MD_FLAG_STRIKETHROUGH`, strike-through spans are enabled
+  (text enclosed in tilde marks, e.g. `~~foo bar~~`).
+
+* With the flag `MD_FLAG_SUBSCRIPTS`, subscript spans are enabled
+  (text enclosed in single tilde marks, e.g. `H~2~O`). The HTML renderer
+  outputs `<sub>`. When used together with `MD_FLAG_STRIKETHROUGH`, single
+  tilde renders as subscript and double tilde `~~text~~` as strikethrough.
+
+* With the flag `MD_FLAG_SUPERSCRIPTS`, superscript spans are enabled
+  (text enclosed in caret marks, e.g. `x^2^`). The HTML renderer outputs
+  `<sup>`.
+
+* With the flag `MD_FLAG_TABLES`, GitHub-style tables are supported.
+
+* With the flag `MD_FLAG_TASKLISTS`, GitHub-style task lists are supported.
 
 * With the flag `MD_FLAG_UNDERLINE`, underscore (`_`) denotes an underline
   instead of an ordinary emphasis or strong emphasis.
 
-* With the flag `MD_FLAG_ADMONITIONS`, GitHub-style admonitions are recognized.
+* With the flag `MD_FLAG_WIKILINKS`, wiki-style links (`[[link label]]` and
+  `[[target article|link label]]`) are supported. (Note that the HTML renderer
+  outputs them in a custom tag `<x-wikilink>`.)
 
 Few features of CommonMark (those some people see as mis-features) may be
 disabled with the following flags:
