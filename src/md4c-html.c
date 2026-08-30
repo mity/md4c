@@ -47,9 +47,9 @@
 
 /* For falling through case labels in switch statements. */
 #if defined __clang__ && __clang_major__ >= 12
-    #define MD_FALLTHROUGH()        __attribute__((fallthrough))
+    #define MD_FALLTHROUGH()        ;__attribute__((fallthrough))
 #elif defined __GNUC__ && __GNUC__ >= 7
-    #define MD_FALLTHROUGH()        __attribute__((fallthrough))
+    #define MD_FALLTHROUGH()        ;__attribute__((fallthrough))
 #else
     #define MD_FALLTHROUGH()        ((void)0)
 #endif
