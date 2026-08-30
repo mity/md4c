@@ -33,8 +33,8 @@ if(NOT IDF_TARGET)
     function(CheckPregeneratedFile rel_path)
         execute_process(
             COMMAND ${CMAKE_COMMAND} -E compare_files --ignore-eol
-            ${CMAKE_SOURCE_DIR}/${rel_path}
-            ${CMAKE_BINARY_DIR}/${rel_path}.expected
+            ${CMAKE_CURRENT_SOURCE_DIR}/${rel_path}
+            ${CMAKE_CURRENT_BINARY_DIR}/${rel_path}.expected
             RESULT_VARIABLE compare_result
         )
         if(NOT compare_result EQUAL 0)
