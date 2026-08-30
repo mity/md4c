@@ -2473,6 +2473,7 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lin
                     _T(' '), &label, &label_size));
         def = (MD_REF_DEF*) md_add_label_def(ctx, &ctx->ref_def_hashtable, label, label_size);
         if(def == NULL) {
+            ret = -1;
             free(label);
             goto abort;
         }
@@ -2480,8 +2481,10 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lin
     } else {
         def = (MD_REF_DEF*) md_add_label_def(ctx, &ctx->ref_def_hashtable,
                     STR(label_contents_beg), label_contents_end - label_contents_beg);
-        if(def == NULL)
+        if(def == NULL) {
+            ret = -1;
             goto abort;
+        }
     }
 
     if(title_is_multiline) {
@@ -6428,7 +6431,7 @@ md_enter_child_containers(MD_CTX* ctx, int n_children)
             case _T('*'):
                 /* Remember offset in ctx->block_bytes so we can revisit the
                  * block if we detect it is a loose list. */
-                md_end_current_block(ctx);
+                MD_CHECK(md_end_current_block(ctx));
                 c->block_byte_off = ctx->n_block_bytes;
 
                 MD_CHECK(md_push_container_bytes(ctx,
@@ -7241,7 +7244,7 @@ md_process_doc(MD_CTX *ctx)
         MD_CHECK(md_process_line(ctx, &pivot_line, line));
     }
 
-    md_end_current_block(ctx);
+    MD_CHECK(md_end_current_block(ctx));
 
     MD_CHECK(md_build_ref_def_hashtable(ctx));
     if(ctx->parser.flags & MD_FLAG_FOOTNOTES)
