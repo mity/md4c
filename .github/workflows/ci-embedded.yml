@@ -1,0 +1,92 @@
+name: Build Embedded
+
+on:
+  push:
+    paths:
+      - '**.c'
+      - '**.h'
+      - 'CMakeLists.txt'
+      - 'library.json*'
+      - 'library.properties*'
+      - 'idf_component.yml*'
+      - '.github/workflows/**'
+  pull_request:
+    paths:
+      - '**.c'
+      - '**.h'
+      - 'CMakeLists.txt'
+      - 'library.json*'
+      - 'library.properties*'
+      - 'idf_component.yml*'
+      - '.github/workflows/**'
+  workflow_dispatch:
+
+concurrency:
+  group: build-embedded
+  cancel-in-progress: true
+
+jobs:
+  espidf:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache ESP-IDF docker image
+        id: idf-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/esp-idf-docker
+          key: esp-idf-release-v5.5
+
+      - name: Pull and save ESP-IDF image
+        if: steps.idf-cache.outputs.cache-hit != 'true'
+        run: |
+          docker pull espressif/idf:release-v5.5
+          mkdir -p ~/.cache/esp-idf-docker
+          docker save -o ~/.cache/esp-idf-docker/idf.tar espressif/idf:release-v5.5
+
+      - name: Load ESP-IDF image
+        if: steps.idf-cache.outputs.cache-hit == 'true'
+        run: docker load -i ~/.cache/esp-idf-docker/idf.tar
+
+      - name: Scaffold project and build md4c as a component
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: release-v5.5
+          target: esp32
+          command: |
+            idf.py create-project smoke \
+              && mkdir -p smoke/components \
+              && ln -s ../.. smoke/components/md4c \
+              && cd smoke \
+              && idf.py build
+
+  platformio:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        framework: [espidf, arduino]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+          key: ${{ runner.os }}-pio-${{ matrix.framework }}
+          restore-keys: |
+            ${{ runner.os }}-pio-
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install PlatformIO Core
+        run: pip install --upgrade platformio
+
+      - name: Compile md4c with the ${{ matrix.framework }} framework
+        run: >-
+          pio ci test/embedded/smoke.cpp --board=esp32dev --lib=.
+          -O framework=${{ matrix.framework }}
+          ${{ matrix.framework == 'espidf' && '-O build_unflags=-fuse-cxa-atexit' || '' }}

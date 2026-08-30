@@ -1,41 +1,8 @@
 cmake_minimum_required(VERSION 3.14)
 
-project(MD4C
-    VERSION "0.5.3"
-    HOMEPAGE_URL "https://github.com/mity/md4c"
-    LANGUAGES C
-)
-
-# Some embedded platforms need the following files to exist even before
-# CMake's configure time. Hence we have them directly in the repo, but lets
-# at least check, they're up to date.
-#
-# If not, after a review of the generated one in the build dir need to be
-# committed as replacement of the respective pre-generated one. Unless we
-# do some really significant change like directory restructuring or introduce
-# some lib dependencies, it should be just about keeping the version in sync
-# between these files.
-configure_file(idf_component.yml.in    idf_component.yml.expected    @ONLY)
-configure_file(library.json.in         library.json.expected         @ONLY)
-configure_file(library.properties.in   library.properties.expected   @ONLY)
-
-function(CheckPregeneratedFile rel_path)
-    execute_process(
-        COMMAND ${CMAKE_COMMAND} -E compare_files --ignore-eol
-        ${CMAKE_SOURCE_DIR}/${rel_path}
-        ${CMAKE_BINARY_DIR}/${rel_path}.expected
-        RESULT_VARIABLE compare_result
-    )
-    if(NOT compare_result EQUAL 0)
-        message(FATAL_ERROR "The pre-generated ${rel_path} file is not up to date.")
-    endif()
-endfunction()
-
-CheckPregeneratedFile(idf_component.yml)
-CheckPregeneratedFile(library.json)
-CheckPregeneratedFile(library.properties)
-
-
+# ESP-IDF build system does not support CMake's project() command, 
+# so we need to check if we're building as part of an ESP-IDF 
+# project or standalone.
 if(IDF_TARGET)
     idf_component_register(
         SRC_DIRS "src"
@@ -44,6 +11,41 @@ if(IDF_TARGET)
 endif()
 
 if(NOT IDF_TARGET)
+    project(MD4C
+        VERSION "0.5.3"
+        HOMEPAGE_URL "https://github.com/mity/md4c"
+        LANGUAGES C
+    )
+
+    # Some embedded platforms need the following files to exist even before
+    # CMake's configure time. Hence we have them directly in the repo, but lets
+    # at least check, they're up to date.
+    #
+    # If not, after a review of the generated one in the build dir need to be
+    # committed as replacement of the respective pre-generated one. Unless we
+    # do some really significant change like directory restructuring or introduce
+    # some lib dependencies, it should be just about keeping the version in sync
+    # between these files.
+    configure_file(idf_component.yml.in    idf_component.yml.expected    @ONLY)
+    configure_file(library.json.in         library.json.expected         @ONLY)
+    configure_file(library.properties.in   library.properties.expected   @ONLY)
+
+    function(CheckPregeneratedFile rel_path)
+        execute_process(
+            COMMAND ${CMAKE_COMMAND} -E compare_files --ignore-eol
+            ${CMAKE_SOURCE_DIR}/${rel_path}
+            ${CMAKE_BINARY_DIR}/${rel_path}.expected
+            RESULT_VARIABLE compare_result
+        )
+        if(NOT compare_result EQUAL 0)
+            message(FATAL_ERROR "The pre-generated ${rel_path} file is not up to date.")
+        endif()
+    endfunction()
+
+    CheckPregeneratedFile(idf_component.yml)
+    CheckPregeneratedFile(library.json)
+    CheckPregeneratedFile(library.properties)
+
     # Some heuristics for what targets (and how) we actually build:
     set(BUILD_SHARED_LIBS_default ON)
     set(BUILD_HTML_LIBRARY_default ON)
