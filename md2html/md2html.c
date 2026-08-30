@@ -330,7 +330,7 @@ usage(void)
         "      --fpreserve-blank-lines\n"
         "                       Render extra blank lines between blocks as <br>\n"
         "      --fspoilers      Enable spoiler spans (||hidden text||)\n"
-        "      --fstrikethrough Enable strike-through spans\n"
+        "      --fstrikethrough Enable strike-through spans (~~text~~)\n"
         "      --fsubscripts    Enable subscript spans (~text~)\n"
         "      --fsuperscripts  Enable superscript spans (^text^)\n"
         "      --ftables        Enable tables\n"
