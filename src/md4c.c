@@ -1499,10 +1499,21 @@ md_free_attribute(MD_CTX* ctx, MD_ATTRIBUTE_BUILD* build)
 {
     MD_UNUSED(ctx);
 
-    if(build->substr_alloc > 0) {
+    /* A trivial build aliases caller-owned storage and must not be freed.
+     * Every other build owns all three pointers from the moment
+     * md_build_attribute() leaves the trivial branch, even if a growth
+     * realloc later failed while substr_alloc was still 0. Clearing them
+     * keeps this idempotent, which matters because md_build_attribute()
+     * frees on its own abort path before the caller frees again. */
+    if(build->substr_types != build->trivial_types) {
         free(build->text);
         free(build->substr_types);
         free(build->substr_offsets);
+        build->text = NULL;
+        build->substr_types = NULL;
+        build->substr_offsets = NULL;
+        build->substr_alloc = 0;
+        build->substr_count = 0;
     }
 }
 
