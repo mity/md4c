@@ -2501,11 +2501,9 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lin
     return line_index + 1;
 
 abort:
-    /* Failure. */
-    if(def != NULL  &&  def->label_needs_free)
-        free((CHAR*) def->entry.label);
-    if(def != NULL  &&  def->title_needs_free)
-        free(def->title);
+    /* Failure. A non-NULL def is already committed to ctx->ref_def_hashtable,
+     * which owns its label and title and frees them in md_free_ref_defs().
+     * The def == NULL path frees its local label itself, above. */
     return ret;
 }
 
