@@ -85,7 +85,7 @@
                 if(!(cond)) {                                           \
                     MD_LOG(__FILE__ ":" STRINGIZE(__LINE__) ": "        \
                            "Assertion '" STRINGIZE(cond) "' failed.");  \
-                    exit(1);                                            \
+                    exit(EXIT_FAILURE);                                 \
                 }                                                       \
             } while(0)
 
