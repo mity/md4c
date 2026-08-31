@@ -73,7 +73,7 @@ membuf_init(struct membuffer* buf, MD_SIZE new_asize)
     buf->data = malloc(buf->asize);
     if(buf->data == NULL) {
         fprintf(stderr, "membuf_init: malloc() failed.\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 }
 
@@ -90,7 +90,7 @@ membuf_grow(struct membuffer* buf, size_t new_asize)
     buf->data = realloc(buf->data, new_asize);
     if(buf->data == NULL) {
         fprintf(stderr, "membuf_grow: realloc() failed.\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     buf->asize = new_asize;
 }
@@ -100,7 +100,7 @@ membuf_append(struct membuffer* buf, const char* data, MD_SIZE size)
 {
     if(size > (size_t)-1 - buf->size) {
         fprintf(stderr, "membuf_append: size overflow.\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     if(buf->asize < buf->size + size) {
         size_t new_asize = buf->size + buf->size / 2 + size;
@@ -375,7 +375,7 @@ cmdline_callback(int opt, char const* value, void* data)
             if(input_path) {
                 fprintf(stderr, "Too many arguments. Only one input file can be specified.\n");
                 fprintf(stderr, "Use --help for more info.\n");
-                exit(1);
+                exit(EXIT_FAILURE);
             }
             input_path = value;
             break;
@@ -385,8 +385,8 @@ cmdline_callback(int opt, char const* value, void* data)
         case 'x':   want_xhtml = 1; renderer_flags |= MD_HTML_FLAG_XHTML; break;
         case 's':   want_stat = 1; break;
         case 'r':   want_replay_fuzz = 1; break;
-        case 'h':   usage(); exit(0); break;
-        case 'v':   version(); exit(0); break;
+        case 'h':   usage(); exit(EXIT_SUCCESS); break;
+        case 'v':   version(); exit(EXIT_SUCCESS); break;
 
         case '1':   html_title = value; break;
         case '2':   css_path = value; break;
@@ -424,7 +424,7 @@ cmdline_callback(int opt, char const* value, void* data)
         default:
             fprintf(stderr, "Illegal option: %s\n", value);
             fprintf(stderr, "Use --help for more info.\n");
-            exit(1);
+            exit(EXIT_FAILURE);
             break;
     }
 
@@ -440,21 +440,21 @@ main(int argc, char** argv)
 
     if(cmdline_read(cmdline_options, argc, argv, cmdline_callback, NULL) != 0) {
         usage();
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     if(input_path != NULL && strcmp(input_path, "-") != 0) {
         in = fopen(input_path, "rb");
         if(in == NULL) {
             fprintf(stderr, "Cannot open %s.\n", input_path);
-            exit(1);
+            exit(EXIT_FAILURE);
         }
     }
     if(output_path != NULL && strcmp(output_path, "-") != 0) {
         out = fopen(output_path, "wt");
         if(out == NULL) {
             fprintf(stderr, "Cannot open %s.\n", output_path);
-            exit(1);
+            exit(EXIT_FAILURE);
         }
     }
 
