@@ -30,17 +30,6 @@
 #include "entity.h"
 
 
-#if !defined(__STDC_VERSION__) || __STDC_VERSION__ < 199409L
-    /* C89/90 or old compilers in general may not understand "inline". */
-    #if defined __GNUC__
-        #define inline __inline__
-    #elif defined _MSC_VER
-        #define inline __inline
-    #else
-        #define inline
-    #endif
-#endif
-
 #ifdef _WIN32
     #define snprintf _snprintf
 #endif
