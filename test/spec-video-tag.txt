@@ -1,0 +1,79 @@
+
+# Video Tag (Block-Level)
+
+The `<video>` element is recognized as a type 6 block-level HTML tag,
+consistent with how other media-related tags like `<iframe>` and `<track>`
+are handled.
+
+
+## Basic recognition
+
+A single-line `<video>` tag is parsed as an HTML block:
+
+```````````````````````````````` example
+<video src="video.mp4"></video>
+
+okay.
+.
+<video src="video.mp4"></video>
+<p>okay.</p>
+````````````````````````````````
+
+A multi-line `<video>` tag:
+
+```````````````````````````````` example
+<video src="video.mp4">
+</video>
+.
+<video src="video.mp4">
+</video>
+````````````````````````````````
+
+
+## Tag with attributes
+
+Attributes on the tag are preserved in the HTML output:
+
+```````````````````````````````` example
+<video src="video.mp4" controls autoplay></video>
+.
+<video src="video.mp4" controls autoplay></video>
+````````````````````````````````
+
+
+## Followed by content on the same line
+
+Unlike type 7 tags, a type 6 tag does not require the rest of the line
+to be blank:
+
+```````````````````````````````` example
+<video src="video.mp4"></video>some trailing text
+.
+<video src="video.mp4"></video>some trailing text
+````````````````````````````````
+
+
+## Inside a blockquote
+
+```````````````````````````````` example
+> <video src="video.mp4"></video>
+.
+<blockquote>
+<video src="video.mp4"></video>
+</blockquote>
+````````````````````````````````
+
+
+## Inside a list item
+
+```````````````````````````````` example
+- <video src="video.mp4"></video>
+- plain item
+.
+<ul>
+<li>
+<video src="video.mp4"></video>
+</li>
+<li>plain item</li>
+</ul>
+````````````````````````````````
