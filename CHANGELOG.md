@@ -4,6 +4,10 @@
 
 ## Next Version (Work in Progress)
 
+Changes:
+
+  * Add `<video>` to the list of block-level HTML tags (type 6).
+
 New Features:
 
   * Add blank line preservation, enabled with the flag
