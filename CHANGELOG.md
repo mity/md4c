@@ -6,6 +6,11 @@
 
 New Features:
 
+  * MD4C libraries should now build out of the scratch on several embedded
+    platforms (ESP-IDF, PlatformIO, Arduino).
+
+    Contributed by [NellowTCS](https://github.com/NellowTCS).
+
   * Add blank line preservation, enabled with the flag
     `MD_FLAG_PRESERVEBLANKLINES`.
 
@@ -87,8 +92,9 @@ Changes:
     obscure combinations of non-alphanumeric characters.
 
   * Better detection (and suppression) of too sparse tables, which would
-    otherwise generate too disproportionately large output.
-    (See [#345](https://github.com/mity/md4c/pull/345) for more information.)
+    otherwise generate disproportionately large output.
+
+    See [#345](https://github.com/mity/md4c/pull/345) for more information.
 
 Fixes:
 
@@ -114,6 +120,14 @@ Fixes:
   * [#368](https://github.com/mity/md4c/pull/368):
     Fix check that the standard CommonMark URI autolink's scheme must begin with
     an alpha-numerical character, not any ASCII character.
+
+  * [#376](https://github.com/mity/md4c/pull/376):
+    HTML renderer incorrectly emitted an inline HTML content in an image `alt`
+    attribute. This is now fixed.
+
+  * [#378](https://github.com/mity/md4c/pull/378):
+    Do not remove whitespace just before end-of-line when it's inside a code
+    span.
 
 
 ## Version 0.5.3
@@ -172,8 +186,15 @@ Fixes:
  * [#292](https://github.com/mity/md4c/issues/292):
    Fix detection of closing code block fence if it has a trailing tabulator.
 
- * [#299](https://github.com/mity/md4c/issues/299):
-   Fix invalid `free()` in an error path.
+ * [#299](https://github.com/mity/md4c/issues/299),
+   [#398](https://github.com/mity/md4c/pull/398),
+   [#399](https://github.com/mity/md4c/pull/399),
+   [#400](https://github.com/mity/md4c/pull/400):
+   Fix multiple memory management errors in error paths.
+
+   Big thanks especially to [Aamil Patel](https://github.com/AamilPatel) and
+   [Ilia Alshanetsky](https://github.com/iliaal) for detecting and fixing many
+   of these.
 
 
 ## Version 0.5.2
