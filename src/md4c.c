@@ -4530,6 +4530,14 @@ md_analyze_permissive_autolink(MD_CTX* ctx, int mark_index)
         if(md_analyze_permissive_autolink_segment(ctx, beg, line_beg, &beg, true,
                 _T('\0'), NULL, _T(".-_+"), &left_cursor) < 1)
             return;
+
+        /* Swallow optional "mailto:" or "xmpp:" before it. */
+        if(beg >= 7  &&  md_ascii_eq(_T("mailto:"), STR(beg-7), 7))
+            beg -= 7;
+        else if(beg >= 5  &&  md_ascii_eq(_T("xmpp:"), STR(beg-5), 5))
+            beg -= 5;
+        else
+            opener->flags |= MD_MARK_AUTOLINK_MISSING_MAILTO;
     }
 
     /* Verify there's line boundary, whitespace, allowed punctuation or
@@ -5073,8 +5081,8 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
                     if(mark->flags & MD_MARK_OPENER)
                         closer->flags |= MD_MARK_VALIDPERMISSIVEAUTOLINK;
 
-                    if(opener->ch == '@' || opener->ch == '.' ||
-                        (opener->ch == '<' && (opener->flags & MD_MARK_AUTOLINK_MISSING_MAILTO)))
+                    if(opener->ch == '.' ||
+                        (ISANYOF2_(opener->ch, _T('@'), _T('<')) && (opener->flags & MD_MARK_AUTOLINK_MISSING_MAILTO)))
                     {
                         dest_size += 7;
                         MD_TEMP_BUFFER(dest_size * sizeof(CHAR));

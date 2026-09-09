@@ -1026,10 +1026,31 @@ http://example.com>
 .
 <p>&lt;
 http://example.com&gt;</p>
+.
+--fpermissive-autolinks
 ````````````````````````````````
 
 
-## Raw HTML in an image label must not break out of the alt attribute
+## [Issue 372](https://github.com/mity/md4c/issues/372)
+
+```````````````````````````````` example
+mailto:foo@bar.baz
+.
+<p><a href="mailto:foo@bar.baz">mailto:foo@bar.baz</a></p>
+.
+--fpermissive-autolinks
+````````````````````````````````
+
+```````````````````````````````` example
+xmpp:foo@bar.baz
+.
+<p><a href="xmpp:foo@bar.baz">xmpp:foo@bar.baz</a></p>
+.
+--fpermissive-autolinks
+````````````````````````````````
+
+
+## [PR 376](https://github.com/mity/md4c/pull/376)
 
 The image label is rendered into the `alt="..."` attribute, so any raw
 HTML span in it has to be escaped like normal text instead of being

@@ -4,10 +4,6 @@
 
 ## Next Version (Work in Progress)
 
-Changes:
-
-  * Add `<video>` to the list of block-level HTML tags (type 6).
-
 New Features:
 
   * Add blank line preservation, enabled with the flag
@@ -69,8 +65,17 @@ New Features:
 
 Changes:
 
+  * Accept `<video>` as HTML block starting condition (type 6), beyond what
+    the CommonMark specification requires.
+
+    See [the specification](https://spec.commonmark.org/0.31.2/#html-blocks)
+    for more info what it is.
+
   * Permissive autolinks (`MD_FLAG_PERMISSIVExxxAUTOLINKS` flags) have been
-    improved and some links with non-alphanumeric characters are now recognized.
+    improved in several ways:
+     - some more links with non-alphanumeric characters are now recognized,
+     - e-mails with explicit `mailto:` prefix are now recognized,
+     - `xmpp:` links are now recognized.
 
     However please note this will always be a subject of painful search for
     reasonable trade-off between recognizing more obscure URLs versus opening
