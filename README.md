@@ -294,7 +294,7 @@ If you need to validate that the input is, say, a well-formed UTF-8 document,
 you have to do it on your own. The easiest way to do this is to simply validate
 the whole document before passing it to the MD4C parser.
 
-**Q: MD4C does not work with zero-terminated strings. Why?**
+**Q: MD4C's API does not expect/produce zero-terminated strings. Why?**
 
 **A:** There are two reasons: correctness and performance.
 
