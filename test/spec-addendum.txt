@@ -1,0 +1,91 @@
+
+# Addendum
+
+
+## Introduction
+
+This document serves as a documentation of features where MD4C differs from
+the [CommonMark specification](spec.txt) in its default behavior.
+
+> [!INFO] For the sake of compatibility, only minor/small additions which are
+> deemed as uncontroversial, have no or negligible impact on syntax, unlikely
+> to cause any compatibility issues in the real world and do not contradict
+> any explicit test case in the [CommonMark specification](spec.txt) can be
+> added in this way to MD4C.
+>
+> Any more substantial changes, or changes introducing a new syntax construction
+> can only be incorporated as an extension which is by default disabled and
+> must be explicitly enabled via its respective flag in the parser's API or in
+> `md2html` command line option. Such extensions are then documented in their
+> respective document.
+
+
+## Extended HTML Blocks
+
+MD4C adds the `<video>` into the list of recognized HTML tags which can start
+the [HTML block of the type 6](https://spec.commonmark.org/0.31.2/#html-blocks).
+
+In all aspects this tag behaves as any other HTML tag listed for this purpose
+in the CommonMark specification.
+
+A single-line `<video>` tag is parsed as an HTML block:
+
+```````````````````````````````` example
+<video src="video.mp4"></video>
+
+okay.
+.
+<video src="video.mp4"></video>
+<p>okay.</p>
+````````````````````````````````
+
+A multi-line `<video>` tag:
+
+```````````````````````````````` example
+<video src="video.mp4">
+</video>
+.
+<video src="video.mp4">
+</video>
+````````````````````````````````
+
+A `<video>` tag with attributes:
+
+```````````````````````````````` example
+<video src="video.mp4" controls autoplay></video>
+.
+<video src="video.mp4" controls autoplay></video>
+````````````````````````````````
+
+Unlike type 7, the `<video>` tag starts the HTML block even if there's
+any additional contents on the tag's line:
+
+```````````````````````````````` example
+<video src="video.mp4"></video>some trailing text
+.
+<video src="video.mp4"></video>some trailing text
+````````````````````````````````
+
+HTML block can be nested in a blockquote:
+
+```````````````````````````````` example
+> <video src="video.mp4"></video>
+.
+<blockquote>
+<video src="video.mp4"></video>
+</blockquote>
+````````````````````````````````
+
+And also in a list:
+
+```````````````````````````````` example
+- <video src="video.mp4"></video>
+- plain item
+.
+<ul>
+<li>
+<video src="video.mp4"></video>
+</li>
+<li>plain item</li>
+</ul>
+````````````````````````````````
