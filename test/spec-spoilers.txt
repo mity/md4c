@@ -443,3 +443,24 @@ A wiki link whose label contains an unrelated `|` character:
 .
 --fspoilers --fwiki-links
 ````````````````````````````````
+
+A `||` inside a wiki link is a spoiler delimiter, not the label separator, so
+the following single `|` still separates the target from the label:
+
+```````````````````````````````` example
+[[a||b|c]]
+.
+<p><x-wikilink data-target="a||b">c</x-wikilink></p>
+.
+--fspoilers --fwiki-links
+````````````````````````````````
+
+A wiki link containing a `||` and no other `|` has no label:
+
+```````````````````````````````` example
+[[a||b]]
+.
+<p><x-wikilink data-target="a||b">a||b</x-wikilink></p>
+.
+--fspoilers --fwiki-links
+````````````````````````````````

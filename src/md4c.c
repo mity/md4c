@@ -3791,7 +3791,7 @@ md_resolve_bracket_wikilink(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
     delim_index = opener_index + 1;
     while(delim_index < closer_index) {
         MD_MARK* m = &ctx->marks[delim_index];
-        if(m->ch == _T('|')) {
+        if(m->ch == _T('|')  &&  m->end - m->beg == 1) {
             delim = m;
             break;
         }
