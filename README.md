@@ -361,6 +361,9 @@ Software using MD4C:
 * [Marknote](https://github.com/KDE/marknote):
   A simple markdown note management app for KDE.
 
+* [mdview](https://www.mdview.top/):
+  A markdown viewer and editor for Windows, MacOS and Android.
+
 * [Mdview MTX](https://github.com/step-/mdview):
   GTK markdown viewer and CLI converter.
 
