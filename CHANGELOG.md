@@ -115,6 +115,14 @@ Fixes:
     Fix check that the standard CommonMark URI autolink's scheme must begin with
     an alpha-numerical character, not any ASCII character.
 
+  * [#398](https://github.com/mity/md4c/pull/398),
+    [#399](https://github.com/mity/md4c/pull/399),
+    [#400](https://github.com/mity/md4c/pull/400):
+    Fix multiple memory management errors in error paths.
+
+    Big thanks especially to [Ilia Alshanetsky](https://github.com/iliaal) for
+    detecting and fixing all of these.
+
 
 ## Version 0.5.3
 
