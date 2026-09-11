@@ -1078,3 +1078,25 @@ emitted verbatim.
 </li>
 </ul>
 ````````````````````````````````
+
+
+## [Issue 414](https://github.com/mity/md4c/issues/414)
+
+Stripping link ref. definitions from a block beginning can result in a need to
+turn the first line after the definitions into a thematic break.
+
+```````````````````````````````` example
+[foo]:bar
+---
+.
+<hr>
+````````````````````````````````
+
+```````````````````````````````` example
+[foo]:bar
+---
+baz
+.
+<hr>
+<p>baz</p>
+````````````````````````````````

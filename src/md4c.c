@@ -5798,6 +5798,10 @@ md_start_new_block(MD_CTX* ctx, const MD_LINE_ANALYSIS* line)
     return 0;
 }
 
+/* Forward declarations */
+static int md_is_hr_line(MD_CTX* ctx, OFF beg, OFF* p_end, OFF* p_killer);
+static void* md_push_block_bytes(MD_CTX* ctx, int n_bytes);
+
 /* Eat from start of current (textual) block any reference definitions and/or
  * footnote definitions, and remember them.
  *
@@ -5810,6 +5814,7 @@ md_consume_link_reference_definitions(MD_CTX* ctx)
     MD_LINE* lines = (MD_LINE*) (ctx->current_block + 1);
     MD_SIZE n_lines = ctx->current_block->n_lines;
     MD_SIZE n = 0;
+    OFF ignored;
 
     while(n < n_lines) {
         int n_consumed = 0;
@@ -5838,20 +5843,34 @@ md_consume_link_reference_definitions(MD_CTX* ctx)
         n += n_consumed;
     }
 
-    /* If there was at least one definition, we need to remove its lines from
-     * the block, or perhaps even the whole block. */
-    if(n > 0) {
-        if(n == n_lines) {
-            /* Remove complete block. */
-            ctx->n_block_bytes -= n * sizeof(MD_LINE);
-            ctx->n_block_bytes -= sizeof(MD_BLOCK);
-            ctx->current_block = NULL;
-        } else {
-            /* Remove just some initial lines from the block. */
-            memmove(lines, lines + n, (n_lines - n) * sizeof(MD_LINE));
-            ctx->current_block->n_lines -= n;
-            ctx->n_block_bytes -= n * sizeof(MD_LINE);
-        }
+    /* If no link ref. def. was detected, leave the block intact. */
+    if(n == 0)
+        return 0;
+
+    /* Dirty hack: We may need to turn the first line after the link ref. defs
+     * into a thematic break (https://github.com/mity/md4c/issues/414) */
+    if(n < n_lines  &&  md_is_hr_line(ctx, lines[n].beg, &ignored, &ignored)) {
+        size_t block_size = sizeof(MD_BLOCK) + n_lines * sizeof(MD_LINE);
+
+        if(md_push_block_bytes(ctx, sizeof(MD_BLOCK)) == NULL)
+            return -1;
+        memmove(ctx->current_block, ctx->current_block + 1, block_size);
+        memset(ctx->current_block, 0, sizeof(MD_BLOCK));
+        ctx->current_block->type = MD_BLOCK_HR;
+        ctx->current_block++;
+        n++;
+    }
+
+    if(n == n_lines) {
+        /* Undo the whole block. */
+        ctx->n_block_bytes -= n_lines * sizeof(MD_LINE);
+        ctx->n_block_bytes -= sizeof(MD_BLOCK);
+        ctx->current_block = NULL;
+    } else {
+        /* Remove some initial lines from the block. */
+        memmove(lines, lines + n, (n_lines - n) * sizeof(MD_LINE));
+        ctx->current_block->n_lines -= n;
+        ctx->n_block_bytes -= n * sizeof(MD_LINE);
     }
 
     return 0;
@@ -5987,6 +6006,9 @@ md_is_hr_line(MD_CTX* ctx, OFF beg, OFF* p_end, OFF* p_killer)
 {
     OFF off = beg + 1;
     int n = 1;
+
+    if(!ISANYOF(beg, _T("-_*")))
+        return false;
 
     while(off < ctx->size  &&  (CH(off) == CH(beg) || CH(off) == _T(' ') || CH(off) == _T('\t'))) {
         if(CH(off) == CH(beg))
@@ -6763,8 +6785,7 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
 
         /* Check for thematic break line. */
         if(line->indent < ctx->code_indent_offset
-            &&  off < ctx->size  &&  off >= hr_killer
-            &&  ISANYOF(off, _T("-_*")))
+            &&  off < ctx->size  &&  off >= hr_killer)
         {
             if(md_is_hr_line(ctx, off, &off, &hr_killer)) {
                 line->type = MD_LINE_HR;
