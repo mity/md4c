@@ -123,8 +123,11 @@ Fixes:
     Big thanks especially to [Ilia Alshanetsky](https://github.com/iliaal) for
     detecting and fixing all of these.
 
-  * [#413](https://github.com/mity/md4c/pull/413):
+  * [#413](https://github.com/mity/md4c/issues/413):
     Fix a case of incorrect ending of a list.
+
+  * [#414](https://github.com/mity/md4c/issues/414):
+    Fix thematic break detection just after link reference definition.
 
 
 ## Version 0.5.3
