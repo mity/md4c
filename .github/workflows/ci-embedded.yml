@@ -21,10 +21,6 @@ on:
       - '.github/workflows/**'
   workflow_dispatch:
 
-concurrency:
-  group: build-embedded
-  cancel-in-progress: true
-
 jobs:
   espidf:
     runs-on: ubuntu-latest
