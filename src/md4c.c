@@ -277,7 +277,7 @@ struct MD_CTX_tag {
     SZ code_fence_length;   /* For checking closing fence length. */
     int html_block_type;    /* For checking closing raw HTML condition. */
     int last_line_has_list_loosening_effect;
-    int last_list_item_starts_with_two_blank_lines;
+    int consecutive_blank_lines;
 };
 
 enum MD_LINETYPE_tag {
@@ -6716,40 +6716,17 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
                 ctx->last_line_has_list_loosening_effect = false;
             } else {
                 line->type = MD_LINE_BLANK;
+                ctx->consecutive_blank_lines++;
                 ctx->last_line_has_list_loosening_effect = (n_parents > 0  &&
                         n_brothers + n_children == 0  &&
                         ctx->containers[n_parents-1].ch != _T('>'));
-
-    #if 1
-                /* See https://github.com/mity/md4c/issues/6
-                 *
-                 * This ugly checking tests we are in (yet empty) list item but
-                 * not its very first line (i.e. not the line with the list
-                 * item mark).
-                 *
-                 * If we are such a blank line, then any following non-blank
-                 * line which would be part of the list item actually has to
-                 * end the list because according to the specification, "a list
-                 * item can begin with at most one blank line."
-                 */
-                if(n_parents > 0  &&  ctx->containers[n_parents-1].ch != _T('>')  &&
-                   n_brothers + n_children == 0  &&  ctx->current_block == NULL  &&
-                   ctx->n_block_bytes > (int) sizeof(MD_BLOCK))
-                {
-                    MD_BLOCK* top_block = (MD_BLOCK*) ((char*)ctx->block_bytes + ctx->n_block_bytes - sizeof(MD_BLOCK));
-                    if(top_block->type == MD_BLOCK_LI)
-                        ctx->last_list_item_starts_with_two_blank_lines = true;
-                }
-    #endif
             }
             break;
         } else {
-    #if 1
-            /* This is the 2nd half of the hack. If the flag is set (i.e. there
-             * was a 2nd blank line at the beginning of the list item) and if
-             * we would otherwise still belong to the list item, we enforce
-             * the end of the list. */
-            if(ctx->last_list_item_starts_with_two_blank_lines) {
+            /* CommonMark requires a list item cannot begin with two (or more)
+             * blank lines so we may need to forcefully end the list.
+             * (See https://github.com/mity/md4c/issues/6) */
+            if(ctx->consecutive_blank_lines >= 2) {
                 if(n_parents > 0  &&  n_parents == ctx->n_containers  &&
                    ctx->containers[n_parents-1].ch != _T('>')  &&
                    n_brothers + n_children == 0  &&  ctx->current_block == NULL  &&
@@ -6764,10 +6741,9 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
                             line->indent -= MIN(line->indent, ctx->containers[n_parents-1].contents_indent);
                     }
                 }
-
-                ctx->last_list_item_starts_with_two_blank_lines = false;
             }
-    #endif
+            ctx->consecutive_blank_lines = 0;
+
             ctx->last_line_has_list_loosening_effect = false;
         }
 

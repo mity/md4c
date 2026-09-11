@@ -1061,3 +1061,20 @@ emitted verbatim.
 .
 <p><img src="/url" alt="&lt;x title=&quot; y&quot; onerror=&quot;alert(1)&quot;&gt;"></p>
 ````````````````````````````````
+
+
+## [Issue 413](https://github.com/mity/md4c/issues/413)
+
+```````````````````````````````` example
+-
+  ---
+
+  foo bar
+.
+<ul>
+<li>
+<hr>
+<p>foo bar</p>
+</li>
+</ul>
+````````````````````````````````
