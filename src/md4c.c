@@ -23,6 +23,7 @@
  * IN THE SOFTWARE.
  */
 
+#include <assert.h>
 #include <limits.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -69,25 +70,13 @@
     } while(0)
 
 #ifdef DEBUG
-    #define MD_ASSERT(cond)                                             \
-            do {                                                        \
-                if(!(cond)) {                                           \
-                    MD_LOG(__FILE__ ":" STRINGIZE(__LINE__) ": "        \
-                           "Assertion '" STRINGIZE(cond) "' failed.");  \
-                    exit(EXIT_FAILURE);                                 \
-                }                                                       \
-            } while(0)
-
-    #define MD_UNREACHABLE()        MD_ASSERT(1 == 0)
+    #define MD_UNREACHABLE()        assert(1 == 0)
 #else
     #ifdef __GNUC__
-        #define MD_ASSERT(cond)     do { if(!(cond)) __builtin_unreachable(); } while(0)
         #define MD_UNREACHABLE()    do { __builtin_unreachable(); } while(0)
     #elif defined _MSC_VER  &&  _MSC_VER > 120
-        #define MD_ASSERT(cond)     do { __assume(cond); } while(0)
         #define MD_UNREACHABLE()    do { __assume(0); } while(0)
     #else
-        #define MD_ASSERT(cond)     do {} while(0)
         #define MD_UNREACHABLE()    do {} while(0)
     #endif
 #endif
@@ -1105,7 +1094,7 @@ md_is_html_tag(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, OFF beg, OFF 
     OFF line_end = (n_lines > 0) ? lines[0].end : ctx->size;
     MD_SIZE line_index = 0;
 
-    MD_ASSERT(CH(beg) == _T('<'));
+    assert(CH(beg) == _T('<'));
 
     if(off + 1 >= line_end)
         return false;
@@ -1256,7 +1245,7 @@ md_is_html_comment(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, OFF beg, 
 {
     OFF off = beg;
 
-    MD_ASSERT(CH(beg) == _T('<'));
+    assert(CH(beg) == _T('<'));
 
     if(off + 4 >= lines[0].end)
         return false;
@@ -1329,7 +1318,7 @@ md_is_html_cdata(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, OFF beg, OF
 static int
 md_is_html_any(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, OFF beg, OFF max_end, OFF* p_end)
 {
-    MD_ASSERT(CH(beg) == _T('<'));
+    assert(CH(beg) == _T('<'));
     return (md_is_html_tag(ctx, lines, n_lines, beg, max_end, p_end)  ||
             md_is_html_comment(ctx, lines, n_lines, beg, max_end, p_end)  ||
             md_is_html_processing_instruction(ctx, lines, n_lines, beg, max_end, p_end)  ||
@@ -1404,7 +1393,7 @@ md_is_entity_str(MD_CTX* ctx, const CHAR* text, OFF beg, OFF max_end, OFF* p_end
     int is_contents;
     OFF off = beg;
 
-    MD_ASSERT(text[off] == _T('&'));
+    assert(text[off] == _T('&'));
     off++;
 
     if(off+2 < max_end  &&  text[off] == _T('#')  &&  (text[off+1] == _T('x') || text[off+1] == _T('X')))
@@ -2035,9 +2024,9 @@ md_is_footnote_definition(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
     int ret = 0;
 
     /* Caller guarantees: n_lines >= 1 and lines[0] starts with [^. */
-    MD_ASSERT(n_lines >= 1);
+    assert(n_lines >= 1);
     off = lines[0].beg;
-    MD_ASSERT(CH(off) == _T('[')  &&  CH(off+1) == _T('^'));
+    assert(CH(off) == _T('[')  &&  CH(off+1) == _T('^'));
     off += 2;
 
     /* Label: non-empty sequence of non-whitespace, non-bracket chars. */
@@ -2521,8 +2510,8 @@ md_is_link_reference(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
     SZ label_size;
     int ret = false;
 
-    MD_ASSERT(CH(beg) == _T('[') || CH(beg) == _T('!'));
-    MD_ASSERT(CH(end-1) == _T(']'));
+    assert(CH(beg) == _T('[') || CH(beg) == _T('!'));
+    assert(CH(end-1) == _T(']'));
 
     if(ctx->max_ref_def_output == 0)
         return false;
@@ -2585,7 +2574,7 @@ md_is_inline_link_spec(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
 
     md_lookup_line(off, lines, n_lines, &line_index);
 
-    MD_ASSERT(CH(off) == _T('('));
+    assert(CH(off) == _T('('));
     off++;
 
     /* Optional white space with up to one line break. */
@@ -2900,14 +2889,14 @@ md_mark_stack_pop(MD_CTX* ctx, MD_MARKSTACK* stack)
 static inline void
 md_mark_store_ptr(MD_CTX* ctx, int mark_index, void* ptr)
 {
-    MD_ASSERT(ctx->marks[mark_index].ch == 'D');
+    assert(ctx->marks[mark_index].ch == 'D');
     ctx->marks[mark_index].pointer = ptr;
 }
 
 static inline void*
 md_mark_get_ptr(MD_CTX* ctx, int mark_index)
 {
-    MD_ASSERT(ctx->marks[mark_index].ch == 'D');
+    assert(ctx->marks[mark_index].ch == 'D');
     return ctx->marks[mark_index].pointer;
 }
 
@@ -3135,7 +3124,7 @@ md_is_autolink_uri(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end)
 {
     OFF off = beg+1;
 
-    MD_ASSERT(CH(beg) == _T('<'));
+    assert(CH(beg) == _T('<'));
 
     /* Check for scheme. */
     if(off >= max_end  ||  !ISALNUM(off))
@@ -3163,7 +3152,7 @@ md_is_autolink_uri(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end)
     if(off >= max_end)
         return false;
 
-    MD_ASSERT(CH(off) == _T('>'));
+    assert(CH(off) == _T('>'));
     *p_end = off+1;
     return true;
 }
@@ -3174,7 +3163,7 @@ md_is_autolink_email(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end)
     OFF off = beg + 1;
     int label_len;
 
-    MD_ASSERT(CH(beg) == _T('<'));
+    assert(CH(beg) == _T('<'));
 
     /* The code should correspond to this regexp:
             /^[a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+
@@ -3882,7 +3871,7 @@ md_resolve_bracket_footnote(MD_CTX* ctx, MD_MARK* opener, MD_MARK* closer,
 
     /* Store the public callback details in the dummy mark after the opener. */
     index_mark = opener + 1;
-    MD_ASSERT(index_mark->ch == _T('D'));
+    assert(index_mark->ch == _T('D'));
     index_mark->beg = def->index;
     index_mark->end = def->ref_count;
 
@@ -3989,11 +3978,11 @@ md_resolve_bracket_link(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
 
         /* If it is a link, we store the destination and title in the two
          * dummy marks after the opener. */
-        MD_ASSERT(ctx->marks[opener_index+1].ch == _T('D'));
+        assert(ctx->marks[opener_index+1].ch == _T('D'));
         ctx->marks[opener_index+1].beg = attr.dest_beg;
         ctx->marks[opener_index+1].end = attr.dest_end;
 
-        MD_ASSERT(ctx->marks[opener_index+2].ch == _T('D'));
+        assert(ctx->marks[opener_index+2].ch == _T('D'));
         md_mark_store_ptr(ctx, opener_index+2, attr.title);
         /* The title might or might not have been allocated for us. */
         if(attr.title_needs_free)
@@ -4145,7 +4134,7 @@ md_analyze_entity(MD_CTX* ctx, int mark_index)
         return;
 
     if(md_is_entity(ctx, opener->beg, closer->end, &off)) {
-        MD_ASSERT(off == closer->end);
+        assert(off == closer->end);
 
         md_resolve_range(ctx, mark_index, mark_index+1);
         opener->end = closer->end;
@@ -4178,8 +4167,8 @@ md_split_emph_mark(MD_CTX* ctx, int mark_index, SZ n)
     int new_mark_index = mark_index + (mark->end - mark->beg - n);
     MD_MARK* dummy = &ctx->marks[new_mark_index];
 
-    MD_ASSERT(mark->end - mark->beg > n);
-    MD_ASSERT(dummy->ch == 'D');
+    assert(mark->end - mark->beg > n);
+    assert(dummy->ch == 'D');
 
     memcpy(dummy, mark, sizeof(MD_MARK));
     mark->end -= n;
@@ -4522,11 +4511,11 @@ md_analyze_permissive_autolink(MD_CTX* ctx, int mark_index)
     MD_MARK* left_cursor = opener;
     MD_MARK* right_cursor = opener;
 
-    MD_ASSERT(closer->ch == 'D');
+    assert(closer->ch == 'D');
 
     /* E-mail requires the user name (before '@', i.e. scanning backwards). */
     if(opener->ch == '@') {
-        MD_ASSERT(CH(opener->beg) == _T('@'));
+        assert(CH(opener->beg) == _T('@'));
         if(md_analyze_permissive_autolink_segment(ctx, beg, line_beg, &beg, true,
                 _T('\0'), NULL, _T(".-_+"), &left_cursor) < 1)
             return;
@@ -4622,7 +4611,7 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
             if((mark->flags & MD_MARK_OPENER)  &&
                (noskip_mark_chars == NULL || !(ISANYOF_(mark->ch, noskip_mark_chars))))
             {
-                MD_ASSERT(i < mark->next);
+                assert(i < mark->next);
                 i = mark->next + 1;
             } else {
                 i++;
@@ -4694,7 +4683,7 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table
 
     if(table_mode) {
         /* (2) Analyze table cell boundaries. */
-        MD_ASSERT(n_lines == 1);
+        assert(n_lines == 1);
         ctx->n_table_cell_boundaries = 0;
         for(i = 0; i < ctx->n_marks; i++) {
             MD_MARK* mark = &ctx->marks[i];
@@ -4998,8 +4987,8 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
                      * is guaranteed to be skipped by the off-advance below. */
                     if(opener->flags & MD_MARK_BRACKET_FOOTNOTEREF) {
                         MD_MARK* index_mark = (MD_MARK*) opener + 1;
-                        MD_ASSERT(mark->ch != ']');
-                        MD_ASSERT(index_mark->ch == 'D');
+                        assert(mark->ch != ']');
+                        assert(index_mark->ch == 'D');
                         MD_CHECK(md_enter_leave_span_footnote_ref(ctx,
                                       (unsigned int) index_mark->beg,
                                       (unsigned int) index_mark->end,
@@ -5031,9 +5020,9 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
                     }
 
                     dest_mark = opener+1;
-                    MD_ASSERT(dest_mark->ch == 'D');
+                    assert(dest_mark->ch == 'D');
                     title_mark = opener+2;
-                    MD_ASSERT(title_mark->ch == 'D');
+                    assert(title_mark->ch == 'D');
 
                     MD_CHECK(md_enter_leave_span_a(ctx, (mark->ch != ']'),
                                 (opener->ch == '!' ? MD_SPAN_IMG : MD_SPAN_A),
@@ -5127,9 +5116,9 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
                 break;
 
             if(text_type == MD_TEXT_CODE || text_type == MD_TEXT_LATEXMATH) {
-                MD_ASSERT(prev_mark != NULL);
-                MD_ASSERT(ISANYOF2_(prev_mark->ch, '`', '$')  &&  (prev_mark->flags & MD_MARK_OPENER));
-                MD_ASSERT(ISANYOF2_(mark->ch, '`', '$')  &&  (mark->flags & MD_MARK_CLOSER));
+                assert(prev_mark != NULL);
+                assert(ISANYOF2_(prev_mark->ch, '`', '$')  &&  (prev_mark->flags & MD_MARK_OPENER));
+                assert(ISANYOF2_(mark->ch, '`', '$')  &&  (mark->flags & MD_MARK_CLOSER));
 
                 /* Inside a code span, trailing line whitespace has to be
                  * outputted. */
@@ -5307,7 +5296,7 @@ md_process_table_block_contents(MD_CTX* ctx, int col_count, const MD_LINE* lines
 
     /* At least two lines have to be present: The column headers and the line
      * with the underlines. */
-    MD_ASSERT(n_lines >= 2);
+    assert(n_lines >= 2);
 
     align = malloc(col_count * sizeof(MD_ALIGN));
     if(align == NULL) {
@@ -5412,7 +5401,7 @@ md_process_verbatim_block_contents(MD_CTX* ctx, MD_TEXTTYPE text_type, const MD_
         const MD_VERBATIMLINE* line = &lines[line_index];
         int indent = line->indent;
 
-        MD_ASSERT(indent >= 0);
+        assert(indent >= 0);
 
         /* Output code indentation. */
         while(indent > (int) indent_chunk_size) {
@@ -5753,7 +5742,7 @@ md_start_new_block(MD_CTX* ctx, const MD_LINE_ANALYSIS* line)
 {
     MD_BLOCK* block;
 
-    MD_ASSERT(ctx->current_block == NULL);
+    assert(ctx->current_block == NULL);
 
     block = (MD_BLOCK*) md_push_block_bytes(ctx, sizeof(MD_BLOCK));
     if(block == NULL)
@@ -5923,7 +5912,7 @@ abort:
 static int
 md_add_line_into_current_block(MD_CTX* ctx, const MD_LINE_ANALYSIS* analysis)
 {
-    MD_ASSERT(ctx->current_block != NULL);
+    assert(ctx->current_block != NULL);
 
     if(ctx->current_block->type == MD_BLOCK_CODE || ctx->current_block->type == MD_BLOCK_HTML) {
         MD_VERBATIMLINE* line;
@@ -6708,7 +6697,7 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
 
                 html_block_type = md_is_html_block_end_condition(ctx, off, &off);
                 if(html_block_type > 0) {
-                    MD_ASSERT(html_block_type == ctx->html_block_type);
+                    assert(html_block_type == ctx->html_block_type);
 
                     /* Make sure this is the last line of the block. */
                     ctx->html_block_type = 0;
@@ -7034,7 +7023,7 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
 
     /* Enter any container we found a mark for. */
     if(n_brothers > 0) {
-        MD_ASSERT(n_brothers == 1);
+        assert(n_brothers == 1);
         MD_CHECK(md_push_container_bytes(ctx, MD_BLOCK_LI,
                     ctx->containers[n_parents].task_mark_off,
                     (ctx->containers[n_parents].is_task ? CH(ctx->containers[n_parents].task_mark_off) : 0),
@@ -7115,7 +7104,7 @@ md_process_line(MD_CTX* ctx, const MD_LINE_ANALYSIS** p_pivot_line, MD_LINE_ANAL
 
     /* MD_LINE_SETEXTUNDERLINE changes meaning of the current block and ends it. */
     if(line->type == MD_LINE_SETEXTUNDERLINE) {
-        MD_ASSERT(ctx->current_block != NULL);
+        assert(ctx->current_block != NULL);
         ctx->current_block->type = MD_BLOCK_H;
         ctx->current_block->data = line->data;
         ctx->current_block->flags |= MD_BLOCK_SETEXT_HEADER;
@@ -7134,11 +7123,11 @@ md_process_line(MD_CTX* ctx, const MD_LINE_ANALYSIS** p_pivot_line, MD_LINE_ANAL
 
     /* MD_LINE_TABLEUNDERLINE changes meaning of the current block. */
     if(line->type == MD_LINE_TABLEUNDERLINE) {
-        MD_ASSERT(ctx->current_block != NULL);
-        MD_ASSERT(ctx->current_block->n_lines == 1);
+        assert(ctx->current_block != NULL);
+        assert(ctx->current_block->n_lines == 1);
         ctx->current_block->type = MD_BLOCK_TABLE;
         ctx->current_block->data = line->data;
-        MD_ASSERT(pivot_line != &md_dummy_blank_line);
+        assert(pivot_line != &md_dummy_blank_line);
         ((MD_LINE_ANALYSIS*)pivot_line)->type = MD_LINE_TABLE;
         MD_CHECK(md_add_line_into_current_block(ctx, line));
         return 0;
