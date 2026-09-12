@@ -2018,6 +2018,26 @@ struct MD_FOOTNOTE_DEF_tag {
     MD_SIZE n_content_lines;
 };
 
+static int
+md_is_footnote_label(MD_CTX* ctx, OFF beg, OFF* p_end)
+{
+    OFF end = beg;
+
+    /* No whitespace, no nested square brackets and length below 75 characters.
+     * See https://github.com/mity/md4c/issues/380 */
+    while(end < ctx->size  &&  end - beg <= 75  &&
+            !ISWHITESPACE(end)  &&  !ISANYOF2(end, _T('['), _T(']')))
+        end++;
+
+    if(end - beg > 0  &&  end < ctx->size  &&  CH(end) == _T(']')) {
+        if(p_end != NULL)
+            *p_end = end;
+        return true;
+    } else {
+        return false;
+    }
+}
+
 /* Returns 0 if not a footnote definition.
  * Returns N > 0 (number of lines consumed) if it is one and the definition
  * was stored successfully.
@@ -2040,13 +2060,10 @@ md_is_footnote_definition(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
     MD_ASSERT(CH(off) == _T('[')  &&  CH(off+1) == _T('^'));
     off += 2;
 
-    /* Label: non-empty sequence of non-whitespace, non-bracket chars. */
     label_beg = off;
-    while(off < lines[0].end  &&  CH(off) != _T(']')  &&  !ISWHITESPACE(off)  &&  CH(off) != _T('['))
-        off++;
-    label_end = off;
-    if(label_end == label_beg)
+    if(!md_is_footnote_label(ctx, label_beg, &off))
         return false;
+    label_end = off;
 
     /* Closing bracket. */
     if(off >= lines[0].end  ||  CH(off) != _T(']'))
@@ -3860,13 +3877,12 @@ md_resolve_bracket_footnote(MD_CTX* ctx, MD_MARK* opener, MD_MARK* closer,
 
     /* Expand the opener to eat the '^' */
     opener->end++;
-
     closer = &ctx->marks[opener->next];
 
-    /* Label is the raw text between the opener end and the closer begin.
-     * opener->end points past [^, closer->beg points to ]. */
+    /* Verify the label satisfies the label rules. */
     label_beg = opener->end;
-    label_end = closer->beg;
+    if(!md_is_footnote_label(ctx, label_beg, &label_end)  ||  label_end != closer->beg)
+        return false;
 
     if(label_beg >= label_end)
         return false;   /* empty label */
