@@ -12,7 +12,7 @@ endif()
 
 if(NOT IDF_TARGET)
     project(MD4C
-        VERSION "0.5.3"
+        VERSION "0.6.0"
         HOMEPAGE_URL "https://github.com/mity/md4c"
         LANGUAGES C
     )
