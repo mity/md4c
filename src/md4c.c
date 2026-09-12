@@ -3528,21 +3528,22 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table_m
                 continue;
             }
 
-            /* A potential spoiler delimiter: || ... ||
-             * Checked before the single-| handler so a double pipe is consumed
-             * as one mark and does not become two cell boundaries. */
-            if(ch == _T('|') && (ctx->parser.flags & MD_FLAG_SPOILERS)) {
-                if(off + 1 < line->end && CH(off+1) == _T('|')) {
-                    ADD_MARK(ch, off, off+2, MD_MARK_POTENTIAL_OPENER | MD_MARK_POTENTIAL_CLOSER);
-                    off += 2;
-                    continue;
-                }
-            }
-
-            /* A potential table cell boundary or wiki link label delimiter. */
-            if((table_mode || (ctx->parser.flags & MD_FLAG_WIKILINKS)) && ch == _T('|')) {
-                ADD_MARK(ch, off, off+1, 0);
-                off++;
+            /* We may need pipes for tables (cell delimiter), for wiki-links
+             * Note we coalesce spans of pipes into a single mark.
+             *
+             *  - Tables may use spans of any length.
+             *  - Wiki-links use only (unresolved) spans of length 1.
+             *  - Spoilers use use only (unresolved) spans of length 2.
+             */
+            if(ch == _T('|')) {
+                OFF tmp = off + 1;
+                while(tmp < line->end  &&  CH(tmp) == _T('|'))
+                    tmp++;
+                if(table_mode  ||
+                   (tmp - off == 1 && (ctx->parser.flags & MD_FLAG_WIKILINKS))  ||
+                   (tmp - off == 2 && (ctx->parser.flags & MD_FLAG_SPOILERS)))
+                    ADD_MARK(ch, off, tmp, MD_MARK_POTENTIAL_OPENER | MD_MARK_POTENTIAL_CLOSER);
+                off = tmp;
                 continue;
             }
 
@@ -3791,7 +3792,7 @@ md_resolve_bracket_wikilink(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
     delim_index = opener_index + 1;
     while(delim_index < closer_index) {
         MD_MARK* m = &ctx->marks[delim_index];
-        if(m->ch == _T('|')) {
+        if(m->ch == _T('|')  &&  m->end - m->beg == 1  &&  !(m->flags & MD_MARK_RESOLVED)) {
             delim = m;
             break;
         }
@@ -4156,6 +4157,13 @@ static void
 md_analyze_table_cell_boundary(MD_CTX* ctx, int mark_index)
 {
     MD_MARK* mark = &ctx->marks[mark_index];
+
+    /* FIXME: With MD_FLAG_SPOILERS, we reserve double "||" for spoiler marks
+     * (potentially inside the table). But is it worth it the incompatibility
+     * with GFM? Perhaps it would be better to disallow spoilers in a table? */
+    if((ctx->parser.flags & MD_FLAG_SPOILERS) && mark->end - mark->beg == 2)
+        return;
+
     mark->flags |= MD_MARK_RESOLVED;
     mark->next = -1;
 
@@ -4164,7 +4172,7 @@ md_analyze_table_cell_boundary(MD_CTX* ctx, int mark_index)
     else
         ctx->marks[ctx->table_cell_boundaries_tail].next = mark_index;
     ctx->table_cell_boundaries_tail = mark_index;
-    ctx->n_table_cell_boundaries++;
+    ctx->n_table_cell_boundaries += mark->end - mark->beg;
 }
 
 /* Split a longer mark into two. The new mark takes the given count of
@@ -4325,8 +4333,8 @@ md_analyze_spoiler(MD_CTX* ctx, int mark_index)
 {
     MD_MARK* mark = &ctx->marks[mark_index];
 
-    /* Only "||" are recognized as spiler marks. */
-    if(mark->end - mark->beg != 2)
+    /* Only double "||" are recognized as spoiler marks. */
+    if((mark->flags & MD_MARK_RESOLVED)  ||  mark->end - mark->beg != 2)
         return;
 
     if((mark->flags & MD_MARK_POTENTIAL_CLOSER)  &&  PIPE_OPENERS.top >= 0) {
@@ -4697,9 +4705,7 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table
         MD_ASSERT(n_lines == 1);
         ctx->n_table_cell_boundaries = 0;
         for(i = 0; i < ctx->n_marks; i++) {
-            MD_MARK* mark = &ctx->marks[i];
-            if(!(mark->flags & MD_MARK_RESOLVED) &&
-               mark->ch == '|' && mark->end - mark->beg == 1)
+            if(!(ctx->marks[i].flags & MD_MARK_RESOLVED)  &&  ctx->marks[i].ch == '|')
                 md_analyze_table_cell_boundary(ctx, i);
         }
         return ret;
@@ -5248,9 +5254,10 @@ md_process_table_row(MD_CTX* ctx, MD_BLOCKTYPE cell_type, OFF beg, OFF end,
                      const MD_ALIGN* align, int col_count)
 {
     MD_LINE line;
-    OFF* pipe_offs = NULL;
+    OFF* cell_begs = NULL;
     int i, j, k, n;
     int ret = 0;
+    MD_MARK* mark = NULL;
 
     line.beg = beg;
     line.end = end;
@@ -5262,35 +5269,38 @@ md_process_table_row(MD_CTX* ctx, MD_BLOCKTYPE cell_type, OFF beg, OFF end,
     /* We have to remember the cell boundaries in local buffer because
      * ctx->marks[] shall be reused during cell contents processing. */
     n = ctx->n_table_cell_boundaries + 2;
-    pipe_offs = (OFF*) malloc(n * sizeof(OFF));
-    if(pipe_offs == NULL) {
+    cell_begs = (OFF*) malloc(n * sizeof(OFF));
+    if(cell_begs == NULL) {
         MD_LOG("malloc() failed.");
         ret = -1;
         goto abort;
     }
     j = 0;
-    pipe_offs[j++] = beg;
+
+    /* First cell of the row may or may not be started with '|'. */
+    if(ctx->table_cell_boundaries_head < 0  ||
+       ctx->marks[ctx->table_cell_boundaries_head].beg > beg)
+        cell_begs[j++] = beg;
     for(i = ctx->table_cell_boundaries_head; i >= 0; i = ctx->marks[i].next) {
-        MD_MARK* mark = &ctx->marks[i];
-        pipe_offs[j++] = mark->end;
+        mark = &ctx->marks[i];
+        for(k = 0; k < (int)(mark->end - mark->beg); k++)
+            cell_begs[j++] = mark->beg + k + 1;
     }
-    pipe_offs[j++] = end+1;
+    if(mark == NULL || mark->end < end)
+        cell_begs[j++] = end+1;
 
     /* Process cells. */
     MD_ENTER_BLOCK(MD_BLOCK_TR, NULL);
-    k = 0;
-    for(i = 0; i < j-1  &&  k < col_count; i++) {
-        if(pipe_offs[i] < pipe_offs[i+1]-1)
-            MD_CHECK(md_process_table_cell(ctx, cell_type, align[k++], pipe_offs[i], pipe_offs[i+1]-1));
-    }
-    /* Make sure we call enough table cells even if the current table contains
+    for(i = 0; i < j-1 && i < col_count; i++)
+        MD_CHECK(md_process_table_cell(ctx, cell_type, align[i], cell_begs[i], cell_begs[i+1]-1));
+    /* Make sure we report enough table cells even if the current table contains
      * too few of them. */
-    while(k < col_count)
-        MD_CHECK(md_process_table_cell(ctx, cell_type, align[k++], 0, 0));
+    while(i < col_count)
+        MD_CHECK(md_process_table_cell(ctx, cell_type, align[i++], 0, 0));
     MD_LEAVE_BLOCK(MD_BLOCK_TR, NULL);
 
 abort:
-    free(pipe_offs);
+    free(cell_begs);
 
     ctx->table_cell_boundaries_head = -1;
     ctx->table_cell_boundaries_tail = -1;

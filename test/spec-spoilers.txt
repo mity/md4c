@@ -234,12 +234,22 @@ line spoiler</x-spoiler></p>
 
 ## Empty spoiler
 
-Two consecutive `||` pairs produce an empty spoiler span:
+Only `||` (spans of length 2) are recognzied as spoiler marks:
 
 ```````````````````````````````` example
 ||||
 .
-<p><x-spoiler></x-spoiler></p>
+<p>||||</p>
+.
+--fspoilers
+````````````````````````````````
+
+But escaped `|` does not count:
+
+```````````````````````````````` example
+||\|||
+.
+<p><x-spoiler>|</x-spoiler></p>
 .
 --fspoilers
 ````````````````````````````````
@@ -335,6 +345,16 @@ Nested block quotes:
 
 ### Tables (requires `MD_FLAG_TABLES`)
 
+> [!WARNING] Consider this experimental feature for now, which can possibly
+> be removed as it creates incompatibility with Github Flavored Markdown (GFM)
+> tables.
+>
+> GFM does not support spoilers at all, and double `||` inside a table means
+> an empty cell (or even longer spans, e.g. `|||||`, mean multiple empty cells).
+>
+> If this proves to be too problematic, we might disallow spoilers in a table
+> in future MD4C versions.
+
 A spoiler inside a table cell:
 
 ```````````````````````````````` example
@@ -360,40 +380,71 @@ A spoiler inside a table cell:
 --fspoilers --ftables
 ````````````````````````````````
 
-Spoiler parsing must not interfere with table cell boundary detection:
+Without the spoiler extension enabled, the GFM-compatible table behavior is
+retained:
 
 ```````````````````````````````` example
-x
-|-
-||||||||||
+| A | B | C | D | E |
+|---|---|---|---|---|
+| a     ||c||     e |
 .
 <table>
 <thead>
 <tr>
-<th>x</th>
+<th>A</th>
+<th>B</th>
+<th>C</th>
+<th>D</th>
+<th>E</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><x-spoiler></x-spoiler><x-spoiler></x-spoiler>||</td>
+<td>a</td>
+<td></td>
+<td>c</td>
+<td></td>
+<td>e</td>
 </tr>
 </tbody>
 </table>
 .
---fspoilers --github
+--ftables
 ````````````````````````````````
-
 
 ## Interaction with other extensions
 
-### Wiki links (requires `MD_FLAG_WIKILINKS`)
+### Wiki-links (requires `MD_FLAG_WIKILINKS`)
 
-A spoiler inside the display portion of a wiki link:
+It's possible to use spoilers inside the wiki-link label:
 
 ```````````````````````````````` example
 [[target|display with ||spoiler||]]
 .
 <p><x-wikilink data-target="target">display with <x-spoiler>spoiler</x-spoiler></x-wikilink></p>
+.
+--fspoilers --fwiki-links
+````````````````````````````````
+
+A wiki-link extension may use only single '|' as the optional delimiter between
+the destination and the label so the first `||` is ignored for the purpose:
+
+```````````````````````````````` example
+[[a||b|label with ||spoiler||]]
+.
+<p><x-wikilink data-target="a||b">label with <x-spoiler>spoiler</x-spoiler></x-wikilink></p>
+.
+--fspoilers --fwiki-links
+````````````````````````````````
+To avoid ambiguity, it's not possible to chain the wiki-link delimiter and
+spoiler marks, so this does not form correct spoiler inside a wiki-link but
+a wiki-link without explicit label (i.e. where all contents between `[[` and
+`]]` forms both the destination and the label:
+
+```````````````````````````````` example
+[[dest|||spoiler||]]
+.
+<p><x-wikilink data-target="dest|||spoiler||">dest|||spoiler||</x-wikilink></p>
 .
 --fspoilers --fwiki-links
 ````````````````````````````````
