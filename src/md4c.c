@@ -2010,6 +2010,26 @@ struct MD_FOOTNOTE_DEF_tag {
     MD_SIZE n_content_lines;
 };
 
+static int
+md_is_footnote_label(MD_CTX* ctx, OFF beg, OFF* p_end)
+{
+    OFF end = beg;
+
+    /* No whitespace, no nested square brackets and length below 75 characters.
+     * See https://github.com/mity/md4c/issues/380 */
+    while(end < ctx->size  &&  end - beg <= 75  &&
+            !ISWHITESPACE(end)  &&  !ISANYOF2(end, _T('['), _T(']')))
+        end++;
+
+    if(end - beg > 0  &&  end < ctx->size  &&  CH(end) == _T(']')) {
+        if(p_end != NULL)
+            *p_end = end;
+        return true;
+    } else {
+        return false;
+    }
+}
+
 /* Returns 0 if not a footnote definition.
  * Returns N > 0 (number of lines consumed) if it is one and the definition
  * was stored successfully.
@@ -2032,13 +2052,10 @@ md_is_footnote_definition(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
     assert(CH(off) == _T('[')  &&  CH(off+1) == _T('^'));
     off += 2;
 
-    /* Label: non-empty sequence of non-whitespace, non-bracket chars. */
     label_beg = off;
-    while(off < lines[0].end  &&  CH(off) != _T(']')  &&  !ISWHITESPACE(off)  &&  CH(off) != _T('['))
-        off++;
-    label_end = off;
-    if(label_end == label_beg)
+    if(!md_is_footnote_label(ctx, label_beg, &off))
         return false;
+    label_end = off;
 
     /* Closing bracket. */
     if(off >= lines[0].end  ||  CH(off) != _T(']'))
@@ -3520,21 +3537,22 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table_m
                 continue;
             }
 
-            /* A potential spoiler delimiter: || ... ||
-             * Checked before the single-| handler so a double pipe is consumed
-             * as one mark and does not become two cell boundaries. */
-            if(ch == _T('|') && (ctx->parser.flags & MD_FLAG_SPOILERS)) {
-                if(off + 1 < line->end && CH(off+1) == _T('|')) {
-                    ADD_MARK(ch, off, off+2, MD_MARK_POTENTIAL_OPENER | MD_MARK_POTENTIAL_CLOSER);
-                    off += 2;
-                    continue;
-                }
-            }
-
-            /* A potential table cell boundary or wiki link label delimiter. */
-            if((table_mode || (ctx->parser.flags & MD_FLAG_WIKILINKS)) && ch == _T('|')) {
-                ADD_MARK(ch, off, off+1, 0);
-                off++;
+            /* We may need pipes for tables (cell delimiter), for wiki-links
+             * Note we coalesce spans of pipes into a single mark.
+             *
+             *  - Tables may use spans of any length.
+             *  - Wiki-links use only (unresolved) spans of length 1.
+             *  - Spoilers use use only (unresolved) spans of length 2.
+             */
+            if(ch == _T('|')) {
+                OFF tmp = off + 1;
+                while(tmp < line->end  &&  CH(tmp) == _T('|'))
+                    tmp++;
+                if(table_mode  ||
+                   (tmp - off == 1 && (ctx->parser.flags & MD_FLAG_WIKILINKS))  ||
+                   (tmp - off == 2 && (ctx->parser.flags & MD_FLAG_SPOILERS)))
+                    ADD_MARK(ch, off, tmp, MD_MARK_POTENTIAL_OPENER | MD_MARK_POTENTIAL_CLOSER);
+                off = tmp;
                 continue;
             }
 
@@ -3783,7 +3801,7 @@ md_resolve_bracket_wikilink(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
     delim_index = opener_index + 1;
     while(delim_index < closer_index) {
         MD_MARK* m = &ctx->marks[delim_index];
-        if(m->ch == _T('|')) {
+        if(m->ch == _T('|')  &&  m->end - m->beg == 1  &&  !(m->flags & MD_MARK_RESOLVED)) {
             delim = m;
             break;
         }
@@ -3852,13 +3870,12 @@ md_resolve_bracket_footnote(MD_CTX* ctx, MD_MARK* opener, MD_MARK* closer,
 
     /* Expand the opener to eat the '^' */
     opener->end++;
-
     closer = &ctx->marks[opener->next];
 
-    /* Label is the raw text between the opener end and the closer begin.
-     * opener->end points past [^, closer->beg points to ]. */
+    /* Verify the label satisfies the label rules. */
     label_beg = opener->end;
-    label_end = closer->beg;
+    if(!md_is_footnote_label(ctx, label_beg, &label_end)  ||  label_end != closer->beg)
+        return false;
 
     if(label_beg >= label_end)
         return false;   /* empty label */
@@ -4148,6 +4165,13 @@ static void
 md_analyze_table_cell_boundary(MD_CTX* ctx, int mark_index)
 {
     MD_MARK* mark = &ctx->marks[mark_index];
+
+    /* FIXME: With MD_FLAG_SPOILERS, we reserve double "||" for spoiler marks
+     * (potentially inside the table). But is it worth it the incompatibility
+     * with GFM? Perhaps it would be better to disallow spoilers in a table? */
+    if((ctx->parser.flags & MD_FLAG_SPOILERS) && mark->end - mark->beg == 2)
+        return;
+
     mark->flags |= MD_MARK_RESOLVED;
     mark->next = -1;
 
@@ -4156,7 +4180,7 @@ md_analyze_table_cell_boundary(MD_CTX* ctx, int mark_index)
     else
         ctx->marks[ctx->table_cell_boundaries_tail].next = mark_index;
     ctx->table_cell_boundaries_tail = mark_index;
-    ctx->n_table_cell_boundaries++;
+    ctx->n_table_cell_boundaries += mark->end - mark->beg;
 }
 
 /* Split a longer mark into two. The new mark takes the given count of
@@ -4317,8 +4341,8 @@ md_analyze_spoiler(MD_CTX* ctx, int mark_index)
 {
     MD_MARK* mark = &ctx->marks[mark_index];
 
-    /* Only "||" are recognized as spiler marks. */
-    if(mark->end - mark->beg != 2)
+    /* Only double "||" are recognized as spoiler marks. */
+    if((mark->flags & MD_MARK_RESOLVED)  ||  mark->end - mark->beg != 2)
         return;
 
     if((mark->flags & MD_MARK_POTENTIAL_CLOSER)  &&  PIPE_OPENERS.top >= 0) {
@@ -4689,9 +4713,7 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table
         assert(n_lines == 1);
         ctx->n_table_cell_boundaries = 0;
         for(i = 0; i < ctx->n_marks; i++) {
-            MD_MARK* mark = &ctx->marks[i];
-            if(!(mark->flags & MD_MARK_RESOLVED) &&
-               mark->ch == '|' && mark->end - mark->beg == 1)
+            if(!(ctx->marks[i].flags & MD_MARK_RESOLVED)  &&  ctx->marks[i].ch == '|')
                 md_analyze_table_cell_boundary(ctx, i);
         }
         return ret;
@@ -5236,9 +5258,10 @@ md_process_table_row(MD_CTX* ctx, MD_BLOCKTYPE cell_type, OFF beg, OFF end,
                      const MD_ALIGN* align, int col_count)
 {
     MD_LINE line;
-    OFF* pipe_offs = NULL;
+    OFF* cell_begs = NULL;
     int i, j, k, n;
     int ret = 0;
+    MD_MARK* mark = NULL;
 
     line.beg = beg;
     line.end = end;
@@ -5250,35 +5273,38 @@ md_process_table_row(MD_CTX* ctx, MD_BLOCKTYPE cell_type, OFF beg, OFF end,
     /* We have to remember the cell boundaries in local buffer because
      * ctx->marks[] shall be reused during cell contents processing. */
     n = ctx->n_table_cell_boundaries + 2;
-    pipe_offs = (OFF*) malloc(n * sizeof(OFF));
-    if(pipe_offs == NULL) {
+    cell_begs = (OFF*) malloc(n * sizeof(OFF));
+    if(cell_begs == NULL) {
         MD_LOG("malloc() failed.");
         ret = -1;
         goto abort;
     }
     j = 0;
-    pipe_offs[j++] = beg;
+
+    /* First cell of the row may or may not be started with '|'. */
+    if(ctx->table_cell_boundaries_head < 0  ||
+       ctx->marks[ctx->table_cell_boundaries_head].beg > beg)
+        cell_begs[j++] = beg;
     for(i = ctx->table_cell_boundaries_head; i >= 0; i = ctx->marks[i].next) {
-        MD_MARK* mark = &ctx->marks[i];
-        pipe_offs[j++] = mark->end;
+        mark = &ctx->marks[i];
+        for(k = 0; k < (int)(mark->end - mark->beg); k++)
+            cell_begs[j++] = mark->beg + k + 1;
     }
-    pipe_offs[j++] = end+1;
+    if(mark == NULL || mark->end < end)
+        cell_begs[j++] = end+1;
 
     /* Process cells. */
     MD_ENTER_BLOCK(MD_BLOCK_TR, NULL);
-    k = 0;
-    for(i = 0; i < j-1  &&  k < col_count; i++) {
-        if(pipe_offs[i] < pipe_offs[i+1]-1)
-            MD_CHECK(md_process_table_cell(ctx, cell_type, align[k++], pipe_offs[i], pipe_offs[i+1]-1));
-    }
-    /* Make sure we call enough table cells even if the current table contains
+    for(i = 0; i < j-1 && i < col_count; i++)
+        MD_CHECK(md_process_table_cell(ctx, cell_type, align[i], cell_begs[i], cell_begs[i+1]-1));
+    /* Make sure we report enough table cells even if the current table contains
      * too few of them. */
-    while(k < col_count)
-        MD_CHECK(md_process_table_cell(ctx, cell_type, align[k++], 0, 0));
+    while(i < col_count)
+        MD_CHECK(md_process_table_cell(ctx, cell_type, align[i++], 0, 0));
     MD_LEAVE_BLOCK(MD_BLOCK_TR, NULL);
 
 abort:
-    free(pipe_offs);
+    free(cell_begs);
 
     ctx->table_cell_boundaries_head = -1;
     ctx->table_cell_boundaries_tail = -1;
@@ -5802,6 +5828,7 @@ md_consume_link_reference_definitions(MD_CTX* ctx)
     MD_LINE* lines = (MD_LINE*) (ctx->current_block + 1);
     MD_SIZE n_lines = ctx->current_block->n_lines;
     MD_SIZE n = 0;
+    bool inject_hr = false;
     OFF ignored;
 
     while(n < n_lines) {
@@ -5835,18 +5862,11 @@ md_consume_link_reference_definitions(MD_CTX* ctx)
     if(n == 0)
         return 0;
 
-    /* Dirty hack: We may need to turn the first line after the link ref. defs
-     * into a thematic break (https://github.com/mity/md4c/issues/414) */
+    /* We may need to turn the first line after the link ref. def(s) into HR.
+     * (https://github.com/mity/md4c/issues/414) */
     if(n < n_lines  &&  md_is_hr_line(ctx, lines[n].beg, &ignored, &ignored)) {
-        size_t block_size = sizeof(MD_BLOCK) + n_lines * sizeof(MD_LINE);
-
-        if(md_push_block_bytes(ctx, sizeof(MD_BLOCK)) == NULL)
-            return -1;
-        memmove(ctx->current_block, ctx->current_block + 1, block_size);
-        memset(ctx->current_block, 0, sizeof(MD_BLOCK));
-        ctx->current_block->type = MD_BLOCK_HR;
-        ctx->current_block++;
-        n++;
+        inject_hr = true;
+        n++;    /* Remove one more line below. */
     }
 
     if(n == n_lines) {
@@ -5859,6 +5879,24 @@ md_consume_link_reference_definitions(MD_CTX* ctx)
         memmove(lines, lines + n, (n_lines - n) * sizeof(MD_LINE));
         ctx->current_block->n_lines -= n;
         ctx->n_block_bytes -= n * sizeof(MD_LINE);
+    }
+
+    if(inject_hr) {
+        MD_BLOCK* hr_block;
+
+        hr_block = md_push_block_bytes(ctx, sizeof(MD_BLOCK));
+        if(hr_block == NULL)
+            return -1;
+
+        if(ctx->current_block != NULL) {
+            memmove(ctx->current_block + 1, ctx->current_block,
+                    (sizeof(MD_BLOCK) + ctx->current_block->n_lines * sizeof(MD_LINE)));
+            hr_block = ctx->current_block;
+            ctx->current_block++;
+        }
+
+        memset(hr_block, 0, sizeof(MD_BLOCK));
+        hr_block->type = MD_BLOCK_HR;
     }
 
     return 0;
