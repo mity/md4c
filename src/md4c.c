@@ -5830,6 +5830,7 @@ md_consume_link_reference_definitions(MD_CTX* ctx)
     MD_LINE* lines = (MD_LINE*) (ctx->current_block + 1);
     MD_SIZE n_lines = ctx->current_block->n_lines;
     MD_SIZE n = 0;
+    bool inject_hr = false;
     OFF ignored;
 
     while(n < n_lines) {
@@ -5863,18 +5864,11 @@ md_consume_link_reference_definitions(MD_CTX* ctx)
     if(n == 0)
         return 0;
 
-    /* Dirty hack: We may need to turn the first line after the link ref. defs
-     * into a thematic break (https://github.com/mity/md4c/issues/414) */
+    /* We may need to turn the first line after the link ref. def(s) into HR.
+     * (https://github.com/mity/md4c/issues/414) */
     if(n < n_lines  &&  md_is_hr_line(ctx, lines[n].beg, &ignored, &ignored)) {
-        size_t block_size = sizeof(MD_BLOCK) + n_lines * sizeof(MD_LINE);
-
-        if(md_push_block_bytes(ctx, sizeof(MD_BLOCK)) == NULL)
-            return -1;
-        memmove(ctx->current_block, ctx->current_block + 1, block_size);
-        memset(ctx->current_block, 0, sizeof(MD_BLOCK));
-        ctx->current_block->type = MD_BLOCK_HR;
-        ctx->current_block++;
-        n++;
+        inject_hr = true;
+        n++;    /* Remove one more line below. */
     }
 
     if(n == n_lines) {
@@ -5887,6 +5881,24 @@ md_consume_link_reference_definitions(MD_CTX* ctx)
         memmove(lines, lines + n, (n_lines - n) * sizeof(MD_LINE));
         ctx->current_block->n_lines -= n;
         ctx->n_block_bytes -= n * sizeof(MD_LINE);
+    }
+
+    if(inject_hr) {
+        MD_BLOCK* hr_block;
+
+        hr_block = md_push_block_bytes(ctx, sizeof(MD_BLOCK));
+        if(hr_block == NULL)
+            return -1;
+
+        if(ctx->current_block != NULL) {
+            memmove(ctx->current_block + 1, ctx->current_block,
+                    (sizeof(MD_BLOCK) + ctx->current_block->n_lines * sizeof(MD_LINE)));
+            hr_block = ctx->current_block;
+            ctx->current_block++;
+        }
+
+        memset(hr_block, 0, sizeof(MD_BLOCK));
+        hr_block->type = MD_BLOCK_HR;
     }
 
     return 0;
