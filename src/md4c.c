@@ -72,6 +72,7 @@
 #ifdef DEBUG
     #define MD_UNREACHABLE()        assert(1 == 0)
 #else
+    #undef NDEBUG
     #define NDEBUG
     #include <assert.h>
     #ifdef __GNUC__
