@@ -72,6 +72,8 @@
 #ifdef DEBUG
     #define MD_UNREACHABLE()        assert(1 == 0)
 #else
+    #define NDEBUG
+    #include <assert.h>
     #ifdef __GNUC__
         #define MD_UNREACHABLE()    do { __builtin_unreachable(); } while(0)
     #elif defined _MSC_VER  &&  _MSC_VER > 120
