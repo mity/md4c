@@ -1,0 +1,130 @@
+# Heading IDs
+
+With the flag `MD_FLAG_HEADINGIDS`, the HTML renderer adds an `id` attribute
+to every heading (`<h1>` through `<h6>`). The id is derived from the heading
+text: letters are lowercased, only ASCII letters and digits are kept, and
+every run of other characters (whitespace, punctuation, etc.) is replaced
+with a single dash. A trailing dash is trimmed. The id is derived from at
+most the first 64 bytes of heading text; any further text is rendered
+normally but does not contribute to the id.
+
+Deduplication is not performed: if two headings yield the same id, the
+caller is responsible for resolving collisions.
+
+## Basic recognition
+
+```````````````````````````````` example
+# Hello World!
+.
+<h1 id="hello-world">Hello World!</h1>
+.
+--fheading-ids
+````````````````````````````````
+
+All six heading levels receive an id:
+
+```````````````````````````````` example
+# H1
+## H2
+### H3
+#### H4
+##### H5
+###### H6
+.
+<h1 id="h1">H1</h1>
+<h2 id="h2">H2</h2>
+<h3 id="h3">H3</h3>
+<h4 id="h4">H4</h4>
+<h5 id="h5">H5</h5>
+<h6 id="h6">H6</h6>
+.
+--fheading-ids
+````````````````````````````````
+
+## Lowercasing and permitted characters
+
+Letters are lowercased; digits are kept; everything else becomes a dash:
+
+```````````````````````````````` example
+# Mixed CASE 123!
+.
+<h1 id="mixed-case-123">Mixed CASE 123!</h1>
+.
+--fheading-ids
+````````````````````````````````
+
+Runs of whitespace and punctuation collapse to a single dash, and a trailing
+dash is trimmed:
+
+```````````````````````````````` example
+#  leading   spaces   
+.
+<h1 id="leading-spaces">leading   spaces</h1>
+.
+--fheading-ids
+````````````````````````````````
+
+## Input cap
+
+Only the first 64 bytes of heading text contribute to the id; the full
+heading is still rendered:
+
+```````````````````````````````` example
+# A Very Long Heading That Exceeds The Sixty Four Byte Input Cap Limit Easily
+.
+<h1 id="a-very-long-heading-that-exceeds-the-sixty-four-byte-input-cap-l">A Very Long Heading That Exceeds The Sixty Four Byte Input Cap Limit Easily</h1>
+.
+--fheading-ids
+````````````````````````````````
+
+## Inline content
+
+Inline formatting in the heading is rendered normally; the id is derived
+from the visible text:
+
+```````````````````````````````` example
+# **Bold** _italic_ `code`
+.
+<h1 id="bold-italic-code"><strong>Bold</strong> <em>italic</em> <code>code</code></h1>
+.
+--fheading-ids
+````````````````````````````````
+
+## No deduplication
+
+Two headings with the same text produce the same id; collision handling is
+left to the caller:
+
+```````````````````````````````` example
+# Section
+# Section
+.
+<h1 id="section">Section</h1>
+<h1 id="section">Section</h1>
+.
+--fheading-ids
+````````````````````````````````
+
+## Flag required
+
+Without `MD_FLAG_HEADINGIDS`, headings carry no id:
+
+```````````````````````````````` example
+# Hello World!
+.
+<h1>Hello World!</h1>
+.
+````````````````````````````````
+
+## Setext headings
+
+Setext headings also receive an id:
+
+```````````````````````````````` example
+Hello World
+==========
+.
+<h1 id="hello-world">Hello World</h1>
+.
+--fheading-ids
+````````````````````````````````

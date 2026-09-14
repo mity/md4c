@@ -24,6 +24,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "md4c-html.h"
@@ -45,6 +46,11 @@
 
 
 
+/* Maximum number of heading text bytes consumed to build a heading id.
+ * The id is derived from at most this many bytes of the heading; any further
+ * text is rendered normally but does not contribute to the id. */
+#define MD_HEADING_ID_MAX   64
+
 typedef struct MD_HTML_tag MD_HTML;
 struct MD_HTML_tag {
     void (*process_output)(const MD_CHAR*, MD_SIZE, void*);
@@ -52,6 +58,21 @@ struct MD_HTML_tag {
     unsigned flags;
     int image_nesting_level;
     char escape_map[256];
+    /* State for building heading ids (used only with MD_FLAG_HEADINGIDS).
+     * While a heading is open, rendered content is diverted into out_buf so
+     * the opening tag (carrying the id) can be emitted first; on leave the
+     * opening tag, the buffered content and the closing tag are flushed in
+     * order, then out_buf is released. */
+    int heading_capturing;   /* feature enabled (MD_FLAG_HEADINGIDS) */
+    int heading_active;      /* currently inside a heading block */
+    int heading_level;
+    MD_OFFSET heading_text_len;
+    char heading_text[MD_HEADING_ID_MAX];
+    void (*out_sink)(const MD_CHAR*, MD_SIZE, void*);  /* original process_output */
+    void* out_userdata;       /* original userdata */
+    char* out_buf;
+    MD_SIZE out_buf_len;
+    MD_SIZE out_buf_cap;
 };
 
 #define NEED_HTML_ESC_FLAG   0x1
@@ -434,6 +455,92 @@ render_blank_block(MD_HTML* r, const MD_BLOCK_BLANK_DETAIL* det)
         RENDER_VERBATIM(r, (r->flags & MD_HTML_FLAG_XHTML) ? "<br/>\n" : "<br>\n");
 }
 
+/* process_output replacement used while capturing a heading: appends the
+ * rendered content into a growable buffer instead of the real sink. */
+static void
+heading_buf_append(const MD_CHAR* text, MD_SIZE size, void* userdata)
+{
+    MD_HTML* r = (MD_HTML*) userdata;
+
+    if(size == 0)
+        return;
+
+    if(r->out_buf_len + size > r->out_buf_cap) {
+        MD_SIZE new_cap = r->out_buf_cap ? r->out_buf_cap : 256;
+        char* new_buf;
+        while(new_cap < r->out_buf_len + size)
+            new_cap *= 2;
+        new_buf = (char*) realloc(r->out_buf, new_cap);
+        if(new_buf == NULL) {
+            /* On allocation failure, fall back to dropping further content so
+             * we never write past the buffer. The heading id is unaffected. */
+            if(r->out_buf_cap > r->out_buf_len)
+                size = r->out_buf_cap - r->out_buf_len;
+            else
+                return;
+        } else {
+            r->out_buf = new_buf;
+            r->out_buf_cap = new_cap;
+        }
+    }
+
+    memcpy(r->out_buf + r->out_buf_len, text, size);
+    r->out_buf_len += size;
+}
+
+/* Build a heading id from the captured heading text.
+ *
+ * Only ASCII letters and digits are kept; every other byte (space,
+ * punctuation, etc.) is replaced with a single dash. Letters are lowercased.
+ * The id is not escaped: by construction it contains only [a-z0-9-].
+ * Deduplication is left to the caller. */
+static void
+render_heading_open(MD_HTML* r)
+{
+    static const MD_CHAR* head[6] = { "<h1 id=\"", "<h2 id=\"", "<h3 id=\"", "<h4 id=\"", "<h5 id=\"", "<h6 id=\"" };
+    MD_OFFSET i;
+    MD_OFFSET slug_len;
+    char slug[MD_HEADING_ID_MAX];
+    int prev_dash;
+
+    slug_len = 0;
+    prev_dash = 0;
+    for(i = 0; i < r->heading_text_len; i++) {
+        unsigned char ch = (unsigned char) r->heading_text[i];
+
+        if(ISLOWER(ch)) {
+            slug[slug_len++] = (char) ch;
+            prev_dash = 0;
+        } else if(ISUPPER(ch)) {
+            slug[slug_len++] = (char) (ch - ('A' - 'a'));
+            prev_dash = 0;
+        } else if(ISDIGIT(ch)) {
+            slug[slug_len++] = (char) ch;
+            prev_dash = 0;
+        } else if(!prev_dash) {
+            slug[slug_len++] = '-';
+            prev_dash = 1;
+        }
+    }
+
+    /* Trim a trailing dash left by trailing whitespace/punctuation. */
+    if(slug_len > 0  &&  slug[slug_len - 1] == '-')
+        slug_len--;
+
+    /* Restore the real sink and emit: opening tag (with id), buffered content. */
+    r->process_output = r->out_sink;
+    r->userdata = r->out_userdata;
+    RENDER_VERBATIM(r, head[r->heading_level - 1]);
+    render_verbatim(r, slug, (MD_SIZE) slug_len);
+    RENDER_VERBATIM(r, "\">");
+    if(r->out_buf_len > 0)
+        render_verbatim(r, r->out_buf, r->out_buf_len);
+    free(r->out_buf);
+    r->out_buf = NULL;
+    r->out_buf_cap = 0;
+    r->out_buf_len = 0;
+}
+
 static int
 enter_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
 {
@@ -447,7 +554,21 @@ enter_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
         case MD_BLOCK_OL:       render_open_ol_block(r, (const MD_BLOCK_OL_DETAIL*)detail); break;
         case MD_BLOCK_LI:       render_open_li_block(r, (const MD_BLOCK_LI_DETAIL*)detail); break;
         case MD_BLOCK_HR:       RENDER_VERBATIM(r, (r->flags & MD_HTML_FLAG_XHTML) ? "<hr />\n" : "<hr>\n"); break;
-        case MD_BLOCK_H:        RENDER_VERBATIM(r, head[((MD_BLOCK_H_DETAIL*)detail)->level - 1]); break;
+        case MD_BLOCK_H:        if(r->heading_capturing) {
+                                    r->heading_level = (int) ((MD_BLOCK_H_DETAIL*)detail)->level;
+                                    r->heading_text_len = 0;
+                                    r->heading_active = 1;
+                                    r->out_sink = r->process_output;
+                                    r->out_userdata = r->userdata;
+                                    r->process_output = heading_buf_append;
+                                    r->userdata = r;
+                                    r->out_buf = NULL;
+                                    r->out_buf_len = 0;
+                                    r->out_buf_cap = 0;
+                                } else {
+                                    RENDER_VERBATIM(r, head[((MD_BLOCK_H_DETAIL*)detail)->level - 1]);
+                                }
+                                break;
         case MD_BLOCK_CODE:     render_open_code_block(r, (const MD_BLOCK_CODE_DETAIL*) detail); break;
         case MD_BLOCK_HTML:     /* noop */ break;
         case MD_BLOCK_P:        RENDER_VERBATIM(r, "<p>"); break;
@@ -479,7 +600,14 @@ leave_block_callback(MD_BLOCKTYPE type, void* detail, void* userdata)
         case MD_BLOCK_OL:       RENDER_VERBATIM(r, "</ol>\n"); break;
         case MD_BLOCK_LI:       RENDER_VERBATIM(r, "</li>\n"); break;
         case MD_BLOCK_HR:       /*noop*/ break;
-        case MD_BLOCK_H:        RENDER_VERBATIM(r, head[((MD_BLOCK_H_DETAIL*)detail)->level - 1]); break;
+        case MD_BLOCK_H:        if(r->heading_active) {
+                                    render_heading_open(r);
+                                    r->heading_active = 0;
+                                    RENDER_VERBATIM(r, head[((MD_BLOCK_H_DETAIL*)detail)->level - 1]);
+                                } else {
+                                    RENDER_VERBATIM(r, head[((MD_BLOCK_H_DETAIL*)detail)->level - 1]);
+                                }
+                                break;
         case MD_BLOCK_CODE:     RENDER_VERBATIM(r, "</code></pre>\n"); break;
         case MD_BLOCK_HTML:     /* noop */ break;
         case MD_BLOCK_P:        RENDER_VERBATIM(r, "</p>\n"); break;
@@ -582,6 +710,18 @@ text_callback(MD_TEXTTYPE type, const MD_CHAR* text, MD_SIZE size, void* userdat
 {
     MD_HTML* r = (MD_HTML*) userdata;
 
+    /* While inside a heading, mirror its text into the id buffer (up to the
+     * cap). The rendered output is unaffected; this only feeds slugification. */
+    if(r->heading_active  &&  size > 0) {
+        MD_OFFSET n = size;
+        if(n > MD_HEADING_ID_MAX - r->heading_text_len)
+            n = MD_HEADING_ID_MAX - r->heading_text_len;
+        if(n > 0) {
+            memcpy(r->heading_text + r->heading_text_len, text, n);
+            r->heading_text_len += n;
+        }
+    }
+
     switch(type) {
         case MD_TEXT_NULLCHAR:  render_utf8_codepoint(r, 0x0000, render_verbatim); break;
         case MD_TEXT_BR:        RENDER_VERBATIM(r, (r->image_nesting_level == 0
@@ -619,7 +759,7 @@ md_html(const MD_CHAR* input, MD_SIZE input_size,
         void (*process_output)(const MD_CHAR*, MD_SIZE, void*),
         void* userdata, unsigned parser_flags, unsigned renderer_flags)
 {
-    MD_HTML render = { process_output, userdata, renderer_flags, 0, { 0 } };
+    MD_HTML render = { process_output, userdata, renderer_flags, 0, { 0 }, 0, 0, 0, 0, { 0 }, NULL, NULL, NULL, 0, 0 };
     int i;
 
     MD_PARSER parser = {
@@ -633,6 +773,11 @@ md_html(const MD_CHAR* input, MD_SIZE input_size,
         debug_log_callback,
         NULL
     };
+
+    /* Heading ids are a renderer concern but requested via a parser flag, so
+     * that callers use the same MD_FLAG_xxx namespace as other extensions. */
+    if(parser_flags & MD_FLAG_HEADINGIDS)
+        render.heading_capturing = 1;
 
     /* Build map of characters which need escaping. */
     for(i = 0; i < 256; i++) {
@@ -654,5 +799,14 @@ md_html(const MD_CHAR* input, MD_SIZE input_size,
         }
     }
 
-    return md_parse(input, input_size, &parser, (void*) &render);
+    {
+        int rc = md_parse(input, input_size, &parser, (void*) &render);
+        /* If parsing aborted while a heading was still open, its diverted
+         * output buffer would otherwise leak. */
+        if(render.heading_active) {
+            free(render.out_buf);
+            render.out_buf = NULL;
+        }
+        return rc;
+    }
 }
