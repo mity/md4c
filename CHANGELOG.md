@@ -65,12 +65,6 @@ New Features:
 
 Changes:
 
-  * Accept `<video>` as HTML block starting condition (type 6), beyond what
-    the CommonMark specification requires.
-
-    See [the specification](https://spec.commonmark.org/0.31.2/#html-blocks)
-    for more info what it is.
-
   * Permissive autolinks (`MD_FLAG_PERMISSIVExxxAUTOLINKS` flags) have been
     improved in several ways:
      - some more links with non-alphanumeric characters are now recognized,
