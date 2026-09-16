@@ -3654,7 +3654,9 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table_m
                         flags &= ~MD_MARK_POTENTIAL_CLOSER;
                     if(flags != 0)
                         ADD_MARK(ch, off, off + 1, flags);
-                } else if(tmp - off <= 2  &&  (ctx->parser.flags & MD_FLAG_STRIKETHROUGH)) {
+                } else if(tmp - off <= 2  &&  (ctx->parser.flags & MD_FLAG_STRIKETHROUGH)  &&
+                          (tmp - off == 2  ||  !(ctx->parser.flags & MD_FLAG_STRIKETHROUGH_DOUBLE_ONLY)))
+                {
                     /* Strikethrough: standard GFM left/right-flanking rules. */
                     unsigned flags = MD_MARK_POTENTIAL_OPENER | MD_MARK_POTENTIAL_CLOSER;
 
