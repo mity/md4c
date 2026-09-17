@@ -144,7 +144,7 @@ typedef enum MD_SPANTYPE {
      * Detail: Structure MD_SPAN_IMG_DETAIL.
      * Note: Image text can contain nested spans and even nested images.
      * If rendered into ALT attribute of HTML <IMG> tag, it's responsibility
-     * of the parser to deal with it.
+     * of the caller to deal with it.
      */
     MD_SPAN_IMG,
 
@@ -281,7 +281,7 @@ typedef enum MD_ALIGN {
  *  -- substr_offsets[0] == 0
  *  -- substr_offsets[LAST+1] == size
  *  -- Currently, only MD_TEXT_NORMAL, MD_TEXT_ENTITY, MD_TEXT_NULLCHAR
- *     substrings can appear. This could change only of the specification
+ *     substrings can appear. This could change only if the specification
  *     changes.
  */
 typedef struct MD_ATTRIBUTE {
