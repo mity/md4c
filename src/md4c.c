@@ -3564,63 +3564,18 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table_m
                 continue;
             }
 
-            /* A potential superscript start/end: ^text^ */
-            if(ch == _T('^') && (ctx->parser.flags & MD_FLAG_SUPERSCRIPTS)) {
+            /* A potential superscript, highlight, or insert */
+            if(ISANYOF3_(ch, _T('='), _T('+'), _T('^'))) {
                 OFF tmp = off + 1;
 
-                while(tmp < line->end && CH(tmp) == _T('^'))
+                while(tmp < line->end && (CH(tmp) == ch))
                     tmp++;
 
-                /* Only a single caret is a superscript delimiter; longer runs are literal. */
-                if(tmp - off == 1) {
-                    unsigned flags = MD_MARK_POTENTIAL_OPENER | MD_MARK_POTENTIAL_CLOSER;
-
-                    /* Cannot open before whitespace; cannot close after whitespace. */
-                    if(off + 1 >= line->end  ||  ISUNICODEWHITESPACE(off + 1))
-                        flags &= ~MD_MARK_POTENTIAL_OPENER;
-                    if(off == line->beg  ||  ISUNICODEWHITESPACEBEFORE(off))
-                        flags &= ~MD_MARK_POTENTIAL_CLOSER;
-                    if(flags != 0)
-                        ADD_MARK(ch, off, off + 1, flags);
-                }
-
-                off = tmp;
-                continue;
-            }
-
-            /* A potential highlight start/end: ==text== */
-            if(ch == _T('=') && (ctx->parser.flags & MD_FLAG_HIGHLIGHT)) {
-                OFF tmp = off + 1;
-
-                while(tmp < line->end && CH(tmp) == _T('='))
-                    tmp++;
-
-                /* Only exactly two equals signs form a highlight delimiter. */
-                if(tmp - off == 2) {
-                    unsigned flags = MD_MARK_POTENTIAL_OPENER | MD_MARK_POTENTIAL_CLOSER;
-
-                    /* Cannot open before whitespace; cannot close after whitespace. */
-                    if(tmp >= line->end  ||  ISUNICODEWHITESPACE(tmp))
-                        flags &= ~MD_MARK_POTENTIAL_OPENER;
-                    if(off == line->beg  ||  ISUNICODEWHITESPACEBEFORE(off))
-                        flags &= ~MD_MARK_POTENTIAL_CLOSER;
-                    if(flags != 0)
-                        ADD_MARK(ch, off, tmp, flags);
-                }
-
-                off = tmp;
-                continue;
-            }
-
-            /* A potential insert start/end: ++text++ */
-            if(ch == _T('+') && (ctx->parser.flags & MD_FLAG_INSERT)) {
-                OFF tmp = off + 1;
-
-                while(tmp < line->end && CH(tmp) == _T('+'))
-                    tmp++;
-
-                /* Only exactly two plus signs form a insert delimiter. */
-                if(tmp - off == 2) {
+                /* Only a single caret is a superscript.
+                 * Only two equals signs form a highlight.
+                 * Only two plus signs form a insert. */
+                if((ISANYOF2_(ch, _T('='), _T('+')) && (tmp - off == 2))||
+                  ((ch == _T('^')) && (tmp - off == 1))) {
                     unsigned flags = MD_MARK_POTENTIAL_OPENER | MD_MARK_POTENTIAL_CLOSER;
 
                     /* Cannot open before whitespace; cannot close after whitespace. */
