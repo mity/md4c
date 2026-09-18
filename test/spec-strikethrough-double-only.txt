@@ -1,0 +1,87 @@
+
+# Strike-Through (double tilde only)
+
+With the flag `MD_FLAG_STRIKETHROUGH_DOUBLE_ONLY`, MD4C recognizes
+strike-through spans only when they are delimited with two tildes, and a
+single tilde is left as literal text.
+
+The flag is meant for input where a lone `~` is commonly used as a shorthand
+for "approximately". Under the default GFM rules two such tildes in one block
+pair up and strike out everything between them.
+
+```````````````````````````````` example
+Low end: ~$16/month and mid range: ~$32/month.
+.
+<p>Low end: <del>$16/month and mid range: </del>$32/month.</p>
+.
+--fstrikethrough
+````````````````````````````````
+
+With the flag, the same input keeps both tildes:
+
+```````````````````````````````` example
+Low end: ~$16/month and mid range: ~$32/month.
+.
+<p>Low end: ~$16/month and mid range: ~$32/month.</p>
+.
+--fstrikethrough --fstrikethrough-double-only
+````````````````````````````````
+
+Two tildes still delimit a strike-through span:
+
+```````````````````````````````` example
+~~Hi~~ Hello, world!
+.
+<p><del>Hi</del> Hello, world!</p>
+.
+--fstrikethrough --fstrikethrough-double-only
+````````````````````````````````
+
+A single tilde pair does not:
+
+```````````````````````````````` example
+~Hi~ Hello, world!
+.
+<p>~Hi~ Hello, world!</p>
+.
+--fstrikethrough --fstrikethrough-double-only
+````````````````````````````````
+
+Mismatched and over-long tilde runs behave as they do without the flag:
+
+```````````````````````````````` example
+This ~text~~ is curious.
+.
+<p>This ~text~~ is curious.</p>
+.
+--fstrikethrough --fstrikethrough-double-only
+````````````````````````````````
+
+```````````````````````````````` example
+foo ~~~bar~~~
+.
+<p>foo ~~~bar~~~</p>
+.
+--fstrikethrough --fstrikethrough-double-only
+````````````````````````````````
+
+The flag does nothing on its own, without `MD_FLAG_STRIKETHROUGH`:
+
+```````````````````````````````` example
+~~Hi~~ Hello, world!
+.
+<p>~~Hi~~ Hello, world!</p>
+.
+--fstrikethrough-double-only
+````````````````````````````````
+
+Single tildes claimed by `MD_FLAG_SUBSCRIPTS` are unaffected, because
+subscripts are recognized before strike-through:
+
+```````````````````````````````` example
+H~2~O and ~~gone~~
+.
+<p>H<sub>2</sub>O and <del>gone</del></p>
+.
+--fstrikethrough --fstrikethrough-double-only --fsubscripts
+````````````````````````````````

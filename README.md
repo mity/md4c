@@ -141,6 +141,13 @@ extensions:
 * With the flag `MD_FLAG_STRIKETHROUGH`, strike-through spans are enabled
   (text enclosed in tilde marks, e.g. `~~foo bar~~`).
 
+* With the flag `MD_FLAG_STRIKETHROUGH_DOUBLE_ONLY`, strike-through requires
+  two tildes (`~~foo bar~~`) and a single tilde is left as literal text. This
+  is useful for input where a lone `~` commonly means "approximately", such as
+  `~$10 and ~$20`, which GFM rules would otherwise turn into a struck span.
+  The flag has no effect unless `MD_FLAG_STRIKETHROUGH` is also set, and it is
+  ignored for single tildes when `MD_FLAG_SUBSCRIPTS` claims them.
+
 * With the flag `MD_FLAG_SUBSCRIPTS`, subscript spans are enabled
   (text enclosed in single tilde marks, e.g. `H~2~O`). The HTML renderer
   outputs `<sub>`. When used together with `MD_FLAG_STRIKETHROUGH`, single
