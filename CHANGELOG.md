@@ -2,6 +2,20 @@
 # MD4C Change Log
 
 
+## Unreleased
+
+New Features:
+
+  * Add heading ids, enabled with the flag `MD_FLAG_HEADINGIDS`.
+
+    The HTML renderer adds an `id` attribute to every heading (`<h1>` through
+    `<h6>`). The id is derived from the heading text: ASCII letters are
+    lowercased, digits are kept, and every run of other characters is replaced
+    with a single dash (a trailing dash is trimmed). Only the first 64 bytes of
+    heading text contribute to the id; the full heading is still rendered.
+    Deduplication is not performed and is left to the caller.
+
+
 ## Version 0.6.0
 
 New Features:
