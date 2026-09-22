@@ -2849,6 +2849,10 @@ md_opener_stack(MD_CTX* ctx, int mark_index)
 
         case _T('!'):
         case _T('['):   return &BRACKET_OPENERS;
+        case _T('^'):   return &CARET_OPENERS;
+        case _T('|'):   return &PIPE_OPENERS;
+        case _T('='):   return &EQUAL_OPENERS;
+        case _T('+'):   return &PLUS_OPENERS;
 
         default:        MD_UNREACHABLE();
     }
@@ -4232,14 +4236,10 @@ md_analyze_emph(MD_CTX* ctx, int mark_index)
 }
 
 static void
-md_analyze_tilde(MD_CTX* ctx, int mark_index)
+md_analyze_generic(MD_CTX* ctx, int mark_index)
 {
     MD_MARK* mark = &ctx->marks[mark_index];
     MD_MARKSTACK* stack = md_opener_stack(ctx, mark_index);
-
-    /* We attempt to be Github Flavored Markdown compatible here. GFM accepts
-     * only tildes sequences of length 1 and 2, and the length of the opener
-     * and closer has to match. */
 
     if((mark->flags & MD_MARK_POTENTIAL_CLOSER)  &&  stack->top >= 0) {
         int opener_index = stack->top;
@@ -4251,23 +4251,6 @@ md_analyze_tilde(MD_CTX* ctx, int mark_index)
 
     if(mark->flags & MD_MARK_POTENTIAL_OPENER)
         md_mark_stack_push(ctx, stack, mark_index);
-}
-
-static void
-md_analyze_caret(MD_CTX* ctx, int mark_index)
-{
-    MD_MARK* mark = &ctx->marks[mark_index];
-
-    if((mark->flags & MD_MARK_POTENTIAL_CLOSER)  &&  CARET_OPENERS.top >= 0) {
-        int opener_index = CARET_OPENERS.top;
-
-        md_pop_openers(ctx, opener_index);
-        md_resolve_range(ctx, opener_index, mark_index);
-        return;
-    }
-
-    if(mark->flags & MD_MARK_POTENTIAL_OPENER)
-        md_mark_stack_push(ctx, &CARET_OPENERS, mark_index);
 }
 
 static void
@@ -4297,69 +4280,6 @@ md_analyze_dollar(MD_CTX* ctx, int mark_index)
 
     if(mark->flags & MD_MARK_POTENTIAL_OPENER)
         md_mark_stack_push(ctx, &DOLLAR_OPENERS, mark_index);
-}
-
-static void
-md_analyze_spoiler(MD_CTX* ctx, int mark_index)
-{
-    MD_MARK* mark = &ctx->marks[mark_index];
-
-    /* Only double "||" are recognized as spoiler marks. */
-    if((mark->flags & MD_MARK_RESOLVED)  ||  mark->end - mark->beg != 2)
-        return;
-
-    if((mark->flags & MD_MARK_POTENTIAL_CLOSER)  &&  PIPE_OPENERS.top >= 0) {
-        int opener_index = PIPE_OPENERS.top;
-
-        md_pop_openers(ctx, opener_index);
-        md_resolve_range(ctx, opener_index, mark_index);
-        return;
-    }
-
-    if(mark->flags & MD_MARK_POTENTIAL_OPENER)
-        md_mark_stack_push(ctx, &PIPE_OPENERS, mark_index);
-}
-
-static void
-md_analyze_highlight(MD_CTX* ctx, int mark_index)
-{
-    MD_MARK* mark = &ctx->marks[mark_index];
-
-    /* Only "==" is recognized as a highlight mark. */
-    if(mark->end - mark->beg != 2)
-        return;
-
-    if((mark->flags & MD_MARK_POTENTIAL_CLOSER)  &&  EQUAL_OPENERS.top >= 0) {
-        int opener_index = EQUAL_OPENERS.top;
-
-        md_pop_openers(ctx, opener_index);
-        md_resolve_range(ctx, opener_index, mark_index);
-        return;
-    }
-
-    if(mark->flags & MD_MARK_POTENTIAL_OPENER)
-        md_mark_stack_push(ctx, &EQUAL_OPENERS, mark_index);
-}
-
-static void
-md_analyze_insert(MD_CTX* ctx, int mark_index)
-{
-    MD_MARK* mark = &ctx->marks[mark_index];
-
-    /* Only "++" is recognized as a insert mark. */
-    if(mark->end - mark->beg != 2)
-        return;
-
-    if((mark->flags & MD_MARK_POTENTIAL_CLOSER)  &&  PLUS_OPENERS.top >= 0) {
-        int opener_index = PLUS_OPENERS.top;
-
-        md_pop_openers(ctx, opener_index);
-        md_resolve_range(ctx, opener_index, mark_index);
-        return;
-    }
-
-    if(mark->flags & MD_MARK_POTENTIAL_OPENER)
-        md_mark_stack_push(ctx, &PLUS_OPENERS, mark_index);
 }
 
 static MD_MARK*
@@ -4629,15 +4549,15 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
             case '&':   md_analyze_entity(ctx, i); break;
             case '_':   MD_FALLTHROUGH();
             case '*':   md_analyze_emph(ctx, i); break;
-            case '~':   md_analyze_tilde(ctx, i); break;
-            case '^':   md_analyze_caret(ctx, i); break;
+            case '~':   md_analyze_generic(ctx, i); break;
+            case '^':   md_analyze_generic(ctx, i); break;
             case '$':   md_analyze_dollar(ctx, i); break;
             case '.':   MD_FALLTHROUGH();
             case ':':   MD_FALLTHROUGH();
             case '@':   md_analyze_permissive_autolink(ctx, i); break;
-            case '|':   md_analyze_spoiler(ctx, i); break;
-            case '=':   md_analyze_highlight(ctx, i); break;
-            case '+':   md_analyze_insert(ctx, i); break;
+            case '|':   md_analyze_generic(ctx, i); break;
+            case '=':   md_analyze_generic(ctx, i); break;
+            case '+':   md_analyze_generic(ctx, i); break;
         }
 
         if(mark->flags & MD_MARK_RESOLVED) {
