@@ -2847,8 +2847,6 @@ md_opener_stack(MD_CTX* ctx, int mark_index)
 
         case _T('~'):   return (mark->end - mark->beg == 1) ? &TILDE_OPENERS_1 : &TILDE_OPENERS_2;
 
-        case _T('!'):
-        case _T('['):   return &BRACKET_OPENERS;
         case _T('^'):   return &CARET_OPENERS;
         case _T('|'):   return &PIPE_OPENERS;
         case _T('='):   return &EQUAL_OPENERS;
@@ -3558,8 +3556,9 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table_m
              */
             if(ch == _T('|')) {
                 OFF tmp = off + 1;
-                while(tmp < line->end  &&  CH(tmp) == _T('|'))
+                while(tmp < line->end  &&  CH(tmp) == ch)
                     tmp++;
+
                 if(table_mode  ||
                    (tmp - off == 1 && (ctx->parser.flags & MD_FLAG_WIKILINKS))  ||
                    (tmp - off == 2 && (ctx->parser.flags & MD_FLAG_SPOILERS)))
@@ -3572,14 +3571,14 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table_m
             if(ISANYOF3_(ch, _T('='), _T('+'), _T('^'))) {
                 OFF tmp = off + 1;
 
-                while(tmp < line->end && (CH(tmp) == ch))
+                while(tmp < line->end && CH(tmp) == ch)
                     tmp++;
 
                 /* Only a single caret is a superscript.
                  * Only two equals signs form a highlight.
                  * Only two plus signs form a insert. */
-                if((ISANYOF2_(ch, _T('='), _T('+')) && (tmp - off == 2))||
-                  ((ch == _T('^')) && (tmp - off == 1))) {
+                if((ISANYOF2_(ch, _T('='), _T('+')) && tmp - off == 2) ||
+                  (ch == _T('^') && tmp - off == 1)) {
                     unsigned flags = MD_MARK_POTENTIAL_OPENER | MD_MARK_POTENTIAL_CLOSER;
 
                     /* Cannot open before whitespace; cannot close after whitespace. */
@@ -3599,7 +3598,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table_m
             if(ch == _T('~')) {
                 OFF tmp = off + 1;
 
-                while(tmp < line->end && CH(tmp) == _T('~'))
+                while(tmp < line->end && CH(tmp) == ch)
                     tmp++;
 
                 if(tmp - off == 1  &&  (ctx->parser.flags & MD_FLAG_SUBSCRIPTS)) {
@@ -3607,12 +3606,12 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table_m
                      * before whitespace; cannot close after whitespace. */
                     unsigned flags = MD_MARK_POTENTIAL_OPENER | MD_MARK_POTENTIAL_CLOSER;
 
-                    if(off + 1 >= line->end  ||  ISUNICODEWHITESPACE(off + 1))
+                    if(tmp >= line->end  ||  ISUNICODEWHITESPACE(tmp))
                         flags &= ~MD_MARK_POTENTIAL_OPENER;
                     if(off == line->beg  ||  ISUNICODEWHITESPACEBEFORE(off))
                         flags &= ~MD_MARK_POTENTIAL_CLOSER;
                     if(flags != 0)
-                        ADD_MARK(ch, off, off + 1, flags);
+                        ADD_MARK(ch, off, tmp, flags);
                 } else if(tmp - off <= 2  &&  (ctx->parser.flags & MD_FLAG_STRIKETHROUGH)) {
                     /* Strikethrough: standard GFM left/right-flanking rules. */
                     unsigned flags = MD_MARK_POTENTIAL_OPENER | MD_MARK_POTENTIAL_CLOSER;
@@ -3633,7 +3632,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table_m
             if(ch == _T('$')) {
                 OFF tmp = off + 1;
 
-                while(tmp < line->end && CH(tmp) == _T('$'))
+                while(tmp < line->end && CH(tmp) == ch)
                     tmp++;
 
                 if(tmp - off <= 2) {
