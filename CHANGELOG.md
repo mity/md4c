@@ -2,6 +2,14 @@
 # MD4C Change Log
 
 
+## Next Version
+
+Fixes:
+
+  * [#435](https://github.com/mity/md4c/issues/435):
+    Lower-case `<![cdata` does not make a valid HTML block starting condition.
+
+
 ## Version 0.6.0
 
 New Features:
