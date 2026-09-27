@@ -179,6 +179,7 @@ struct MD_CTX_tag {
 
     /* When this is true, it allows some optimizations. */
     int doc_ends_with_newline;
+    int doc_has_no_cr;
 
     /* Helper temporary growing buffer. */
     CHAR* buffer;
@@ -6891,12 +6892,25 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
     }
 
     /* Scan for end of the line. */
-    /* Optimization: Use some loop unrolling. */
-    while(off + 3 < ctx->size  &&  !ISNEWLINE(off+0)  &&  !ISNEWLINE(off+1)
-                               &&  !ISNEWLINE(off+2)  &&  !ISNEWLINE(off+3))
-        off += 4;
-    while(off < ctx->size  &&  !ISNEWLINE(off))
-        off++;
+#if !defined MD4C_USE_UTF16
+    if(ctx->doc_has_no_cr) {
+        /* Optimization: Without any '\r' in the document, only '\n' can end
+         * the line. And memchr() is usually much faster than a plain loop. */
+        const CHAR* ptr = NULL;
+
+        if(off < ctx->size)
+            ptr = (const CHAR*) memchr(STR(off), '\n', ctx->size - off);
+        off = (ptr != NULL) ? (OFF)(ptr - ctx->text) : ctx->size;
+    } else
+#endif
+    {
+        /* Optimization: Use some loop unrolling. */
+        while(off + 3 < ctx->size  &&  !ISNEWLINE(off+0)  &&  !ISNEWLINE(off+1)
+                                   &&  !ISNEWLINE(off+2)  &&  !ISNEWLINE(off+3))
+            off += 4;
+        while(off < ctx->size  &&  !ISNEWLINE(off))
+            off++;
+    }
 
     /* Set end of the line. */
     line->end = off;
@@ -7227,6 +7241,9 @@ md_parse(const MD_CHAR* text, MD_SIZE size, const MD_PARSER* parser, void* userd
     ctx.code_indent_offset = (ctx.parser.flags & MD_FLAG_NOINDENTEDCODEBLOCKS) ? (OFF)(-1) : 4;
     md_build_mark_char_map(&ctx);
     ctx.doc_ends_with_newline = (size > 0  &&  ISNEWLINE_(text[size-1]));
+#if !defined MD4C_USE_UTF16
+    ctx.doc_has_no_cr = (size == 0  ||  memchr(text, '\r', size) == NULL);
+#endif
     ctx.ref_def_hashtable.def_size = sizeof(MD_REF_DEF);
     ctx.max_ref_def_output = 16 * MIN(size, (MD_SIZE)(1024 * 1024 / 16));
     ctx.footnote_hashtable.def_size = sizeof(MD_FOOTNOTE_DEF);
