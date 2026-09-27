@@ -16,6 +16,9 @@ pathological = {
     "U+0000":
             ("abc\u0000de\u0000",
             re.compile("abc\ufffd?de\ufffd?")),
+    "CR and CR+LF line endings":
+            ("# h1\r\n\r\na\rb\r\n\r- x\r\n- y\r",
+            re.compile("^<h1>h1</h1>\r?\n<p>a\r?\nb</p>\r?\n<ul>\r?\n<li>x</li>\r?\n<li>y</li>\r?\n</ul>\r?\n$")),
     "U+FEFF (Unicode BOM)":
             ("\ufefffoo",
             re.compile("<p>foo</p>")),
