@@ -4859,7 +4859,6 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
 {
     MD_TEXTTYPE text_type;
     const MD_LINE* line = lines;
-    MD_MARK* prev_mark = NULL;
     MD_MARK* mark;
     OFF off = lines[0].beg;
     OFF end = lines[n_lines-1].end;
@@ -5136,7 +5135,6 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
             off = mark->end;
 
             /* Move to next resolved mark. */
-            prev_mark = mark;
             mark++;
             while(!(mark->flags & MD_MARK_RESOLVED)  ||  mark->beg < off)
                 mark++;
@@ -5149,8 +5147,6 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
                 break;
 
             if(text_type == MD_TEXT_CODE || text_type == MD_TEXT_LATEXMATH) {
-                MD_ASSERT(prev_mark != NULL);
-                MD_ASSERT(ISANYOF2_(prev_mark->ch, '`', '$')  &&  (prev_mark->flags & MD_MARK_OPENER));
                 MD_ASSERT(ISANYOF2_(mark->ch, '`', '$')  &&  (mark->flags & MD_MARK_CLOSER));
 
                 /* Inside a code span, trailing line whitespace has to be
