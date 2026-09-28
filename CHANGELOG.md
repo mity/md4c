@@ -4,6 +4,16 @@
 
 ## Next Version
 
+Changes:
+
+  * [#441](https://github.com/mity/md4c/pull/441),
+    [#442](https://github.com/mity/md4c/pull/442):
+    Optimization of the hottest loop brings some speed-up, especially on
+    platforms with SIMD-optimized `memchr()` implementation.
+
+    Thanks to [Daniel Perez Alvarez](https://github.com/unindented) for
+    coming with the idea and help with testing.
+
 Fixes:
 
   * [#435](https://github.com/mity/md4c/issues/435):

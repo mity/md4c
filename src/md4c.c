@@ -177,9 +177,9 @@ struct MD_CTX_tag {
     MD_PARSER parser;
     void* userdata;
 
-    /* When this is true, it allows some optimizations. */
-    int doc_ends_with_newline;
-    int doc_has_no_cr;
+    /* For optimized scan for new line. */
+    OFF cr_horizon;
+    OFF lf_horizon;
 
     /* Helper temporary growing buffer. */
     CHAR* buffer;
@@ -364,9 +364,13 @@ struct MD_VERBATIMLINE_tag {
 
 
 #if defined MD4C_USE_UTF16
+    #include <wchar.h>  /* wmemchar() */
+
+    #define md_memchr wmemchr
     #define md_strchr wcschr
     #define md_strlen wcslen
 #else
+    #define md_memchr memchr
     #define md_strchr strchr
     #define md_strlen strlen
 #endif
@@ -6891,25 +6895,29 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
         break;
     }
 
-    /* Scan for end of the line. */
-#if !defined MD4C_USE_UTF16
-    if(ctx->doc_has_no_cr) {
-        /* Optimization: Without any '\r' in the document, only '\n' can end
-         * the line. And memchr() is usually much faster than a plain loop. */
-        const CHAR* ptr = NULL;
+    /* Scan for an end of the line.
+     * NOTE: This is by far the hottest loop in our code. Hence we try to
+     * optimize this, assuming memchr() is highly optimized and uses SIMD
+     * if it's available on the platform.
+     */
+    while(off < ctx->size && !ISNEWLINE(off)) {
+        /* Don't look too much ahead to keep the text in CPU cache as we scan
+         * over it twice here. */
+        static const SZ max_lookahead = 2048;
 
-        if(off < ctx->size)
-            ptr = (const CHAR*) memchr(STR(off), '\n', ctx->size - off);
-        off = (ptr != NULL) ? (OFF)(ptr - ctx->text) : ctx->size;
-    } else
-#endif
-    {
-        /* Optimization: Use some loop unrolling. */
-        while(off + 3 < ctx->size  &&  !ISNEWLINE(off+0)  &&  !ISNEWLINE(off+1)
-                                   &&  !ISNEWLINE(off+2)  &&  !ISNEWLINE(off+3))
-            off += 4;
-        while(off < ctx->size  &&  !ISNEWLINE(off))
-            off++;
+        if(ctx->cr_horizon <= off  &&  ctx->cr_horizon < ctx->size) {
+            OFF scan_from = MAX(off, ctx->cr_horizon);
+            SZ scan_len = MIN(max_lookahead, ctx->size - scan_from);
+            const CHAR* ptr = (const CHAR*) md_memchr(ctx->text + scan_from, _T('\r'), scan_len);
+            ctx->cr_horizon = (ptr != NULL ? ptr - ctx->text : scan_from + scan_len);
+        }
+        if(ctx->lf_horizon <= off  &&  ctx->lf_horizon < ctx->size) {
+            OFF scan_from = MAX(off, ctx->lf_horizon);
+            SZ scan_len = MIN(max_lookahead, ctx->size - scan_from);
+            const CHAR* ptr = (const CHAR*) md_memchr(ctx->text + scan_from, _T('\n'), scan_len);
+            ctx->lf_horizon = (ptr != NULL ? ptr - ctx->text : scan_from + scan_len);
+        }
+        off = MIN(ctx->cr_horizon, ctx->lf_horizon);
     }
 
     /* Set end of the line. */
@@ -7240,10 +7248,6 @@ md_parse(const MD_CHAR* text, MD_SIZE size, const MD_PARSER* parser, void* userd
     ctx.userdata = userdata;
     ctx.code_indent_offset = (ctx.parser.flags & MD_FLAG_NOINDENTEDCODEBLOCKS) ? (OFF)(-1) : 4;
     md_build_mark_char_map(&ctx);
-    ctx.doc_ends_with_newline = (size > 0  &&  ISNEWLINE_(text[size-1]));
-#if !defined MD4C_USE_UTF16
-    ctx.doc_has_no_cr = (size == 0  ||  memchr(text, '\r', size) == NULL);
-#endif
     ctx.ref_def_hashtable.def_size = sizeof(MD_REF_DEF);
     ctx.max_ref_def_output = 16 * MIN(size, (MD_SIZE)(1024 * 1024 / 16));
     ctx.footnote_hashtable.def_size = sizeof(MD_FOOTNOTE_DEF);
