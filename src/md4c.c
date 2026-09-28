@@ -2311,7 +2311,9 @@ md_is_link_destination_B(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end,
             continue;
         }
 
-        if(ISWHITESPACE(off) || ISCNTRL(off))
+        /* Same as ISWHITESPACE(off) || ISCNTRL(off), but in two comparisons:
+         * space is the only whitespace character above 31. */
+        if((unsigned) CH(off) <= 32  ||  CH(off) == _T('\x7f'))
             break;
 
         /* Link destination may include balanced pairs of unescaped '(' ')'.
@@ -3179,7 +3181,8 @@ md_is_autolink_uri(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end)
 
     /* Check the path after the scheme. */
     while(off < max_end  &&  CH(off) != _T('>')) {
-        if(ISWHITESPACE(off) || ISCNTRL(off) || CH(off) == _T('<'))
+        /* Same as ISWHITESPACE(off) || ISCNTRL(off), see md_is_link_destination_B(). */
+        if((unsigned) CH(off) <= 32  ||  CH(off) == _T('\x7f')  ||  CH(off) == _T('<'))
             return false;
         off++;
     }
