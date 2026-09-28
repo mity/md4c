@@ -319,7 +319,7 @@ MD4C is covered with MIT license, see the file `LICENSE.md`.
 
 ## Links to Related Projects
 
-Bindings:
+**Bindings:**
 
 * [md4c gem](https://codeberg.org/gemmaro/ruby-md4c):
   Ruby bindings.
@@ -333,7 +333,7 @@ Bindings:
 * [PyMD4C](https://github.com/dominickpastore/pymd4c):
   Python bindings.
 
-Ports:
+**Ports:**
 
 * [commonmark-d](https://github.com/AuburnSounds/commonmark-d):
   Port to D language.
@@ -344,7 +344,10 @@ Ports:
 * [Microsoft.UI.Reactor](https://github.com/microsoft/microsoft-ui-reactor):
   Includes port to C#.
 
-Software using MD4C:
+**Software using MD4C:**
+
+* [Blender](https://www.blender.org):
+  Free and open-source 3D creation suite.
 
 * [imgui_md](https://github.com/mekhontsev/imgui_md):
   Markdown renderer for [Dear ImGui](https://github.com/ocornut/imgui).
@@ -379,6 +382,9 @@ Software using MD4C:
 
 * [react-native-enriched-markdown](https://github.com/software-mansion-labs/react-native-enriched-markdown):
   A React Native markdown renderer powered by MD4C.
+
+* [Stellarium](https://stellarium.org):
+  A free open source planetarium for your computer.
 
 * [Textosaurus](https://github.com/martinrotter/textosaurus):
   Cross-platform text editor based on Qt and Scintilla.
