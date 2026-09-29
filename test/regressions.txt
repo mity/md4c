@@ -1110,3 +1110,27 @@ Lower-case "<![cdata" does not make a valid HTML block starting condition.
 .
 <p>&lt;![cdata[ text ]]&gt;</p>
 ````````````````````````````````
+
+## [Pull 443](https://github.com/mity/md4c/pull/443)
+
+DEL (U+007F) is a control character, so it ends an unbracketed link destination
+and an autolink URI, just like space and the C0 controls. `<` ends an autolink
+URI too.
+
+```````````````````````````````` example
+[a](bc)
+.
+<p>[a](bc)</p>
+````````````````````````````````
+
+```````````````````````````````` example
+<http://ab>
+.
+<p>&lt;http://ab&gt;</p>
+````````````````````````````````
+
+```````````````````````````````` example
+<http://a<b>
+.
+<p>&lt;http://a<b></p>
+````````````````````````````````
