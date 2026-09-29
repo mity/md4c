@@ -494,3 +494,22 @@ A wiki link whose label contains an unrelated `|` character:
 .
 --fspoilers --fwiki-links
 ````````````````````````````````
+
+A single `|` outside a wiki link is literal text and never pairs with another
+`|` or with a `||`:
+
+```````````````````````````````` example
+a | b | c
+.
+<p>a | b | c</p>
+.
+--fspoilers --fwiki-links
+````````````````````````````````
+
+```````````````````````````````` example
+x | y ||
+.
+<p>x | y ||</p>
+.
+--fspoilers --fwiki-links
+````````````````````````````````
