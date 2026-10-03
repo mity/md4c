@@ -3618,13 +3618,31 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table_m
                     if(flags != 0)
                         ADD_MARK(ch, off, tmp, flags);
                 } else if(tmp - off <= 2  &&  (ctx->parser.flags & MD_FLAG_STRIKETHROUGH)) {
-                    /* Strikethrough: standard GFM left/right-flanking rules. */
-                    unsigned flags = MD_MARK_POTENTIAL_OPENER | MD_MARK_POTENTIAL_CLOSER;
+                    /* Strikethrough: standard GFM left/right-flanking rules,
+                     * same as used for '*' and '_' emphasis spans. */
+                    int left_level;     /* What precedes: 0 = whitespace; 1 = punctuation; 2 = other char. */
+                    int right_level;    /* What follows: 0 = whitespace; 1 = punctuation; 2 = other char. */
+                    unsigned flags = 0;
 
-                    if(off > line->beg  &&  !ISUNICODEWHITESPACEBEFORE(off)  &&  !ISUNICODEPUNCTBEFORE(off))
-                        flags &= ~MD_MARK_POTENTIAL_OPENER;
-                    if(tmp < line->end  &&  !ISUNICODEWHITESPACE(tmp)  &&  !ISUNICODEPUNCT(tmp))
-                        flags &= ~MD_MARK_POTENTIAL_CLOSER;
+                    if(off == line->beg  ||  ISUNICODEWHITESPACEBEFORE(off))
+                        left_level = 0;
+                    else if(ISUNICODEPUNCTBEFORE(off))
+                        left_level = 1;
+                    else
+                        left_level = 2;
+
+                    if(tmp == line->end  ||  ISUNICODEWHITESPACE(tmp))
+                        right_level = 0;
+                    else if(ISUNICODEPUNCT(tmp))
+                        right_level = 1;
+                    else
+                        right_level = 2;
+
+                    if(left_level > 0  &&  left_level >= right_level)
+                        flags |= MD_MARK_POTENTIAL_CLOSER;
+                    if(right_level > 0  &&  right_level >= left_level)
+                        flags |= MD_MARK_POTENTIAL_OPENER;
+
                     if(flags != 0)
                         ADD_MARK(ch, off, tmp, flags);
                 }

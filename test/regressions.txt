@@ -1110,3 +1110,26 @@ Lower-case "<![cdata" does not make a valid HTML block starting condition.
 .
 <p>&lt;![cdata[ text ]]&gt;</p>
 ````````````````````````````````
+
+
+## [Issue 436](https://github.com/mity/md4c/issues/436)
+
+Strikethrough flanking relied on what precedes the opener (and what
+follows the closer) to decide whether it may open or close, instead of
+the other way around. That made a tilde run flanked only by CJK
+characters (or any other non-punctuation, non-whitespace characters) on
+both sides fail to open or close a strikethrough span at all.
+
+```````````````````````````````` example
+这是~~你好~~一段话
+
+Strikethrough~~in~~aword
+
+Strike~~你好~~through
+.
+<p>这是<del>你好</del>一段话</p>
+<p>Strikethrough<del>in</del>aword</p>
+<p>Strike<del>你好</del>through</p>
+.
+--fstrikethrough
+````````````````````````````````

@@ -19,6 +19,12 @@ Fixes:
   * [#435](https://github.com/mity/md4c/issues/435):
     Lower-case `<![cdata` does not make a valid HTML block starting condition.
 
+  * [#436](https://github.com/mity/md4c/issues/436):
+    Strikethrough left/right-flanking detection looked at the wrong side of
+    the delimiter run, so a `~~` run flanked only by CJK characters (or any
+    other non-punctuation, non-whitespace characters) on both sides could
+    not open or close a strikethrough span.
+
 
 ## Version 0.6.0
 
