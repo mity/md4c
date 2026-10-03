@@ -2816,6 +2816,7 @@ struct MD_MARK_tag {
 #define MD_MARK_BRACKET_CANBEIMAGE          0x20  /* For '[', if can be expanded to the left to eat '!'. */
 #define MD_MARK_BRACKET_HASNESTED           0x40  /* For '[' to rule out invalid link labels early. */
 #define MD_MARK_BRACKET_FOOTNOTEREF         0x80  /* For '[', To distinguish footnotes. */
+#define MD_MARK_DUMMY_BRACKET_CONSUMED      0x20  /* For the dummy after '[', opener already paired. */
 
 static MD_MARKSTACK*
 md_emph_stack(MD_CTX* ctx, MD_CHAR ch, unsigned flags)
@@ -3710,6 +3711,9 @@ md_analyze_bracket(MD_CTX* ctx, int mark_index)
         if(BRACKET_OPENERS.top >= 0)
             ctx->marks[BRACKET_OPENERS.top].flags |= MD_MARK_BRACKET_HASNESTED;
 
+        /* Retain the parent even after the initial pairing. A bracket in a
+         * link destination may later be disabled, freeing its closer. */
+        ctx->marks[mark_index+1].next = BRACKET_OPENERS.top;
         md_mark_stack_push(ctx, &BRACKET_OPENERS, mark_index);
         return;
     }
@@ -3722,16 +3726,34 @@ md_analyze_bracket(MD_CTX* ctx, int mark_index)
         opener->next = mark_index;
         mark->prev = opener_index;
 
-        /* Add the pair into a list of potential brackets for md_resolve_brackets().
-         * Note we misuse opener->prev for this as opener->next points to its
-         * closer. */
+        /* Queue closers so reassigning an opener does not change the queue. */
         if(ctx->unresolved_link_tail >= 0)
-            ctx->marks[ctx->unresolved_link_tail].prev = opener_index;
+            ctx->marks[ctx->unresolved_link_tail].next = mark_index;
         else
-            ctx->unresolved_link_head = opener_index;
-        ctx->unresolved_link_tail = opener_index;
-        opener->prev = -1;
+            ctx->unresolved_link_head = mark_index;
+        ctx->unresolved_link_tail = mark_index;
+        mark->next = -1;
     }
+}
+
+/* Find an opener which has neither been disabled nor consumed by a closer.
+ * Compress the parent chain to avoid repeatedly visiting discarded openers. */
+static int
+md_bracket_opener(MD_CTX* ctx, int opener_index)
+{
+    int index = opener_index;
+
+    while(index >= 0  &&  (ctx->marks[index].ch == _T('D')  ||
+                          (ctx->marks[index+1].flags & MD_MARK_DUMMY_BRACKET_CONSUMED)))
+        index = ctx->marks[index+1].next;
+
+    while(opener_index != index) {
+        int parent = ctx->marks[opener_index+1].next;
+        ctx->marks[opener_index+1].next = index;
+        opener_index = parent;
+    }
+
+    return index;
 }
 
 /* Forward declaration. */
@@ -3747,7 +3769,7 @@ md_resolve_bracket_wikilink(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
                             MD_MARK* opener, MD_MARK* closer,
                             MD_MARK* next_opener, MD_MARK* next_closer,
                             OFF* last_link_beg, OFF* last_link_end,
-                            int* p_opener_index)
+                            int* p_closer_index)
 {
     MD_MARK* delim = NULL;
     int delim_index;
@@ -3820,7 +3842,7 @@ md_resolve_bracket_wikilink(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
     if(delim != NULL)
         md_analyze_link_contents(ctx, lines, n_lines, delim_index+1, closer_index);
 
-    *p_opener_index = next_opener->prev;
+    *p_closer_index = next_closer->next;
     return true;
 }
 
@@ -3828,7 +3850,7 @@ md_resolve_bracket_wikilink(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
 static int
 md_resolve_bracket_footnote(MD_CTX* ctx, MD_MARK* opener, MD_MARK* closer,
                             OFF* last_link_beg, OFF* last_link_end,
-                            int* p_opener_index)
+                            int* p_closer_index)
 {
     MD_MARK* index_mark;
     MD_FOOTNOTE_DEF* def;
@@ -3872,7 +3894,7 @@ md_resolve_bracket_footnote(MD_CTX* ctx, MD_MARK* opener, MD_MARK* closer,
     *last_link_beg = opener->beg;
     *last_link_end = closer->end;
 
-    *p_opener_index = opener->prev;
+    *p_closer_index = closer->next;
     return true;
 }
 
@@ -3910,7 +3932,7 @@ md_resolve_bracket_link(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
 
             /* Do not analyze the label as a standalone link in the next
              * iteration. */
-            *p_next_index = ctx->marks[*p_next_index].prev;
+            *p_next_index = ctx->marks[*p_next_index].next;
         }
     } else {
         if(closer->end < ctx->size  &&  CH(closer->end) == _T('(')) {
@@ -4026,7 +4048,7 @@ md_resolve_bracket_link(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
 static int
 md_resolve_brackets(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
 {
-    int opener_index = ctx->unresolved_link_head;
+    int closer_index = ctx->unresolved_link_head;
     OFF last_link_beg = 0;
     OFF last_link_end = 0;
     OFF last_img_beg = 0;
@@ -4035,24 +4057,32 @@ md_resolve_brackets(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
 
     /* Note we here analyze from inner to outer as the marks are ordered
      * by closer->beg. */
-    while(opener_index >= 0) {
-        MD_MARK* opener = &ctx->marks[opener_index];
-        int closer_index = opener->next;
+    while(closer_index >= 0) {
         MD_MARK* closer = &ctx->marks[closer_index];
-        int next_index = opener->prev;
+        int opener_index = md_bracket_opener(ctx, closer->prev);
+        MD_MARK* opener;
+        int next_index = closer->next;
         MD_MARK* next_opener;
         MD_MARK* next_closer;
 
-        if(opener->ch == _T('D')) {
+        if(closer->ch == _T('D')  ||  opener_index < 0) {
             /* We could have this disabled in previous iterations, and
              * processing would be just burning CPU cycles. */
-            opener_index = next_index;
+            closer_index = next_index;
             continue;
         }
 
+        opener = &ctx->marks[opener_index];
+        opener->next = closer_index;
+        closer->prev = opener_index;
+        ctx->marks[opener_index+1].flags |= MD_MARK_DUMMY_BRACKET_CONSUMED;
+
         if(next_index >= 0) {
-            next_opener = &ctx->marks[next_index];
-            next_closer = &ctx->marks[next_opener->next];
+            int next_opener_index;
+            next_closer = &ctx->marks[next_index];
+            next_opener_index = md_bracket_opener(ctx, next_closer->prev);
+            next_opener = (next_opener_index >= 0 && next_closer->ch != _T('D'))
+                        ? &ctx->marks[next_opener_index] : NULL;
         } else {
             next_opener = NULL;
             next_closer = NULL;
@@ -4071,12 +4101,12 @@ md_resolve_brackets(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
            (opener->beg < last_img_beg  &&  closer->end < last_img_end)  ||
            (opener->beg < last_link_end  &&  opener->ch != _T('!')))
         {
-            opener_index = next_index;
+            closer_index = next_index;
             continue;
         }
 
         ret = md_resolve_bracket_footnote(ctx, opener, closer,
-                        &last_link_beg, &last_link_end, &opener_index);
+                        &last_link_beg, &last_link_end, &closer_index);
         if(ret < 0)
             return -1;
         if(ret > 0)
@@ -4084,7 +4114,7 @@ md_resolve_brackets(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
 
         ret = md_resolve_bracket_wikilink(ctx, lines, n_lines, opener_index, closer_index,
                         opener, closer, next_opener, next_closer,
-                        &last_link_beg, &last_link_end, &opener_index);
+                        &last_link_beg, &last_link_end, &closer_index);
         if(ret < 0)
             return -1;
         if(ret > 0)
@@ -4096,7 +4126,7 @@ md_resolve_brackets(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
         if(ret < 0)
             return -1;
 
-        opener_index = next_index;
+        closer_index = next_index;
     }
 
     return 0;

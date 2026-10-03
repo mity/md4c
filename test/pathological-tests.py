@@ -64,6 +64,12 @@ pathological = {
     "many links":
             ("[t](/u) " * 50000,
             re.compile("(<a href=\"/u\">t</a> ?){50000}")),
+    "many images with brackets in URLs":
+            ("[![img](url[)]() " * 50000,
+            re.compile(r'(<a href=""><img src="url%5B" alt="img"></a> ?){50000}')),
+    "many disabled bracket openers":
+            ("[" * 50000 + "![img](/url" + "[" * 50000 + ")](/outer)" + "]" * 49999,
+            re.compile(r'\[{49999}<a href="/outer"><img src="/url(%5B){50000}" alt="img"></a>\]{49999}')),
     "many references":
             ("".join(map(lambda x: ("[" + str(x) + "]: u\n"), range(1,20000 * 16))) + "[0] " * 20000,
             re.compile(r"(\[0\] ){19999}")),
