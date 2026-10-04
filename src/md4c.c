@@ -5335,6 +5335,16 @@ abort:
 }
 
 static int
+md_is_verbatim_line_blank(MD_CTX* ctx, const MD_VERBATIMLINE* line)
+{
+    OFF off = line->beg;
+
+    while(off < line->end  &&  ISBLANK(off))
+        off++;
+    return (off == line->end);
+}
+
+static int
 md_process_code_block_contents(MD_CTX* ctx, int is_fenced, const MD_VERBATIMLINE* lines, MD_SIZE n_lines)
 {
     if(is_fenced) {
@@ -5344,11 +5354,11 @@ md_process_code_block_contents(MD_CTX* ctx, int is_fenced, const MD_VERBATIMLINE
         n_lines--;
     } else {
         /* Ignore blank lines at start/end of indented code block. */
-        while(n_lines > 0  &&  lines[0].beg == lines[0].end) {
+        while(n_lines > 0  &&  md_is_verbatim_line_blank(ctx, &lines[0])) {
             lines++;
             n_lines--;
         }
-        while(n_lines > 0  &&  lines[n_lines-1].beg == lines[n_lines-1].end) {
+        while(n_lines > 0  &&  md_is_verbatim_line_blank(ctx, &lines[n_lines-1])) {
             n_lines--;
         }
     }
@@ -6893,6 +6903,29 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
         }
 
         break;
+    }
+
+    /* Keep verbatim indentation in the source, except for the part consumed
+     * by a container or code block. Only a partially consumed tab needs to be
+     * emitted as spaces. The opening fence keeps its indentation for use by
+     * the following lines. */
+    if(line->indent > 0  &&
+       (line->type == MD_LINE_INDENTEDCODE  ||  line->type == MD_LINE_HTML  ||
+        (line->type == MD_LINE_FENCEDCODE  &&  !line->enforce_new_block)))
+    {
+        unsigned consumed_indent = total_indent - line->indent;
+        unsigned indent = 0;
+        OFF tmp = beg;
+
+        while(tmp < line->beg  &&  indent < consumed_indent) {
+            if(CH(tmp) == _T('\t'))
+                indent = (indent + 4) & ~3;
+            else
+                indent++;
+            tmp++;
+        }
+        line->beg = tmp;
+        line->indent = indent - consumed_indent;
     }
 
     /* Scan for an end of the line.
