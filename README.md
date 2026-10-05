@@ -14,8 +14,8 @@ Used by [Blender](https://www.blender.org/),
 [Qt](https://www.qt.io/),
 [Stellarium](https://stellarium.org/) and others.*
 
-* Home:
-* Issue tracker: https://github.com/mity/md4c/issues
+Home: https://github.com/mity/md4c \
+Issue tracker: https://github.com/mity/md4c/issues
 
 > [!NOTE]
 > **MD4C is maintained as independent open-source software.**
