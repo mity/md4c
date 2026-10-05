@@ -1,39 +1,47 @@
 
 # MD4C Readme
 
-* Home: https://github.com/mity/md4c
-* Wiki: https://github.com/mity/md4c/wiki
+[![Sponsor MD4C](https://img.shields.io/badge/Sponsor-MD4C-ea4aaa?logo=githubsponsors)](https://github.com/sponsors/mity)
+[![codecov](https://codecov.io/gh/mity/md4c/graph/badge.svg)](https://codecov.io/gh/mity/md4c)
+[![Fuzzing Status](https://oss-fuzz-build-logs.storage.googleapis.com/badges/md4c.svg)](https://introspector.oss-fuzz.com/project-profile?project=md4c)
+[![Packaging status](https://repology.org/badge/tiny-repos/md4c.svg)](https://repology.org/project/md4c/versions)
+[![Version](https://img.shields.io/github/v/tag/mity/md4c?filter=v*.*.*&sort=semver)](https://github.com/mity/md4c/tags)
+
+*Fast, compact, dependency-free Markdown parser for C.
+Used by [Blender](https://www.blender.org/),
+[LibreOffice](https://www.libreoffice.org/),
+[ONLYOFFICE](https://www.onlyoffice.com/),
+[Qt](https://www.qt.io/),
+[Stellarium](https://stellarium.org/) and others.*
+
+* Home:
 * Issue tracker: https://github.com/mity/md4c/issues
 
-MD4C stands for "Markdown for C" and that's exactly what this project is about.
+> [!NOTE]
+> **MD4C is maintained as independent open-source software.**
+> If MD4C is useful to you or your project, consider supporting its continued
+> development through [GitHub Sponsors](https://github.com/sponsors/mity).
 
 
-## What is Markdown
+## Overview
 
-In short, Markdown is the markup language this `README.md` file is written in.
+MD4C is a production-quality Markdown parser designed for applications that
+need to process Markdown without building a large document tree.
 
-The following resources can explain more if you are unfamiliar with it:
-* [Wikipedia article](https://en.wikipedia.org/wiki/Markdown)
-* [CommonMark site](https://commonmark.org)
+* **Compliance:** MD4C passes all compliance tests of
+  [CommonMark specification 0.31.2](https://spec.commonmark.org/).
 
+* **Extensions:** MD4C supports many commonly requested and accepted extensions,
+  including many for compatibility with GFM. Full list of extensions below.
 
-## What is MD4C
+* **Performance:** MD4C is [very fast](https://talk.commonmark.org/t/2520)
+  and memory efficient.
 
-MD4C is a Markdown parser implementation in C, with the following features:
+* **Drop-in C library:** MD4C has no third-party dependencies. The parser itself
+  is just `md4c.c` + `md4c.h`, so it can either be linked as a normal library
+  or compiled directly into your application.
 
-* **Compliance:** Generally, MD4C aims to be compliant to the latest version of
-  [CommonMark specification](https://spec.commonmark.org/). Currently, we are
-  fully compliant to CommonMark 0.31.
-
-* **Extensions:** MD4C supports some commonly requested and accepted extensions.
-  See below.
-
-* **Performance:** MD4C is [very fast](https://talk.commonmark.org/t/2520).
-
-* **Compactness:** MD4C parser is implemented in one source file and one header
-  file. There are no dependencies other than standard C library.
-
-* **Embedding:** MD4C parser is easy to reuse in other projects, its API is
+* **API:** MD4C parser is easy to reuse in other projects, its API is
   very straightforward: There is actually just one function, `md_parse()`.
 
 * **Push model:** MD4C parses the complete document and calls few callback
@@ -50,7 +58,34 @@ MD4C is a Markdown parser implementation in C, with the following features:
   disable all Unicode-specific code), or (on Windows) to expect UTF-16 (i.e.
   what is on Windows commonly called just "Unicode"). See more details below.
 
+* **Designed for Hostile Input:** Markdown is frequently processed from
+  documents users did not write themselves. MD4C's parser is designed to avoid
+  pathological parsing behavior caused by adversarial input patterns.
+
 * **Permissive license:** MD4C is available under the [MIT license](LICENSE.md).
+
+* **Code quality:** Our test suite has high code coverage and new tests are
+  routinely added as part of bug resolution. MD4C is continuously fuzz-tested
+  by [Google's OSS-Fuzz](https://google.github.io/oss-fuzz/).
+
+
+## Support MD4C
+
+MD4C is free and open-source software maintained independently.
+
+Sponsorship helps fund continued work on:
+
+ * keeping MD4C compliant with evolving Markdown/CommonMark specifications;
+ * maintaining and improving compatibility across compilers and platforms;
+ * providing new extensions and other features;
+ * performance and memory-efficiency improvements;
+ * testing and fuzzing;
+ * documentation and tooling;
+ * reviewing and maintaining contributions.
+
+If your software depends on MD4C, [sponsoring](https://github.com/sponsors/mity)
+its maintenance is one way to help keep this small but widely used piece of
+infrastructure healthy.
 
 
 ## Using MD4C
@@ -317,34 +352,9 @@ together with length of the text the callback is expected to process.
 MD4C is covered with MIT license, see the file `LICENSE.md`.
 
 
-## Links to Related Projects
+## Ecosystem
 
-**Bindings:**
-
-* [md4c gem](https://codeberg.org/gemmaro/ruby-md4c):
-  Ruby bindings.
-
-* [md4lean](https://github.com/acmepjz/md4lean):
-  [Lean](https://lean-lang.org/) bindings.
-
-* [PECL MD4C](https://pecl.php.net/package/md4c):
-  PHP bindings.
-
-* [PyMD4C](https://github.com/dominickpastore/pymd4c):
-  Python bindings.
-
-**Ports:**
-
-* [commonmark-d](https://github.com/AuburnSounds/commonmark-d):
-  Port to D language.
-
-* [markdown-wasm](https://github.com/rsms/markdown-wasm):
-  Port to WebAssembly.
-
-* [Microsoft.UI.Reactor](https://github.com/microsoft/microsoft-ui-reactor):
-  Includes port to C#.
-
-**Software using MD4C:**
+**Used by:**
 
 * [Blender](https://www.blender.org):
   Free and open-source 3D creation suite.
@@ -391,3 +401,29 @@ MD4C is covered with MIT license, see the file `LICENSE.md`.
 
 * [8th](https://8th-dev.com/):
   Cross-platform concatenative programming language.
+
+**Bindings:**
+
+* [md4c gem](https://codeberg.org/gemmaro/ruby-md4c):
+  Ruby bindings.
+
+* [md4lean](https://github.com/acmepjz/md4lean):
+  [Lean](https://lean-lang.org/) bindings.
+
+* [PECL MD4C](https://pecl.php.net/package/md4c):
+  PHP bindings.
+
+* [PyMD4C](https://github.com/dominickpastore/pymd4c):
+  Python bindings.
+
+**Ports:**
+
+* [commonmark-d](https://github.com/AuburnSounds/commonmark-d):
+  Port to D language.
+
+* [markdown-wasm](https://github.com/rsms/markdown-wasm):
+  Port to WebAssembly.
+
+* [Microsoft.UI.Reactor](https://github.com/microsoft/microsoft-ui-reactor):
+  Includes port to C#.
+
