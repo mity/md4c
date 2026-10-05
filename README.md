@@ -7,7 +7,7 @@
 [![Packaging status](https://repology.org/badge/tiny-repos/md4c.svg)](https://repology.org/project/md4c/versions)
 [![Version](https://img.shields.io/github/v/tag/mity/md4c?filter=v*.*.*&sort=semver)](https://github.com/mity/md4c/tags)
 
-*Fast, compact, dependency-free Markdown parser for C.
+*Fast, compact, dependency-free Markdown parser for C. \
 Used by [Blender](https://www.blender.org/),
 [LibreOffice](https://www.libreoffice.org/),
 [ONLYOFFICE](https://www.onlyoffice.com/),
