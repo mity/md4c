@@ -4559,7 +4559,12 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
             case '.':   MD_FALLTHROUGH();
             case ':':   MD_FALLTHROUGH();
             case '@':   md_analyze_permissive_autolink(ctx, i); break;
-            case '|':   md_analyze_generic(ctx, i); break;
+            case '|':
+                /* Only "||" is a spoiler mark. Pipe runs of other lengths
+                 * are collected for tables and wiki-links; never pair them. */
+                if(mark->end - mark->beg == 2)
+                    md_analyze_generic(ctx, i);
+                break;
             case '=':   md_analyze_generic(ctx, i); break;
             case '+':   md_analyze_generic(ctx, i); break;
         }
