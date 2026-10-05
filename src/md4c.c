@@ -25,10 +25,10 @@
 
 #include <limits.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stddef.h>
 #include <string.h>
 
 #include "md4c.h"
@@ -54,7 +54,7 @@
 #endif
 
 /* Misc. macros. */
-#define SIZEOF_ARRAY(a)     (sizeof(a) / sizeof(a[0]))
+#define SIZEOF_ARRAY(a)     (sizeof(a) / sizeof((a)[0]))
 
 #define STRINGIZE_(x)       #x
 #define STRINGIZE(x)        STRINGIZE_(x)
@@ -102,7 +102,7 @@
 #endif
 
 /* Suppress "unused parameter" warnings. */
-#define MD_UNUSED(x)                ((void)x)
+#define MD_UNUSED(x)                ((void)(x))
 
 
 /******************************
@@ -442,7 +442,7 @@ md_text_with_null_replacement(MD_CTX* ctx, MD_TEXTTYPE type, const CHAR* str, SZ
 
 #define MD_TEMP_BUFFER(sz)                                                  \
     do {                                                                    \
-        if(sz > ctx->alloc_buffer) {                                        \
+        if((sz) > ctx->alloc_buffer) {                                      \
             CHAR* new_buffer;                                               \
             SZ new_size = ((sz) + (sz) / 2 + 128) & ~127;                   \
                                                                             \
@@ -497,7 +497,7 @@ md_text_with_null_replacement(MD_CTX* ctx, MD_TEXTTYPE type, const CHAR* str, SZ
 
 #define MD_TEXT(type, str, size)                                            \
     do {                                                                    \
-        if(size > 0) {                                                      \
+        if((size) > 0) {                                                    \
             ret = ctx->parser.text((type), (str), (size), ctx->userdata);   \
             if(ret != 0) {                                                  \
                 MD_LOG("Aborted from text() callback.");                    \
@@ -508,7 +508,7 @@ md_text_with_null_replacement(MD_CTX* ctx, MD_TEXTTYPE type, const CHAR* str, SZ
 
 #define MD_TEXT_INSECURE(type, str, size)                                   \
     do {                                                                    \
-        if(size > 0) {                                                      \
+        if((size) > 0) {                                                    \
             ret = md_text_with_null_replacement(ctx, type, str, size);      \
             if(ret != 0) {                                                  \
                 MD_LOG("Aborted from text() callback.");                    \
@@ -1149,9 +1149,8 @@ md_is_html_tag(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, OFF beg, OFF 
                 if(attr_state == 41 && (ISBLANK(off) || ISANYOF(off, _T("\"'=<>`")))) {
                     attr_state = 0;
                     off--;  /* Put the char back for re-inspection in the new state. */
-                } else if(attr_state == 42 && CH(off) == _T('\'')) {
-                    attr_state = 0;
-                } else if(attr_state == 43 && CH(off) == _T('"')) {
+                } else if((attr_state == 42 && CH(off) == _T('\'')) ||
+                        (attr_state == 43 && CH(off) == _T('"'))) {
                     attr_state = 0;
                 }
                 off++;
@@ -3072,7 +3071,6 @@ md_is_code_span(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, OFF beg,
         return false;
 
     closer_beg = opener_end;
-    closer_end = opener_end;
 
     /* Find closer mark. */
     while(true) {
@@ -3221,9 +3219,7 @@ md_is_autolink_email(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end)
      * characters or '-', but '-' is not allowed as first or last char. */
     label_len = 0;
     while(off < max_end) {
-        if(ISALNUM(off))
-            label_len++;
-        else if(CH(off) == _T('-')  &&  label_len > 0)
+        if(ISALNUM(off) || (CH(off) == _T('-')  &&  label_len > 0))
             label_len++;
         else if(CH(off) == _T('.')  &&  label_len > 0  &&  CH(off-1) != _T('-'))
             label_len = 0;
@@ -4907,7 +4903,7 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
                         /* Redirect the opener's end past the whole [^label]
                          * so that the post-switch "off = mark->end" skips
                          * the label text and the closing ]. */
-                        ((MD_MARK*) mark)->end = closer->end;
+                        mark->end = closer->end;
                         break;
                     }
 
@@ -5701,7 +5697,6 @@ md_start_new_block(MD_CTX* ctx, const MD_LINE_ANALYSIS* line)
 
 /* Forward declarations */
 static int md_is_hr_line(MD_CTX* ctx, OFF beg, OFF* p_end, OFF* p_killer);
-static void* md_push_block_bytes(MD_CTX* ctx, int n_bytes);
 
 /* Eat from start of current (textual) block any reference definitions and/or
  * footnote definitions, and remember them.
