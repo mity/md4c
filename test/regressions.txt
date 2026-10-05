@@ -1101,6 +1101,62 @@ baz
 <p>baz</p>
 ````````````````````````````````
 
+## [Issue 367](https://github.com/mity/md4c/issues/367)
+
+Opening brackets in a link destination or title must not consume the closing
+bracket of an enclosing link or image.
+
+```````````````````````````````` example
+[![img](url[)]()
+.
+<p><a href=""><img src="url%5B" alt="img"></a></p>
+````````````````````````````````
+
+```````````````````````````````` example
+[![img](url[[)](/outer)
+.
+<p><a href="/outer"><img src="url%5B%5B" alt="img"></a></p>
+````````````````````````````````
+
+```````````````````````````````` example
+[![img](<url[>)](/outer)
+.
+<p><a href="/outer"><img src="url%5B" alt="img"></a></p>
+````````````````````````````````
+
+```````````````````````````````` example
+[![img](url "title[")](/outer)
+.
+<p><a href="/outer"><img src="url" alt="img" title="title["></a></p>
+````````````````````````````````
+
+```````````````````````````````` example
+[![img](url[)][ref]
+
+[ref]: /outer
+.
+<p><a href="/outer"><img src="url%5B" alt="img"></a></p>
+````````````````````````````````
+
+```````````````````````````````` example
+![![img](url[)](/outer)
+.
+<p><img src="/outer" alt="img"></p>
+````````````````````````````````
+
+```````````````````````````````` example
+[[![img](url[)]](/outer)
+.
+<p><a href="/outer">[<img src="url%5B" alt="img">]</a></p>
+````````````````````````````````
+
+```````````````````````````````` example
+[[link](url[)](/outer)
+.
+<p>[<a href="url%5B">link</a>](/outer)</p>
+````````````````````````````````
+
+
 ## [Issue 435](https://github.com/mity/md4c/issues/435)
 
 Lower-case "<![cdata" does not make a valid HTML block starting condition.
