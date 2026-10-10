@@ -4453,13 +4453,21 @@ md_analyze_permissive_autolink(MD_CTX* ctx, int mark_index)
             return;
     }
 
-    /* Scan for hostname segment. Hostname is mandatory and requires at least two
-     * components delimited with a dot. */
+    /* Scan for hostname segment. Hostname is mandatory. With an explicit scheme
+     * a single component is enough (e.g. "http://localhost"); WWW and e-mail
+     * autolinks require at least two components delimited with a dot. */
     if(md_analyze_permissive_autolink_segment(ctx, end, line_end, &end, false,
-            _T('.'), NULL, _T("-_"), &right_cursor) < 2)
+            _T('.'), NULL, _T("-_"), &right_cursor) < (opener->ch == ':' ? 1 : 2))
         return;
 
     if(opener->ch != '@') {
+        /* Scan for optional port number. */
+        if(end+1 < line_end  &&  CH(end) == _T(':')  &&  ISDIGIT(end+1)) {
+            end += 2;
+            while(end < line_end  &&  ISDIGIT(end))
+                end++;
+        }
+
         /* Scan for path segment. */
         if(end < line_end  &&  CH(end) == _T('/')) {
             if(md_analyze_permissive_autolink_segment(ctx, end+1, line_end, &end, false,

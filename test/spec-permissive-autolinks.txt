@@ -152,9 +152,46 @@ ssh://example.com
 ````````````````````````````````
 
 The host is a sequence made of alphanumerical characters, `.`, `-` and `_`.
-It has to include at least two components delimited with `.`, last component
-has to have at least two characters, and occurrence of `.`, `-` and `_` has to
-be immediately preceded and followed with a letter or digit.
+Any occurrence of `.`, `-` and `_` has to be immediately preceded and followed
+with a letter or digit. Normally the host has to include at least two
+components delimited with `.`, but because the scheme already makes the intent
+explicit, a single component is accepted too, as is common for development and
+intranet hosts:
+
+```````````````````````````````` example
+http://localhost
+https://devbox/path
+.
+<p><a href="http://localhost">http://localhost</a>
+<a href="https://devbox/path">https://devbox/path</a></p>
+.
+--fpermissive-url-autolinks
+````````````````````````````````
+
+The host may be followed with a port number, i.e. `:` and one or more digits:
+
+```````````````````````````````` example
+http://localhost:3000
+https://example.com:8443/path
+http://127.0.0.1:8081/index.bundle?platform=ios
+.
+<p><a href="http://localhost:3000">http://localhost:3000</a>
+<a href="https://example.com:8443/path">https://example.com:8443/path</a>
+<a href="http://127.0.0.1:8081/index.bundle?platform=ios">http://127.0.0.1:8081/index.bundle?platform=ios</a></p>
+.
+--fpermissive-url-autolinks
+````````````````````````````````
+
+The usual delimiting rules still apply, so a port at the end of a sentence
+does not swallow the punctuation:
+
+```````````````````````````````` example
+The dev server runs at http://localhost:3000.
+.
+<p>The dev server runs at <a href="http://localhost:3000">http://localhost:3000</a>.</p>
+.
+--fpermissive-url-autolinks
+````````````````````````````````
 
 The host specification may optionally be followed with path. Path begins with
 character `/` and uses it also for delimiting path components. Every path
@@ -220,6 +257,21 @@ of providing an explicit scheme, they have to begin with `www.`.
 www.google.com/search?q=Markdown
 .
 <p><a href="http://www.google.com/search?q=Markdown">www.google.com/search?q=Markdown</a></p>
+.
+--fpermissive-www-autolinks
+````````````````````````````````
+
+Without a scheme there is nothing to make the intent explicit, so the host
+still has to have at least two components; a port is allowed as for URL
+autolinks:
+
+```````````````````````````````` example
+www.localhost
+
+www.example.com:8080/path
+.
+<p>www.localhost</p>
+<p><a href="http://www.example.com:8080/path">www.example.com:8080/path</a></p>
 .
 --fpermissive-www-autolinks
 ````````````````````````````````
