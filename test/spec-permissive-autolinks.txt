@@ -182,6 +182,20 @@ http://127.0.0.1:8081/index.bundle?platform=ios
 --fpermissive-url-autolinks
 ````````````````````````````````
 
+Only digits form a port. A `:` with nothing or something else after it is
+not part of the host, and since `:` is not allowed to follow an autolink,
+the whole thing stays plain text:
+
+```````````````````````````````` example
+http://localhost:
+http://localhost:abc
+.
+<p>http://localhost:
+http://localhost:abc</p>
+.
+--fpermissive-url-autolinks
+````````````````````````````````
+
 The usual delimiting rules still apply, so a port at the end of a sentence
 does not swallow the punctuation:
 
