@@ -16,6 +16,13 @@ if __name__ == "__main__":
 
     os.chdir(test_dir)
 
+    print("Testing program invocation:")
+    sys.stdout.flush()
+    p = subprocess.run([sys.executable, "prog-tests.py", program])
+    if p.returncode != 0:
+        err_count += 1
+    print()
+
     for testsuite in glob.glob('*.txt'):
         print("Testing {}".format(testsuite))
         sys.stdout.flush()
