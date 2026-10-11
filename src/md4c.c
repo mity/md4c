@@ -1149,9 +1149,8 @@ md_is_html_tag(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, OFF beg, OFF 
                 if(attr_state == 41 && (ISBLANK(off) || ISANYOF(off, _T("\"'=<>`")))) {
                     attr_state = 0;
                     off--;  /* Put the char back for re-inspection in the new state. */
-                } else if(attr_state == 42 && CH(off) == _T('\'')) {
-                    attr_state = 0;
-                } else if(attr_state == 43 && CH(off) == _T('"')) {
+                } else if((attr_state == 42 && CH(off) == _T('\'')) ||
+                        (attr_state == 43 && CH(off) == _T('"'))) {
                     attr_state = 0;
                 }
                 off++;
@@ -3220,9 +3219,7 @@ md_is_autolink_email(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end)
      * characters or '-', but '-' is not allowed as first or last char. */
     label_len = 0;
     while(off < max_end) {
-        if(ISALNUM(off))
-            label_len++;
-        else if(CH(off) == _T('-')  &&  label_len > 0)
+        if(ISALNUM(off) || (CH(off) == _T('-')  &&  label_len > 0))
             label_len++;
         else if(CH(off) == _T('.')  &&  label_len > 0  &&  CH(off-1) != _T('-'))
             label_len = 0;
