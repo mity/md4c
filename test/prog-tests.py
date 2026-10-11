@@ -30,6 +30,7 @@ class ProgramTests(unittest.TestCase):
     def test_executable_path_with_spaces(self):
         command = self.program[:-4] if os.name == 'nt' else self.program
         result = Prog(command, '--fstrikethrough').to_html('~~hello~~\n')
+        result[1] = result[1].replace('\r\n', '\n')
         self.assertEqual(result, [0, '<p><del>hello</del></p>\n', b''])
 
     def test_command_options_override_defaults(self):
@@ -37,6 +38,7 @@ class ProgramTests(unittest.TestCase):
         with patch.dict(os.environ, {'PATH': path}):
             result = Prog('md2html --ftables', '--fstrikethrough').to_html(
                 '~~hello~~\n')
+        result[1] = result[1].replace('\r\n', '\n')
         self.assertEqual(result, [0, '<p>~~hello~~</p>\n', b''])
 
 
