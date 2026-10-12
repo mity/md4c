@@ -130,8 +130,8 @@ john.doe@example.com*
 ## Permissive URL Autolinks
 
 Permissive URL autolinks (`MD_FLAG_PERMISSIVEURLAUTOLINKS`) are formed
-by mandatory URL scheme, mandatory host, optional path, optional query and
-optional fragment.
+by a mandatory URL scheme, mandatory host and optional URL tail (such as
+a port, path, query or fragment).
 
 The permissive URL autolinks recognize only `http://`, `https://` and `ftp://`
 as the scheme:
@@ -156,11 +156,10 @@ It has to include at least two components delimited with `.`, last component
 has to have at least two characters, and occurrence of `.`, `-` and `_` has to
 be immediately preceded and followed with a letter or digit.
 
-The host specification may optionally be followed with path. Path begins with
-character `/` and uses it also for delimiting path components. Every path
-component is made of alhanumerical characters and `.`, `-`, `_`. Once again,
-any occurrence of `.`, `-`, `_` has to be surrounded with alphanumerical
-character.
+The host specification may optionally be followed with a URL tail beginning
+with `/`, `:`, `?` or `#`. The tail continues until whitespace, an ASCII control
+character, `<`, or resolved Markdown syntax. URI punctuation and Unicode
+characters may occur within the tail. The scan does not validate port digits.
 
 ```````````````````````````````` example
 https://example.com/images/branding/logo_272x92.png
@@ -170,10 +169,11 @@ https://example.com/images/branding/logo_272x92.png
 --fpermissive-url-autolinks
 ````````````````````````````````
 
-Then optionally query may follow. The query is made of `?` and then with
-alhanumerical characters, `&`, `.`, `-`, `+`, `_`, `=`, `(` and `)`. Once again any
-of those non-alhanumerical characters has to be surrounded with alpha-numerical
-characters, and also brackets `(` have to be balanced `)`.
+Then optionally query may follow. Consecutive punctuation characters, percent
+escapes and redirect URLs are allowed in the query. Unmatched opening
+parentheses may occur within the URL. Excess terminal closing parentheses
+and terminal punctuation (`?`, `!`, `.`, `,`, `:`, `;`, `*`, `_`, `~`, `'`,
+`"`) are excluded from the link.
 
 ```````````````````````````````` example
 https://www.google.com/search?q=md4c+markdown
@@ -207,6 +207,230 @@ Anonymous FTP is available at ftp://foo.bar.baz.
 <p>Anonymous FTP is available at <a href="ftp://foo.bar.baz">ftp://foo.bar.baz</a>.</p>
 .
 --fpermissive-url-autolinks
+````````````````````````````````
+
+
+### URL tail punctuation and Markdown boundaries
+
+The following examples cover continuous URL-tail scanning and its boundaries.
+
+URI punctuation remains part of paths, queries and fragments, including
+consecutive delimiters and redirect URLs.
+
+```````````````````````````````` example
+https://example.org/Help:Editing
+https://example.org/a::b
+https://example.org/a:/b
+https://example.org/a;b
+https://example.org/a@b
+https://example.org/?C=M;O=D
+https://example.org/a?x=a;;b
+https://example.org/a?x=a;+b
+https://example.org/a?next=https://example.com/b
+https://example.org/a?$filter=abc
+https://example.org/a?x=%20&y=1
+https://example.org/a#b%20c
+https://example.org/a#b/c
+.
+<p><a href="https://example.org/Help:Editing">https://example.org/Help:Editing</a>
+<a href="https://example.org/a::b">https://example.org/a::b</a>
+<a href="https://example.org/a:/b">https://example.org/a:/b</a>
+<a href="https://example.org/a;b">https://example.org/a;b</a>
+<a href="https://example.org/a@b">https://example.org/a@b</a>
+<a href="https://example.org/?C=M;O=D">https://example.org/?C=M;O=D</a>
+<a href="https://example.org/a?x=a;;b">https://example.org/a?x=a;;b</a>
+<a href="https://example.org/a?x=a;+b">https://example.org/a?x=a;+b</a>
+<a href="https://example.org/a?next=https://example.com/b">https://example.org/a?next=https://example.com/b</a>
+<a href="https://example.org/a?$filter=abc">https://example.org/a?$filter=abc</a>
+<a href="https://example.org/a?x=%20&amp;y=1">https://example.org/a?x=%20&amp;y=1</a>
+<a href="https://example.org/a#b%20c">https://example.org/a#b%20c</a>
+<a href="https://example.org/a#b/c">https://example.org/a#b/c</a></p>
+.
+--fpermissive-url-autolinks
+````````````````````````````````
+
+The URL tail may begin with a colon. The scan is permissive and does not
+validate whether the characters following that colon form a numeric port.
+
+```````````````````````````````` example
+https://example.org:8080/a?x=%20
+ftp://example.org:2121/a
+www.example.org:8080/a
+https://example.org:abc/a
+.
+<p><a href="https://example.org:8080/a?x=%20">https://example.org:8080/a?x=%20</a>
+<a href="ftp://example.org:2121/a">ftp://example.org:2121/a</a>
+<a href="http://www.example.org:8080/a">www.example.org:8080/a</a>
+<a href="https://example.org:abc/a">https://example.org:abc/a</a></p>
+.
+--fpermissive-url-autolinks
+--fpermissive-www-autolinks
+````````````````````````````````
+
+Unmatched opening parentheses belong to the URL, including the GFM
+`www.` example.
+
+```````````````````````````````` example
+https://example.org/a?x=(business
+www.google.com/search?q=Markup+(business
+.
+<p><a href="https://example.org/a?x=(business">https://example.org/a?x=(business</a>
+<a href="http://www.google.com/search?q=Markup+(business">www.google.com/search?q=Markup+(business</a></p>
+.
+--fpermissive-url-autolinks
+--fpermissive-www-autolinks
+````````````````````````````````
+
+Only excess terminal closing parentheses are excluded.
+
+```````````````````````````````` example
+(https://example.org/a?x=(business)))
+https://example.org/a?x=(business)))),
+.
+<p>(<a href="https://example.org/a?x=(business)">https://example.org/a?x=(business)</a>))
+<a href="https://example.org/a?x=(business)">https://example.org/a?x=(business)</a>))),</p>
+.
+--fpermissive-url-autolinks
+````````````````````````````````
+
+Interior unmatched closing parentheses remain part of the URL.
+
+```````````````````````````````` example
+https://example.org/a)tail
+https://example.org/a))tail
+.
+<p><a href="https://example.org/a)tail">https://example.org/a)tail</a>
+<a href="https://example.org/a))tail">https://example.org/a))tail</a></p>
+.
+--fpermissive-url-autolinks
+````````````````````````````````
+
+Terminal sentence punctuation is trimmed. The terminal-semicolon rule
+continues to apply.
+
+```````````````````````````````` example
+https://example.org/a?x=%20?
+https://example.org/a?x=%20!
+https://example.org/a?x=%20.
+https://example.org/a?x=%20,
+https://example.org/a?x=%20:
+https://example.org/a?x=%20;
+https://example.org/a?x=%20*
+https://example.org/a?x=%20_
+https://example.org/a?x=%20~
+https://example.org/a?x=%20'
+https://example.org/a?x=%20"
+.
+<p><a href="https://example.org/a?x=%20">https://example.org/a?x=%20</a>?
+<a href="https://example.org/a?x=%20">https://example.org/a?x=%20</a>!
+<a href="https://example.org/a?x=%20">https://example.org/a?x=%20</a>.
+<a href="https://example.org/a?x=%20">https://example.org/a?x=%20</a>,
+<a href="https://example.org/a?x=%20">https://example.org/a?x=%20</a>:
+<a href="https://example.org/a?x=%20">https://example.org/a?x=%20</a>;
+<a href="https://example.org/a?x=%20">https://example.org/a?x=%20</a>*
+<a href="https://example.org/a?x=%20">https://example.org/a?x=%20</a>_
+<a href="https://example.org/a?x=%20">https://example.org/a?x=%20</a>~
+<a href="https://example.org/a?x=%20">https://example.org/a?x=%20</a>&#x27;
+<a href="https://example.org/a?x=%20">https://example.org/a?x=%20</a>&quot;</p>
+.
+--fpermissive-url-autolinks
+````````````````````````````````
+
+Interior quote and bracket characters are retained and escaped by the
+HTML renderer.
+
+```````````````````````````````` example
+https://example.org/a"tail
+https://example.org/a>b
+https://example.org/a|b
+https://example.org/a[b]c
+https://example.org/a{b}c
+https://example.org/a]
+.
+<p><a href="https://example.org/a%22tail">https://example.org/a&quot;tail</a>
+<a href="https://example.org/a%3Eb">https://example.org/a&gt;b</a>
+<a href="https://example.org/a%7Cb">https://example.org/a|b</a>
+<a href="https://example.org/a%5Bb%5Dc">https://example.org/a[b]c</a>
+<a href="https://example.org/a%7Bb%7Dc">https://example.org/a{b}c</a>
+<a href="https://example.org/a%5D">https://example.org/a]</a></p>
+.
+--fpermissive-url-autolinks
+````````````````````````````````
+
+Unicode URL tails are supported. Unicode whitespace ends the link.
+
+```````````````````````````````` example
+https://example.org/café?q=naïve
+https://example.org/a tail
+https://example.org/a tail
+.
+<p><a href="https://example.org/caf%C3%A9?q=na%C3%AFve">https://example.org/café?q=naïve</a>
+<a href="https://example.org/a">https://example.org/a</a> tail
+<a href="https://example.org/a">https://example.org/a</a> tail</p>
+.
+--fpermissive-url-autolinks
+````````````````````````````````
+
+A less-than sign ends the tail before HTML or literal text.
+
+```````````````````````````````` example
+https://example.org/path<em>x</em>
+https://example.org/path<not-a-tag
+.
+<p><a href="https://example.org/path">https://example.org/path</a><em>x</em>
+<a href="https://example.org/path">https://example.org/path</a>&lt;not-a-tag</p>
+.
+--fpermissive-url-autolinks
+````````````````````````````````
+
+Resolved Markdown spans keep their boundaries. Code and explicit links
+continue to use their own parsing paths.
+
+```````````````````````````````` example
+**https://example.org/a?x=%20**
+*https://example.org/a?x=%20*
+~~https://example.org/a?x=%20~~
+`https://example.org/a?x=%20`
+[explicit](https://example.org/a?x=%20)
+https://example.org/a?x=%20`code`
+.
+<p><strong><a href="https://example.org/a?x=%20">https://example.org/a?x=%20</a></strong>
+<em><a href="https://example.org/a?x=%20">https://example.org/a?x=%20</a></em>
+<del><a href="https://example.org/a?x=%20">https://example.org/a?x=%20</a></del>
+<code>https://example.org/a?x=%20</code>
+<a href="https://example.org/a?x=%20">explicit</a>
+https://example.org/a?x=%20<code>code</code></p>
+.
+--fpermissive-url-autolinks
+--fstrikethrough
+````````````````````````````````
+
+A permissive URL flag is still required.
+
+```````````````````````````````` example
+https://example.org/a::b
+www.example.org/a?next=https://example.com/b
+.
+<p>https://example.org/a::b
+www.example.org/a?next=https://example.com/b</p>
+.
+
+````````````````````````````````
+
+E-mail rules are independent of URL-tail scanning.
+
+```````````````````````````````` example
+john.doe@example.org
+john.doe@example.org*
+john.doe@example.org:
+.
+<p><a href="mailto:john.doe@example.org">john.doe@example.org</a>
+john.doe@example.org*
+john.doe@example.org:</p>
+.
+--fpermissive-url-autolinks
+--fpermissive-www-autolinks
+--fpermissive-email-autolinks
 ````````````````````````````````
 
 
