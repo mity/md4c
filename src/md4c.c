@@ -4495,36 +4495,60 @@ md_analyze_permissive_autolink(MD_CTX* ctx, int mark_index)
             while(end < line_end  &&  ISDIGIT(end))
                 end++;
         }
+    }
 
-        /* Scan for path segment. */
-        if(end < line_end  &&  CH(end) == _T('/')) {
-            if(md_analyze_permissive_autolink_segment(ctx, end+1, line_end, &end, false,
-                        _T('/'), _T(".+-_~%"), NULL, &right_cursor) < 0)
-                return;
+    if(opener->ch != '@' && end < line_end && ISANYOF(end, _T("/?#"))) {
+        OFF tail_beg = end;
+        OFF off = end;
+        OFF n_open_brackets = 0;
+        OFF n_close_brackets = 0;
 
-            /* Path can also end with additional '/' if its a directory. */
-            if(end < line_end  &&  CH(end) == _T('/'))
-                end++;
+        /* Scan a continuous URL tail, stopping at whitespace or '<'.
+         * Keep the mark check so URLs cannot cross resolved Markdown syntax. */
+        while(off < line_end) {
+            SZ char_size;
+            int codepoint = md_decode_unicode(ctx->text, off, ctx->size, &char_size);
+
+            if(ISUNICODEWHITESPACE_(codepoint) || codepoint == '<' ||
+                    codepoint < 0x20 || codepoint == 0x7f)
+                break;
+            if(codepoint >= 128) {
+                off += char_size;
+                continue;
+            }
+
+            if(!ISALNUM(off) &&
+                    md_scan_right_for_resolved_mark(ctx, right_cursor, off, &right_cursor) != NULL)
+                break;
+
+            if(CH(off) == _T('(')) {
+                n_open_brackets++;
+            } else if(CH(off) == _T(')')) {
+                n_close_brackets++;
+            }
+            off++;
         }
 
-        /* Scan for query segment. */
-        if(end < line_end  &&  CH(end) == _T('?')) {
-            if(md_analyze_permissive_autolink_segment(ctx, end+1, line_end, &end, false,
-                        _T('&'), _T("._=()"), _T("+-"), &right_cursor) < 0)
-                return;
+        /* Trim only excess trailing closing parentheses. Unmatched opening
+         * parentheses within a URL are valid. */
+        while(off > tail_beg) {
+            if(CH(off-1) == _T(')') && n_close_brackets > n_open_brackets) {
+                n_close_brackets--;
+                off--;
+            } else if(ISANYOF(off-1, _T("?!.,:;*_~'\""))) {
+                off--;
+            } else {
+                break;
+            }
         }
-
-        /* Scan for fragment segment. */
-        if(end < line_end  &&  CH(end) == _T('#')) {
-            if(md_analyze_permissive_autolink_segment(ctx, end+1, line_end, &end, false,
-                        _T('\0'), NULL, _T(".-+_"), &right_cursor) < 0)
-                return;
-        }
+        end = off;
     }
 
     /* Verify there's line boundary, whitespace, allowed punctuation or
      * resolved closer mark just after the suspected autolink. */
-    if(end < line_end  &&  !ISUNICODEWHITESPACE(end)  &&  !ISANYOF(end, _T(")}].!?,;"))) {
+    if(end < line_end && !ISUNICODEWHITESPACE(end) &&
+            !ISANYOF(end, _T(")}].!?,;")) &&
+            !(opener->ch != '@' && ISANYOF(end, _T(":*_~'\"<")))) {
         MD_MARK* mark;
 
         mark = md_scan_right_for_resolved_mark(ctx, right_cursor, end, &right_cursor);
