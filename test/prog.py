@@ -4,6 +4,7 @@
 from subprocess import Popen, PIPE
 import platform
 import os
+import shutil
 
 def pipe_through_prog(argv, text):
     p1 = Popen(argv, stdout=PIPE, stdin=PIPE, stderr=PIPE)
@@ -12,7 +13,10 @@ def pipe_through_prog(argv, text):
 
 class Prog:
     def __init__(self, cmdline="md2html", default_options=[]):
-        self.cmdline = cmdline.split()
+        program = shutil.which(cmdline)
+        if not program and os.name == 'nt':
+            program = shutil.which(cmdline + '.exe')
+        self.cmdline = [cmdline] if program else cmdline.split()
         if len(self.cmdline) <= 1:
             # cmdline provided no command line options. Use default ones.
             if isinstance(default_options, str):
