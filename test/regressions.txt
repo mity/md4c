@@ -1529,6 +1529,25 @@ make later indented content leave the item.
 </ul>
 ````````````````````````````````
 
+## Nested empty item after two blank lines
+
+The inner item closes, while the following paragraph remains in the outer item.
+
+```````````````````````````````` example
+- -
+
+
+    b
+.
+<ul>
+<li><ul>
+<li></li>
+</ul>
+<p>b</p>
+</li>
+</ul>
+````````````````````````````````
+
 ## [PR 443](https://github.com/mity/md4c/pull/443)
 
 DEL (U+007F) is a control character, so it ends an unbracketed link destination
