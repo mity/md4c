@@ -338,6 +338,7 @@ struct MD_VERBATIMLINE_tag {
 #define ISNEWLINE_(ch)                  (ISANYOF2_((ch), _T('\r'), _T('\n')))
 #define ISWHITESPACE_(ch)               (ISBLANK_(ch) || ISANYOF2_((ch), _T('\v'), _T('\f')))
 #define ISCNTRL_(ch)                    ((unsigned)(ch) <= 31 || (unsigned)(ch) == 127)
+#define ISCNTRLORWHITESPACE_(ch)        ((unsigned)(ch) <= 32 || (unsigned)(ch) == 127)
 #define ISPUNCT_(ch)                    (ISIN_(ch, 33, 47) || ISIN_(ch, 58, 64) || ISIN_(ch, 91, 96) || ISIN_(ch, 123, 126))
 #define ISUPPER_(ch)                    (ISIN_(ch, _T('A'), _T('Z')))
 #define ISLOWER_(ch)                    (ISIN_(ch, _T('a'), _T('z')))
@@ -354,6 +355,7 @@ struct MD_VERBATIMLINE_tag {
 #define ISNEWLINE(off)                  ISNEWLINE_(CH(off))
 #define ISWHITESPACE(off)               ISWHITESPACE_(CH(off))
 #define ISCNTRL(off)                    ISCNTRL_(CH(off))
+#define ISCNTRLORWHITESPACE(off)        ISCNTRLORWHITESPACE_(CH(off))
 #define ISPUNCT(off)                    ISPUNCT_(CH(off))
 #define ISUPPER(off)                    ISUPPER_(CH(off))
 #define ISLOWER(off)                    ISLOWER_(CH(off))
@@ -2311,9 +2313,7 @@ md_is_link_destination_B(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end,
             continue;
         }
 
-        /* Same as ISWHITESPACE(off) || ISCNTRL(off), but in two comparisons:
-         * space is the only whitespace character above 31. */
-        if((unsigned) CH(off) <= 32  ||  CH(off) == _T('\x7f'))
+        if(ISCNTRLORWHITESPACE(off))
             break;
 
         /* Link destination may include balanced pairs of unescaped '(' ')'.
@@ -3181,8 +3181,7 @@ md_is_autolink_uri(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end)
 
     /* Check the path after the scheme. */
     while(off < max_end  &&  CH(off) != _T('>')) {
-        /* Same as ISWHITESPACE(off) || ISCNTRL(off), see md_is_link_destination_B(). */
-        if((unsigned) CH(off) <= 32  ||  CH(off) == _T('\x7f')  ||  CH(off) == _T('<'))
+        if(ISCNTRLORWHITESPACE(off)  ||  CH(off) == _T('<'))
             return false;
         off++;
     }
