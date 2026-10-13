@@ -1548,6 +1548,30 @@ The inner item closes, while the following paragraph remains in the outer item.
 </ul>
 ````````````````````````````````
 
+## Empty item inside nested block quotes
+
+Closing the empty item must keep the remaining block quote markers consumed.
+
+```````````````````````````````` example
+> > > > -
+> > > >
+> > > >
+> > > >   b
+.
+<blockquote>
+<blockquote>
+<blockquote>
+<blockquote>
+<ul>
+<li></li>
+</ul>
+<p>b</p>
+</blockquote>
+</blockquote>
+</blockquote>
+</blockquote>
+````````````````````````````````
+
 ## [PR 443](https://github.com/mity/md4c/pull/443)
 
 DEL (U+007F) is a control character, so it ends an unbracketed link destination
