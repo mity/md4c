@@ -1362,7 +1362,6 @@ Lower-case "<![cdata" does not make a valid HTML block starting condition.
 <p>&lt;![cdata[ text ]]&gt;</p>
 ````````````````````````````````
 
-<<<<<<< HEAD
 ## [Pull 443](https://github.com/mity/md4c/pull/443)
 
 DEL (U+007F) is a control character, so it ends an unbracketed link destination
@@ -1385,3 +1384,4 @@ URI too.
 <http://a<b>
 .
 <p>&lt;http://a<b></p>
+````````````````````````````````
