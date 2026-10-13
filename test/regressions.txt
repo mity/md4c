@@ -1484,6 +1484,51 @@ Lower-case "<![cdata" does not make a valid HTML block starting condition.
 <p>&lt;![cdata[ text ]]&gt;</p>
 ````````````````````````````````
 
+## Nonempty list item followed by two blank lines
+
+Two leading blank lines put the content line at offset four; this must not
+make later indented content leave the item.
+
+```````````````````````````````` example
+
+
+- a
+
+
+  b
+.
+<ul>
+<li><p>a</p>
+<p>b</p>
+</li>
+</ul>
+````````````````````````````````
+
+```````````````````````````````` example
+-
+
+
+  b
+.
+<ul>
+<li></li>
+</ul>
+<p>b</p>
+````````````````````````````````
+
+```````````````````````````````` example
+-
+  [ref]: /url
+
+
+  b
+.
+<ul>
+<li><p>b</p>
+</li>
+</ul>
+````````````````````````````````
+
 ## [PR 443](https://github.com/mity/md4c/pull/443)
 
 DEL (U+007F) is a control character, so it ends an unbracketed link destination

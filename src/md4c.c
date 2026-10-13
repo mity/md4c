@@ -5353,6 +5353,8 @@ struct MD_CONTAINER_tag {
     unsigned mark_indent;
     unsigned contents_indent;
     OFF block_byte_off;
+    int li_block_byte_end;     /* Byte after the current MD_BLOCK_LI opener. */
+    unsigned li_has_content    : 1;
     OFF task_mark_off;
 };
 
@@ -6472,6 +6474,7 @@ md_enter_child_containers(MD_CTX* ctx, int n_children)
                                 c->task_mark_off,
                                 (c->is_task ? CH(c->task_mark_off) : 0),
                                 MD_BLOCK_CONTAINER_OPENER));
+                c->li_block_byte_end = ctx->n_block_bytes;
                 break;
 
             case _T('>'):
@@ -6754,16 +6757,14 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
                 if(n_parents > 0  &&  n_parents == ctx->n_containers  &&
                    ctx->containers[n_parents-1].ch != _T('>')  &&
                    n_brothers + n_children == 0  &&  ctx->current_block == NULL  &&
-                   ctx->n_block_bytes > (int) sizeof(MD_BLOCK))
+                   ctx->n_block_bytes == ctx->containers[n_parents-1].li_block_byte_end  &&
+                   !ctx->containers[n_parents-1].li_has_content)
                 {
-                    MD_BLOCK* top_block = (MD_BLOCK*) ((char*)ctx->block_bytes + ctx->n_block_bytes - sizeof(MD_BLOCK));
-                    if(top_block->type == MD_BLOCK_LI) {
-                        n_parents--;
+                    n_parents--;
 
-                        line->indent = total_indent;
-                        if(n_parents > 0)
-                            line->indent -= MIN(line->indent, ctx->containers[n_parents-1].contents_indent);
-                    }
+                    line->indent = total_indent;
+                    if(n_parents > 0)
+                        line->indent -= MIN(line->indent, ctx->containers[n_parents-1].contents_indent);
                 }
             }
             ctx->consecutive_blank_lines = 0;
@@ -7085,6 +7086,8 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
                     container.task_mark_off,
                     (container.is_task ? CH(container.task_mark_off) : 0),
                     MD_BLOCK_CONTAINER_OPENER));
+        ctx->containers[n_parents].li_block_byte_end = ctx->n_block_bytes;
+        ctx->containers[n_parents].li_has_content = false;
         ctx->containers[n_parents].is_task = container.is_task;
         ctx->containers[n_parents].task_mark_off = container.task_mark_off;
     }
@@ -7113,6 +7116,11 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
         /* Enter all the child container blocks. */
         MD_CHECK(md_enter_child_containers(ctx, n_children));
     }
+
+    /* Reference definitions can remove their blocks without emptying the item. */
+    if(line->type != MD_LINE_BLANK  &&  line->beg < line->end  &&
+       ctx->n_containers > 0  &&  ctx->containers[ctx->n_containers-1].ch != _T('>'))
+        ctx->containers[ctx->n_containers-1].li_has_content = true;
 
 abort:
     return ret;
