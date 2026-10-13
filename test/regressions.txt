@@ -1352,6 +1352,17 @@ bracket of an enclosing link or image.
 ````````````````````````````````
 
 
+## Full reference link labels do not participate in span resolution
+
+```````````````````````````````` example
+[a][*b] c*
+
+[*b]: /url
+.
+<p><a href="/url">a</a> c*</p>
+````````````````````````````````
+
+
 ## [Issue 435](https://github.com/mity/md4c/issues/435)
 
 Lower-case "<![cdata" does not make a valid HTML block starting condition.
