@@ -1,4 +1,4 @@
-.TH MD2HTML 1 "April 2026" "" "General Commands"
+.TH MD2HTML 1 2026-09-20 "md4c"
 .nh
 .ad l
 .
@@ -9,7 +9,7 @@ md2html \- convert Markdown to HTML
 .SH SYNOPSIS
 .
 .B md2html
-.RI [ OPTION ]...\&
+.RI [ OPTION ].\|.\|.\&
 .RI [ FILE ]
 .
 .SH OPTIONS
@@ -17,7 +17,7 @@ md2html \- convert Markdown to HTML
 .SS General options:
 .
 .TP
-.BR -o ", " --output= \fIOUTFILE\fR
+.BR -o ", " --output = \fIOUTFILE\fR
 Write output to \fIOUTFILE\fR instead of \fBstdout\fR(3)
 .
 .TP
@@ -47,7 +47,7 @@ Display version and exit
 CommonMark (the default)
 .
 .TP
-.B --gfm ", " --github
+.BR --gfm ", " --github
 Github Flavored Markdown
 .
 .PP
@@ -71,6 +71,7 @@ Enable footnote references ([^label])
 .B --fhard-soft-breaks
 Force all soft breaks to act as hard breaks
 .
+.TP
 .B --fhighlight
 Enable highlight spans (==text==)
 .
@@ -120,7 +121,7 @@ Enable subscript spans (~text~)
 .
 .TP
 .B --fsuperscripts
-Enable superscript spans (^text^)\n"
+Enable superscript spans (^text^)
 .
 .TP
 .B --ftables
@@ -163,14 +164,15 @@ Disable indented code blocks
 Do not translate entities
 .
 .TP
-.B --html-title=TITLE
+.BR --html-title = \fITITLE\fR
 Sets the title of the document
 .
 .TP
-.B --html-css=URL
+.BR --html-css = \fIURL\fR
 In full HTML or XHTML mode add a css link
 .
 .SH SEE ALSO
 .
 .UR https://github.com/mity/md4c
+.UE
 .
