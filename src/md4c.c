@@ -4589,8 +4589,6 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
             case '&':   md_analyze_entity(ctx, i); break;
             case '_':   MD_FALLTHROUGH();
             case '*':   md_analyze_emph(ctx, i); break;
-            case '~':   md_analyze_generic(ctx, i); break;
-            case '^':   md_analyze_generic(ctx, i); break;
             case '$':   md_analyze_dollar(ctx, i); break;
             case '.':   MD_FALLTHROUGH();
             case ':':   MD_FALLTHROUGH();
@@ -4601,7 +4599,9 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
                 if(mark->end - mark->beg == 2)
                     md_analyze_generic(ctx, i);
                 break;
-            case '=':   md_analyze_generic(ctx, i); break;
+            case '~':   MD_FALLTHROUGH();
+            case '^':   MD_FALLTHROUGH();
+            case '=':   MD_FALLTHROUGH();
             case '+':   md_analyze_generic(ctx, i); break;
         }
 
