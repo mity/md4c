@@ -6760,11 +6760,8 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
                    ctx->n_block_bytes == ctx->containers[n_parents-1].li_block_byte_end  &&
                    !ctx->containers[n_parents-1].li_has_content)
                 {
+                    line->indent += ctx->containers[n_parents-1].contents_indent;
                     n_parents--;
-
-                    line->indent = total_indent;
-                    if(n_parents > 0)
-                        line->indent -= MIN(line->indent, ctx->containers[n_parents-1].contents_indent);
                 }
             }
             ctx->consecutive_blank_lines = 0;
