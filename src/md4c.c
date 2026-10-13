@@ -4365,8 +4365,8 @@ md_analyze_permissive_autolink_segment(MD_CTX* ctx, OFF off, OFF end, OFF* p_end
 {
     int n_components = 0;
     int n_open_brackets = 0;
-    int seen_word_delim = true;
-    int seen_component_delim = true;
+    bool seen_word_delim = true;
+    bool seen_component_delim = true;
     OFF component_beg = off;
 
     if(word_extra == NULL)
@@ -4428,7 +4428,7 @@ md_analyze_permissive_autolink_segment(MD_CTX* ctx, OFF off, OFF end, OFF* p_end
     }
 
     /* Rollback falsely consumed delimiter. */
-    if(seen_word_delim || seen_component_delim)
+    if(off != component_beg  &&  (seen_word_delim || seen_component_delim))
         off = (scan_backwards ? off+1 : off-1);
 
     if(off != component_beg)

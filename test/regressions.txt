@@ -1362,7 +1362,7 @@ Lower-case "<![cdata" does not make a valid HTML block starting condition.
 <p>&lt;![cdata[ text ]]&gt;</p>
 ````````````````````````````````
 
-## [Pull 443](https://github.com/mity/md4c/pull/443)
+## [PR 443](https://github.com/mity/md4c/pull/443)
 
 DEL (U+007F) is a control character, so it ends an unbracketed link destination
 and an autolink URI, just like space and the C0 controls. `<` ends an autolink
@@ -1384,4 +1384,17 @@ URI too.
 <http://a<b>
 .
 <p>&lt;http://a<b></p>
+````````````````````````````````
+
+
+## [PR 454](https://github.com/mity/md4c/pull/454)
+
+Make sure we don't accept an empty hostname in the URL autolink.
+
+```````````````````````````````` example
+http://?q=1
+.
+<p>http://?q=1</p>
+.
+--fpermissive-url-autolinks
 ````````````````````````````````
