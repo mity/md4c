@@ -115,6 +115,9 @@ pathological = {
             (("[^na]:\n\n" + "[^" * 50000 + "x" + "]" * 50000),
             re.compile(r"<p>(\[\^){49999}.*\]{49999}</p>"),
             "--ffootnotes"),
+    "many implicit nested blocks":
+            (("- " * 50000 + "x\n" + "\n" * 50000),
+            re.compile(r"(<ul>\r?\n<li>){50000}x(</li>\r?\n</ul>\r?\n){50000}")),
 }
 
 whitespace_re = re.compile('/s+/')

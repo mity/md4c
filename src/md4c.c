@@ -280,6 +280,8 @@ struct MD_CTX_tag {
     int html_block_type;    /* For checking closing raw HTML condition. */
     int last_line_has_list_loosening_effect;
     int consecutive_blank_lines;
+    int last_n_implicit_parents_beg;
+    int last_n_implicit_parents_end;
 };
 
 enum MD_LINETYPE_tag {
@@ -6675,6 +6677,8 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
     int prev_line_has_list_loosening_effect = ctx->last_line_has_list_loosening_effect;
     OFF off = beg;
     OFF hr_killer = 0;
+    int n_implicit_parents_beg = 0;
+    int n_implicit_parents_end = 0;
     int ret = 0;
 
     line->indent = md_line_indentation(ctx, total_indent, off, &off);
@@ -6716,8 +6720,16 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
         /* Blank line does not need any real indentation to be nested inside
          * a list. */
         if(n_brothers + n_children == 0) {
-            while(n_parents < ctx->n_containers  &&  ctx->containers[n_parents].ch != _T('>'))
-                n_parents++;
+            n_implicit_parents_beg = n_parents;
+            if(n_parents == ctx->last_n_implicit_parents_beg  &&
+               ctx->last_n_implicit_parents_end - ctx->last_n_implicit_parents_beg > 0)
+            {
+                n_parents = ctx->last_n_implicit_parents_end;
+            } else {
+                while(n_parents < ctx->n_containers  &&  ctx->containers[n_parents].ch != _T('>'))
+                    n_parents++;
+            }
+            n_implicit_parents_end = n_parents;
         }
     }
 
@@ -7164,6 +7176,9 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
     if(line->type != MD_LINE_BLANK  &&  line->beg < line->end  &&
        ctx->n_containers > 0  &&  ctx->containers[ctx->n_containers-1].ch != _T('>'))
         ctx->containers[ctx->n_containers-1].li_has_content = true;
+
+    ctx->last_n_implicit_parents_beg = n_implicit_parents_beg;
+    ctx->last_n_implicit_parents_end = n_implicit_parents_end;
 
 abort:
     return ret;
