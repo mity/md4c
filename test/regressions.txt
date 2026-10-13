@@ -607,6 +607,58 @@ _bar_
 ````````````````````````````````
 
 
+## HTML block tag-name boundaries
+
+A type 1 name needs a space, tab, `>`, or end of line. A longer type 6 name
+remains eligible when an earlier, shorter name matches only a prefix.
+
+```````````````````````````````` example
+<prefix>
+
+# Heading
+.
+<prefix>
+<h1>Heading</h1>
+````````````````````````````````
+
+```````````````````````````````` example
+<pre/>
+
+# Heading
+.
+<p><pre/></p>
+<h1>Heading</h1>
+````````````````````````````````
+
+```````````````````````````````` example
+<pre/>
+*emphasis*
+.
+<p><pre/>
+<em>emphasis</em></p>
+````````````````````````````````
+
+```````````````````````````````` example
+para
+<thead>
+*x*
+.
+<p>para</p>
+<thead>
+*x*
+````````````````````````````````
+
+```````````````````````````````` example
+para
+</thead>
+*x*
+.
+<p>para</p>
+</thead>
+*x*
+````````````````````````````````
+
+
 ## [Issue 210](https://github.com/mity/md4c/issues/210)
 
 ```````````````````````````````` example

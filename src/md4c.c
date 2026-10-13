@@ -6215,8 +6215,14 @@ md_is_html_block_start_condition(MD_CTX* ctx, OFF beg)
     /* Check for type 1: <script, <pre, or <style */
     for(i = 0; t1[i].name != NULL; i++) {
         if(off + t1[i].len <= ctx->size) {
-            if(md_ascii_case_eq(STR(off), t1[i].name, t1[i].len))
-                return 1;
+            if(md_ascii_case_eq(STR(off), t1[i].name, t1[i].len)) {
+                OFF tmp = off + t1[i].len;
+                if(tmp >= ctx->size || ISBLANK(tmp) || ISNEWLINE(tmp) || CH(tmp) == _T('>'))
+                    return 1;
+                /* A self-closing type 1 name is excluded from type 7 as well. */
+                if(tmp+1 < ctx->size && CH(tmp) == _T('/') && CH(tmp+1) == _T('>'))
+                    return false;
+            }
         }
     }
 
@@ -6262,7 +6268,7 @@ md_is_html_block_start_condition(MD_CTX* ctx, OFF beg)
                         return 6;
                     if(tmp+1 < ctx->size && CH(tmp) == _T('/') && CH(tmp+1) == _T('>'))
                         return 6;
-                    break;
+                    continue;
                 }
             }
         }
