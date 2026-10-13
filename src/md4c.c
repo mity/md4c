@@ -192,6 +192,7 @@ struct MD_CTX_tag {
     /* Footnote definitions. */
     MD_LABEL_HASH_TABLE footnote_hashtable;
     unsigned next_footnote_index;   /* 1-based counter for sequential numbering */
+    MD_FOOTNOTE_DEF** footnote_order;
 
     /* Stack of inline/span markers.
      * This is only used for parsing a single block contents but by storing it
@@ -3876,8 +3877,11 @@ md_resolve_bracket_footnote(MD_CTX* ctx, MD_MARK* opener, MD_MARK* closer,
         return false;
 
     /* Assign index on first reference. */
-    if(def->index == 0)
+    if(def->index == 0) {
         def->index = ++ctx->next_footnote_index;
+        if(ctx->footnote_order != NULL)
+            ctx->footnote_order[def->index - 1] = def;
+    }
     def->ref_count++;
 
     /* Store the public callback details in the dummy mark after the opener. */
@@ -7164,21 +7168,6 @@ abort:
 }
 
 static int
-md_footnote_def_cmp_index(const void* a, const void* b)
-{
-    const MD_FOOTNOTE_DEF* da = (const MD_FOOTNOTE_DEF*) a;
-    const MD_FOOTNOTE_DEF* db = (const MD_FOOTNOTE_DEF*) b;
-
-    /* Unreferenced defs (index == 0) always sort after referenced ones. */
-    if(da->index == 0  &&  db->index == 0) return 0;
-    if(da->index == 0) return +1;
-    if(db->index == 0) return -1;
-    if(da->index < db->index) return -1;
-    if(da->index > db->index) return +1;
-    return 0;
-}
-
-static int
 md_process_footnote_def(MD_CTX* ctx, MD_FOOTNOTE_DEF* def)
 {
     MD_BLOCK_FOOTNOTE_DEF_DETAIL det;
@@ -7212,22 +7201,29 @@ md_process_footnote_defs(MD_CTX* ctx)
     if(ctx->footnote_hashtable.n_defs == 0  ||  ctx->next_footnote_index == 0)
         return 0;
 
-    /* Sort defs by index so we emit in reference order. */
-    qsort(ctx->footnote_hashtable.defs, ctx->footnote_hashtable.n_defs,
-          sizeof(MD_FOOTNOTE_DEF), md_footnote_def_cmp_index);
+    /* Keep definitions in place because the label hash table points into them.
+     * A definition may first be referenced while rendering another one. */
+    ctx->footnote_order = malloc(ctx->footnote_hashtable.n_defs * sizeof(*ctx->footnote_order));
+    if(ctx->footnote_order == NULL) {
+        MD_LOG("malloc() failed.");
+        return -1;
+    }
+    for(i = 0; i < ctx->footnote_hashtable.n_defs; i++) {
+        MD_FOOTNOTE_DEF* def = &ctx->footnote_hashtable.footnote_defs[i];
+        if(def->index != 0)
+            ctx->footnote_order[def->index - 1] = def;
+    }
 
     MD_ENTER_BLOCK(MD_BLOCK_FOOTNOTE_DEF_SECTION, NULL);
 
-    for(i = 0; i < ctx->footnote_hashtable.n_defs; i++) {
-        MD_FOOTNOTE_DEF* def = &ctx->footnote_hashtable.footnote_defs[i];
-        if(def->index == 0)
-            break;
-        MD_CHECK(md_process_footnote_def(ctx, def));
-    }
+    for(i = 0; i < ctx->next_footnote_index; i++)
+        MD_CHECK(md_process_footnote_def(ctx, ctx->footnote_order[i]));
 
     MD_LEAVE_BLOCK(MD_BLOCK_FOOTNOTE_DEF_SECTION, NULL);
 
 abort:
+    free(ctx->footnote_order);
+    ctx->footnote_order = NULL;
     return ret;
 }
 
