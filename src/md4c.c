@@ -3859,12 +3859,10 @@ md_resolve_bracket_footnote(MD_CTX* ctx, MD_MARK* opener, MD_MARK* closer,
     if(opener->ch != _T('[')  ||  opener->end >= ctx->size  ||  CH(opener->end) != _T('^'))
         return false;
 
-    /* Expand the opener to eat the '^' */
-    opener->end++;
     closer = &ctx->marks[opener->next];
 
     /* Verify the label satisfies the label rules. */
-    label_beg = opener->end;
+    label_beg = opener->end + 1;
     if(!md_is_footnote_label(ctx, label_beg, &label_end)  ||  label_end != closer->beg)
         return false;
 
@@ -3874,6 +3872,9 @@ md_resolve_bracket_footnote(MD_CTX* ctx, MD_MARK* opener, MD_MARK* closer,
     def = md_lookup_footnote_def(ctx, STR(label_beg), label_end - label_beg);
     if(def == NULL)
         return false;
+
+    /* Expand the opener to eat the '^' only for a resolved footnote. */
+    opener->end = label_beg;
 
     /* Assign index on first reference. */
     if(def->index == 0)

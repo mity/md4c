@@ -332,6 +332,28 @@ Just a paragraph.
 ````````````````````````````````
 
 
+## Footnote-like link with no matching definition
+
+A failed footnote lookup must leave the opening bracket unchanged so an inline
+link keeps its destination and inline spans remain balanced:
+
+```````````````````````````````` example
+[^x](https://example.test/path)
+.
+<p><a href="https://example.test/path">^x</a></p>
+.
+--ffootnotes
+````````````````````````````````
+
+```````````````````````````````` example
+[^a^]()
+.
+<p><a href=""><sup>a</sup></a></p>
+.
+--ffootnotes --fsuperscripts
+````````````````````````````````
+
+
 ## Mixed referenced and unreferenced definitions
 
 Only referenced definitions are emitted; unreferenced ones are silently dropped:

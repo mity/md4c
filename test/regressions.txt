@@ -27,16 +27,30 @@ Raw HTML block:
 ````````````````````````````````
 
 
-## Footnote reference inside wiki-link destination
+## Footnote-like text inside wiki-link destination
+
+The apparent footnote definition remains paragraph text. Enabling footnotes
+must not change the wiki-link pairing when the footnote lookup fails:
 
 ```````````````````````````````` example
 [[[^|]]]
 [^|]:
 .
-<p><x-wikilink data-target="[^">]</x-wikilink>
+<p>[<x-wikilink data-target="^">^</x-wikilink>]
 [^|]:</p>
 .
 --ffootnotes --fwiki-links
+````````````````````````````````
+
+
+```````````````````````````````` example
+[[[^|]]]
+[^|]:
+.
+<p>[<x-wikilink data-target="^">^</x-wikilink>]
+[^|]:</p>
+.
+--fwiki-links
 ````````````````````````````````
 
 
