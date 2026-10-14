@@ -221,7 +221,7 @@ https://example.com/images/branding/logo_272x92.png
 
 Then optionally query may follow. Consecutive punctuation characters, percent
 escapes and redirect URLs are allowed in the query. Unmatched opening
-parentheses may occur within the URL. Excess terminal closing parentheses
+brackets may occur within the URL. Excess terminal closing brackets
 and terminal punctuation (`?`, `!`, `.`, `,`, `:`, `;`, `*`, `_`, `~`, `'`,
 `"`) are excluded from the link.
 
@@ -377,14 +377,28 @@ https://example.org/a>b
 https://example.org/a|b
 https://example.org/a[b]c
 https://example.org/a{b}c
-https://example.org/a]
 .
 <p><a href="https://example.org/a%22tail">https://example.org/a&quot;tail</a>
 <a href="https://example.org/a%3Eb">https://example.org/a&gt;b</a>
 <a href="https://example.org/a%7Cb">https://example.org/a|b</a>
 <a href="https://example.org/a%5Bb%5Dc">https://example.org/a[b]c</a>
-<a href="https://example.org/a%7Bb%7Dc">https://example.org/a{b}c</a>
-<a href="https://example.org/a%5D">https://example.org/a]</a></p>
+<a href="https://example.org/a%7Bb%7Dc">https://example.org/a{b}c</a></p>
+.
+--fpermissive-url-autolinks
+````````````````````````````````
+
+Excess closing square brackets and braces at the end are excluded from the
+URL the same way as excess closing parentheses, so the URL may be enclosed
+in them.
+
+```````````````````````````````` example
+[https://example.org/a?x=y]
+{https://example.org/a?x=y}
+https://example.org/a[b]c]
+.
+<p>[<a href="https://example.org/a?x=y">https://example.org/a?x=y</a>]
+{<a href="https://example.org/a?x=y">https://example.org/a?x=y</a>}
+<a href="https://example.org/a%5Bb%5Dc">https://example.org/a[b]c</a>]</p>
 .
 --fpermissive-url-autolinks
 ````````````````````````````````
