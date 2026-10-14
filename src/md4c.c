@@ -3259,6 +3259,60 @@ md_is_autolink(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end, int* p_missing_mai
     return false;
 }
 
+typedef enum MD_OC_POLICY MD_OC_POLICY;
+enum MD_OC_POLICY {
+    MD_OC_LIKE_ASTERISK,
+    MD_OC_LIKE_UNDERSCORE,
+    MD_OC_LATEX_MATH
+};
+
+static unsigned
+md_detect_oc_flags(MD_CTX* ctx, OFF mark_beg, OFF mark_end, const MD_LINE* line, MD_OC_POLICY policy)
+{
+    int left_level;     /* What precedes: 0 = whitespace; 1 = punctuation; 2 = other char. */
+    int right_level;    /* What follows: 0 = whitespace; 1 = punctuation; 2 = other char. */
+    unsigned flags = 0;
+
+    if(mark_beg == line->beg  ||  ISUNICODEWHITESPACEBEFORE(mark_beg))
+        left_level = 0;
+    else if(ISUNICODEPUNCTBEFORE(mark_beg))
+        left_level = 1;
+    else
+        left_level = 2;
+
+    if(mark_end == line->end  ||  ISUNICODEWHITESPACE(mark_end))
+        right_level = 0;
+    else if(ISUNICODEPUNCT(mark_end))
+        right_level = 1;
+    else
+        right_level = 2;
+
+    switch(policy) {
+        case MD_OC_LIKE_UNDERSCORE:
+            /* CommonMark disallows underscore inside words to be recognized as
+             * marks. */
+            if(left_level == 2 && right_level == 2)
+                return 0;
+            MD_FALLTHROUGH();
+
+        case MD_OC_LIKE_ASTERISK:
+            if(left_level > 0  &&  left_level >= right_level)
+                flags |= MD_MARK_POTENTIAL_CLOSER;
+            if(right_level > 0  &&  right_level >= left_level)
+                flags |= MD_MARK_POTENTIAL_OPENER;
+            break;
+
+        case MD_OC_LATEX_MATH:
+            if(left_level < 2)
+                flags |= MD_MARK_POTENTIAL_OPENER;
+            if(right_level < 2)
+                flags |= MD_MARK_POTENTIAL_CLOSER;
+            break;
+    }
+
+    return flags;
+}
+
 static int
 md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table_mode)
 {
@@ -3310,39 +3364,14 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table_m
             /* A potential (string) emphasis start/end. */
             if(ch == _T('*')  ||  ch == _T('_')) {
                 OFF tmp = off+1;
-                int left_level;     /* What precedes: 0 = whitespace; 1 = punctuation; 2 = other char. */
-                int right_level;    /* What follows: 0 = whitespace; 1 = punctuation; 2 = other char. */
+                unsigned flags;
 
                 while(tmp < line->end  &&  CH(tmp) == ch)
                     tmp++;
 
-                if(off == line->beg  ||  ISUNICODEWHITESPACEBEFORE(off))
-                    left_level = 0;
-                else if(ISUNICODEPUNCTBEFORE(off))
-                    left_level = 1;
-                else
-                    left_level = 2;
-
-                if(tmp == line->end  ||  ISUNICODEWHITESPACE(tmp))
-                    right_level = 0;
-                else if(ISUNICODEPUNCT(tmp))
-                    right_level = 1;
-                else
-                    right_level = 2;
-
-                /* Intra-word underscore doesn't have special meaning. */
-                if(ch == _T('_')  &&  left_level == 2  &&  right_level == 2) {
-                    left_level = 0;
-                    right_level = 0;
-                }
-
-                if(left_level != 0  ||  right_level != 0) {
-                    unsigned flags = 0;
-
-                    if(left_level > 0  &&  left_level >= right_level)
-                        flags |= MD_MARK_POTENTIAL_CLOSER;
-                    if(right_level > 0  &&  right_level >= left_level)
-                        flags |= MD_MARK_POTENTIAL_OPENER;
+                flags = md_detect_oc_flags(ctx, off, tmp, line,
+                        (ch == _T('*') ? MD_OC_LIKE_ASTERISK : MD_OC_LIKE_UNDERSCORE));
+                if(flags != 0) {
                     if(flags == (MD_MARK_POTENTIAL_OPENER | MD_MARK_POTENTIAL_CLOSER))
                         flags |= MD_MARK_EMPH_OC;
 
@@ -3561,18 +3590,21 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table_m
              */
             if(ch == _T('|')) {
                 OFF tmp = off + 1;
+                unsigned flags = 0;
                 while(tmp < line->end  &&  CH(tmp) == ch)
                     tmp++;
 
+                if(tmp - off == 2 && (ctx->parser.flags & MD_FLAG_SPOILERS))
+                    flags = md_detect_oc_flags(ctx, off, tmp, line, MD_OC_LIKE_ASTERISK);
                 if(table_mode  ||
                    (tmp - off == 1 && (ctx->parser.flags & MD_FLAG_WIKILINKS))  ||
-                   (tmp - off == 2 && (ctx->parser.flags & MD_FLAG_SPOILERS)))
-                    ADD_MARK(ch, off, tmp, MD_MARK_POTENTIAL_OPENER | MD_MARK_POTENTIAL_CLOSER);
+                   (tmp - off == 2 && (ctx->parser.flags & MD_FLAG_SPOILERS) && flags != 0))
+                    ADD_MARK(ch, off, tmp, flags);
                 off = tmp;
                 continue;
             }
 
-            /* A potential superscript, highlight, or insert */
+            /* A potential highlight, insert, or superscript */
             if(ISANYOF3_(ch, _T('='), _T('+'), _T('^'))) {
                 OFF tmp = off + 1;
 
@@ -3584,13 +3616,8 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table_m
                  * Only two plus signs form a insert. */
                 if((ISANYOF2_(ch, _T('='), _T('+')) && tmp - off == 2) ||
                   (ch == _T('^') && tmp - off == 1)) {
-                    unsigned flags = MD_MARK_POTENTIAL_OPENER | MD_MARK_POTENTIAL_CLOSER;
-
-                    /* Cannot open before whitespace; cannot close after whitespace. */
-                    if(tmp >= line->end  ||  ISUNICODEWHITESPACE(tmp))
-                        flags &= ~MD_MARK_POTENTIAL_OPENER;
-                    if(off == line->beg  ||  ISUNICODEWHITESPACEBEFORE(off))
-                        flags &= ~MD_MARK_POTENTIAL_CLOSER;
+                    unsigned flags;
+                    flags = md_detect_oc_flags(ctx, off, tmp, line, MD_OC_LIKE_ASTERISK);
                     if(flags != 0)
                         ADD_MARK(ch, off, tmp, flags);
                 }
@@ -3609,22 +3636,14 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table_m
                 if(tmp - off == 1  &&  (ctx->parser.flags & MD_FLAG_SUBSCRIPTS)) {
                     /* Subscript: can open after any non-whitespace, cannot open
                      * before whitespace; cannot close after whitespace. */
-                    unsigned flags = MD_MARK_POTENTIAL_OPENER | MD_MARK_POTENTIAL_CLOSER;
-
-                    if(tmp >= line->end  ||  ISUNICODEWHITESPACE(tmp))
-                        flags &= ~MD_MARK_POTENTIAL_OPENER;
-                    if(off == line->beg  ||  ISUNICODEWHITESPACEBEFORE(off))
-                        flags &= ~MD_MARK_POTENTIAL_CLOSER;
+                    unsigned flags;
+                    flags = md_detect_oc_flags(ctx, off, tmp, line, MD_OC_LIKE_ASTERISK);
                     if(flags != 0)
                         ADD_MARK(ch, off, tmp, flags);
                 } else if(tmp - off <= 2  &&  (ctx->parser.flags & MD_FLAG_STRIKETHROUGH)) {
                     /* Strikethrough: standard GFM left/right-flanking rules. */
-                    unsigned flags = MD_MARK_POTENTIAL_OPENER | MD_MARK_POTENTIAL_CLOSER;
-
-                    if(off > line->beg  &&  !ISUNICODEWHITESPACEBEFORE(off)  &&  !ISUNICODEPUNCTBEFORE(off))
-                        flags &= ~MD_MARK_POTENTIAL_OPENER;
-                    if(tmp < line->end  &&  !ISUNICODEWHITESPACE(tmp)  &&  !ISUNICODEPUNCT(tmp))
-                        flags &= ~MD_MARK_POTENTIAL_CLOSER;
+                    unsigned flags;
+                    flags = md_detect_oc_flags(ctx, off, tmp, line, MD_OC_LIKE_UNDERSCORE);
                     if(flags != 0)
                         ADD_MARK(ch, off, tmp, flags);
                 }
@@ -3641,12 +3660,8 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table_m
                     tmp++;
 
                 if(tmp - off <= 2) {
-                    unsigned flags = MD_MARK_POTENTIAL_OPENER | MD_MARK_POTENTIAL_CLOSER;
-
-                    if(off > line->beg  &&  !ISUNICODEWHITESPACEBEFORE(off)  &&  !ISUNICODEPUNCTBEFORE(off))
-                        flags &= ~MD_MARK_POTENTIAL_OPENER;
-                    if(tmp < line->end  &&  !ISUNICODEWHITESPACE(tmp)  &&  !ISUNICODEPUNCT(tmp))
-                        flags &= ~MD_MARK_POTENTIAL_CLOSER;
+                    unsigned flags;
+                    flags = md_detect_oc_flags(ctx, off, tmp, line, MD_OC_LATEX_MATH);
                     if(flags != 0)
                         ADD_MARK(ch, off, tmp, flags);
                 }
