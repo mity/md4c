@@ -192,6 +192,7 @@ struct MD_CTX_tag {
     /* Footnote definitions. */
     MD_LABEL_HASH_TABLE footnote_hashtable;
     unsigned next_footnote_index;   /* 1-based counter for sequential numbering */
+    MD_FOOTNOTE_DEF** footnote_order;
 
     /* Stack of inline/span markers.
      * This is only used for parsing a single block contents but by storing it
@@ -3860,12 +3861,10 @@ md_resolve_bracket_footnote(MD_CTX* ctx, MD_MARK* opener, MD_MARK* closer,
     if(opener->ch != _T('[')  ||  opener->end >= ctx->size  ||  CH(opener->end) != _T('^'))
         return false;
 
-    /* Expand the opener to eat the '^' */
-    opener->end++;
     closer = &ctx->marks[opener->next];
 
     /* Verify the label satisfies the label rules. */
-    label_beg = opener->end;
+    label_beg = opener->end + 1;
     if(!md_is_footnote_label(ctx, label_beg, &label_end)  ||  label_end != closer->beg)
         return false;
 
@@ -3876,9 +3875,15 @@ md_resolve_bracket_footnote(MD_CTX* ctx, MD_MARK* opener, MD_MARK* closer,
     if(def == NULL)
         return false;
 
+    /* Expand the opener to eat the '^' only for a resolved footnote. */
+    opener->end = label_beg;
+
     /* Assign index on first reference. */
-    if(def->index == 0)
+    if(def->index == 0) {
         def->index = ++ctx->next_footnote_index;
+        if(ctx->footnote_order != NULL)
+            ctx->footnote_order[def->index - 1] = def;
+    }
     def->ref_count++;
 
     /* Store the public callback details in the dummy mark after the opener. */
@@ -3932,6 +3937,11 @@ md_resolve_bracket_link(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
             /* Do not analyze the label as a standalone link in the next
              * iteration. */
             *p_next_index = ctx->marks[*p_next_index].next;
+
+            /* The consumed label cannot participate in inline span
+             * resolution. */
+            md_disable_marks(ctx, (int) (next_opener - ctx->marks),
+                             (int) (next_closer - ctx->marks) + 1);
         }
     } else {
         if(closer->end < ctx->size  &&  CH(closer->end) == _T('(')) {
@@ -4366,8 +4376,8 @@ md_analyze_permissive_autolink_segment(MD_CTX* ctx, OFF off, OFF end, OFF* p_end
 {
     int n_components = 0;
     int n_open_brackets = 0;
-    int seen_word_delim = true;
-    int seen_component_delim = true;
+    bool seen_word_delim = true;
+    bool seen_component_delim = true;
     OFF component_beg = off;
 
     if(word_extra == NULL)
@@ -4429,7 +4439,7 @@ md_analyze_permissive_autolink_segment(MD_CTX* ctx, OFF off, OFF end, OFF* p_end
     }
 
     /* Rollback falsely consumed delimiter. */
-    if(seen_word_delim || seen_component_delim)
+    if(off != component_beg  &&  (seen_word_delim || seen_component_delim))
         off = (scan_backwards ? off+1 : off-1);
 
     if(off != component_beg)
@@ -4496,36 +4506,60 @@ md_analyze_permissive_autolink(MD_CTX* ctx, int mark_index)
             while(end < line_end  &&  ISDIGIT(end))
                 end++;
         }
+    }
 
-        /* Scan for path segment. */
-        if(end < line_end  &&  CH(end) == _T('/')) {
-            if(md_analyze_permissive_autolink_segment(ctx, end+1, line_end, &end, false,
-                        _T('/'), _T(".+-_~%"), NULL, &right_cursor) < 0)
-                return;
+    if(opener->ch != '@' && end < line_end && ISANYOF(end, _T("/?#"))) {
+        OFF tail_beg = end;
+        OFF off = end;
+        OFF n_open_brackets = 0;
+        OFF n_close_brackets = 0;
 
-            /* Path can also end with additional '/' if its a directory. */
-            if(end < line_end  &&  CH(end) == _T('/'))
-                end++;
+        /* Scan a continuous URL tail, stopping at whitespace or '<'.
+         * Keep the mark check so URLs cannot cross resolved Markdown syntax. */
+        while(off < line_end) {
+            SZ char_size;
+            int codepoint = md_decode_unicode(ctx->text, off, ctx->size, &char_size);
+
+            if(ISUNICODEWHITESPACE_(codepoint) || codepoint == '<' ||
+                    codepoint < 0x20 || codepoint == 0x7f)
+                break;
+            if(codepoint >= 128) {
+                off += char_size;
+                continue;
+            }
+
+            if(!ISALNUM(off) &&
+                    md_scan_right_for_resolved_mark(ctx, right_cursor, off, &right_cursor) != NULL)
+                break;
+
+            if(CH(off) == _T('(')) {
+                n_open_brackets++;
+            } else if(CH(off) == _T(')')) {
+                n_close_brackets++;
+            }
+            off++;
         }
 
-        /* Scan for query segment. */
-        if(end < line_end  &&  CH(end) == _T('?')) {
-            if(md_analyze_permissive_autolink_segment(ctx, end+1, line_end, &end, false,
-                        _T('&'), _T("._=()"), _T("+-"), &right_cursor) < 0)
-                return;
+        /* Trim only excess trailing closing parentheses. Unmatched opening
+         * parentheses within a URL are valid. */
+        while(off > tail_beg) {
+            if(CH(off-1) == _T(')') && n_close_brackets > n_open_brackets) {
+                n_close_brackets--;
+                off--;
+            } else if(ISANYOF(off-1, _T("?!.,:;*_~'\""))) {
+                off--;
+            } else {
+                break;
+            }
         }
-
-        /* Scan for fragment segment. */
-        if(end < line_end  &&  CH(end) == _T('#')) {
-            if(md_analyze_permissive_autolink_segment(ctx, end+1, line_end, &end, false,
-                        _T('\0'), NULL, _T(".-+_"), &right_cursor) < 0)
-                return;
-        }
+        end = off;
     }
 
     /* Verify there's line boundary, whitespace, allowed punctuation or
      * resolved closer mark just after the suspected autolink. */
-    if(end < line_end  &&  !ISUNICODEWHITESPACE(end)  &&  !ISANYOF(end, _T(")}].!?,;"))) {
+    if(end < line_end && !ISUNICODEWHITESPACE(end) &&
+            !ISANYOF(end, _T(")}].!?,;")) &&
+            !(opener->ch != '@' && ISANYOF(end, _T(":*_~'\"<")))) {
         MD_MARK* mark;
 
         mark = md_scan_right_for_resolved_mark(ctx, right_cursor, end, &right_cursor);
@@ -5325,6 +5359,8 @@ struct MD_CONTAINER_tag {
     unsigned mark_indent;
     unsigned contents_indent;
     OFF block_byte_off;
+    int li_block_byte_end;     /* Byte after the current MD_BLOCK_LI opener. */
+    unsigned li_has_content    : 1;
     OFF task_mark_off;
 };
 
@@ -6218,8 +6254,14 @@ md_is_html_block_start_condition(MD_CTX* ctx, OFF beg)
     /* Check for type 1: <script, <pre, or <style */
     for(i = 0; t1[i].name != NULL; i++) {
         if(off + t1[i].len <= ctx->size) {
-            if(md_ascii_case_eq(STR(off), t1[i].name, t1[i].len))
-                return 1;
+            if(md_ascii_case_eq(STR(off), t1[i].name, t1[i].len)) {
+                OFF tmp = off + t1[i].len;
+                if(tmp >= ctx->size || ISBLANK(tmp) || ISNEWLINE(tmp) || CH(tmp) == _T('>'))
+                    return 1;
+                /* A self-closing type 1 name is excluded from type 7 as well. */
+                if(tmp+1 < ctx->size && CH(tmp) == _T('/') && CH(tmp+1) == _T('>'))
+                    return false;
+            }
         }
     }
 
@@ -6265,7 +6307,7 @@ md_is_html_block_start_condition(MD_CTX* ctx, OFF beg)
                         return 6;
                     if(tmp+1 < ctx->size && CH(tmp) == _T('/') && CH(tmp+1) == _T('>'))
                         return 6;
-                    break;
+                    continue;
                 }
             }
         }
@@ -6436,6 +6478,7 @@ md_enter_child_containers(MD_CTX* ctx, int n_children)
                                 c->task_mark_off,
                                 (c->is_task ? CH(c->task_mark_off) : 0),
                                 MD_BLOCK_CONTAINER_OPENER));
+                c->li_block_byte_end = ctx->n_block_bytes;
                 break;
 
             case _T('>'):
@@ -6718,16 +6761,11 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
                 if(n_parents > 0  &&  n_parents == ctx->n_containers  &&
                    ctx->containers[n_parents-1].ch != _T('>')  &&
                    n_brothers + n_children == 0  &&  ctx->current_block == NULL  &&
-                   ctx->n_block_bytes > (int) sizeof(MD_BLOCK))
+                   ctx->n_block_bytes == ctx->containers[n_parents-1].li_block_byte_end  &&
+                   !ctx->containers[n_parents-1].li_has_content)
                 {
-                    MD_BLOCK* top_block = (MD_BLOCK*) ((char*)ctx->block_bytes + ctx->n_block_bytes - sizeof(MD_BLOCK));
-                    if(top_block->type == MD_BLOCK_LI) {
-                        n_parents--;
-
-                        line->indent = total_indent;
-                        if(n_parents > 0)
-                            line->indent -= MIN(line->indent, ctx->containers[n_parents-1].contents_indent);
-                    }
+                    line->indent += ctx->containers[n_parents-1].contents_indent;
+                    n_parents--;
                 }
             }
             ctx->consecutive_blank_lines = 0;
@@ -7049,6 +7087,8 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
                     container.task_mark_off,
                     (container.is_task ? CH(container.task_mark_off) : 0),
                     MD_BLOCK_CONTAINER_OPENER));
+        ctx->containers[n_parents].li_block_byte_end = ctx->n_block_bytes;
+        ctx->containers[n_parents].li_has_content = false;
         ctx->containers[n_parents].is_task = container.is_task;
         ctx->containers[n_parents].task_mark_off = container.task_mark_off;
     }
@@ -7077,6 +7117,11 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
         /* Enter all the child container blocks. */
         MD_CHECK(md_enter_child_containers(ctx, n_children));
     }
+
+    /* Reference definitions can remove their blocks without emptying the item. */
+    if(line->type != MD_LINE_BLANK  &&  line->beg < line->end  &&
+       ctx->n_containers > 0  &&  ctx->containers[ctx->n_containers-1].ch != _T('>'))
+        ctx->containers[ctx->n_containers-1].li_has_content = true;
 
 abort:
     return ret;
@@ -7168,21 +7213,6 @@ abort:
 }
 
 static int
-md_footnote_def_cmp_index(const void* a, const void* b)
-{
-    const MD_FOOTNOTE_DEF* da = (const MD_FOOTNOTE_DEF*) a;
-    const MD_FOOTNOTE_DEF* db = (const MD_FOOTNOTE_DEF*) b;
-
-    /* Unreferenced defs (index == 0) always sort after referenced ones. */
-    if(da->index == 0  &&  db->index == 0) return 0;
-    if(da->index == 0) return +1;
-    if(db->index == 0) return -1;
-    if(da->index < db->index) return -1;
-    if(da->index > db->index) return +1;
-    return 0;
-}
-
-static int
 md_process_footnote_def(MD_CTX* ctx, MD_FOOTNOTE_DEF* def)
 {
     MD_BLOCK_FOOTNOTE_DEF_DETAIL det;
@@ -7216,22 +7246,29 @@ md_process_footnote_defs(MD_CTX* ctx)
     if(ctx->footnote_hashtable.n_defs == 0  ||  ctx->next_footnote_index == 0)
         return 0;
 
-    /* Sort defs by index so we emit in reference order. */
-    qsort(ctx->footnote_hashtable.defs, ctx->footnote_hashtable.n_defs,
-          sizeof(MD_FOOTNOTE_DEF), md_footnote_def_cmp_index);
+    /* Keep definitions in place because the label hash table points into them.
+     * A definition may first be referenced while rendering another one. */
+    ctx->footnote_order = malloc(ctx->footnote_hashtable.n_defs * sizeof(*ctx->footnote_order));
+    if(ctx->footnote_order == NULL) {
+        MD_LOG("malloc() failed.");
+        return -1;
+    }
+    for(i = 0; i < ctx->footnote_hashtable.n_defs; i++) {
+        MD_FOOTNOTE_DEF* def = &ctx->footnote_hashtable.footnote_defs[i];
+        if(def->index != 0)
+            ctx->footnote_order[def->index - 1] = def;
+    }
 
     MD_ENTER_BLOCK(MD_BLOCK_FOOTNOTE_DEF_SECTION, NULL);
 
-    for(i = 0; i < ctx->footnote_hashtable.n_defs; i++) {
-        MD_FOOTNOTE_DEF* def = &ctx->footnote_hashtable.footnote_defs[i];
-        if(def->index == 0)
-            break;
-        MD_CHECK(md_process_footnote_def(ctx, def));
-    }
+    for(i = 0; i < ctx->next_footnote_index; i++)
+        MD_CHECK(md_process_footnote_def(ctx, ctx->footnote_order[i]));
 
     MD_LEAVE_BLOCK(MD_BLOCK_FOOTNOTE_DEF_SECTION, NULL);
 
 abort:
+    free(ctx->footnote_order);
+    ctx->footnote_order = NULL;
     return ret;
 }
 
