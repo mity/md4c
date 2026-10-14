@@ -14,12 +14,15 @@ Changes:
     Thanks to [Daniel Perez Alvarez](https://github.com/unindented) for
     coming with the idea and help with testing.
 
-  * [#449](https://github.com/mity/md4c/pull/449):
-    Permissive URL autolinks (`MD_FLAG_PERMISSIVEURLAUTOLINKS` flags) with
-    explicit protocol (`http://` or `https://`) now accept single-component
-    hostname and/or port number.
+  * [#449](https://github.com/mity/md4c/pull/449),
+    [#452](https://github.com/mity/md4c/pull/452):
+    Permissive URL autolinks (`MD_FLAG_PERMISSIVEURLAUTOLINKS` flags) now
+    accept single-component hostname, optional port number and rules for
+    the rest of the URL has been somewhat relaxed to recognized even URLs
+    with punctuation in their path, fragment and query parts.
 
-    Contributed by [Gregory Moskaliuk](https://github.com/hryhoriiK97).
+    Contributed by [Gregory Moskaliuk](https://github.com/hryhoriiK97)
+    and [Emanuel Schorsch](https://github.com/emschorsch).
 
 Fixes:
 
