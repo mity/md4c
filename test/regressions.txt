@@ -597,6 +597,19 @@ bar
 --fpermissive-url-autolinks
 ````````````````````````````````
 
+The suppression has to work also when the autolink contains an entity or
+a backslash escape.
+
+```````````````````````````````` example
+[https://example.org/?a=b&amp;c=d](https://example.org/?a=b&amp;c=d)
+[https://example.org/a\_b](https://example.org/a\_b)
+.
+<p><a href="https://example.org/?a=b&amp;c=d">https://example.org/?a=b&amp;c=d</a>
+<a href="https://example.org/a_b">https://example.org/a_b</a></p>
+.
+--fpermissive-url-autolinks
+````````````````````````````````
+
 
 ## [Issue 190](https://github.com/mity/md4c/issues/190)
 

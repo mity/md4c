@@ -208,8 +208,9 @@ The dev server runs at http://localhost:3000.
 
 The host specification may optionally be followed with a URL tail beginning
 with `/`, `:`, `?` or `#`. The tail continues until whitespace, an ASCII control
-character, `<`, or resolved Markdown syntax. URI punctuation and Unicode
-characters may occur within the tail. The scan does not validate port digits.
+character, `<`, or resolved Markdown syntax other than an entity reference or
+a backslash escape. URI punctuation and Unicode characters may occur within
+the tail. The scan does not validate port digits.
 
 ```````````````````````````````` example
 https://example.com/images/branding/logo_272x92.png
@@ -221,7 +222,7 @@ https://example.com/images/branding/logo_272x92.png
 
 Then optionally query may follow. Consecutive punctuation characters, percent
 escapes and redirect URLs are allowed in the query. Unmatched opening
-parentheses may occur within the URL. Excess terminal closing parentheses
+brackets may occur within the URL. Excess terminal closing brackets
 and terminal punctuation (`?`, `!`, `.`, `,`, `:`, `;`, `*`, `_`, `~`, `'`,
 `"`) are excluded from the link.
 
@@ -377,14 +378,59 @@ https://example.org/a>b
 https://example.org/a|b
 https://example.org/a[b]c
 https://example.org/a{b}c
-https://example.org/a]
 .
 <p><a href="https://example.org/a%22tail">https://example.org/a&quot;tail</a>
 <a href="https://example.org/a%3Eb">https://example.org/a&gt;b</a>
 <a href="https://example.org/a%7Cb">https://example.org/a|b</a>
 <a href="https://example.org/a%5Bb%5Dc">https://example.org/a[b]c</a>
-<a href="https://example.org/a%7Bb%7Dc">https://example.org/a{b}c</a>
-<a href="https://example.org/a%5D">https://example.org/a]</a></p>
+<a href="https://example.org/a%7Bb%7Dc">https://example.org/a{b}c</a></p>
+.
+--fpermissive-url-autolinks
+````````````````````````````````
+
+Excess closing square brackets and braces at the end are excluded from the
+URL the same way as excess closing parentheses, so the URL may be enclosed
+in them.
+
+```````````````````````````````` example
+[https://example.org/a?x=y]
+{https://example.org/a?x=y}
+https://example.org/a[b]c]
+.
+<p>[<a href="https://example.org/a?x=y">https://example.org/a?x=y</a>]
+{<a href="https://example.org/a?x=y">https://example.org/a?x=y</a>}
+<a href="https://example.org/a%5Bb%5Dc">https://example.org/a[b]c</a>]</p>
+.
+--fpermissive-url-autolinks
+````````````````````````````````
+
+Entity references and backslash escapes are not Markdown spans but just a few
+characters of the URL, the same way as in standard autolinks: The link text
+keeps them verbatim and the entity references are resolved in the `href`.
+
+```````````````````````````````` example
+https://example.org/?a=b&amp;c=d
+https://example.org/a\_b
+https://example.org/a\(b\)
+.
+<p><a href="https://example.org/?a=b&amp;c=d">https://example.org/?a=b&amp;amp;c=d</a>
+<a href="https://example.org/a%5C_b">https://example.org/a\_b</a>
+<a href="https://example.org/a%5C(b%5C)">https://example.org/a\(b\)</a></p>
+.
+--fpermissive-url-autolinks
+````````````````````````````````
+
+A trailing entity reference is excluded as a whole, like other terminal
+punctuation, and so is a backslash-escaped terminal punctuation character.
+
+```````````````````````````````` example
+https://example.org/?a=b&amp;
+https://example.org/?a=b&amp;&amp;.
+https://example.org/a\.
+.
+<p><a href="https://example.org/?a=b">https://example.org/?a=b</a>&amp;
+<a href="https://example.org/?a=b">https://example.org/?a=b</a>&amp;&amp;.
+<a href="https://example.org/a">https://example.org/a</a>.</p>
 .
 --fpermissive-url-autolinks
 ````````````````````````````````
