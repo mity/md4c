@@ -4510,8 +4510,12 @@ md_analyze_permissive_autolink(MD_CTX* ctx, int mark_index)
     if(opener->ch != '@' && end < line_end && ISANYOF(end, _T("/?#"))) {
         OFF tail_beg = end;
         OFF off = end;
-        OFF n_open_brackets = 0;
-        OFF n_close_brackets = 0;
+        int n_open_parens = 0;
+        int n_close_parens = 0;
+        int n_open_brackets = 0;
+        int n_close_brackets = 0;
+        int n_open_braces = 0;
+        int n_close_braces = 0;
 
         /* Scan a continuous URL tail, stopping at whitespace or '<'.
          * Keep the mark check so URLs cannot cross resolved Markdown syntax. */
@@ -4531,19 +4535,29 @@ md_analyze_permissive_autolink(MD_CTX* ctx, int mark_index)
                     md_scan_right_for_resolved_mark(ctx, right_cursor, off, &right_cursor) != NULL)
                 break;
 
-            if(CH(off) == _T('(')) {
-                n_open_brackets++;
-            } else if(CH(off) == _T(')')) {
-                n_close_brackets++;
+            switch(CH(off)) {
+                case _T('('):   n_open_parens++; break;
+                case _T(')'):   n_close_parens++; break;
+                case _T('['):   n_open_brackets++; break;
+                case _T(']'):   n_close_brackets++; break;
+                case _T('{'):   n_open_braces++; break;
+                case _T('}'):   n_close_braces++; break;
             }
             off++;
         }
 
-        /* Trim only excess trailing closing parentheses. Unmatched opening
-         * parentheses within a URL are valid. */
+        /* Exclude terminal punctuation and excess closing brackets from the
+         * URL as they more likely belong to the surrounding text. (Unmatched
+         * opening brackets within the URL are valid.) */
         while(off > tail_beg) {
-            if(CH(off-1) == _T(')') && n_close_brackets > n_open_brackets) {
+            if(CH(off-1) == _T(')')  &&  n_close_parens > n_open_parens) {
+                n_close_parens--;
+                off--;
+            } else if(CH(off-1) == _T(']')  &&  n_close_brackets > n_open_brackets) {
                 n_close_brackets--;
+                off--;
+            } else if(CH(off-1) == _T('}')  &&  n_close_braces > n_open_braces) {
+                n_close_braces--;
                 off--;
             } else if(ISANYOF(off-1, _T("?!.,:;*_~'\""))) {
                 off--;
