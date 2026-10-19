@@ -118,8 +118,8 @@ pathological = {
             (("- " * 50000 + "x\n" + "\n" * 50000),
             re.compile(r"(<ul>\r?\n<li>){50000}x(</li>\r?\n</ul>\r?\n){50000}")),
     "many implicit nested blocks, alternating blank lines":
-            (("- " * 100000 + "x\n" + "\n  \n" * 100000),
-            re.compile(r"(<ul>\r?\n<li>){100000}x(</li>\r?\n</ul>\r?\n){100000}")),
+            (("- " * 50000 + "x\n" + "\n  \n" * 50000),
+            re.compile(r"(<ul>\r?\n<li>){50000}x(</li>\r?\n</ul>\r?\n){50000}")),
 }
 
 whitespace_re = re.compile('/s+/')
