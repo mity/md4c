@@ -6721,14 +6721,21 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
          * a list. */
         if(n_brothers + n_children == 0) {
             n_implicit_parents_beg = n_parents;
-            if(n_parents == ctx->last_n_implicit_parents_beg  &&
-               ctx->last_n_implicit_parents_end - ctx->last_n_implicit_parents_beg > 0)
-            {
-                n_parents = ctx->last_n_implicit_parents_end;
-            } else {
-                while(n_parents < ctx->n_containers  &&  ctx->containers[n_parents].ch != _T('>'))
-                    n_parents++;
+
+            while(n_parents < ctx->n_containers  &&  ctx->containers[n_parents].ch != _T('>')) {
+                if(ctx->last_n_implicit_parents_beg <= n_parents  &&
+                   n_parents <= ctx->last_n_implicit_parents_end  &&
+                   ctx->last_n_implicit_parents_end - ctx->last_n_implicit_parents_beg > 0)
+                {
+                    /* All containers in [beg, end) are lists, so any blank line
+                     * starting within that range ends at the same place. */
+                    n_parents = ctx->last_n_implicit_parents_end;
+                    break;
+                }
+
+                n_parents++;
             }
+
             n_implicit_parents_end = n_parents;
         }
     }
