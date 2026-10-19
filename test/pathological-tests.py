@@ -120,6 +120,10 @@ pathological = {
     "many implicit nested blocks, alternating blank lines":
             (("- " * 50000 + "x\n" + "\n  \n" * 50000),
             re.compile(r"(<ul>\r?\n<li>){50000}x(</li>\r?\n</ul>\r?\n){50000}")),
+    "many invalid autolinks":
+            (("www.xx.xx#(" * 20000 + "[x]()"),
+            re.compile(r"<p>(www.xx.xx#\(){20000}<a href=\"\">x</a></p>"),
+            "--fpermissive-autolinks"),
 }
 
 whitespace_re = re.compile('/s+/')

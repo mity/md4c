@@ -251,6 +251,9 @@ struct MD_CTX_tag {
     OFF html_decl_horizon;
     OFF html_cdata_horizon;
 
+    /* For resolving permissive autolinks. */
+    OFF permissive_autolink_tail_horizon;
+
     /* For block analysis.
      * Notes:
      *   -- It holds MD_BLOCK as well as MD_LINE structures. After each
@@ -4509,6 +4512,11 @@ md_analyze_permissive_autolink(MD_CTX* ctx, int mark_index)
         }
     }
 
+    /* Abort the scan early if possible
+     * (https://github.com/mity/md4c/issues/464) */
+    if(end < ctx->permissive_autolink_tail_horizon)
+        return;
+
     if(opener->ch != '@' && end < line_end && ISANYOF(end, _T("/?#"))) {
         OFF tail_beg = end;
         OFF off = end;
@@ -4610,8 +4618,10 @@ md_analyze_permissive_autolink(MD_CTX* ctx, int mark_index)
         MD_MARK* mark;
 
         mark = md_scan_right_for_resolved_mark(ctx, right_cursor, end, &right_cursor);
-        if(mark == NULL  ||  !(mark->flags & MD_MARK_CLOSER))
+        if(mark == NULL  ||  !(mark->flags & MD_MARK_CLOSER)) {
+            ctx->permissive_autolink_tail_horizon = end;
             return;
+        }
     }
 
     /* Success, we are an autolink. */
