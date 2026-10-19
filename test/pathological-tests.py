@@ -3,11 +3,10 @@
 
 import argparse
 import itertools
-import multiprocessing
 import re
 import sys
-import queue
 from prog import Prog
+from subprocess import TimeoutExpired
 from timeit import default_timer as timer
 
 # list of pairs consisting of input and a regex that must match the output.
@@ -129,7 +128,6 @@ def run_tests(args):
     allowed_failures = {"many references": True}
     TIMEOUT = 5
 
-    q = multiprocessing.Queue()
     passed = []
     errored = []
     failed = []
@@ -145,40 +143,34 @@ def run_tests(args):
             prog = Prog(cmdline=args.program, default_options=default_options)
 
         start = timer()
-        p = multiprocessing.Process(
-            target=q.put(prog.to_html(inp)),
-            args=(q, inp, args.program))
-        end = timer()
-        p.start()
         try:
-            # wait TIMEOUT seconds or until it finishes
-            rc, actual, err = q.get(True, TIMEOUT)
-            p.join()
-            if rc != 0:
-                print(description, '[ERRORED (return code %d)]' %rc)
-                print(err)
-                if description in allowed_failures:
-                    ignored.append(description)
-                else:
-                    errored.append(description)
-            elif regex.search(actual):
-                print('{:35} [PASSED] {:.3f} secs'.format(description, end-start))
-                passed.append(description)
-            else:
-                print(description, '[FAILED]')
-                print(repr(actual[:60]))
-                if description in allowed_failures:
-                    ignored.append(description)
-                else:
-                    failed.append(description)
-        except queue.Empty:
-            p.terminate()
-            p.join()
+            rc, actual, err = prog.to_html(inp, TIMEOUT)
+        except TimeoutExpired:
             print(description, '[TIMEOUT]')
             if description in allowed_failures:
                 ignored.append(description)
             else:
                 errored.append(description)
+            continue
+        end = timer()
+
+        if rc != 0:
+            print(description, '[ERRORED (return code %d)]' %rc)
+            print(err)
+            if description in allowed_failures:
+                ignored.append(description)
+            else:
+                errored.append(description)
+        elif regex.search(actual):
+            print('{:35} [PASSED] {:.3f} secs'.format(description, end-start))
+            passed.append(description)
+        else:
+            print(description, '[FAILED]')
+            print(repr(actual[:60]))
+            if description in allowed_failures:
+                ignored.append(description)
+            else:
+                failed.append(description)
 
     print("%d passed, %d failed, %d errored" %
           (len(passed), len(failed), len(errored)))
