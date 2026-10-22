@@ -2833,7 +2833,7 @@ md_emph_stack(MD_CTX* ctx, MD_CHAR ch, unsigned flags)
     switch(ch) {
         case '*':   stack = &ASTERISK_OPENERS_oo_mod3_0; break;
         case '_':   stack = &UNDERSCORE_OPENERS_oo_mod3_0; break;
-        default:    MD_UNREACHABLE();
+        default:    MD_UNREACHABLE(); break;
     }
 
     if(flags & MD_MARK_EMPH_OC)
@@ -2843,7 +2843,7 @@ md_emph_stack(MD_CTX* ctx, MD_CHAR ch, unsigned flags)
         case MD_MARK_EMPH_MOD3_0:   stack += 0; break;
         case MD_MARK_EMPH_MOD3_1:   stack += 1; break;
         case MD_MARK_EMPH_MOD3_2:   stack += 2; break;
-        default:                    MD_UNREACHABLE();
+        default:                    MD_UNREACHABLE(); break;
     }
 
     return stack;
@@ -2865,7 +2865,7 @@ md_opener_stack(MD_CTX* ctx, int mark_index)
         case _T('='):   return &EQUAL_OPENERS;
         case _T('+'):   return &PLUS_OPENERS;
 
-        default:        MD_UNREACHABLE();
+        default:        MD_UNREACHABLE(); break;
     }
 }
 
@@ -3359,6 +3359,7 @@ md_collect_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table_m
                         case 0: flags |= MD_MARK_EMPH_MOD3_0; break;
                         case 1: flags |= MD_MARK_EMPH_MOD3_1; break;
                         case 2: flags |= MD_MARK_EMPH_MOD3_2; break;
+                        default: MD_UNREACHABLE(); break;
                     }
 
                     ADD_MARK(ch, off, tmp, flags);
@@ -4695,6 +4696,7 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
             case '^':   MD_FALLTHROUGH();
             case '=':   MD_FALLTHROUGH();
             case '+':   md_analyze_generic(ctx, i); break;
+            default:    MD_UNREACHABLE(); break;
         }
 
         if(mark->flags & MD_MARK_RESOLVED) {
@@ -5142,6 +5144,10 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
 
                 case 127:
                     goto abort;
+
+                default:
+                    /* noop */
+                    break;
             }
 
             off = mark->end;
@@ -5613,7 +5619,7 @@ md_process_leaf_block(MD_CTX* ctx, MD_BLOCK* block)
             break;
 
         default:
-            /* Noop. */
+            /* noop */
             break;
     }
 
@@ -5828,9 +5834,6 @@ md_start_new_block(MD_CTX* ctx, const MD_LINE_ANALYSIS* line)
             block->type = MD_BLOCK_HTML;
             break;
 
-        case MD_LINE_BLANK:
-        case MD_LINE_SETEXTUNDERLINE:
-        case MD_LINE_TABLEUNDERLINE:
         default:
             MD_UNREACHABLE();
             break;
@@ -6459,6 +6462,7 @@ md_is_html_block_end_condition(MD_CTX* ctx, OFF beg, OFF* p_end)
 
         default:
             MD_UNREACHABLE();
+            break;
     }
     return false;
 }
