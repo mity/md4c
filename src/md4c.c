@@ -5518,12 +5518,12 @@ md_setup_fenced_code_detail(MD_CTX* ctx, const MD_BLOCK* block, MD_BLOCK_CODE_DE
     /* Skip the fence itself. */
     while(beg < ctx->size  &&  CH(beg) == fence_ch)
         beg++;
-    /* Trim initial spaces. */
-    while(beg < ctx->size  &&  CH(beg) == _T(' '))
+    /* Trim initial spaces and tabs. */
+    while(beg < ctx->size  &&  ISBLANK(beg))
         beg++;
 
-    /* Trim trailing spaces. */
-    while(end > beg  &&  CH(end-1) == _T(' '))
+    /* Trim trailing spaces and tabs. */
+    while(end > beg  &&  ISBLANK(end-1))
         end--;
 
     /* Build info string attribute. */

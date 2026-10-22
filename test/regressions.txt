@@ -1621,3 +1621,24 @@ http://?q=1
 .
 --fpermissive-url-autolinks
 ````````````````````````````````
+
+
+## Tabs around the fenced code info string
+
+The info string is trimmed of leading and trailing spaces and tabs.
+
+```````````````````````````````` example
+```→ruby
+def foo(x)
+```
+.
+<pre><code class="language-ruby">def foo(x)
+</code></pre>
+````````````````````````````````
+
+```````````````````````````````` example
+~~~ →ruby startline=3→
+~~~
+.
+<pre><code class="language-ruby"></code></pre>
+````````````````````````````````
