@@ -32,7 +32,6 @@
 #include "cmdline.h"
 
 
-
 /* Global options. */
 static unsigned parser_flags = 0;
 #ifndef MD4C_USE_ASCII

@@ -62,7 +62,7 @@ int md_html(const MD_CHAR* input, MD_SIZE input_size,
 
 
 #ifdef __cplusplus
-    }  /* extern "C" { */
+    } /* extern "C" { */
 #endif
 
-#endif  /* MD4C_HTML_H */
+#endif /* MD4C_HTML_H */
