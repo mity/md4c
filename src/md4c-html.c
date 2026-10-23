@@ -44,7 +44,6 @@
 #endif
 
 
-
 typedef struct MD_HTML_tag MD_HTML;
 struct MD_HTML_tag {
     void (*process_output)(const MD_CHAR*, MD_SIZE, void*);

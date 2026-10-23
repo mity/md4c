@@ -489,7 +489,7 @@ int md_parse(const MD_CHAR* text, MD_SIZE size, const MD_PARSER* parser, void* u
 
 
 #ifdef __cplusplus
-    }  /* extern "C" { */
+    } /* extern "C" { */
 #endif
 
-#endif  /* MD4C_H */
+#endif /* MD4C_H */

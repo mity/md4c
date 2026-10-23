@@ -40,4 +40,4 @@ struct ENTITY_tag {
 const ENTITY* entity_lookup(const char* name, size_t name_size);
 
 
-#endif  /* MD4C_ENTITY_H */
+#endif /* MD4C_ENTITY_H */
