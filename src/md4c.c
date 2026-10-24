@@ -6752,7 +6752,7 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
 
     while(true) {
         /* Check whether we are fenced code continuation. */
-        if(pivot_line->type == MD_LINE_FENCEDCODE) {
+        if(pivot_line->type == MD_LINE_FENCEDCODE  &&  n_parents == ctx->n_containers) {
             line->beg = off;
 
             /* We are another MD_LINE_FENCEDCODE unless we are closing fence

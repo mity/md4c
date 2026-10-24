@@ -1585,6 +1585,57 @@ Closing the empty item must keep the remaining block quote markers consumed.
 </blockquote>
 ````````````````````````````````
 
+## Fence-like line outside the container of an open code fence
+
+A line which does not continue the container (block quote or list item)
+holding an open code fence ends that container, so it cannot close the
+fence, and it must not be eaten either.
+
+```````````````````````````````` example
+> ```
+> code
+```
+after
+.
+<blockquote>
+<pre><code>code
+</code></pre>
+</blockquote>
+<pre><code>after
+</code></pre>
+````````````````````````````````
+
+```````````````````````````````` example
+- ```
+  code
+```
+after
+.
+<ul>
+<li>
+<pre><code>code
+</code></pre>
+</li>
+</ul>
+<pre><code>after
+</code></pre>
+````````````````````````````````
+
+```````````````````````````````` example
+> ```
+> code
+``
+after
+.
+<blockquote>
+<pre><code>code
+</code></pre>
+</blockquote>
+<p>``
+after</p>
+````````````````````````````````
+
+
 ## [PR 443](https://github.com/mity/md4c/pull/443)
 
 DEL (U+007F) is a control character, so it ends an unbracketed link destination
