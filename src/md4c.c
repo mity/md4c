@@ -6988,7 +6988,8 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
         }
 
         /* Check for start of raw HTML block. */
-        if(off < ctx->size  &&  CH(off) == _T('<')
+        if(line->indent < ctx->code_indent_offset  &&
+                off < ctx->size  &&  CH(off) == _T('<')
             &&  !(ctx->parser.flags & MD_FLAG_NOHTMLBLOCKS))
         {
             ctx->html_block_type = md_is_html_block_start_condition(ctx, off);
