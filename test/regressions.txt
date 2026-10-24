@@ -1476,6 +1476,30 @@ bracket of an enclosing link or image.
 ````````````````````````````````
 
 
+## Indented HTML block start cannot interrupt a paragraph
+
+Like any other block, an HTML block start indented by four or more spaces
+is just a paragraph continuation line.
+
+```````````````````````````````` example
+Some text
+    <div>
+more
+.
+<p>Some text
+<div>
+more</p>
+````````````````````````````````
+
+```````````````````````````````` example
+text
+    <!-- comment -->
+.
+<p>text
+<!-- comment --></p>
+````````````````````````````````
+
+
 ## Full reference link labels do not participate in span resolution
 
 ```````````````````````````````` example
