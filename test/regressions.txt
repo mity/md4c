@@ -1621,3 +1621,119 @@ http://?q=1
 .
 --fpermissive-url-autolinks
 ````````````````````````````````
+
+
+## [Issue 262](https://github.com/mity/md4c/issues/262)
+
+ATX header, code fence and raw HTML block end a table, just like block quote,
+list or thematic break do. (Paragraph text still continues the table.)
+
+```````````````````````````````` example
+| a | b |
+|---|---|
+| 1 | 2 |
+## Next
+.
+<table>
+<thead>
+<tr>
+<th>a</th>
+<th>b</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>2</td>
+</tr>
+</tbody>
+</table>
+<h2>Next</h2>
+.
+--ftables
+````````````````````````````````
+
+```````````````````````````````` example
+| a | b |
+|---|---|
+| 1 | 2 |
+```
+code
+```
+.
+<table>
+<thead>
+<tr>
+<th>a</th>
+<th>b</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>2</td>
+</tr>
+</tbody>
+</table>
+<pre><code>code
+</code></pre>
+.
+--ftables
+````````````````````````````````
+
+```````````````````````````````` example
+| a | b |
+|---|---|
+| 1 | 2 |
+<div>
+html
+</div>
+.
+<table>
+<thead>
+<tr>
+<th>a</th>
+<th>b</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>2</td>
+</tr>
+</tbody>
+</table>
+<div>
+html
+</div>
+.
+--ftables
+````````````````````````````````
+
+```````````````````````````````` example
+| a | b |
+|---|---|
+| 1 | 2 |
+#hashtag
+.
+<table>
+<thead>
+<tr>
+<th>a</th>
+<th>b</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>2</td>
+</tr>
+<tr>
+<td>#hashtag</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+.
+--ftables
+````````````````````````````````
