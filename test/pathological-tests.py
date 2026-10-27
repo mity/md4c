@@ -21,6 +21,9 @@ pathological = {
     "U+FEFF (Unicode BOM)":
             ("\ufefffoo",
             re.compile("<p>foo</p>")),
+    "HTML comment start at the end of input":
+            ("a\n<!--",
+            re.compile("^<p>a</p>\r?\n<!--\r?\n$")),
     "nested strong emph":
             (("*a **a " * 65000) + "b" + (" a** a*" * 65000),
             re.compile("(<em>a <strong>a ){65000}b( a</strong> a</em>){65000}")),
