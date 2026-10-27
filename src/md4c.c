@@ -6917,8 +6917,13 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
         if(line->indent < ctx->code_indent_offset  &&
            md_is_container_mark(ctx, line->indent, off, &off, &container))
         {
+            OFF tmp = off;
+
+            while(tmp < ctx->size  &&  ISBLANK(tmp))
+                tmp++;
+
             if(pivot_line->type == MD_LINE_TEXT  &&  n_parents == ctx->n_containers  &&
-                        (off >= ctx->size || ISNEWLINE(off))  &&  container.ch != _T('>'))
+                        (tmp >= ctx->size || ISNEWLINE(tmp))  &&  container.ch != _T('>'))
             {
                 /* Noop. List mark followed by a blank line cannot interrupt a paragraph. */
             } else if(pivot_line->type == MD_LINE_TEXT  &&  n_parents == ctx->n_containers  &&

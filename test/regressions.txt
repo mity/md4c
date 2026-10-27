@@ -1621,3 +1621,25 @@ http://?q=1
 .
 --fpermissive-url-autolinks
 ````````````````````````````````
+
+
+## Empty list item with trailing whitespace cannot interrupt a paragraph
+
+A list item which starts with a blank line cannot interrupt a paragraph, even
+when the list mark is followed by some whitespace.
+
+```````````````````````````````` example
+a
+*→
+.
+<p>a
+*</p>
+````````````````````````````````
+
+```````````````````````````````` example
+a
+1.→
+.
+<p>a
+1.</p>
+````````````````````````````````
