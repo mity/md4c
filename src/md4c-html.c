@@ -158,7 +158,7 @@ hex_val(char ch)
 {
     if('0' <= ch && ch <= '9')
         return ch - '0';
-    if('A' <= ch && ch <= 'Z')
+    else if('A' <= ch && ch <= 'Z')
         return ch - 'A' + 10;
     else
         return ch - 'a' + 10;

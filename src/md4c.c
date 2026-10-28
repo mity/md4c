@@ -1366,9 +1366,9 @@ md_is_hex_entity_contents(MD_CTX* ctx, const CHAR* text, OFF beg, OFF max_end, O
     if(1 <= off - beg  &&  off - beg <= 6) {
         *p_end = off;
         return true;
-    } else {
-        return false;
     }
+
+    return false;
 }
 
 static int
@@ -1383,9 +1383,9 @@ md_is_dec_entity_contents(MD_CTX* ctx, const CHAR* text, OFF beg, OFF max_end, O
     if(1 <= off - beg  &&  off - beg <= 7) {
         *p_end = off;
         return true;
-    } else {
-        return false;
     }
+
+    return false;   
 }
 
 static int
@@ -1405,9 +1405,9 @@ md_is_named_entity_contents(MD_CTX* ctx, const CHAR* text, OFF beg, OFF max_end,
     if(2 <= off - beg  &&  off - beg <= 48) {
         *p_end = off;
         return true;
-    } else {
-        return false;
     }
+
+    return false;   
 }
 
 static int
@@ -1429,9 +1429,9 @@ md_is_entity_str(MD_CTX* ctx, const CHAR* text, OFF beg, OFF max_end, OFF* p_end
     if(is_contents  &&  off < max_end  &&  text[off] == _T(';')) {
         *p_end = off+1;
         return true;
-    } else {
-        return false;
     }
+
+    return false;   
 }
 
 static inline int
@@ -2045,9 +2045,9 @@ md_is_footnote_label(MD_CTX* ctx, OFF beg, OFF* p_end)
         if(p_end != NULL)
             *p_end = end;
         return true;
-    } else {
-        return false;
     }
+
+    return false;
 }
 
 /* Returns 0 if not a footnote definition.
