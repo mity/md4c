@@ -78,7 +78,7 @@
                 }                                                       \
             } while(0)
 
-    #define MD_UNREACHABLE()        MD_ASSERT(1 == 0)
+    #define MD_UNREACHABLE()        MD_ASSERT(0)
 #else
     #ifdef __GNUC__
         #define MD_ASSERT(cond)     do { if(!(cond)) __builtin_unreachable(); } while(0)
@@ -7322,7 +7322,7 @@ md_process_footnote_defs(MD_CTX* ctx)
 
     /* Keep definitions in place because the label hash table points into them.
      * A definition may first be referenced while rendering another one. */
-    ctx->footnote_order = malloc(ctx->footnote_hashtable.n_defs * sizeof(*ctx->footnote_order));
+    ctx->footnote_order = malloc(ctx->footnote_hashtable.n_defs * sizeof(MD_FOOTNOTE_DEF*));
     if(ctx->footnote_order == NULL) {
         MD_LOG("malloc() failed.");
         return -1;
