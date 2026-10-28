@@ -1027,14 +1027,12 @@ struct MD_UNICODE_FOLD_INFO_tag {
  * what the caller should allocate.)
  */
 static void
-md_merge_lines(MD_CTX* ctx, OFF beg, OFF end, const MD_LINE* lines, MD_SIZE n_lines,
+md_merge_lines(MD_CTX* ctx, OFF beg, OFF end, const MD_LINE* lines,
                CHAR line_break_replacement_char, CHAR* buffer, SZ* p_size)
 {
     CHAR* ptr = buffer;
     int line_index = 0;
     OFF off = beg;
-
-    MD_UNUSED(n_lines);
 
     while(1) {
         const MD_LINE* line = &lines[line_index];
@@ -1064,7 +1062,7 @@ md_merge_lines(MD_CTX* ctx, OFF beg, OFF end, const MD_LINE* lines, MD_SIZE n_li
 /* Wrapper of md_merge_lines() which allocates new buffer for the output string.
  */
 static int
-md_merge_lines_alloc(MD_CTX* ctx, OFF beg, OFF end, const MD_LINE* lines, MD_SIZE n_lines,
+md_merge_lines_alloc(MD_CTX* ctx, OFF beg, OFF end, const MD_LINE* lines,
                     CHAR line_break_replacement_char, CHAR** p_str, SZ* p_size)
 {
     CHAR* buffer;
@@ -1075,7 +1073,7 @@ md_merge_lines_alloc(MD_CTX* ctx, OFF beg, OFF end, const MD_LINE* lines, MD_SIZ
         return -1;
     }
 
-    md_merge_lines(ctx, beg, end, lines, n_lines,
+    md_merge_lines(ctx, beg, end, lines,
                 line_break_replacement_char, buffer, p_size);
 
     *p_str = buffer;
@@ -1496,10 +1494,8 @@ md_build_attr_append_substr(MD_CTX* ctx, MD_ATTRIBUTE_BUILD* build,
 }
 
 static void
-md_free_attribute(MD_CTX* ctx, MD_ATTRIBUTE_BUILD* build)
+md_free_attribute(MD_ATTRIBUTE_BUILD* build)
 {
-    MD_UNUSED(ctx);
-
     /* A trivial build aliases caller-owned storage and must not be freed.
      * Every other build owns all three pointers from the moment
      * md_build_attribute() leaves the trivial branch, even if a growth
@@ -1599,7 +1595,7 @@ md_build_attribute(MD_CTX* ctx, const CHAR* raw_text, SZ raw_size,
     return 0;
 
 abort:
-    md_free_attribute(ctx, build);
+    md_free_attribute(build);
     return -1;
 }
 
@@ -1896,10 +1892,8 @@ abort:
 }
 
 static void
-md_free_label_hashtable(MD_CTX* ctx, MD_LABEL_HASH_TABLE* table)
+md_free_label_hashtable(MD_LABEL_HASH_TABLE* table)
 {
-    MD_UNUSED(ctx);
-
     if(table->buckets != NULL) {
         unsigned i;
 
@@ -1914,12 +1908,10 @@ md_free_label_hashtable(MD_CTX* ctx, MD_LABEL_HASH_TABLE* table)
 }
 
 static const MD_LABEL_HASH_ENTRY*
-md_lookup_label_hashtable(MD_CTX* ctx, MD_LABEL_HASH_TABLE* table, const CHAR* label, SZ label_size)
+md_lookup_label_hashtable(MD_LABEL_HASH_TABLE* table, const CHAR* label, SZ label_size)
 {
     unsigned hash;
     void* bucket;
-
-    MD_UNUSED(ctx);
 
     if(table->n_buckets == 0)
         return NULL;
@@ -2013,7 +2005,7 @@ md_build_ref_def_hashtable(MD_CTX* ctx)
 static const MD_REF_DEF*
 md_lookup_ref_def(MD_CTX* ctx, const CHAR* label, SZ label_size)
 {
-    return (const MD_REF_DEF*) md_lookup_label_hashtable(ctx,
+    return (const MD_REF_DEF*) md_lookup_label_hashtable(
                 &ctx->ref_def_hashtable, label, label_size);
 }
 
@@ -2156,7 +2148,7 @@ abort:
 static MD_FOOTNOTE_DEF*
 md_lookup_footnote_def(MD_CTX* ctx, const CHAR* label, SZ label_size)
 {
-    return (MD_FOOTNOTE_DEF*) md_lookup_label_hashtable(ctx,
+    return (MD_FOOTNOTE_DEF*) md_lookup_label_hashtable(
                 &ctx->footnote_hashtable, label, label_size);
 }
 
@@ -2171,7 +2163,7 @@ md_free_footnote_defs(MD_CTX* ctx)
 {
     unsigned i;
 
-    md_free_label_hashtable(ctx, &ctx->footnote_hashtable);
+    md_free_label_hashtable(&ctx->footnote_hashtable);
 
     for(i = 0; i < ctx->footnote_hashtable.n_defs; i++)
         free(ctx->footnote_hashtable.footnote_defs[i].content_lines);
@@ -2498,8 +2490,7 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lin
         SZ label_size;
 
         MD_CHECK(md_merge_lines_alloc(ctx, label_contents_beg, label_contents_end,
-                    lines + label_contents_line_index, n_lines - label_contents_line_index,
-                    _T(' '), &label, &label_size));
+                    lines + label_contents_line_index, _T(' '), &label, &label_size));
         def = (MD_REF_DEF*) md_add_label_def(ctx, &ctx->ref_def_hashtable, label, label_size);
         if(def == NULL) {
             ret = -1;
@@ -2518,8 +2509,8 @@ md_is_link_reference_definition(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lin
 
     if(title_is_multiline) {
         MD_CHECK(md_merge_lines_alloc(ctx, title_contents_beg, title_contents_end,
-                    lines + title_contents_line_index, n_lines - title_contents_line_index,
-                    _T('\n'), &def->title, &def->title_size));
+                    lines + title_contents_line_index, _T('\n'),
+                    &def->title, &def->title_size));
         def->title_needs_free = true;
     } else {
         def->title = (CHAR*) STR(title_contents_beg);
@@ -2564,8 +2555,8 @@ md_is_link_reference(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
     is_multiline = (end > beg_line->end);
 
     if(is_multiline) {
-        MD_CHECK(md_merge_lines_alloc(ctx, beg, end, beg_line,
-                 (int)(n_lines - (beg_line - lines)), _T(' '), &label, &label_size));
+        MD_CHECK(md_merge_lines_alloc(ctx, beg, end, beg_line, _T(' '),
+                    &label, &label_size));
     } else {
         label = (CHAR*) STR(beg);
         label_size = end - beg;
@@ -2683,8 +2674,8 @@ md_is_inline_link_spec(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
         attr->title_needs_free = false;
     } else {
         MD_CHECK(md_merge_lines_alloc(ctx, title_contents_beg, title_contents_end,
-                    lines + title_contents_line_index, n_lines - title_contents_line_index,
-                    _T('\n'), &attr->title, &attr->title_size));
+                    lines + title_contents_line_index, _T('\n'),
+                    &attr->title, &attr->title_size));
         attr->title_needs_free = true;
     }
 
@@ -2700,7 +2691,7 @@ md_free_ref_defs(MD_CTX* ctx)
 {
     unsigned i;
 
-    md_free_label_hashtable(ctx, &ctx->ref_def_hashtable);
+    md_free_label_hashtable(&ctx->ref_def_hashtable);
 
     for(i = 0; i < ctx->ref_def_hashtable.n_defs; i++) {
         MD_REF_DEF* def = &ctx->ref_def_hashtable.ref_defs[i];
@@ -3761,14 +3752,14 @@ md_bracket_opener(MD_CTX* ctx, int opener_index)
 }
 
 /* Forward declaration. */
-static void md_analyze_link_contents(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
+static void md_analyze_link_contents(MD_CTX* ctx, const MD_LINE* lines,
                                      int mark_beg, int mark_end);
 
 /* Try to resolve a bracket pair as a wiki link '[[destination]]' or
  * '[[destination|label]]'.
  * Returns true if resolved, false if not a wiki link, -1 on error. */
 static int
-md_resolve_bracket_wikilink(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
+md_resolve_bracket_wikilink(MD_CTX* ctx, const MD_LINE* lines,
                             int opener_index, int closer_index,
                             MD_MARK* opener, MD_MARK* closer,
                             MD_MARK* next_opener, MD_MARK* next_closer,
@@ -3844,7 +3835,7 @@ md_resolve_bracket_wikilink(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
     *last_link_end = closer->end;
 
     if(delim != NULL)
-        md_analyze_link_contents(ctx, lines, n_lines, delim_index+1, closer_index);
+        md_analyze_link_contents(ctx, lines, delim_index+1, closer_index);
 
     *p_closer_index = next_closer->next;
     return true;
@@ -4023,7 +4014,7 @@ md_resolve_bracket_link(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
             *last_img_end = closer->end;
         }
 
-        md_analyze_link_contents(ctx, lines, n_lines, opener_index+1, closer_index);
+        md_analyze_link_contents(ctx, lines, opener_index+1, closer_index);
 
         /* If the link text is formed by nothing but permissive autolink,
          * suppress the autolink.
@@ -4124,7 +4115,7 @@ md_resolve_brackets(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
         if(ret > 0)
             continue;
 
-        ret = md_resolve_bracket_wikilink(ctx, lines, n_lines, opener_index, closer_index,
+        ret = md_resolve_bracket_wikilink(ctx, lines, opener_index, closer_index,
                         opener, closer, next_opener, next_closer,
                         &last_link_beg, &last_link_end, &closer_index);
         if(ret < 0)
@@ -4636,14 +4627,11 @@ md_analyze_permissive_autolink(MD_CTX* ctx, int mark_index)
 #define MD_ANALYZE_NOSKIP_EMPH  0x01
 
 static inline void
-md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
-                 int mark_beg, int mark_end, const CHAR* mark_chars, const CHAR* noskip_mark_chars)
+md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, int mark_beg, int mark_end,
+                 const CHAR* mark_chars, const CHAR* noskip_mark_chars)
 {
     int i = mark_beg;
     OFF last_end = lines[0].beg;
-
-    MD_UNUSED(lines);
-    MD_UNUSED(n_lines);
 
     while(i < mark_end) {
         MD_MARK* mark = &ctx->marks[i];
@@ -4722,7 +4710,7 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table
     MD_CHECK(md_collect_marks(ctx, lines, n_lines, table_mode));
 
     /* (1) Bracket spans: links, wiki links, footnotes. */
-    md_analyze_marks(ctx, lines, n_lines, 0, ctx->n_marks, _T("[]!"), NULL);
+    md_analyze_marks(ctx, lines, 0, ctx->n_marks, _T("[]!"), NULL);
     MD_CHECK(md_resolve_brackets(ctx, lines, n_lines));
     BRACKET_OPENERS.top = -1;
     ctx->unresolved_link_head = -1;
@@ -4740,14 +4728,14 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table
     }
 
     /* (3) Emphasis and strong emphasis; permissive autolinks. */
-    md_analyze_link_contents(ctx, lines, n_lines, 0, ctx->n_marks);
+    md_analyze_link_contents(ctx, lines, 0, ctx->n_marks);
 
 abort:
     return ret;
 }
 
 static void
-md_analyze_link_contents(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
+md_analyze_link_contents(MD_CTX* ctx, const MD_LINE* lines,
                          int mark_beg, int mark_end)
 {
     int i;
@@ -4770,7 +4758,7 @@ md_analyze_link_contents(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
     if((ctx->parser.flags & MD_FLAG_STRIKETHROUGH) || (ctx->parser.flags & MD_FLAG_SUBSCRIPTS))
         emph_mark_types[n_emph_mark_types++] = _T('~');
     emph_mark_types[n_emph_mark_types] = _T('\0');
-    md_analyze_marks(ctx, lines, n_lines, mark_beg, mark_end, emph_mark_types, NULL);
+    md_analyze_marks(ctx, lines, mark_beg, mark_end, emph_mark_types, NULL);
 
     if(ctx->parser.flags & MD_FLAG_PERMISSIVEAUTOLINKS) {
         /* These have to be processed last, as they may be greedy and expand
@@ -4786,7 +4774,7 @@ md_analyze_link_contents(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
         if(ctx->parser.flags & MD_FLAG_PERMISSIVEWWWAUTOLINKS)
             autolink_mark_types[n_autolink_mark_types++] = _T('.');
         autolink_mark_types[n_autolink_mark_types] = _T('\0');
-        md_analyze_marks(ctx, lines, n_lines, mark_beg, mark_end, autolink_mark_types, emph_mark_types);
+        md_analyze_marks(ctx, lines, mark_beg, mark_end, autolink_mark_types, emph_mark_types);
     }
 
     for(i = 0; i < (int) SIZEOF_ARRAY(ctx->opener_stacks); i++)
@@ -4817,8 +4805,8 @@ md_enter_leave_span_a(MD_CTX* ctx, int enter, MD_SPANTYPE type,
         MD_LEAVE_SPAN(type, &det);
 
 abort:
-    md_free_attribute(ctx, &href_build);
-    md_free_attribute(ctx, &title_build);
+    md_free_attribute(&href_build);
+    md_free_attribute(&title_build);
     return ret;
 }
 
@@ -4838,7 +4826,7 @@ md_enter_leave_span_wikilink(MD_CTX* ctx, int enter, const CHAR* target, SZ targ
         MD_LEAVE_SPAN(MD_SPAN_WIKILINK, &det);
 
 abort:
-    md_free_attribute(ctx, &target_build);
+    md_free_attribute(&target_build);
     return ret;
 }
 
@@ -4860,7 +4848,7 @@ md_enter_leave_span_footnote_ref(MD_CTX* ctx, unsigned int id,
     MD_LEAVE_SPAN(MD_SPAN_FOOTNOTE_REF, &det);
 
 abort:
-    md_free_attribute(ctx, &label_build);
+    md_free_attribute(&label_build);
     return ret;
 }
 
@@ -5653,8 +5641,8 @@ md_process_leaf_block(MD_CTX* ctx, MD_BLOCK* block)
 
 abort:
     if(clean_fence_code_detail) {
-        md_free_attribute(ctx, &info_build);
-        md_free_attribute(ctx, &lang_build);
+        md_free_attribute(&info_build);
+        md_free_attribute(&lang_build);
     }
     return ret;
 }
@@ -7305,7 +7293,7 @@ md_process_footnote_def(MD_CTX* ctx, MD_FOOTNOTE_DEF* def)
     MD_LEAVE_BLOCK(MD_BLOCK_FOOTNOTE_DEF, &det);
 
 abort:
-    md_free_attribute(ctx, &label_build);
+    md_free_attribute(&label_build);
     return ret;
 }
 
