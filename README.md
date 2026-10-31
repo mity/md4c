@@ -132,6 +132,11 @@ extensions:
 * With the flag `MD_FLAG_COLLAPSEWHITESPACE`, a non-trivial whitespace is
   collapsed into a single space.
 
+* With the flag `MD_FLAG_ESCAPEDTEXT`, a backslash-escaped character (e.g. `\*`)
+  in normal text is reported as `MD_TEXT_ESCAPED` instead of `MD_TEXT_NORMAL`.
+  The text is still the character without its backslash, so a renderer that
+  treats both types alike produces the same output.
+
 * With the flag `MD_FLAG_FOOTNOTES`, footnote references and definitions are
   supported (e.g. `[^note]` and `[^note]: Footnote text`). Referenced
   definitions are emitted at the end of the document in first-reference order.

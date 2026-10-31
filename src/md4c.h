@@ -244,7 +244,12 @@ typedef enum MD_TEXTTYPE {
 
     /* Text is inside an equation. This is processed the same way as inlined code
      * spans (`code`). */
-    MD_TEXT_LATEXMATH
+    MD_TEXT_LATEXMATH,
+
+    /* Character escaped by a backslash (e.g. "\\*"), without the backslash.
+     * Sent only with MD_FLAG_ESCAPEDTEXT, and only where the escaped character
+     * would otherwise be MD_TEXT_NORMAL. */
+    MD_TEXT_ESCAPED
 } MD_TEXTTYPE;
 
 
@@ -406,6 +411,7 @@ typedef struct MD_BLOCK_BLANK_DETAIL {
 #define MD_FLAG_HIGHLIGHT                   0x200000 /* Enable ==highlight== spans. */
 #define MD_FLAG_PRESERVEBLANKLINES          0x400000 /* Report blank line runs as MD_BLOCK_BLANK. */
 #define MD_FLAG_INSERT                      0x800000 /* Enable insert extension. */
+#define MD_FLAG_ESCAPEDTEXT                 0x1000000 /* Report backslash-escaped characters as MD_TEXT_ESCAPED. */
 
 #define MD_FLAG_PERMISSIVEAUTOLINKS         (MD_FLAG_PERMISSIVEEMAILAUTOLINKS | MD_FLAG_PERMISSIVEURLAUTOLINKS | MD_FLAG_PERMISSIVEWWWAUTOLINKS)
 #define MD_FLAG_NOHTML                      (MD_FLAG_NOHTMLBLOCKS | MD_FLAG_NOHTMLSPANS)

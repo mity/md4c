@@ -253,6 +253,7 @@ static const CMDLINE_OPTION cmdline_options[] = {
 
     {  0,  "fadmonitions",                  'D', 0 },
     {  0,  "fcollapse-whitespace",          'W', 0 },
+    {  0,  "fescaped-text",                 'Q', 0 },
     {  0,  "ffootnotes",                    'N', 0 },
     {  0,  "fhard-soft-breaks",             'B', 0 },
     {  0,  "fhighlight",                    'M', 0 },
@@ -310,6 +311,7 @@ usage(void)
         "      --fadmonitions   Enable admonitions\n"
         "      --fcollapse-whitespace\n"
         "                       Collapse non-trivial whitespace\n"
+        "      --fescaped-text  Report backslash-escaped characters as escaped text\n"
         "      --ffootnotes     Enable footnote references ([^label])\n"
         "      --fhard-soft-breaks\n"
         "                       Force all soft breaks to act as hard breaks\n"
@@ -420,6 +422,7 @@ cmdline_callback(int opt, char const* value, void* data)
         case 'N':   parser_flags |= MD_FLAG_FOOTNOTES; break;
         case 'B':   parser_flags |= MD_FLAG_HARD_SOFT_BREAKS; break;
         case 'Y':   parser_flags |= MD_FLAG_PRESERVEBLANKLINES; break;
+        case 'Q':   parser_flags |= MD_FLAG_ESCAPEDTEXT; break;
 
         default:
             fprintf(stderr, "Illegal option: %s\n", value);

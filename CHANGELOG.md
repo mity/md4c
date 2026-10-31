@@ -24,6 +24,13 @@ Changes:
     Contributed by [Gregory Moskaliuk](https://github.com/hryhoriiK97)
     and [Emanuel Schorsch](https://github.com/emschorsch).
 
+  * [#477](https://github.com/mity/md4c/pull/477):
+    New flag `MD_FLAG_ESCAPEDTEXT` reports backslash-escaped characters as
+    `MD_TEXT_ESCAPED`, so an application can tell an escape from the literal
+    character. The HTML output does not change.
+
+    Contributed by [Gregory Moskaliuk](https://github.com/hryhoriiK97).
+
 Fixes:
 
   * [#247](https://github.com/mity/md4c/issues/247),
