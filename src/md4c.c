@@ -4900,10 +4900,13 @@ md_process_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines)
         if(off >= mark->beg) {
             switch(mark->ch) {
                 case '\\':      /* Backslash escape. */
+                    if(ctx->parser.flags & MD_FLAG_ESCAPEDTEXT)
+                        text_type = MD_TEXT_ESCAPED;
                     if(ISNEWLINE(mark->beg+1))
                         enforce_hardbreak = 1;
                     else
                         MD_TEXT(text_type, STR(mark->beg+1), 1);
+                    text_type = MD_TEXT_NORMAL;
                     break;
 
                 case ' ':       /* Non-trivial space. */

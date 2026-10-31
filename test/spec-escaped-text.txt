@@ -1,0 +1,46 @@
+
+# Escaped Text
+
+With the flag `MD_FLAG_ESCAPEDTEXT`, MD4C reports a backslash-escaped character
+in normal text as `MD_TEXT_ESCAPED`. Its text is the character without the
+backslash, so the HTML renderer output is unchanged.
+
+```````````````````````````````` example
+C:\Users\me\.config and \*not emphasis\*
+.
+<p>C:\Users\me.config and *not emphasis*</p>
+.
+--fescaped-text
+````````````````````````````````
+
+An escaped backslash is one escape; what follows it is not escaped.
+
+```````````````````````````````` example
+\\.
+.
+<p>\.</p>
+.
+--fescaped-text
+````````````````````````````````
+
+Escapes keep their meaning in code spans, link destinations and titles.
+
+```````````````````````````````` example
+`a\.b` [x\.y](/p\.q "t\.u")
+.
+<p><code>a\.b</code> <a href="/p.q" title="t.u">x.y</a></p>
+.
+--fescaped-text
+````````````````````````````````
+
+A backslash before a newline is still a hard break.
+
+```````````````````````````````` example
+foo\
+bar
+.
+<p>foo<br>
+bar</p>
+.
+--fescaped-text
+````````````````````````````````
