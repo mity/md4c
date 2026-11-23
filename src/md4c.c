@@ -6844,6 +6844,17 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
             ctx->last_line_has_list_loosening_effect = false;
         }
 
+        /* ASCII letters and non-ASCII bytes cannot start any block construct
+         * (setext, HR, container, ATX, fence, HTML, table underline, task mark). */
+        if(line->indent < ctx->code_indent_offset  &&
+           pivot_line->type != MD_LINE_TABLE  &&  (ISALPHA(off) || !ISASCII(off)))
+        {
+            line->type = MD_LINE_TEXT;
+            if(pivot_line->type == MD_LINE_TEXT)
+                n_parents = ctx->n_containers;
+            break;
+        }
+
         /* Check whether we are Setext underline. */
         if(line->indent < ctx->code_indent_offset  &&  pivot_line->type == MD_LINE_TEXT
             &&  off < ctx->size  &&  ISANYOF2(off, _T('='), _T('-'))
