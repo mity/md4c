@@ -1518,6 +1518,10 @@ md_free_attribute(MD_CTX* ctx, MD_ATTRIBUTE_BUILD* build)
     }
 }
 
+#ifndef MD4C_USE_UTF16
+#define MD_SWAR_HASZERO(v) (((v) - 0x0101010101010101ULL) & ~(v) & 0x8080808080808080ULL)
+#endif
+
 static int
 md_build_attribute(MD_CTX* ctx, const CHAR* raw_text, SZ raw_size,
                    unsigned flags, MD_ATTRIBUTE* attr, MD_ATTRIBUTE_BUILD* build)
@@ -1526,20 +1530,51 @@ md_build_attribute(MD_CTX* ctx, const CHAR* raw_text, SZ raw_size,
     int is_trivial;
     int ret = 0;
 
-    memset(build, 0, sizeof(MD_ATTRIBUTE_BUILD));
+    if(raw_size == 0) {
+        build->text = NULL;
+        build->substr_types = build->trivial_types;
+        build->substr_offsets = build->trivial_offsets;
+        build->substr_count = 1;
+        build->substr_alloc = 0;
+        build->trivial_types[0] = MD_TEXT_NORMAL;
+        build->trivial_offsets[0] = 0;
+        build->trivial_offsets[1] = 0;
+        attr->text = NULL;
+        attr->size = 0;
+        attr->substr_offsets = build->trivial_offsets;
+        attr->substr_types = build->trivial_types;
+        return 0;
+    }
 
-    /* If there is no backslash and no ampersand, build trivial attribute
+    /* If there is no backslash, ampersand, or NUL, build trivial attribute
      * without any malloc(). */
     is_trivial = true;
-    for(raw_off = 0; raw_off < raw_size; raw_off++) {
-        if(ISANYOF3_(raw_text[raw_off], _T('\\'), _T('&'), _T('\0'))) {
+    raw_off = 0;
+#ifndef MD4C_USE_UTF16
+    while(raw_size - raw_off >= 8) {
+        uint64_t w;
+        memcpy(&w, raw_text + raw_off, 8);
+        if(MD_SWAR_HASZERO(w) |
+           MD_SWAR_HASZERO(w ^ 0x5c5c5c5c5c5c5c5cULL) |   /* '\\' */
+           MD_SWAR_HASZERO(w ^ 0x2626262626262626ULL))    /* '&' */
+        {
             is_trivial = false;
             break;
+        }
+        raw_off += 8;
+    }
+#endif
+    if(is_trivial) {
+        for(; raw_off < raw_size; raw_off++) {
+            if(ISANYOF3_(raw_text[raw_off], _T('\\'), _T('&'), _T('\0'))) {
+                is_trivial = false;
+                break;
+            }
         }
     }
 
     if(is_trivial) {
-        build->text = (CHAR*) (raw_size ? raw_text : NULL);
+        build->text = (CHAR*) raw_text;
         build->substr_types = build->trivial_types;
         build->substr_offsets = build->trivial_offsets;
         build->substr_count = 1;
@@ -1549,6 +1584,10 @@ md_build_attribute(MD_CTX* ctx, const CHAR* raw_text, SZ raw_size,
         build->trivial_offsets[1] = raw_size;
         off = raw_size;
     } else {
+        build->substr_types = NULL;
+        build->substr_offsets = NULL;
+        build->substr_count = 0;
+        build->substr_alloc = 0;
         build->text = (CHAR*) malloc(raw_size * sizeof(CHAR));
         if(build->text == NULL) {
             MD_LOG("malloc() failed.");
