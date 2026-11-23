@@ -4721,6 +4721,15 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table
     /* Collect all marks. */
     MD_CHECK(md_collect_marks(ctx, lines, n_lines, table_mode));
 
+    /* md_collect_marks() always appends one trailing dummy mark (ch == 127).
+     * When no real inline marks were collected, skip all analysis passes and
+     * the opener-stack reset loop. */
+    if(ctx->n_marks == 1) {
+        MD_ASSERT(ctx->marks[0].ch == 127);
+        ctx->n_table_cell_boundaries = 0;
+        return 0;
+    }
+
     /* (1) Bracket spans: links, wiki links, footnotes. */
     md_analyze_marks(ctx, lines, n_lines, 0, ctx->n_marks, _T("[]!"), NULL);
     MD_CHECK(md_resolve_brackets(ctx, lines, n_lines));
