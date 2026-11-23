@@ -2305,6 +2305,22 @@ md_is_link_destination_A(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end,
     return false;
 }
 
+#ifndef MD4C_USE_UTF16
+/* Marks bytes that terminate or need special handling in unbracketed link
+ * destinations: C0 controls + space (0x00..0x20), '(', ')', '\\', DEL (0x7F);
+ * bytes 0x80..0xFF are implicitly 0. */
+static const unsigned char md_link_dest_b_special[256] = {
+    1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,
+    1,0,0,0,0,0,0,0, 1,1,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0, 0,0,0,0,1,0,0,0,
+    0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,1
+};
+#endif
+
 static int
 md_is_link_destination_B(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end,
                          OFF* p_contents_beg, OFF* p_contents_end)
@@ -2313,6 +2329,18 @@ md_is_link_destination_B(MD_CTX* ctx, OFF beg, OFF max_end, OFF* p_end,
     int parenthesis_level = 0;
 
     while(off < max_end) {
+#ifndef MD4C_USE_UTF16
+        while(max_end - off > 3 &&
+              !(md_link_dest_b_special[(unsigned char)CH(off)] |
+                md_link_dest_b_special[(unsigned char)CH(off + 1)] |
+                md_link_dest_b_special[(unsigned char)CH(off + 2)] |
+                md_link_dest_b_special[(unsigned char)CH(off + 3)]))
+            off += 4;
+        while(off < max_end && !md_link_dest_b_special[(unsigned char)CH(off)])
+            off++;
+        if(off >= max_end)
+            break;
+#endif
         if(CH(off) == _T('\\')  &&  off+1 < max_end  &&  ISPUNCT(off+1)) {
             off += 2;
             continue;
