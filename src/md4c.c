@@ -168,6 +168,29 @@ struct MD_MARKSTACK_tag {
     int top;        /* -1 if empty. */
 };
 
+/* 128-bit ASCII mark bitmask replacing md_strchr() in md_analyze_marks(). */
+typedef struct MD_MARK_MASK_tag MD_MARK_MASK;
+struct MD_MARK_MASK_tag {
+    uint64_t bits[2];
+};
+
+static inline void
+md_mark_mask_set(MD_MARK_MASK* mask, unsigned ch)
+{
+    mask->bits[ch >> 6] |= ((uint64_t)1 << (ch & 63));
+}
+
+static inline int
+md_mark_mask_has(MD_MARK_MASK mask, CHAR ch)
+{
+#ifdef MD4C_USE_UTF16
+    unsigned c = (unsigned)ch;
+#else
+    unsigned c = (unsigned)(unsigned char)ch;
+#endif
+    return (int)((mask.bits[c >> 6] >> (c & 63)) & 1);
+}
+
 /* Context propagated through all the parsing. */
 typedef struct MD_CTX_tag MD_CTX;
 struct MD_CTX_tag {
@@ -207,6 +230,8 @@ struct MD_CTX_tag {
 #else
     char mark_char_map[256];
 #endif
+    MD_MARK_MASK emph_mark_mask;
+    MD_MARK_MASK autolink_mark_mask;
 
     /* For resolving of inline spans. */
     MD_MARKSTACK opener_stacks[20];
@@ -3038,6 +3063,33 @@ md_build_mark_char_map(MD_CTX* ctx)
                 ctx->mark_char_map[i] = 1;
         }
     }
+
+    ctx->emph_mark_mask.bits[0] = 0;
+    ctx->emph_mark_mask.bits[1] = 0;
+    md_mark_mask_set(&ctx->emph_mark_mask, '&');
+    md_mark_mask_set(&ctx->emph_mark_mask, '*');
+    md_mark_mask_set(&ctx->emph_mark_mask, '_');
+    if(ctx->parser.flags & MD_FLAG_LATEXMATHSPANS)
+        md_mark_mask_set(&ctx->emph_mark_mask, '$');
+    if(ctx->parser.flags & MD_FLAG_HIGHLIGHT)
+        md_mark_mask_set(&ctx->emph_mark_mask, '=');
+    if(ctx->parser.flags & MD_FLAG_INSERT)
+        md_mark_mask_set(&ctx->emph_mark_mask, '+');
+    if(ctx->parser.flags & MD_FLAG_SPOILERS)
+        md_mark_mask_set(&ctx->emph_mark_mask, '|');
+    if(ctx->parser.flags & MD_FLAG_SUPERSCRIPTS)
+        md_mark_mask_set(&ctx->emph_mark_mask, '^');
+    if((ctx->parser.flags & MD_FLAG_STRIKETHROUGH) || (ctx->parser.flags & MD_FLAG_SUBSCRIPTS))
+        md_mark_mask_set(&ctx->emph_mark_mask, '~');
+
+    ctx->autolink_mark_mask.bits[0] = 0;
+    ctx->autolink_mark_mask.bits[1] = 0;
+    if(ctx->parser.flags & MD_FLAG_PERMISSIVEEMAILAUTOLINKS)
+        md_mark_mask_set(&ctx->autolink_mark_mask, '@');
+    if(ctx->parser.flags & MD_FLAG_PERMISSIVEURLAUTOLINKS)
+        md_mark_mask_set(&ctx->autolink_mark_mask, ':');
+    if(ctx->parser.flags & MD_FLAG_PERMISSIVEWWWAUTOLINKS)
+        md_mark_mask_set(&ctx->autolink_mark_mask, '.');
 }
 
 static int
@@ -4040,7 +4092,7 @@ md_resolve_bracket_link(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
              * may live inside the autolink. */
             if((first_nested->flags & MD_MARK_RESOLVED)  &&
                first_nested->beg == opener->end  &&
-               ISANYOF_(first_nested->ch, _T("@:."))  &&
+               ISANYOF3_(first_nested->ch, _T('@'), _T(':'), _T('.'))  &&
                ctx->marks[first_nested->next].end == closer->beg)
             {
                 MD_MARK* last_nested = &ctx->marks[first_nested->next];
@@ -4488,7 +4540,7 @@ md_analyze_permissive_autolink(MD_CTX* ctx, int mark_index)
 
     /* Verify there's line boundary, whitespace, allowed punctuation or
      * resolved opener mark just before the suspected autolink. */
-    if(beg > line_beg  &&  !ISUNICODEWHITESPACEBEFORE(beg)  &&  !ISANYOF(beg-1, _T("({["))) {
+    if(beg > line_beg  &&  !ISUNICODEWHITESPACEBEFORE(beg)  &&  !ISANYOF3(beg-1, _T('('), _T('{'), _T('['))) {
         MD_MARK* mark;
 
         mark = md_scan_left_for_resolved_mark(ctx, left_cursor, beg-1, &left_cursor);
@@ -4517,7 +4569,7 @@ md_analyze_permissive_autolink(MD_CTX* ctx, int mark_index)
     if(end < ctx->permissive_autolink_tail_horizon)
         return;
 
-    if(opener->ch != '@' && end < line_end && ISANYOF(end, _T("/?#"))) {
+    if(opener->ch != '@' && end < line_end && ISANYOF3(end, _T('/'), _T('?'), _T('#'))) {
         OFF tail_beg = end;
         OFF off = end;
         OFF scan_end;
@@ -4637,7 +4689,7 @@ md_analyze_permissive_autolink(MD_CTX* ctx, int mark_index)
 
 static inline void
 md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
-                 int mark_beg, int mark_end, const CHAR* mark_chars, const CHAR* noskip_mark_chars)
+                 int mark_beg, int mark_end, MD_MARK_MASK mark_mask, MD_MARK_MASK noskip_mask)
 {
     int i = mark_beg;
     OFF last_end = lines[0].beg;
@@ -4648,10 +4700,12 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
     while(i < mark_end) {
         MD_MARK* mark = &ctx->marks[i];
 
+        MD_ASSERT(ISASCII_(mark->ch));
+
         /* Skip resolved spans. */
         if(mark->flags & MD_MARK_RESOLVED) {
             if((mark->flags & MD_MARK_OPENER)  &&
-               (noskip_mark_chars == NULL || !(ISANYOF_(mark->ch, noskip_mark_chars))))
+               !md_mark_mask_has(noskip_mask, mark->ch))
             {
                 MD_ASSERT(i < mark->next);
                 i = mark->next + 1;
@@ -4662,7 +4716,7 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
         }
 
         /* Skip marks we do not want to deal with. */
-        if(!ISANYOF_(mark->ch, mark_chars)) {
+        if(!md_mark_mask_has(mark_mask, mark->ch)) {
             i++;
             continue;
         }
@@ -4712,6 +4766,11 @@ md_analyze_marks(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
 static int
 md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table_mode)
 {
+    static const MD_MARK_MASK bracket_mask = { {
+        ((uint64_t)1 << '!'),
+        ((uint64_t)1 << ('[' - 64)) | ((uint64_t)1 << (']' - 64))
+    } };
+    static const MD_MARK_MASK empty_mask = { { 0, 0 } };
     int i;
     int ret;
 
@@ -4722,7 +4781,7 @@ md_analyze_inlines(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines, int table
     MD_CHECK(md_collect_marks(ctx, lines, n_lines, table_mode));
 
     /* (1) Bracket spans: links, wiki links, footnotes. */
-    md_analyze_marks(ctx, lines, n_lines, 0, ctx->n_marks, _T("[]!"), NULL);
+    md_analyze_marks(ctx, lines, n_lines, 0, ctx->n_marks, bracket_mask, empty_mask);
     MD_CHECK(md_resolve_brackets(ctx, lines, n_lines));
     BRACKET_OPENERS.top = -1;
     ctx->unresolved_link_head = -1;
@@ -4750,43 +4809,17 @@ static void
 md_analyze_link_contents(MD_CTX* ctx, const MD_LINE* lines, MD_SIZE n_lines,
                          int mark_beg, int mark_end)
 {
+    static const MD_MARK_MASK empty_mask = { { 0, 0 } };
     int i;
-    CHAR emph_mark_types[16];
-    SZ n_emph_mark_types = 0;
 
-    emph_mark_types[n_emph_mark_types++] = _T('&');
-    emph_mark_types[n_emph_mark_types++] = _T('*');
-    emph_mark_types[n_emph_mark_types++] = _T('_');
-    if(ctx->parser.flags & MD_FLAG_LATEXMATHSPANS)
-        emph_mark_types[n_emph_mark_types++] = _T('$');
-    if(ctx->parser.flags & MD_FLAG_HIGHLIGHT)
-        emph_mark_types[n_emph_mark_types++] = _T('=');
-    if(ctx->parser.flags & MD_FLAG_INSERT)
-        emph_mark_types[n_emph_mark_types++] = _T('+');
-    if(ctx->parser.flags & MD_FLAG_SPOILERS)
-        emph_mark_types[n_emph_mark_types++] = _T('|');
-    if(ctx->parser.flags & MD_FLAG_SUPERSCRIPTS)
-        emph_mark_types[n_emph_mark_types++] = _T('^');
-    if((ctx->parser.flags & MD_FLAG_STRIKETHROUGH) || (ctx->parser.flags & MD_FLAG_SUBSCRIPTS))
-        emph_mark_types[n_emph_mark_types++] = _T('~');
-    emph_mark_types[n_emph_mark_types] = _T('\0');
-    md_analyze_marks(ctx, lines, n_lines, mark_beg, mark_end, emph_mark_types, NULL);
+    md_analyze_marks(ctx, lines, n_lines, mark_beg, mark_end, ctx->emph_mark_mask, empty_mask);
 
     if(ctx->parser.flags & MD_FLAG_PERMISSIVEAUTOLINKS) {
         /* These have to be processed last, as they may be greedy and expand
          * from their original mark. Also their implementation must be careful
          * not to cross any (previously) resolved marks when doing so. */
-        CHAR autolink_mark_types[16];
-        SZ n_autolink_mark_types = 0;
-
-        if(ctx->parser.flags & MD_FLAG_PERMISSIVEEMAILAUTOLINKS)
-            autolink_mark_types[n_autolink_mark_types++] = _T('@');
-        if(ctx->parser.flags & MD_FLAG_PERMISSIVEURLAUTOLINKS)
-            autolink_mark_types[n_autolink_mark_types++] = _T(':');
-        if(ctx->parser.flags & MD_FLAG_PERMISSIVEWWWAUTOLINKS)
-            autolink_mark_types[n_autolink_mark_types++] = _T('.');
-        autolink_mark_types[n_autolink_mark_types] = _T('\0');
-        md_analyze_marks(ctx, lines, n_lines, mark_beg, mark_end, autolink_mark_types, emph_mark_types);
+        md_analyze_marks(ctx, lines, n_lines, mark_beg, mark_end,
+                         ctx->autolink_mark_mask, ctx->emph_mark_mask);
     }
 
     for(i = 0; i < (int) SIZEOF_ARRAY(ctx->opener_stacks); i++)
@@ -6064,7 +6097,7 @@ md_is_hr_line(MD_CTX* ctx, OFF beg, OFF* p_end, OFF* p_killer)
     OFF off = beg + 1;
     int n = 1;
 
-    if(!ISANYOF(beg, _T("-_*")))
+    if(!ISANYOF3(beg, _T('-'), _T('_'), _T('*')))
         return false;
 
     while(off < ctx->size  &&  (CH(off) == CH(beg) || CH(off) == _T(' ') || CH(off) == _T('\t'))) {
@@ -6617,7 +6650,7 @@ md_is_container_mark(MD_CTX* ctx, unsigned indent, OFF beg, OFF* p_end, MD_CONTA
     }
 
     /* Check for list item bullet mark. */
-    if(ISANYOF(off, _T("-+*"))  &&  (off+1 >= ctx->size || ISBLANK(off+1) || ISNEWLINE(off+1))) {
+    if(ISANYOF3(off, _T('-'), _T('+'), _T('*'))  &&  (off+1 >= ctx->size || ISBLANK(off+1) || ISNEWLINE(off+1))) {
         p_container->ch = CH(off);
         p_container->is_loose = false;
         p_container->is_task = false;
@@ -7035,14 +7068,14 @@ md_analyze_line(MD_CTX* ctx, OFF beg, OFF* p_end,
 
         /* Check for task mark. */
         if((ctx->parser.flags & MD_FLAG_TASKLISTS)  &&  n_brothers + n_children > 0  &&
-           ISANYOF_(ctx->containers[ctx->n_containers-1].ch, _T("-+*.)")))
+           ctx->containers[ctx->n_containers-1].ch != _T('>'))
         {
             OFF tmp = off;
 
             while(tmp < ctx->size  &&  tmp < off + 3  &&  ISBLANK(tmp))
                 tmp++;
             if(tmp + 2 < ctx->size  &&  CH(tmp) == _T('[')  &&
-               ISANYOF(tmp+1, _T("xX "))  &&  CH(tmp+2) == _T(']')  &&
+               ISANYOF3(tmp+1, _T('x'), _T('X'), _T(' '))  &&  CH(tmp+2) == _T(']')  &&
                (tmp + 3 == ctx->size  ||  ISBLANK(tmp+3)  ||  ISNEWLINE(tmp+3)))
             {
                 MD_CONTAINER* task_container = (n_children > 0 ? &ctx->containers[ctx->n_containers-1] : &container);
