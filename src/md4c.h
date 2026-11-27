@@ -201,7 +201,12 @@ typedef enum MD_SPANTYPE {
     /* <mark>...</mark>
      * Syntax: ==highlight==
      * Note: Recognized only when MD_FLAG_HIGHLIGHT is enabled. */
-    MD_SPAN_MARK
+    MD_SPAN_MARK,
+
+    /* For recognizing #hashtag.
+     * Detail: Structure MD_SPAN_HASHTAG_DETAIL.
+     * Note: Recognized only when MD_FLAG_HASHTAGS is enabled. */
+    MD_SPAN_HASHTAG
 } MD_SPANTYPE;
 
 /* Text is the actual textual contents of span. */
@@ -377,6 +382,11 @@ typedef struct MD_BLOCK_FOOTNOTE_DEF_DETAIL {
 typedef struct MD_BLOCK_BLANK_DETAIL {
     unsigned line_count;        /* Count of blank lines forming the block separation */
 } MD_BLOCK_BLANK_DETAIL;
+
+/* Detailed info for MD_SPAN_HASHTAG. */
+typedef struct MD_SPAN_HASHTAG_DETAIL {
+    MD_ATTRIBUTE name;          /* Name of the hashtag. e.g. for `#amor` the name is `amor` */
+} MD_SPAN_HASHTAG_DETAIL;
 
 /* Flags specifying extensions/deviations from CommonMark specification.
  *
