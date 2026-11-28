@@ -201,7 +201,12 @@ typedef enum MD_SPANTYPE {
     /* <mark>...</mark>
      * Syntax: ==highlight==
      * Note: Recognized only when MD_FLAG_HIGHLIGHT is enabled. */
-    MD_SPAN_MARK
+    MD_SPAN_MARK,
+
+    /* For recognizing #hashtag.
+     * Detail: Structure MD_SPAN_HASHTAG_DETAIL.
+     * Note: Recognized only when MD_FLAG_HASHTAGS is enabled. */
+    MD_SPAN_HASHTAG
 } MD_SPANTYPE;
 
 /* Text is the actual textual contents of span. */
@@ -378,34 +383,40 @@ typedef struct MD_BLOCK_BLANK_DETAIL {
     unsigned line_count;        /* Count of blank lines forming the block separation */
 } MD_BLOCK_BLANK_DETAIL;
 
+/* Detailed info for MD_SPAN_HASHTAG. */
+typedef struct MD_SPAN_HASHTAG_DETAIL {
+    MD_ATTRIBUTE name;          /* Name of the hashtag. e.g. for `#amor` the name is `amor` */
+} MD_SPAN_HASHTAG_DETAIL;
+
 /* Flags specifying extensions/deviations from CommonMark specification.
  *
  * By default (when MD_PARSER::flags == 0), we follow CommonMark specification.
  * The following flags may allow some extensions or deviations from it.
  */
-#define MD_FLAG_COLLAPSEWHITESPACE          0x1      /* In MD_TEXT_NORMAL, collapse non-trivial whitespace into single ' ' */
-#define MD_FLAG_PERMISSIVEATXHEADERS        0x2      /* Do not require space in ATX headers ( ###header ) */
-#define MD_FLAG_PERMISSIVEURLAUTOLINKS      0x4      /* Recognize URLs as autolinks even without '<', '>' */
-#define MD_FLAG_PERMISSIVEEMAILAUTOLINKS    0x8      /* Recognize e-mails as autolinks even without '<', '>' and 'mailto:' */
-#define MD_FLAG_NOINDENTEDCODEBLOCKS        0x10     /* Disable indented code blocks. (Only fenced code works.) */
-#define MD_FLAG_NOHTMLBLOCKS                0x20     /* Disable raw HTML blocks. */
-#define MD_FLAG_NOHTMLSPANS                 0x40     /* Disable raw HTML (inline). */
-#define MD_FLAG_TABLES                      0x100    /* Enable tables extension. */
-#define MD_FLAG_STRIKETHROUGH               0x200    /* Enable strikethrough extension. */
-#define MD_FLAG_PERMISSIVEWWWAUTOLINKS      0x400    /* Enable WWW autolinks (even without any scheme prefix, if they begin with 'www.') */
-#define MD_FLAG_TASKLISTS                   0x800    /* Enable task list extension. */
-#define MD_FLAG_LATEXMATHSPANS              0x1000   /* Enable $ and $$ containing LaTeX equations. */
-#define MD_FLAG_WIKILINKS                   0x2000   /* Enable wiki links extension. */
-#define MD_FLAG_UNDERLINE                   0x4000   /* Enable underline extension (and disables '_' for normal emphasis). */
-#define MD_FLAG_HARD_SOFT_BREAKS            0x8000   /* Force all soft breaks to act as hard breaks. */
-#define MD_FLAG_SPOILERS                    0x10000  /* Enable ||hidden text|| spoiler spans. */
-#define MD_FLAG_SUPERSCRIPTS                0x20000  /* Enable ^superscript^ spans. */
-#define MD_FLAG_SUBSCRIPTS                  0x40000  /* Enable ~subscript~ spans. */
-#define MD_FLAG_ADMONITIONS                 0x80000  /* Enable admonitions extension. */
-#define MD_FLAG_FOOTNOTES                   0x100000 /* Enable [^label] footnote references. */
-#define MD_FLAG_HIGHLIGHT                   0x200000 /* Enable ==highlight== spans. */
-#define MD_FLAG_PRESERVEBLANKLINES          0x400000 /* Report blank line runs as MD_BLOCK_BLANK. */
-#define MD_FLAG_INSERT                      0x800000 /* Enable insert extension. */
+#define MD_FLAG_COLLAPSEWHITESPACE          0x1       /* In MD_TEXT_NORMAL, collapse non-trivial whitespace into single ' ' */
+#define MD_FLAG_PERMISSIVEATXHEADERS        0x2       /* Do not require space in ATX headers ( ###header ) */
+#define MD_FLAG_PERMISSIVEURLAUTOLINKS      0x4       /* Recognize URLs as autolinks even without '<', '>' */
+#define MD_FLAG_PERMISSIVEEMAILAUTOLINKS    0x8       /* Recognize e-mails as autolinks even without '<', '>' and 'mailto:' */
+#define MD_FLAG_NOINDENTEDCODEBLOCKS        0x10      /* Disable indented code blocks. (Only fenced code works.) */
+#define MD_FLAG_NOHTMLBLOCKS                0x20      /* Disable raw HTML blocks. */
+#define MD_FLAG_NOHTMLSPANS                 0x40      /* Disable raw HTML (inline). */
+#define MD_FLAG_TABLES                      0x100     /* Enable tables extension. */
+#define MD_FLAG_STRIKETHROUGH               0x200     /* Enable strikethrough extension. */
+#define MD_FLAG_PERMISSIVEWWWAUTOLINKS      0x400     /* Enable WWW autolinks (even without any scheme prefix, if they begin with 'www.') */
+#define MD_FLAG_TASKLISTS                   0x800     /* Enable task list extension. */
+#define MD_FLAG_LATEXMATHSPANS              0x1000    /* Enable $ and $$ containing LaTeX equations. */
+#define MD_FLAG_WIKILINKS                   0x2000    /* Enable wiki links extension. */
+#define MD_FLAG_UNDERLINE                   0x4000    /* Enable underline extension (and disables '_' for normal emphasis). */
+#define MD_FLAG_HARD_SOFT_BREAKS            0x8000    /* Force all soft breaks to act as hard breaks. */
+#define MD_FLAG_SPOILERS                    0x10000   /* Enable ||hidden text|| spoiler spans. */
+#define MD_FLAG_SUPERSCRIPTS                0x20000   /* Enable ^superscript^ spans. */
+#define MD_FLAG_SUBSCRIPTS                  0x40000   /* Enable ~subscript~ spans. */
+#define MD_FLAG_ADMONITIONS                 0x80000   /* Enable admonitions extension. */
+#define MD_FLAG_FOOTNOTES                   0x100000  /* Enable [^label] footnote references. */
+#define MD_FLAG_HIGHLIGHT                   0x200000  /* Enable ==highlight== spans. */
+#define MD_FLAG_PRESERVEBLANKLINES          0x400000  /* Report blank line runs as MD_BLOCK_BLANK. */
+#define MD_FLAG_INSERT                      0x800000  /* Enable insert extension. */
+#define MD_FLAG_HASHTAGS                    0x1000000 /* Enable #hashtags extension. */
 
 #define MD_FLAG_PERMISSIVEAUTOLINKS         (MD_FLAG_PERMISSIVEEMAILAUTOLINKS | MD_FLAG_PERMISSIVEURLAUTOLINKS | MD_FLAG_PERMISSIVEWWWAUTOLINKS)
 #define MD_FLAG_NOHTML                      (MD_FLAG_NOHTMLBLOCKS | MD_FLAG_NOHTMLSPANS)
